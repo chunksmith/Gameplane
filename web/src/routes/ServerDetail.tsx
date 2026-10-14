@@ -4,12 +4,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Tab, Tabs } from "@heroui/react";
 import {
   AlertTriangle,
+  Archive,
+  FolderOpen,
+  History,
+  LayoutDashboard,
   Loader2,
+  Package,
   Play,
+  Puzzle,
+  RadioTower,
   RotateCw,
+  ScrollText,
+  Settings as SettingsIcon,
   Square,
   Sunrise,
   Terminal,
+  Users,
+  type LucideIcon,
 } from "lucide-react";
 import { createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
 import { useGameCodes } from "@/lib/useGameCodes";
@@ -46,18 +57,18 @@ const FilesTab = lazy(() =>
 type TabKey =
   | "overview" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
 
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: "overview", label: "Overview" },
-  { key: "events",   label: "Events" },
-  { key: "console",  label: "Console" },
-  { key: "logs",     label: "Logs" },
-  { key: "files",    label: "Files" },
-  { key: "mods",     label: "Mods" },
-  { key: "modpacks", label: "Modpacks" },
-  { key: "players",  label: "Players" },
-  { key: "backups",  label: "Backups" },
-  { key: "capture",  label: "Capture" },
-  { key: "settings", label: "Settings" },
+const tabs: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
+  { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "events",   label: "Events",   icon: History },
+  { key: "console",  label: "Console",  icon: Terminal },
+  { key: "logs",     label: "Logs",     icon: ScrollText },
+  { key: "files",    label: "Files",    icon: FolderOpen },
+  { key: "mods",     label: "Mods",     icon: Puzzle },
+  { key: "modpacks", label: "Modpacks", icon: Package },
+  { key: "players",  label: "Players",  icon: Users },
+  { key: "backups",  label: "Backups",  icon: Archive },
+  { key: "capture",  label: "Capture",  icon: RadioTower },
+  { key: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function ServerDetailPage() {
@@ -220,8 +231,8 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-border bg-background px-6 pb-4 pt-8">
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-8">
+      <header className="border-b border-border bg-background px-6 pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 pb-6">
           <div className="flex items-start gap-4">
             <GameIcon
               game={gs?.spec.templateRef.name}
@@ -315,16 +326,18 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
           </div>
         )}
 
-        <nav className="overflow-x-auto scrollbar-thin">
+        <nav className="-mb-px overflow-x-auto scrollbar-thin">
           <Tabs
             selectedKey={tab}
             onSelectionChange={(key) => setTab(key as TabKey)}
-            className="w-full"
+            className="server-detail-tabs"
           >
-            <Tabs.List aria-label="Server detail tabs" className="flex w-full gap-1 overflow-x-auto">
-              {visibleTabs.map((t) => (
-                <Tab key={t.key} id={t.key}>
-                  {t.label}
+            <Tabs.List aria-label="Server detail tabs">
+              {visibleTabs.map(({ key, label, icon: Icon }) => (
+                <Tab key={key} id={key}>
+                  <Icon className="h-4 w-4" />
+                  {label}
+                  <Tabs.Indicator />
                 </Tab>
               ))}
             </Tabs.List>
