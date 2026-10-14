@@ -105,6 +105,12 @@ func TestComputeRole(t *testing.T) {
 			&ProviderPolicy{RoleMappings: mappings, DefaultRole: "deny"},
 			"operator", false,
 		},
+		{
+			"unmatched gets member default",
+			[]string{"other"},
+			&ProviderPolicy{RoleMappings: mappings, DefaultRole: "member"},
+			"member", false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

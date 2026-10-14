@@ -375,7 +375,9 @@ api:
     groupsClaim: ""
     # Default role when no group matches. Helm-only, no dashboard override
     # path exists for this field. Accepted values: "" (default to "viewer"),
-    # "viewer", "operator", "admin", "deny". "deny" = reject login (no user
+    # "viewer", "member", "operator", "admin", "deny". "member" = no
+    # panel-wide access; the user sees only servers they own, collaborate on,
+    # or reach through a network. "deny" = reject login (no user
     # created/updated). Only meaningful if roleMappings is set.
     defaultRole: ""
     # Group-to-role mapping, seeded at install/upgrade time. Defines which

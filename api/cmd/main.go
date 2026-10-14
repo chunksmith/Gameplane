@@ -113,12 +113,13 @@ func main() {
 	if cfg.oidcDefaultRole != "" {
 		validRoles := map[string]bool{
 			"viewer":   true,
+			"member":   true,
 			"operator": true,
 			"admin":    true,
 			"deny":     true,
 		}
 		if !validRoles[cfg.oidcDefaultRole] {
-			msg := fmt.Sprintf("invalid --oidc-default-role %q (accepted: '', 'viewer', 'operator', 'admin', 'deny')", cfg.oidcDefaultRole)
+			msg := fmt.Sprintf("invalid --oidc-default-role %q (accepted: '', 'viewer', 'member', 'operator', 'admin', 'deny')", cfg.oidcDefaultRole)
 			logger.Error(msg)
 			os.Exit(1)
 		}
