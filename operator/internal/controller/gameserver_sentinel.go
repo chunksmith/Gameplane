@@ -277,6 +277,7 @@ func (r *GameServerReconciler) reconcileSentinel(
 		dep.Spec.Template.Spec.TerminationGracePeriodSeconds = &graceSeconds
 
 		dep.Spec.Template.Spec.ServiceAccountName = sentinelSAName(gs)
+		dep.Spec.Template.Spec.ImagePullSecrets = r.ImagePullSecrets
 		dep.Spec.Template.Spec.Containers = []corev1.Container{{
 			Name:  "sentinel",
 			Image: image,

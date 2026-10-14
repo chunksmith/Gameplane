@@ -63,6 +63,8 @@ type GameServerReconciler struct {
 	// agent sidecar.
 	AgentImagePullPolicy string
 
+	ImagePullSecrets []corev1.LocalObjectReference
+
 	// AgentLogLevel, when non-empty, is injected into every agent sidecar
 	// as GAMEPLANE_LOG_LEVEL. Empty injects nothing — the agent defaults
 	// to info and existing StatefulSets don't roll on operator upgrade.
@@ -1448,6 +1450,7 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 			buildGameContainer(gs, tmpl, image, ver, mc),
 			buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy),
 		}
+		ss.Spec.Template.Spec.ImagePullSecrets = r.ImagePullSecrets
 		volumes := []corev1.Volume{
 			{
 				Name: "data",
