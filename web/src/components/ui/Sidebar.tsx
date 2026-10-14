@@ -34,6 +34,7 @@ export interface SidebarProps {
   onCustomizeTheme?: () => void;
   /** D4: true while a custom-colors theme is active — disables the footer AppearanceToggle. */
   isCustomColorsActive?: boolean;
+  version?: string;
 }
 
 export function Sidebar({
@@ -49,6 +50,7 @@ export function Sidebar({
   onThemeChange,
   onCustomizeTheme,
   isCustomColorsActive = false,
+  version,
 }: SidebarProps) {
   const { pathname } = useLocation();
 
@@ -190,6 +192,12 @@ export function Sidebar({
             <LogOut className="h-4 w-4" />
           </button>
         </div>
+
+        {version && (
+          <div className="truncate px-2 font-mono text-[11px] text-muted" title={version}>
+            {version}
+          </div>
+        )}
       </div>
     </aside>
   );

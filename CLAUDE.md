@@ -88,7 +88,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 8. **Verification:** locally only compile checks (`go build ./...`, `npx tsc --noEmit`); never test/lint suites (`make test|lint|cover`, `go test`, `npm test`, envtest, E2E). Push a feature branch; CI is the sole verification authority.
 9. **Kubernetes primitives first** (StatefulSet, Service, PVC, Job, ConfigMap, Secret, CRDs) before custom abstractions.
 10. **Operator authority:** business logic lives in reconcilers (`operator/internal/controller/`); the API is a UX gateway and never bypasses reconciliation.
-11. **Commits:** commit each completed logical unit (`feat:`/`fix:`/`chore:`…), signed (`git commit -s`); never amend pushed commits or use `--no-verify`; keep trailers `Co-Authored-By: <current model>`.
+11. **Commits:** follow the global commit rules (commit only when asked; short 4–5 word English message); conventional prefix (`feat:`/`fix:`/`chore:`…), signed (`git commit -s`); never amend pushed commits or use `--no-verify`; no `Co-Authored-By` or `Claude-Session` trailers.
 12. **Branches:** one per unit of work; never push to `master`; delete remote + local branch right after merge. Agents never merge PRs or bypass review; a human merges.
 13. **Multi-agent delegation:** main loop orchestrates/reviews; implementation goes through `Workflow` scripts (`parallel()`/`pipeline()`).
     - Start at `haiku`; escalate only on functional failure `haiku` → `sonnet` → `opus` → `fable`. `fable` needs explicit human permission.

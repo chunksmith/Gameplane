@@ -5,13 +5,7 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
 
 ## Push & Watch CI
 
-1. Ensure the branch is signed and all commits have the full trailer:
-   ```text
-   Co-Authored-By: <model actually running this session> <noreply@anthropic.com>
-   Claude-Session: https://claude.ai/code/session_<id>
-   ```
-   
-   The Co-Authored-By name MUST be the model actually running — never a value copied from CLAUDE.md, this skill, or a prior commit.
+1. Ensure every commit is signed (`git commit -s`) and carries no `Co-Authored-By` or `Claude-Session` trailer (rule 11).
 
 2. Push the feature branch (never to `master`):
    ```sh
@@ -27,10 +21,7 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
 
 4. If CI fails, fix the issue and create a **new commit** (never amend):
    ```sh
-   git commit -s -m "fix: <scope> - <description>
-   
-   Co-Authored-By: <model actually running this session> <noreply@anthropic.com>
-   Claude-Session: https://claude.ai/code/session_<id>"
+   git commit -s -m "fix: <short message>"
    git push
    ```
    - The new commit re-triggers CI automatically.

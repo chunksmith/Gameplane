@@ -103,10 +103,7 @@ git add operator/api/v1alpha1/<kind>_types.go \
 
 git commit -s -m "feat: add <field> to <Kind>
 
-Description of the new behavior.
-
-Co-Authored-By: <model actually running this session> <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_<id>"
+Description of the new behavior."
 ```
 
 ## Local Testing Discipline (CLAUDE.md Rule 8)
