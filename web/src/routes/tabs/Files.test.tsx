@@ -1,14 +1,13 @@
 import { ResourceTargetProvider } from "@/lib/resourceTarget";
 import { useState, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithQuery as baseRenderWithQuery } from "@/test/render";
 import { FilesTab } from "./Files";
 
 type FetchInit = Parameters<typeof fetch>[1];
+type Route = (init?: FetchInit) => Response | Promise<Response>;
 
-// Monaco can't render in jsdom — replace with a controlled textarea so
-// onChange fires and the editor value can be inspected/manipulated.
 vi.mock("@monaco-editor/react", () => ({
   default: ({
     value,
@@ -20,7 +19,7 @@ vi.mock("@monaco-editor/react", () => ({
     <textarea
       data-testid="monaco"
       value={value}
-      onChange={(e) => onChange?.(e.target.value)}
+      onChange={(event) => onChange?.(event.target.value)}
     />
   ),
 }));
@@ -54,610 +53,377 @@ const ROOT_ENTRIES = [
   { name: "server.properties", path: "/server.properties", size: 2100, dir: false },
 ];
 
+const TWO_FILES = [...ROOT_ENTRIES, { name: "config.yaml", path: "/config.yaml", size: 100, dir: false }];
+
+const ROOT_LIST = "GET /servers/mc-survival/files/list?path=%2F";
+const PROPERTIES_READ = "GET /servers/mc-survival/files/read?path=%2Fserver.properties";
+const PROPERTIES_WRITE = "POST /servers/mc-survival/files/write?path=%2Fserver.properties";
+
 function deferredResponse() {
   let resolve!: (response: Response) => void;
   const promise = new Promise<Response>((done) => { resolve = done; });
   return { promise, resolve };
 }
 
-const TWO_FILES = [...ROOT_ENTRIES, { name: "config.yaml", path: "/config.yaml", size: 100, dir: false }];
+function mockRoutes(routes: Record<string, Route>) {
+  fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
+    const key = `${init?.method ?? "GET"} ${url}`;
+    const route = routes[key];
+    if (!route) throw new Error(`unexpected fetch: ${key}`);
+    return route(init);
+  });
+}
+
+function mockServerProperties(routes: Record<string, Route> = {}) {
+  mockRoutes({
+    [ROOT_LIST]: () => jsonRes(ROOT_ENTRIES),
+    [PROPERTIES_READ]: () => textRes("original"),
+    ...routes,
+  });
+}
+
+function recordWrites(bodies: string[], response: () => Response | Promise<Response> = () => new Response(null, { status: 204 })): Route {
+  return (init) => {
+    bodies.push(init?.body as string);
+    return response();
+  };
+}
+
+function requests(): string[] {
+  return fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
+}
+
+function rowNames() {
+  return screen.getAllByRole("listitem").map((item) => item.querySelector("span.truncate")?.textContent);
+}
+
+function currentPath() {
+  return screen.getByTestId("path").textContent;
+}
+
+function idle(ms: number) {
+  return act(() => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+}
+
+function stubLocation() {
+  const original = window.location;
+  Object.defineProperty(window, "location", { writable: true, value: { href: "" } });
+  return () => {
+    Object.defineProperty(window, "location", { value: original });
+  };
+}
 
 describe("FilesTab", () => {
-  it("clears the previous draft and cannot save until the newly selected file loads", async () => {
-    const secondRead = deferredResponse();
-    const writes: { url: string; body: string }[] = [];
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.includes("/files/list")) return jsonRes(TWO_FILES);
-      if (url.includes("/files/read?path=%2Fserver.properties")) return textRes("first file");
-      if (url.includes("/files/read?path=%2Fconfig.yaml")) return secondRead.promise;
-      if (url.includes("/files/write")) { writes.push({ url, body: init?.body as string }); return new Response(null, { status: 204 }); }
-      throw new Error(`unexpected fetch: ${url}`);
+  it("lists folders before files, each sorted by name", async () => {
+    mockRoutes({
+      [ROOT_LIST]: () => jsonRes([
+        { name: "b.txt", path: "/b.txt", size: 1, dir: false },
+        { name: "zeta", path: "/zeta", size: 0, dir: true },
+        { name: "a.txt", path: "/a.txt", size: 1, dir: false },
+        { name: "Alpha", path: "/Alpha", size: 0, dir: true },
+        { name: "plugin.jar", path: "/plugin.jar", size: 1, dir: false },
+        { name: "data.json", path: "/data.json", size: 1, dir: false },
+      ]),
     });
-    vi.stubGlobal("confirm", () => true);
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "discarded first draft" } });
-    fireEvent.click(screen.getByText("config.yaml"));
-    expect(screen.queryByTestId("monaco")).not.toBeInTheDocument();
-    const save = screen.getByRole("button", { name: /Save/ });
-    expect(save).toBeDisabled();
-    fireEvent.click(save);
-    expect(writes).toEqual([]);
-    await act(async () => secondRead.resolve(textRes("second file")));
-    const editor = await screen.findByTestId("monaco");
-    expect(editor).toHaveValue("second file");
-    fireEvent.change(editor, { target: { value: "second draft" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(writes).toEqual([{ url: "/servers/mc-survival/files/write?path=%2Fconfig.yaml", body: "second draft" }]));
+    renderWithQuery(<Harness />);
+    await screen.findByText("b.txt");
+    expect(rowNames()).toEqual(["Alpha", "zeta", "a.txt", "b.txt", "data.json", "plugin.jar"]);
   });
 
-  it("ignores a previous file read that resolves after another file is selected", async () => {
-    const firstRead = deferredResponse();
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.includes("/files/list")) return jsonRes(TWO_FILES);
-      if (url.includes("path=%2Fserver.properties")) return firstRead.promise;
-      if (url.includes("path=%2Fconfig.yaml")) return textRes("second file");
-      throw new Error(`unexpected fetch: ${url}`);
+  it("navigates into a folder on click and marks its crumb as the current page", async () => {
+    mockRoutes({
+      [ROOT_LIST]: () => jsonRes(ROOT_ENTRIES),
+      "GET /servers/mc-survival/files/list?path=%2Fconfig": () => jsonRes([
+        { name: "server-config.yaml", path: "/config/server-config.yaml", size: 512, dir: false },
+      ]),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    fireEvent.click(screen.getByText("config.yaml"));
-    expect(await screen.findByTestId("monaco")).toHaveValue("second file");
-    await act(async () => firstRead.resolve(textRes("late first file")));
-    expect(screen.getByTestId("monaco")).toHaveValue("second file");
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByText("config"));
+    expect(await screen.findByText("server-config.yaml")).toBeInTheDocument();
+    expect(currentPath()).toBe("/config");
+    expect(requests()).toContain("GET /servers/mc-survival/files/list?path=%2Fconfig");
+    expect(screen.getByRole("button", { name: "config" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("preserves edits made while the selected file is saving", async () => {
-    const pendingSave = deferredResponse();
+  it("opens a file in the editor without a Save button", async () => {
+    mockServerProperties({ [PROPERTIES_READ]: () => textRes("motd=hello") });
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByText("server.properties"));
+    expect(await screen.findByTestId("monaco")).toHaveValue("motd=hello");
+    expect(currentPath()).toBe("/server.properties");
+    expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
+  });
+
+  it("deep-links to a file by its path", async () => {
+    mockRoutes({
+      "GET /servers/mc-survival/files/list?path=%2Fconfig": () => jsonRes([
+        { name: "file.txt", path: "/config/file.txt", size: 9, dir: false },
+      ]),
+      "GET /servers/mc-survival/files/read?path=%2Fconfig%2Ffile.txt": () => textRes("file body"),
+    });
+    renderWithQuery(<Harness initialPath="/config/file.txt" />);
+    expect(await screen.findByTestId("monaco")).toHaveValue("file body");
+    expect(requests()).toContain("GET /servers/mc-survival/files/read?path=%2Fconfig%2Ffile.txt");
+  });
+
+  it("offers a way back to the root when the path does not exist", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness initialPath="/missing.txt" />);
+    expect(await screen.findByText("Nothing exists at this path.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open root folder" }));
+    await waitFor(() => expect(currentPath()).toBe("/"));
+  });
+
+  it("shows the error when the parent listing fails", async () => {
+    mockRoutes({ [ROOT_LIST]: () => textRes("boom", 500) });
+    renderWithQuery(<Harness initialPath="/server.properties" />);
+    expect(await screen.findByText("boom")).toBeInTheDocument();
+  });
+
+  it("navigates through breadcrumbs", async () => {
+    mockRoutes({
+      [ROOT_LIST]: () => jsonRes(ROOT_ENTRIES),
+      "GET /servers/mc-survival/files/list?path=%2Fconfig": () => jsonRes([
+        { name: "sub", path: "/config/sub", size: 0, dir: true },
+      ]),
+      "GET /servers/mc-survival/files/list?path=%2Fconfig%2Fsub": () => jsonRes([]),
+    });
+    renderWithQuery(<Harness initialPath="/config/sub" />);
+    expect(await screen.findByText("This folder is empty.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "config" }));
+    expect(await screen.findByText("sub")).toBeInTheDocument();
+    expect(currentPath()).toBe("/config");
+    fireEvent.click(screen.getByRole("button", { name: "Root folder" }));
+    expect(await screen.findByText("server.properties")).toBeInTheDocument();
+    expect(currentPath()).toBe("/");
+  });
+
+  it("autosaves an edit and reports Saving… then Saved", async () => {
     const bodies: string[] = [];
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.includes("/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.includes("/files/read")) return textRes("original");
-      if (url.includes("/files/write")) { bodies.push(init?.body as string); return bodies.length === 1 ? pendingSave.promise : new Response(null, { status: 204 }); }
-      throw new Error(`unexpected fetch: ${url}`);
+    mockServerProperties({ [PROPERTIES_WRITE]: recordWrites(bodies) });
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByText("server.properties"));
+    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "enable-jmx-monitoring=true\n" } });
+    expect(screen.getByText("Saving…")).toBeInTheDocument();
+    await waitFor(() => expect(bodies).toEqual(["enable-jmx-monitoring=true\n"]), { timeout: 3000 });
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+  });
+
+  it("debounces quick edits into one write with the latest value", async () => {
+    const bodies: string[] = [];
+    mockServerProperties({ [PROPERTIES_WRITE]: recordWrites(bodies) });
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByText("server.properties"));
+    const editor = await screen.findByTestId("monaco");
+    fireEvent.change(editor, { target: { value: "a" } });
+    fireEvent.change(editor, { target: { value: "ab" } });
+    fireEvent.change(editor, { target: { value: "abc" } });
+    await waitFor(() => expect(bodies).toHaveLength(1), { timeout: 3000 });
+    await idle(1200);
+    expect(bodies).toEqual(["abc"]);
+  }, 10_000);
+
+  it("keeps edits made during a write and saves them next", async () => {
+    const bodies: string[] = [];
+    const firstWrite = deferredResponse();
+    mockServerProperties({
+      [PROPERTIES_WRITE]: recordWrites(bodies, () => (bodies.length === 1 ? firstWrite.promise : new Response(null, { status: 204 }))),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     fireEvent.click(await screen.findByText("server.properties"));
     const editor = await screen.findByTestId("monaco");
     fireEvent.change(editor, { target: { value: "first edit" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(bodies).toEqual(["first edit"]));
+    await waitFor(() => expect(bodies).toEqual(["first edit"]), { timeout: 3000 });
     fireEvent.change(editor, { target: { value: "second edit" } });
-    await act(async () => pendingSave.resolve(new Response(null, { status: 204 })));
-    await waitFor(() => expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled());
+    await act(async () => firstWrite.resolve(new Response(null, { status: 204 })));
+    await waitFor(() => expect(bodies).toEqual(["first edit", "second edit"]), { timeout: 3000 });
     expect(editor).toHaveValue("second edit");
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(bodies).toEqual(["first edit", "second edit"]));
   });
 
-  it("does not change the new file's baseline when an earlier save completes", async () => {
-    const pendingSave = deferredResponse();
-    const writes: { url: string; body: string }[] = [];
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.includes("/files/list")) return jsonRes(TWO_FILES);
-      if (url.includes("/files/read?path=%2Fserver.properties")) return textRes("first file");
-      if (url.includes("/files/read?path=%2Fconfig.yaml")) return textRes("second file");
-      if (url.includes("/files/write")) { writes.push({ url, body: init?.body as string }); return writes.length === 1 ? pendingSave.promise : new Response(null, { status: 204 }); }
-      throw new Error(`unexpected fetch: ${url}`);
+  it("shows Save failed and waits for a new edit before writing again", async () => {
+    const bodies: string[] = [];
+    mockServerProperties({
+      [PROPERTIES_WRITE]: recordWrites(bodies, () => (bodies.length === 1 ? textRes("disk full", 500) : new Response(null, { status: 204 }))),
     });
-    vi.stubGlobal("confirm", () => true);
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     fireEvent.click(await screen.findByText("server.properties"));
-    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "first saved draft" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(writes).toHaveLength(1));
-    fireEvent.click(screen.getByText("config.yaml"));
-    expect(await screen.findByTestId("monaco")).toHaveValue("second file");
-    await act(async () => pendingSave.resolve(new Response(null, { status: 204 })));
-    await waitFor(() => expect(screen.queryByText(/modified/)).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
-    fireEvent.change(screen.getByTestId("monaco"), { target: { value: "second saved draft" } });
-    await waitFor(() => expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(writes).toEqual([
-      { url: "/servers/mc-survival/files/write?path=%2Fserver.properties", body: "first saved draft" },
-      { url: "/servers/mc-survival/files/write?path=%2Fconfig.yaml", body: "second saved draft" },
-    ]));
+    const editor = await screen.findByTestId("monaco");
+    fireEvent.change(editor, { target: { value: "broken draft" } });
+    await waitFor(() => expect(screen.getByText("disk full")).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByText("Save failed")).toBeInTheDocument();
+    await idle(1200);
+    expect(bodies).toEqual(["broken draft"]);
+    fireEvent.change(editor, { target: { value: "fixed draft" } });
+    await waitFor(() => expect(bodies).toEqual(["broken draft", "fixed draft"]), { timeout: 3000 });
+  }, 10_000);
+
+  it("writes pending edits when leaving the file", async () => {
+    const bodies: string[] = [];
+    mockServerProperties({ [PROPERTIES_WRITE]: recordWrites(bodies) });
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByText("server.properties"));
+    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "leaving draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Root folder" }));
+    await waitFor(() => expect(bodies).toEqual(["leaving draft"]));
   });
 
-  it("clears the editor on target change and ignores an old target's pending save", async () => {
-    const pendingSave = deferredResponse();
-    const writes: { url: string; body: string }[] = [];
+  it("is read-only without control: no writes and directory actions disabled", async () => {
+    const bodies: string[] = [];
+    mockServerProperties({ [PROPERTIES_WRITE]: recordWrites(bodies) });
+    renderWithQuery(<Harness />, { canControl: false });
+    await screen.findByText("server.properties");
+    expect(screen.getByRole("button", { name: /New file/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /New folder/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Upload/ })).toBeDisabled();
+    fireEvent.click(screen.getByText("server.properties"));
+    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "edited" } });
+    expect(screen.getByText("Read only")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Delete$/ })).toBeDisabled();
+    await idle(1200);
+    expect(bodies).toEqual([]);
+  }, 10_000);
+
+  it("ignores a late read for a file that is no longer open", async () => {
+    const firstRead = deferredResponse();
+    mockRoutes({
+      [ROOT_LIST]: () => jsonRes(TWO_FILES),
+      [PROPERTIES_READ]: () => firstRead.promise,
+      "GET /servers/mc-survival/files/read?path=%2Fconfig.yaml": () => textRes("second file"),
+    });
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByText("server.properties"));
+    fireEvent.click(screen.getByRole("button", { name: "Root folder" }));
+    fireEvent.click(await screen.findByText("config.yaml"));
+    expect(await screen.findByTestId("monaco")).toHaveValue("second file");
+    await act(async () => firstRead.resolve(textRes("late first file")));
+    expect(screen.getByTestId("monaco")).toHaveValue("second file");
+  });
+
+  it("reloads the file from the new target when the cluster changes", async () => {
     function TargetHarness() {
       const [cluster, setCluster] = useState("local");
-      return <ResourceTargetProvider target={{ cluster, name: "mc-survival" }} access={{ canWrite: true, canControl: true, canConsole: true, canDelete: true, isOwner: true, isCollaborator: false, permissions: ["*"] }}>
-        <button onClick={() => setCluster("remote")}>Switch target</button>
-        <FilesTab name="mc-survival" />
-      </ResourceTargetProvider>;
+      const [path, setPath] = useState("/server.properties");
+      return (
+        <ResourceTargetProvider target={{ cluster, name: "mc-survival" }} access={{ canWrite: true, canControl: true, canConsole: true, canDelete: true, isOwner: true, isCollaborator: false, permissions: ["*"] }}>
+          <button onClick={() => setCluster("remote")}>Switch target</button>
+          <FilesTab name="mc-survival" path={path} onNavigate={setPath} />
+        </ResourceTargetProvider>
+      );
     }
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.includes("/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.includes("/files/read")) return textRes(url.includes("cluster=remote") ? "remote content" : "local content");
-      if (url.includes("/files/write")) { writes.push({ url, body: init?.body as string }); return writes.length === 1 ? pendingSave.promise : new Response(null, { status: 204 }); }
-      throw new Error(`unexpected fetch: ${url}`);
+    mockRoutes({
+      [ROOT_LIST]: () => jsonRes(ROOT_ENTRIES),
+      "GET /servers/mc-survival/files/list?path=%2F&cluster=remote": () => jsonRes(ROOT_ENTRIES),
+      [PROPERTIES_READ]: () => textRes("local content"),
+      "GET /servers/mc-survival/files/read?path=%2Fserver.properties&cluster=remote": () => textRes("remote content"),
     });
     baseRenderWithQuery(<TargetHarness />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "local saved draft" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(await screen.findByTestId("monaco")).toHaveValue("local content");
     fireEvent.click(screen.getByRole("button", { name: "Switch target" }));
-    expect(screen.queryByTestId("monaco")).not.toBeInTheDocument();
-    expect(screen.getByText("Select a file to edit.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("monaco")).toHaveValue("remote content"));
+    expect(requests()).toContain("GET /servers/mc-survival/files/read?path=%2Fserver.properties&cluster=remote");
+  });
+
+  it("deletes the open file without writing its unsaved edits", async () => {
+    const bodies: string[] = [];
+    mockServerProperties({
+      [PROPERTIES_WRITE]: recordWrites(bodies),
+      "DELETE /servers/mc-survival/files/delete?path=%2Fserver.properties": () => new Response(null, { status: 204 }),
+    });
+    renderWithQuery(<Harness />);
     fireEvent.click(await screen.findByText("server.properties"));
-    expect(await screen.findByTestId("monaco")).toHaveValue("remote content");
-    await act(async () => pendingSave.resolve(new Response(null, { status: 204 })));
-    expect(screen.getByTestId("monaco")).toHaveValue("remote content");
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
-    fireEvent.change(screen.getByTestId("monaco"), { target: { value: "remote saved draft" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(writes).toEqual([
-      { url: "/servers/mc-survival/files/write?path=%2Fserver.properties", body: "local saved draft" },
-      { url: "/servers/mc-survival/files/write?path=%2Fserver.properties&cluster=remote", body: "remote saved draft" },
-    ]));
-  });
-
-  it("does not reuse an earlier save's baseline after discarding and reopening the same path", async () => {
-    const pendingSave = deferredResponse();
-    let firstFileReads = 0;
-    let writeStarted = false;
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.includes("/files/list")) return jsonRes(TWO_FILES);
-      if (url.includes("/files/read?path=%2Fserver.properties")) return textRes(++firstFileReads === 1 ? "original" : "reopened content");
-      if (url.includes("/files/read?path=%2Fconfig.yaml")) return textRes("second file");
-      if (url.includes("/files/write")) { writeStarted = true; return pendingSave.promise; }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal("confirm", () => true);
-    const { container } = renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "saved draft" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    await waitFor(() => expect(writeStarted).toBe(true));
-    fireEvent.click(screen.getByText("config.yaml"));
-    expect(await screen.findByTestId("monaco")).toHaveValue("second file");
-    fireEvent.click(within(container.querySelector("aside")!).getByText("server.properties"));
-    await waitFor(() => expect(screen.getByTestId("monaco")).toHaveValue("reopened content"));
-    await act(async () => pendingSave.resolve(new Response(null, { status: 204 })));
-    expect(screen.getByTestId("monaco")).toHaveValue("reopened content");
-    expect(screen.queryByText(/modified/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
-  });
-
-
-  it("renders entries from /files/list", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url === "/servers/mc-survival/files/list?path=%2F") {
-        return jsonRes(ROOT_ENTRIES);
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await waitFor(() => {
-      const configEl = screen.getByText("config");
-      const propsEl = screen.getByText("server.properties");
-      expect(configEl).toBeInTheDocument();
-      expect(propsEl).toBeInTheDocument();
-    });
-  });
-
-  it("save button is disabled until the user edits, then POSTs to /files/write", async () => {
-    let writeBody: string | null = null;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) {
-        return textRes("enable-jmx-monitoring=false\n");
-      }
-      if (
-        url === "/servers/mc-survival/files/write?path=%2Fserver.properties" &&
-        init?.method === "POST"
-      ) {
-        writeBody = init.body as string;
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url} ${init?.method ?? "GET"}`);
-    });
-
-    renderWithQuery(<FilesTab name="mc-survival" />);
-
-    fireEvent.click(await screen.findByText("server.properties"));
-
-    const monaco = await screen.findByTestId("monaco");
-    const save = screen.getByRole("button", { name: /Save/ });
-    expect(save).toBeDisabled();
-
-    fireEvent.change(monaco, { target: { value: "enable-jmx-monitoring=true\n" } });
-    expect(screen.getByText(/modified/)).toBeInTheDocument();
-    expect(save).toBeEnabled();
-
-    await act(async () => {
-      fireEvent.click(save);
-    });
-    await waitFor(() => expect(writeBody).toBe("enable-jmx-monitoring=true\n"));
-    // After a successful save the dirty marker should clear.
-    await waitFor(() => expect(screen.queryByText(/modified/)).toBeNull());
-  });
-
-  it("opens the destructive confirm dialog when Delete is pressed", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("hello");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
-
-    const deleteButtons = screen.getAllByRole("button", { name: /Delete/ });
-    fireEvent.click(deleteButtons[deleteButtons.length - 1]);
-    expect(
-      await screen.findByText(/Delete server\.properties\?/),
-    ).toBeInTheDocument();
-  });
-
-  it("creates a new folder via /files/mkdir", async () => {
-    let mkdirURL: string | null = null;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/mkdir") && init?.method === "POST") {
-        mkdirURL = url;
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url} ${init?.method ?? "GET"}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("server.properties");
-
-    fireEvent.click(screen.getByRole("button", { name: /New folder/ }));
-    const input = await screen.findByPlaceholderText("my-folder");
-    fireEvent.change(input, { target: { value: "mods-disabled" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
-    });
-    await waitFor(() =>
-      expect(mkdirURL).toBe(
-        "/servers/mc-survival/files/mkdir?path=%2Fmods-disabled",
-      ),
-    );
-  });
-
-  // Below `md` the tree and editor stack instead of sitting side by side;
-  // which one is showing is tracked by a `pane` state that toggles a
-  // "flex"/"hidden" class (real CSS, so it's inert in jsdom — this asserts
-  // the class tokens directly rather than actual visibility).
-  it("mobile pane toggle: selecting a file switches to the editor pane; 'Back to files' returns to the tree", async () => {
-    function hasClass(el: Element, cls: string): boolean {
-      return el.className.split(/\s+/).includes(cls);
-    }
-
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("hello");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const { container } = renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("server.properties");
-
-    const aside = container.querySelector("aside") as HTMLElement;
-    const main = container.querySelector("main") as HTMLElement;
-
-    // Tree pane showing, editor pane hidden before any file is selected.
-    expect(hasClass(aside, "flex")).toBe(true);
-    expect(hasClass(main, "hidden")).toBe(true);
-
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
-
-    // Selecting a file switches the mobile pane to the editor.
-    expect(hasClass(main, "flex")).toBe(true);
-    expect(hasClass(aside, "hidden")).toBe(true);
-
-    fireEvent.click(screen.getByRole("button", { name: /back to files/i }));
-
-    expect(hasClass(aside, "flex")).toBe(true);
-    expect(hasClass(main, "hidden")).toBe(true);
-  });
-
-  it("loads file contents when a file is selected", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url === "/servers/mc-survival/files/read?path=%2Fserver.properties") {
-        return textRes("some file content here");
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    const monaco = await screen.findByTestId("monaco");
-    expect(monaco).toHaveValue("some file content here");
-  });
-
-  it("displays loadError when file read fails", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) {
-        return new Response("access denied", { status: 403 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await waitFor(() =>
-      expect(screen.getByText(/access denied/)).toBeInTheDocument(),
-    );
-  });
-
-  it("displays opError when save fails", async () => {
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("original");
-      if (
-        url === "/servers/mc-survival/files/write?path=%2Fserver.properties" &&
-        init?.method === "POST"
-      ) {
-        return new Response("write failed", { status: 500 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    const monaco = await screen.findByTestId("monaco");
-    fireEvent.change(monaco, { target: { value: "modified" } });
-    const save = screen.getByRole("button", { name: /Save/ });
-    await act(async () => {
-      fireEvent.click(save);
-    });
-    await waitFor(() =>
-      expect(screen.getByText(/write failed/)).toBeInTheDocument(),
-    );
-  });
-
-  it("displays opError when delete fails", async () => {
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      if (
-        url.startsWith("/servers/mc-survival/files/delete") &&
-        init?.method === "DELETE"
-      ) {
-        return new Response("file in use", { status: 400 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
+    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "unsaved edit" } });
     fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
-    const confirmBtn = await screen.findByRole("button", { name: /^Delete$/ });
-    await act(async () => {
-      fireEvent.click(confirmBtn);
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }));
+    await waitFor(() => expect(currentPath()).toBe("/"));
+    expect(requests()).toContain("DELETE /servers/mc-survival/files/delete?path=%2Fserver.properties");
+    await idle(1200);
+    expect(bodies).toEqual([]);
+  }, 10_000);
+
+  it("deletes a folder recursively from its row without opening it", async () => {
+    mockServerProperties({
+      "DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true": () => new Response(null, { status: 204 }),
     });
-    await waitFor(() =>
-      expect(screen.getByText(/file in use/)).toBeInTheDocument(),
-    );
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete config" }));
+    expect(await screen.findByText("Delete config?")).toBeInTheDocument();
+    expect(requests()).not.toContain("GET /servers/mc-survival/files/list?path=%2Fconfig");
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }));
+    await waitFor(() => expect(requests()).toContain("DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true"));
+    expect(currentPath()).toBe("/");
   });
 
-  it("displays opError when mkdir fails", async () => {
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (
-        url.startsWith("/servers/mc-survival/files/mkdir") &&
-        init?.method === "POST"
-      ) {
-        return new Response("permission denied", { status: 403 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
+  it("shows the error when deleting fails", async () => {
+    mockServerProperties({
+      "DELETE /servers/mc-survival/files/delete?path=%2Fserver.properties": () => textRes("file in use", 400),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete server.properties" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }));
+    expect(await screen.findByText("file in use")).toBeInTheDocument();
+  });
+
+  it("creates a folder via mkdir and refetches the list", async () => {
+    let listCalls = 0;
+    mockServerProperties({
+      [ROOT_LIST]: () => {
+        listCalls += 1;
+        return jsonRes(ROOT_ENTRIES);
+      },
+      "POST /servers/mc-survival/files/mkdir?path=%2Fnew-folder": () => new Response(null, { status: 204 }),
+    });
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
+    const before = listCalls;
     fireEvent.click(screen.getByRole("button", { name: /New folder/ }));
-    const input = await screen.findByPlaceholderText("my-folder");
-    fireEvent.change(input, { target: { value: "test" } });
+    fireEvent.change(await screen.findByPlaceholderText("my-folder"), { target: { value: "new-folder" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
     });
-    await waitFor(() =>
-      expect(screen.getByText(/permission denied/)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(requests()).toContain("POST /servers/mc-survival/files/mkdir?path=%2Fnew-folder"));
+    await waitFor(() => expect(listCalls).toBeGreaterThan(before));
   });
 
-  it("displays opError when upload fails", async () => {
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (
-        url.startsWith("/servers/mc-survival/files/upload") &&
-        init?.method === "POST"
-      ) {
-        return new Response("disk full", { status: 507 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
+  it("shows the error when creating a folder fails", async () => {
+    mockServerProperties({
+      "POST /servers/mc-survival/files/mkdir?path=%2Ftest": () => textRes("permission denied", 403),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    const uploadInput = screen.getByTestId("files-upload-input") as HTMLInputElement;
-    const file = new File(["content"], "test.txt", { type: "text/plain" });
-    fireEvent.change(uploadInput, { target: { files: { 0: file, length: 1 } as unknown as FileList } });
-    await waitFor(() =>
-      expect(screen.getByText(/disk full/)).toBeInTheDocument(),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /New folder/ }));
+    fireEvent.change(await screen.findByPlaceholderText("my-folder"), { target: { value: "test" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
+    });
+    expect(await screen.findByText("permission denied")).toBeInTheDocument();
   });
 
-  it("navigates into a directory when clicking on a folder entry", async () => {
-    const configEntries = [
-      { name: "server-config.yaml", path: "/config/server-config.yaml", size: 512, dir: false },
-    ];
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url === "/servers/mc-survival/files/list?path=%2F")
-        return jsonRes(ROOT_ENTRIES);
-      if (url === "/servers/mc-survival/files/list?path=%2Fconfig")
-        return jsonRes(configEntries);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("config"));
-    await waitFor(() =>
-      expect(screen.getByText("server-config.yaml")).toBeInTheDocument(),
-    );
-  });
-
-  it("navigates back to parent directory via '..' entry", async () => {
-    const configEntries = [
-      { name: "server-config.yaml", path: "/config/server-config.yaml", size: 512, dir: false },
-    ];
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url === "/servers/mc-survival/files/list?path=%2F") {
-        return jsonRes(ROOT_ENTRIES);
-      }
-      if (url === "/servers/mc-survival/files/list?path=%2Fconfig") {
-        return jsonRes(configEntries);
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("config"));
-    await screen.findByText("server-config.yaml");
-    fireEvent.click(screen.getByText(".."));
-    await waitFor(() =>
-      expect(screen.getByText("server.properties")).toBeInTheDocument(),
-    );
-  });
-
-  it("displays empty folder message when directory has no entries", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list"))
-        return jsonRes([]);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await waitFor(() =>
-      expect(screen.getByText("Empty folder")).toBeInTheDocument(),
-    );
-  });
-
-  it("shows 'Select a file to edit' when no file is selected in the view pane", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await waitFor(() =>
-      expect(screen.getByText("Select a file to edit.")).toBeInTheDocument(),
-    );
-  });
-
-  it("downloads file when Download button is clicked", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const originalLocation = window.location;
-    Object.defineProperty(window, "location", {
-      writable: true,
-      value: { href: "" },
-    });
-    try {
-      renderWithQuery(<FilesTab name="mc-survival" />);
-      fireEvent.click(await screen.findByText("server.properties"));
-      await screen.findByTestId("monaco");
-      const download = screen.getByRole("button", { name: /^Download$/ });
-      fireEvent.click(download);
-      await waitFor(() =>
-        expect(window.location.href).toContain(
-          "/servers/mc-survival/files/download?path=%2Fserver.properties",
-        ),
-      );
-    } finally {
-      Object.defineProperty(window, "location", { value: originalLocation });
-    }
-  });
-
-  it("sets up upload input and clears it after selection", async () => {
-    let uploadCalled = false;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (
-        url.startsWith("/servers/mc-survival/files/upload") &&
-        init?.method === "POST"
-      ) {
-        uploadCalled = true;
+  it("creates an empty file and opens it", async () => {
+    const bodies: string[] = [];
+    let created = false;
+    mockServerProperties({
+      [ROOT_LIST]: () => jsonRes(created ? [...ROOT_ENTRIES, { name: "new.txt", path: "/new.txt", size: 0, dir: false }] : ROOT_ENTRIES),
+      "POST /servers/mc-survival/files/write?path=%2Fnew.txt": (init) => {
+        bodies.push(init?.body as string);
+        created = true;
         return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
+      },
+      "GET /servers/mc-survival/files/read?path=%2Fnew.txt": () => textRes(""),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("server.properties");
-    const uploadBtn = screen.getByRole("button", { name: /Upload/ });
-    fireEvent.click(uploadBtn);
-    const uploadInput = screen.getByTestId("files-upload-input") as HTMLInputElement;
-    const file = new File(["test"], "file.txt");
-    // FileList type construction in tests requires this workaround
-    fireEvent.change(uploadInput, { target: { files: { 0: file, length: 1 } as unknown as FileList } });
-    await waitFor(() => expect(uploadCalled).toBe(true));
-    expect(uploadInput.value).toBe("");
-  });
-
-  it("creates a new file and selects it after successful creation", async () => {
-    let createCalled = false;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (
-        url === "/servers/mc-survival/files/write?path=%2Fnew-file.txt" &&
-        init?.method === "POST"
-      ) {
-        createCalled = true;
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
     fireEvent.click(screen.getByRole("button", { name: /New file/ }));
-    const input = await screen.findByPlaceholderText("config.yaml");
-    fireEvent.change(input, { target: { value: "new-file.txt" } });
+    fireEvent.change(await screen.findByPlaceholderText("config.yaml"), { target: { value: "new.txt" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
     });
-    await waitFor(() => expect(createCalled).toBe(true));
-  });
-
-  it("deletes a folder from its row button without opening it", async () => {
-    let deleteURL: string | null = null;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (
-        url.startsWith("/servers/mc-survival/files/delete") &&
-        init?.method === "DELETE"
-      ) {
-        deleteURL = url;
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("config");
-    fireEvent.click(screen.getByRole("button", { name: "Delete config" }));
-    expect(await screen.findByText(/Delete config\?/)).toBeInTheDocument();
-    // The row click must not have navigated into the folder.
-    expect(
-      fetchMock.mock.calls.some(([u]) => String(u).includes("path=%2Fconfig")),
-    ).toBe(false);
-    const confirmBtn = screen.getByRole("button", { name: /^Delete$/ });
-    await act(async () => {
-      fireEvent.click(confirmBtn);
-    });
-    await waitFor(() =>
-      expect(deleteURL).toMatch(/^\/servers\/mc-survival\/files\/delete\?path=%2Fconfig/),
-    );
+    await waitFor(() => expect(currentPath()).toBe("/new.txt"));
+    expect(bodies).toEqual([""]);
   });
 
   it("explains why a new file name is rejected", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    mockServerProperties();
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
     fireEvent.click(screen.getByRole("button", { name: /New file/ }));
     const input = await screen.findByPlaceholderText("config.yaml");
@@ -670,509 +436,213 @@ describe("FilesTab", () => {
     expect(screen.queryByText(/Names can't contain/)).not.toBeInTheDocument();
   });
 
-  it("rejects new file names with slashes", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+  it.each(["invalid/name", ".", "..", ""])("disables Create for the new file name %j", async (fileName) => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
     fireEvent.click(screen.getByRole("button", { name: /New file/ }));
-    const input = await screen.findByPlaceholderText("config.yaml");
-    fireEvent.change(input, { target: { value: "invalid/name" } });
-    const createBtn = screen.getByRole("button", { name: /^Create$/ });
-    expect(createBtn).toBeDisabled();
+    fireEvent.change(await screen.findByPlaceholderText("config.yaml"), { target: { value: fileName } });
+    expect(screen.getByRole("button", { name: /^Create$/ })).toBeDisabled();
   });
 
-  it("rejects new file names that are just dots", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("server.properties");
-    fireEvent.click(screen.getByRole("button", { name: /New file/ }));
-    const input = await screen.findByPlaceholderText("config.yaml");
-    fireEvent.change(input, { target: { value: "." } });
-    const createBtn = screen.getByRole("button", { name: /^Create$/ });
-    expect(createBtn).toBeDisabled();
-    fireEvent.change(input, { target: { value: ".." } });
-    expect(createBtn).toBeDisabled();
-  });
-
-  it("rejects empty file names", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("server.properties");
-    fireEvent.click(screen.getByRole("button", { name: /New file/ }));
-    const input = await screen.findByPlaceholderText("config.yaml");
-    fireEvent.change(input, { target: { value: "" } });
-    const createBtn = screen.getByRole("button", { name: /^Create$/ });
-    expect(createBtn).toBeDisabled();
-  });
-
-  it("rejects folder names with slashes", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+  it("disables Create for a folder name with a slash", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
     fireEvent.click(screen.getByRole("button", { name: /New folder/ }));
-    const input = await screen.findByPlaceholderText("my-folder");
-    fireEvent.change(input, { target: { value: "invalid/path" } });
-    const createBtn = screen.getByRole("button", { name: /^Create$/ });
-    expect(createBtn).toBeDisabled();
+    fireEvent.change(await screen.findByPlaceholderText("my-folder"), { target: { value: "invalid/path" } });
+    expect(screen.getByRole("button", { name: /^Create$/ })).toBeDisabled();
   });
 
-  it("closes dialogs when cancel is clicked", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      throw new Error(`unexpected fetch: ${url}`);
+  it("trims whitespace from a new folder name", async () => {
+    mockServerProperties({
+      "POST /servers/mc-survival/files/mkdir?path=%2Fmy-folder": () => new Response(null, { status: 204 }),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("button", { name: /New folder/ }));
+    fireEvent.change(await screen.findByPlaceholderText("my-folder"), { target: { value: "  my-folder  " } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
+    });
+    await waitFor(() => expect(requests()).toContain("POST /servers/mc-survival/files/mkdir?path=%2Fmy-folder"));
+  });
+
+  it("closes the name prompt when Cancel is clicked", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
     fireEvent.click(screen.getByRole("button", { name: /New file/ }));
     await screen.findByPlaceholderText("config.yaml");
-    const cancelBtn = screen.getByRole("button", { name: /Cancel/ });
-    fireEvent.click(cancelBtn);
-    await waitFor(() =>
-      expect(screen.queryByPlaceholderText("config.yaml")).not.toBeInTheDocument(),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
+    await waitFor(() => expect(screen.queryByPlaceholderText("config.yaml")).not.toBeInTheDocument());
   });
 
-  it("closes delete dialog when cancel is clicked", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      throw new Error(`unexpected fetch: ${url}`);
+  it("uploads picked files to the current folder and clears the input", async () => {
+    mockServerProperties({
+      "POST /servers/mc-survival/files/upload?path=%2F": () => new Response(null, { status: 204 }),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
-    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
-    const cancelBtns = screen.getAllByRole("button", { name: /Cancel/ });
-    fireEvent.click(cancelBtns[cancelBtns.length - 1]);
-    await waitFor(() =>
-      expect(
-        screen.queryByText(/Delete server\.properties\?/),
-      ).not.toBeInTheDocument(),
-    );
-  });
-
-  it("deletes a file successfully", async () => {
-    let deleteURL: string | null = null;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      if (
-        url.startsWith("/servers/mc-survival/files/delete") &&
-        init?.method === "DELETE"
-      ) {
-        deleteURL = url;
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
-    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
-    const confirmBtn = await screen.findByRole("button", { name: /^Delete$/ });
-    await act(async () => {
-      fireEvent.click(confirmBtn);
-    });
-    await waitFor(() =>
-      expect(deleteURL).toBe(
-        "/servers/mc-survival/files/delete?path=%2Fserver.properties",
-      ),
-    );
-    // After delete, selected should clear and pane should switch to tree
-    await waitFor(() =>
-      expect(screen.queryByTestId("monaco")).not.toBeInTheDocument(),
-    );
-  });
-
-  it("clears selected file after successful delete", async () => {
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      if (
-        url.startsWith("/servers/mc-survival/files/delete") &&
-        init?.method === "DELETE"
-      ) {
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
-    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
-    const confirmBtn = await screen.findByRole("button", { name: /^Delete$/ });
-    await act(async () => {
-      fireEvent.click(confirmBtn);
-    });
-    await waitFor(() =>
-      expect(screen.getByText("Select a file to edit.")).toBeInTheDocument(),
-    );
-  });
-
-  it("refreshes file list when refresh button is clicked", async () => {
-    let listCallCount = 0;
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) {
-        listCallCount++;
-        return jsonRes(ROOT_ENTRIES);
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    const refreshBtn = screen.getByLabelText("Refresh");
-    const initialCount = listCallCount;
-    fireEvent.click(refreshBtn);
-    await waitFor(() => expect(listCallCount).toBeGreaterThan(initialCount));
+    const input = screen.getByTestId("files-upload-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: { 0: new File(["test"], "file.txt"), length: 1 } as unknown as FileList } });
+    await waitFor(() => expect(requests()).toContain("POST /servers/mc-survival/files/upload?path=%2F"));
+    expect(input.value).toBe("");
   });
 
-  it("navigates via breadcrumbs", async () => {
-    // "dir1" isn't in the shared ROOT_ENTRIES fixture, so the root listing
-    // here needs its own entries. The condition order also matters:
-    // "path=%2Fdir1" is a substring of "path=%2Fdir1%2Fdir2", and root's
-    // "path=%2F" is a substring of every path — check the most specific
-    // path first so a deeper request isn't swallowed by a broader match.
-    const rootEntries = [
-      { name: "dir1", path: "/dir1", size: 0, dir: true },
-    ];
-    const nestedEntries = [
-      { name: "file.txt", path: "/dir1/dir2/file.txt", size: 100, dir: false },
-    ];
-    let lastPath = "";
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.includes("path=%2Fdir1%2Fdir2")) {
-        lastPath = "/dir1/dir2";
-        return jsonRes(nestedEntries);
-      }
-      if (url.includes("path=%2Fdir1")) {
-        lastPath = "/dir1";
-        return jsonRes([
-          { name: "dir2", path: "/dir1/dir2", size: 0, dir: true },
-        ]);
-      }
-      if (url.includes("path=%2F")) {
-        lastPath = "/";
-        return jsonRes(rootEntries);
-      }
-      throw new Error(`unexpected fetch: ${url}`);
+  it("disables Upload while an upload is in flight", async () => {
+    const pending = deferredResponse();
+    mockServerProperties({
+      "POST /servers/mc-survival/files/upload?path=%2F": () => pending.promise,
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await waitFor(() => expect(lastPath).toBe("/"));
-    fireEvent.click(await screen.findByText("dir1"));
-    await waitFor(() => expect(lastPath).toBe("/dir1"));
-  });
-
-  it("selects the same file again to show the view pane on mobile", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const { container } = renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    await screen.findByTestId("monaco");
-    // Back to tree pane
-    fireEvent.click(screen.getByRole("button", { name: /back to files/i }));
-    // Click the same file again. Scope the query to the tree pane: once a
-    // file is selected, the (CSS-hidden but still-mounted) editor header
-    // also renders the selected file's name, so an unscoped query for
-    // "server.properties" is ambiguous here.
-    const aside = container.querySelector("aside") as HTMLElement;
-    fireEvent.click(await within(aside).findByText("server.properties"));
-    const main = container.querySelector("main") as HTMLElement;
-    await waitFor(() => {
-      const hasHidden = main.className.split(/\s+/).includes("hidden");
-      expect(hasHidden).toBe(false);
-    });
-  });
-
-  it("shows loading spinner while file is being read", async () => {
-    let resolveRead: ((value: Response) => void) = () => {};
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) {
-        return new Promise<Response>((resolve) => {
-          resolveRead = resolve;
-        });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const { container } = renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("server.properties"));
-    // Should show loader while file is being read. lucide-react icons render
-    // aria-hidden="true" by default, which removes them from the
-    // accessibility tree entirely (the `hidden` option to getByRole only
-    // covers CSS-hidden elements, not aria-hidden ones) — so this can never
-    // find a role="img" element. Query by the spin class instead.
-    const loaders = container.querySelectorAll(".animate-spin");
-    expect(loaders.length).toBeGreaterThan(0);
-    // Resolve the read
-    await act(async () => {
-      resolveRead(textRes("content"));
-    });
-    await screen.findByTestId("monaco");
-  });
-
-  it("shows upload spinner while files are uploading", async () => {
-    let resolveUpload: ((value: Response) => void) = () => {};
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (
-        url.startsWith("/servers/mc-survival/files/upload") &&
-        init?.method === "POST"
-      ) {
-        return new Promise<Response>((resolve) => {
-          resolveUpload = resolve;
-        });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    const uploadBtn = screen.getByRole("button", { name: /Upload/ });
-    const uploadInput = screen.getByTestId("files-upload-input") as HTMLInputElement;
-    const file = new File(["content"], "test.txt");
-    fireEvent.change(uploadInput, { target: { files: { 0: file, length: 1 } as unknown as FileList } });
-    // Upload button should be disabled while uploading
-    await waitFor(() => expect(uploadBtn).toBeDisabled());
-    await act(async () => {
-      resolveUpload(new Response(null, { status: 204 }));
-    });
+    const uploadButton = screen.getByRole("button", { name: /Upload/ });
+    fireEvent.change(screen.getByTestId("files-upload-input"), { target: { files: { 0: new File(["content"], "test.txt"), length: 1 } as unknown as FileList } });
+    await waitFor(() => expect(uploadButton).toBeDisabled());
+    await act(async () => pending.resolve(new Response(null, { status: 204 })));
   });
 
-  it("prevents navigation away when there are unsaved changes", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("original");
-      throw new Error(`unexpected fetch: ${url}`);
+  it("shows the error when upload fails", async () => {
+    mockServerProperties({
+      "POST /servers/mc-survival/files/upload?path=%2F": () => textRes("disk full", 507),
     });
-    const confirmMock = vi.fn(() => false);
-    vi.stubGlobal("confirm", confirmMock);
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.change(screen.getByTestId("files-upload-input"), { target: { files: { 0: new File(["content"], "test.txt"), length: 1 } as unknown as FileList } });
+    expect(await screen.findByText("disk full")).toBeInTheDocument();
+  });
+
+  it("shows the drop overlay on drag over and uploads dropped files", async () => {
+    mockServerProperties({
+      "POST /servers/mc-survival/files/upload?path=%2F": () => new Response(null, { status: 204 }),
+    });
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    const dropzone = screen.getByTestId("files-dropzone");
+    fireEvent.dragOver(dropzone);
+    expect(screen.getByText("Drop files to upload")).toBeInTheDocument();
+    fireEvent.dragLeave(dropzone);
+    expect(screen.queryByText("Drop files to upload")).not.toBeInTheDocument();
+    fireEvent.dragOver(dropzone);
+    fireEvent.drop(dropzone, { dataTransfer: { files: [new File(["content"], "dropped.txt")] } });
+    await waitFor(() => expect(requests()).toContain("POST /servers/mc-survival/files/upload?path=%2F"));
+    expect(screen.queryByText("Drop files to upload")).not.toBeInTheDocument();
+  });
+
+  it("downloads a file from its row button", async () => {
+    mockServerProperties();
+    const restoreLocation = stubLocation();
     try {
-      renderWithQuery(<FilesTab name="mc-survival" />);
-      fireEvent.click(await screen.findByText("server.properties"));
-      const monaco = await screen.findByTestId("monaco");
-      fireEvent.change(monaco, { target: { value: "modified" } });
-      // Try to navigate away
-      fireEvent.click(screen.getByText("config"));
-      expect(confirmMock).toHaveBeenCalled();
-      // Should still show the modified file (navigation cancelled)
-      expect(monaco).toHaveValue("modified");
+      renderWithQuery(<Harness />);
+      fireEvent.click(await screen.findByRole("button", { name: "Download server.properties" }));
+      await waitFor(() => expect(window.location.href).toBe("/servers/mc-survival/files/download?path=%2Fserver.properties"));
     } finally {
-      vi.unstubAllGlobals();
+      restoreLocation();
     }
   });
 
-  it("allows navigation when user confirms discarding changes", async () => {
-    const configEntries = [
-      { name: "file.txt", path: "/config/file.txt", size: 100, dir: false },
-    ];
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url === "/servers/mc-survival/files/list?path=%2F")
-        return jsonRes(ROOT_ENTRIES);
-      if (url === "/servers/mc-survival/files/list?path=%2Fconfig")
-        return jsonRes(configEntries);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const confirmMock = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirmMock);
+  it("downloads the open file from the editor", async () => {
+    mockServerProperties();
+    const restoreLocation = stubLocation();
     try {
-      renderWithQuery(<FilesTab name="mc-survival" />);
-      fireEvent.click(await screen.findByText("server.properties"));
-      const monaco = await screen.findByTestId("monaco");
-      fireEvent.change(monaco, { target: { value: "modified" } });
-      // Confirm discarding changes
-      fireEvent.click(screen.getByText("config"));
-      expect(confirmMock).toHaveBeenCalled();
-      await waitFor(() =>
-        expect(screen.getByText("file.txt")).toBeInTheDocument(),
-      );
+      renderWithQuery(<Harness initialPath="/server.properties" />);
+      await screen.findByTestId("monaco");
+      fireEvent.click(screen.getByRole("button", { name: /^Download$/ }));
+      await waitFor(() => expect(window.location.href).toBe("/servers/mc-survival/files/download?path=%2Fserver.properties"));
     } finally {
-      vi.unstubAllGlobals();
+      restoreLocation();
     }
   });
 
-  it("supports namespace parameter in API calls", async () => {
-    const urls: string[] = [];
-    fetchMock.mockImplementation(async (url: string) => {
-      urls.push(url);
-      if (url.includes("namespace=custom-ns") && url.includes("/files/list")) {
+  it("refetches the folder when Refresh is clicked", async () => {
+    let listCalls = 0;
+    mockServerProperties({
+      [ROOT_LIST]: () => {
+        listCalls += 1;
         return jsonRes(ROOT_ENTRIES);
-      }
-      throw new Error(`unexpected fetch: ${url}`);
+      },
     });
-    renderWithQuery(<FilesTab name="mc-survival" ns="custom-ns" />);
-    await waitFor(() =>
-      expect(urls.some((u) => u.includes("namespace=custom-ns"))).toBe(true),
-    );
-  });
-
-  it("guesses language from filename for Monaco editor", async () => {
-    const entries = [
-      { name: "config.yaml", path: "/config.yaml", size: 100, dir: false },
-      { name: "data.json", path: "/data.json", size: 50, dir: false },
-      { name: "script.sh", path: "/script.sh", size: 200, dir: false },
-    ];
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(entries);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    fireEvent.click(await screen.findByText("config.yaml"));
-    let monaco = await screen.findByTestId("monaco") as HTMLTextAreaElement;
-    // Check that Editor component receives correct language prop
-    expect(monaco).toBeInTheDocument();
-    // Click config.json to test json detection
-    fireEvent.click(screen.getByText("data.json"));
-    monaco = await screen.findByTestId("monaco") as HTMLTextAreaElement;
-    expect(monaco).toBeInTheDocument();
-  });
-
-  it("trims whitespace from folder and file names", async () => {
-    let mkdirURL: string | null = null;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/mkdir") && init?.method === "POST") {
-        mkdirURL = url;
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    fireEvent.click(screen.getByRole("button", { name: /New folder/ }));
-    const input = await screen.findByPlaceholderText("my-folder");
-    fireEvent.change(input, { target: { value: "  my-folder  " } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
-    });
-    await waitFor(() =>
-      expect(mkdirURL).toBe("/servers/mc-survival/files/mkdir?path=%2Fmy-folder"),
-    );
+    const before = listCalls;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(listCalls).toBeGreaterThan(before));
   });
 
-  it("disables save button while mutation is pending", async () => {
-    let resolveSave: ((value: Response) => void) = () => {};
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("original");
-      if (
-        url === "/servers/mc-survival/files/write?path=%2Fserver.properties" &&
-        init?.method === "POST"
-      ) {
-        return new Promise<Response>((resolve) => {
-          resolveSave = resolve;
-        });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
+  it("shows an empty-folder message", async () => {
+    mockServerProperties({ [ROOT_LIST]: () => jsonRes([]) });
+    renderWithQuery(<Harness />);
+    expect(await screen.findByText("This folder is empty.")).toBeInTheDocument();
+  });
+
+  it("scopes requests to the given namespace", async () => {
+    mockRoutes({
+      "GET /servers/mc-survival/files/list?path=%2F&namespace=custom-ns": () => jsonRes(ROOT_ENTRIES),
     });
-    renderWithQuery(<FilesTab name="mc-survival" />);
+    renderWithQuery(<Harness ns="custom-ns" />);
+    expect(await screen.findByText("server.properties")).toBeInTheDocument();
+    expect(requests()).toContain("GET /servers/mc-survival/files/list?path=%2F&namespace=custom-ns");
+  });
+
+  it("shows the read error in the editor area", async () => {
+    mockServerProperties({ [PROPERTIES_READ]: () => textRes("read failed", 500) });
+    renderWithQuery(<Harness />);
     fireEvent.click(await screen.findByText("server.properties"));
-    const monaco = await screen.findByTestId("monaco");
-    fireEvent.change(monaco, { target: { value: "modified" } });
-    const save = screen.getByRole("button", { name: /Save/ });
-    fireEvent.click(save);
-    await waitFor(() => expect(save).toBeDisabled());
-    await act(async () => {
-      resolveSave(new Response(null, { status: 204 }));
-    });
+    expect(await screen.findByText("500: read failed")).toBeInTheDocument();
   });
 
-  it("invalidates file list query after successful new file creation", async () => {
-    let listCallCount = 0;
-    fetchMock.mockImplementation(async (url: string, init?: FetchInit) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) {
-        listCallCount++;
-        return jsonRes(ROOT_ENTRIES);
-      }
-      if (
-        url === "/servers/mc-survival/files/write?path=%2Fnew.txt" &&
-        init?.method === "POST"
-      ) {
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    renderWithQuery(<FilesTab name="mc-survival" />);
-    await screen.findByText("server.properties");
-    const initialCount = listCallCount;
-    fireEvent.click(screen.getByRole("button", { name: /New file/ }));
-    const input = await screen.findByPlaceholderText("config.yaml");
-    fireEvent.change(input, { target: { value: "new.txt" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
-    });
-    await waitFor(() => expect(listCallCount).toBeGreaterThan(initialCount));
+  it("keeps the file when the delete dialog is cancelled", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness initialPath="/server.properties" />);
+    await screen.findByTestId("monaco");
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Cancel/ }));
+    await waitFor(() => expect(screen.queryByText("Delete server.properties?")).not.toBeInTheDocument());
+    expect(requests().some((request) => request.startsWith("DELETE"))).toBe(false);
   });
 
-  it("cancels file read when component unmounts", async () => {
-    let readStarted = false;
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.startsWith("/servers/mc-survival/files/list")) return jsonRes(ROOT_ENTRIES);
-      if (url.startsWith("/servers/mc-survival/files/read")) {
-        readStarted = true;
-        return new Promise(() => {
-          /* never resolves */
-        });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const { unmount } = renderWithQuery(<FilesTab name="mc-survival" />);
+  it("shows a spinner while the file is loading", async () => {
+    const read = deferredResponse();
+    mockServerProperties({ [PROPERTIES_READ]: () => read.promise });
+    const { container } = renderWithQuery(<Harness />);
     fireEvent.click(await screen.findByText("server.properties"));
-    await waitFor(() => expect(readStarted).toBe(true));
-    unmount();
-    // Should not throw or show errors after unmount
-    expect(true).toBe(true);
+    await waitFor(() => expect(requests()).toContain(PROPERTIES_READ));
+    expect(container.querySelectorAll(".animate-spin").length).toBeGreaterThan(0);
+    await act(async () => read.resolve(textRes("content")));
+    expect(await screen.findByTestId("monaco")).toHaveValue("content");
   });
 
-  it("switches pane to tree when navigating with unsaved changes confirmed", async () => {
-    const configEntries = [
-      { name: "file.txt", path: "/config/file.txt", size: 100, dir: false },
-    ];
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url === "/servers/mc-survival/files/list?path=%2F")
-        return jsonRes(ROOT_ENTRIES);
-      if (url === "/servers/mc-survival/files/list?path=%2Fconfig")
-        return jsonRes(configEntries);
-      if (url.startsWith("/servers/mc-survival/files/read")) return textRes("content");
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-    const confirmMock = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirmMock);
-    try {
-      const { container } = renderWithQuery(<FilesTab name="mc-survival" />);
-      fireEvent.click(await screen.findByText("server.properties"));
-      const monaco = await screen.findByTestId("monaco");
-      fireEvent.change(monaco, { target: { value: "modified" } });
-      const aside = container.querySelector("aside") as HTMLElement;
-      // Click config folder to navigate
-      fireEvent.click(screen.getByText("config"));
-      // Should navigate and show tree pane
-      await waitFor(() => {
-        const hasHidden = aside.className.split(/\s+/).includes("hidden");
-        expect(hasHidden).toBe(false);
-      });
-    } finally {
-      vi.unstubAllGlobals();
-    }
+  it("cancels a pending file read when unmounted", async () => {
+    mockServerProperties({ [PROPERTIES_READ]: () => new Promise<Response>(() => undefined) });
+    const { unmount } = renderWithQuery(<Harness initialPath="/server.properties" />);
+    await waitFor(() => expect(requests()).toContain(PROPERTIES_READ));
+    expect(() => unmount()).not.toThrow();
+  });
+
+  it("warns on unload only while edits are unsaved", async () => {
+    mockServerProperties({ [PROPERTIES_WRITE]: recordWrites([]) });
+    renderWithQuery(<Harness initialPath="/server.properties" />);
+    fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "edited" } });
+    expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument(), { timeout: 3000 });
+    expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
   });
 });
 
-function renderWithQuery(ui: ReactElement, options?: Parameters<typeof baseRenderWithQuery>[1]) {
+function Harness({ name = "mc-survival", ns, initialPath = "/" }: { name?: string; ns?: string; initialPath?: string }) {
+  const [path, setPath] = useState(initialPath);
+  return (
+    <>
+      <output data-testid="path">{path}</output>
+      <FilesTab name={name} ns={ns} path={path} onNavigate={setPath} />
+    </>
+  );
+}
+
+function renderWithQuery(ui: ReactElement, { canControl = true }: { canControl?: boolean } = {}) {
   const props = ui.props as { name?: string; ns?: string };
-  return baseRenderWithQuery(<ResourceTargetProvider target={{ cluster: "local", name: props.name ?? "alpha", namespace: props.ns }} access={{ canWrite: true, canControl: true, canConsole: true, canDelete: true, isOwner: true, isCollaborator: false, permissions: ["*"] }}>{ui}</ResourceTargetProvider>, options);
+  return baseRenderWithQuery(
+    <ResourceTargetProvider target={{ cluster: "local", name: props.name ?? "mc-survival", namespace: props.ns }} access={{ canWrite: canControl, canControl, canConsole: canControl, canDelete: canControl, isOwner: true, isCollaborator: false, permissions: ["*"] }}>{ui}</ResourceTargetProvider>,
+  );
 }

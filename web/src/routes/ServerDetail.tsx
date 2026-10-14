@@ -123,6 +123,19 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   const qc = useQueryClient();
   const nav = useNavigate();
   const { data: me } = useMe();
+  const { _splat: filesSplat } = useParams({ strict: false });
+  const filesPath = filesSplat === undefined ? null : `/${filesSplat}`;
+  const activeTab = filesPath === null ? tab : "files";
+
+  function openFiles(path: string) {
+    void nav({ to: "/servers/$name/files/$", params: { name, _splat: path.replace(/^\/+/, "") }, search: true });
+  }
+
+  function selectTab(key: TabKey) {
+    if (key === "files") return openFiles("/");
+    setTab(key);
+    if (filesPath !== null) void nav({ to: "/servers/$name", params: { name }, search: true });
+  }
 
   const { data: gs } = useQuery({
     queryKey: resourceKey(lookupTarget, "server"),
@@ -307,7 +320,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               </Button>
             )}
             {consoleAvailable && (
-              <Button className="rounded-full" onPress={() => setTab("console")}>
+              <Button className="rounded-full" onPress={() => selectTab("console")}>
                 <Terminal className="h-4 w-4" /> Open console
               </Button>
             )}
@@ -328,8 +341,8 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
         <nav className="-mb-px overflow-x-auto scrollbar-thin">
           <Tabs
-            selectedKey={tab}
-            onSelectionChange={(key) => setTab(key as TabKey)}
+            selectedKey={activeTab}
+            onSelectionChange={(key) => selectTab(key as TabKey)}
             className="server-detail-tabs"
           >
             <Tabs.List aria-label="Server detail tabs">
@@ -347,7 +360,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
       <div className="flex-1 overflow-auto scrollbar-thin">
         <Suspense fallback={<TabFallback />}>
-          {tab === "overview" && (
+          {activeTab === "overview" && (
             <OverviewTab
               gs={gs}
               name={name}
@@ -357,9 +370,9 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               onOpenConsole={consoleAvailable ? () => setTab("console") : undefined}
             />
           )}
-          {tab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
-          {tab === "console"  && <ConsoleTab name={name} ns={ns} />}
-          {tab === "logs"     && (
+          {activeTab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
+          {activeTab === "console"  && <ConsoleTab name={name} ns={ns} />}
+          {activeTab === "logs"     && (
             <LogsTab
               name={name}
               ns={ns}
@@ -368,13 +381,13 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               progressMessage={progressMessage}
             />
           )}
-          {tab === "files"    && <FilesTab   name={name} ns={ns} />}
-          {tab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
-          {tab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
-          {tab === "players"  && <PlayersTab name={name} ns={ns} />}
-          {tab === "backups"  && <BackupsTab name={name} ns={ns} />}
-          {tab === "capture"  && <CaptureWidget name={name} ns={ns} gs={gs} />}
-          {tab === "settings" && (
+          {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} />}
+          {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
+          {activeTab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
+          {activeTab === "players"  && <PlayersTab name={name} ns={ns} />}
+          {activeTab === "backups"  && <BackupsTab name={name} ns={ns} />}
+          {activeTab === "capture"  && <CaptureWidget name={name} ns={ns} gs={gs} />}
+          {activeTab === "settings" && (
             <SettingsTab gs={gs} name={name} ns={ns} onDirtyChange={setSettingsDirty} />
           )}
         </Suspense>

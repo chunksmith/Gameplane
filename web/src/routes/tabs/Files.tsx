@@ -1,11 +1,5 @@
 import { useResourceClient, useResourceAccess, useResourceTarget, resourceKey, type ResourceTarget } from "@/lib/resourceTarget";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Modal,
@@ -20,538 +14,507 @@ import {
 } from "@heroui/react";
 import Editor from "@monaco-editor/react";
 import {
-  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  CircleCheck,
   Download,
-  File as FileIcon,
+  FileArchive,
   FilePlus,
+  FileText,
   Folder,
   FolderPlus,
+  House,
   Loader2,
   RefreshCw,
-  Save,
   Trash2,
   Upload,
 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { createResourceClient, type FileEntry } from "@/lib/endpoints";
-import { cn, formatBytes } from "@/lib/utils";
+import type { FileEntry } from "@/lib/endpoints";
+import { cn, formatBytes, formatRelative } from "@/lib/utils";
 
 const ROOT = "/";
+const ROOT_ENTRY: FileEntry = { name: "", path: ROOT, size: 0, dir: true };
+const AUTOSAVE_DELAY_MS = 800;
+const ARCHIVE_PATTERN = /\.(zip|tar|gz|tgz|rar|7z|jar)$/i;
 
-export function FilesTab({ name, ns }: { name: string; ns?: string }) {
+interface ViewProps {
+  resourceTarget: ResourceTarget;
+  path: string;
+  onNavigate: (path: string) => void;
+}
+
+export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: string; path: string; onNavigate: (path: string) => void }) {
   const resourceTarget = useResourceTarget({ name, namespace: ns });
-  // A different server incarnation, namespace or cluster starts a fresh browser.
-  // Old asynchronous work remains attached to the instance that initiated it.
-  return <FilesBrowser key={JSON.stringify(resourceKey(resourceTarget, "file-editor"))} resourceTarget={resourceTarget} />;
+  return <FilesBrowser key={JSON.stringify(resourceKey(resourceTarget, "file-editor"))} resourceTarget={resourceTarget} path={normalize(path)} onNavigate={onNavigate} />;
 }
 
-interface FileDraft {
-  target: ResourceTarget;
-  path: string;
-  selectionId: number;
-  serverContent: string;
-  editorValue: string;
-}
-
-interface FileSave {
-  target: ResourceTarget;
-  path: string;
-  selectionId: number;
-  directory: string;
-  body: string;
-}
-
-function FilesBrowser({ resourceTarget }: { resourceTarget: ResourceTarget }) {
-  const canControl = useResourceAccess()?.canControl === true;
+function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
   const { name, namespace: ns } = resourceTarget;
-  const resourceClient = useResourceClient(resourceTarget);
-  const { Files } = resourceClient;
-  const qc = useQueryClient();
-  const listKey = (cwd: string) => resourceKey(resourceTarget, "files", name, cwd, ns);
-
-  const [cwd, setCwd] = useState(ROOT);
-  const [selection, setSelection] = useState<{ entry: FileEntry; id: number } | null>(null);
-  const selected = selection?.entry ?? null;
-  const selectionCounter = useRef(0);
-  // Below `md` the tree and the file view can't sit side by side — show one
-  // pane at a time, switched by tapping an entry (→ view) or the "Files"
-  // back-button (→ tree). At `md`+ both panes are always visible regardless
-  // of this state (see the `md:flex` overrides below).
-  const [pane, setPane] = useState<"tree" | "view">("tree");
-  const [fileDraft, setFileDraft] = useState<FileDraft | null>(null);
-  const loadedFile = fileDraft?.selectionId === selection?.id &&
-    fileDraft?.path === selected?.path && fileDraft?.target === resourceTarget ? fileDraft : null;
-  const serverContent = loadedFile?.serverContent ?? null;
-  const editorValue = loadedFile?.editorValue ?? "";
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [opError, setOpError] = useState<string | null>(null);
-
-  const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
-  const [mkdirOpen, setMkdirOpen] = useState(false);
-  const [newFileOpen, setNewFileOpen] = useState(false);
-
-  const uploadInputRef = useRef<HTMLInputElement | null>(null);
-
-  const dirty = serverContent !== null && editorValue !== serverContent;
-
-  const { data: entries, isFetching, refetch } = useQuery({
-    queryKey: listKey(cwd),
-    queryFn: ({ signal }) => resourceClient.withSignal(signal).Files.list(name, cwd, ns),
+  const client = useResourceClient(resourceTarget);
+  const parent = parentOf(path);
+  const isRoot = path === ROOT;
+  const parentListing = useQuery({
+    queryKey: listKey(resourceTarget, parent),
+    queryFn: ({ signal }) => client.withSignal(signal).Files.list(name, parent, ns),
+    enabled: !isRoot,
   });
-
-  // Load file contents when a file is selected (and only then). Folder
-  // navigation is handled in onEntryClick to avoid an effect cascade.
-  useEffect(() => {
-    if (!selection || selection.entry.dir) return;
-    const { entry, id } = selection;
-    let aborted = false;
-    const controller = new AbortController();
-    const load = async () => {
-      // Clear any stale error as the first step of a fresh load.
-      setLoadError(null);
-      try {
-        const text = await createResourceClient(resourceTarget, controller.signal).Files.read(name, entry.path, ns);
-        if (aborted || selectionCounter.current !== id) return;
-        setFileDraft({ target: resourceTarget, path: entry.path, selectionId: id, serverContent: text, editorValue: text });
-      } catch (err) {
-        if (aborted || selectionCounter.current !== id) return;
-        setFileDraft(null);
-        setLoadError((err as Error).message);
-      }
-    };
-    void load();
-    return () => {
-      aborted = true;
-      controller.abort();
-    };
-  }, [selection, name, ns, resourceTarget]);
-
-  function clearSelection() {
-    selectionCounter.current++;
-    setSelection(null);
-    setFileDraft(null);
-    setLoadError(null);
-    setOpError(null);
-  }
-
-  function selectFile(entry: FileEntry) {
-    const id = ++selectionCounter.current;
-    // Clear in the selection handler, before a new read can begin. No content
-    // from the previous path may be rendered or used as this file's draft.
-    setFileDraft(null);
-    setLoadError(null);
-    setOpError(null);
-    setSelection({ entry, id });
-    setPane("view");
-  }
-
-  function navigateTo(path: string) {
-    if (dirty && !confirmDiscard()) return;
-    clearSelection();
-    setCwd(path);
-    // Navigating (breadcrumbs, "..") is a browsing action — show the tree
-    // on mobile rather than stranding the user on the now-stale editor pane.
-    setPane("tree");
-  }
-
-  function onEntryClick(e: FileEntry) {
-    if (e.dir) {
-      navigateTo(e.path);
-      return;
-    }
-    if (selected?.path === e.path) {
-      setPane("view");
-      return;
-    }
-    if (dirty && !confirmDiscard()) return;
-    selectFile(e);
-  }
-
-  const saveMutation = useMutation({
-    mutationFn: async ({ target, path, body }: FileSave) => {
-      await createResourceClient(target).Files.write(target.name, path, body, target.namespace);
-    },
-    onSuccess: async (_data, saved) => {
-      void qc.invalidateQueries({ queryKey: ["fleet"] });
-      setFileDraft((current) => current?.selectionId === saved.selectionId &&
-        current.path === saved.path && current.target === saved.target
-        ? { ...current, serverContent: saved.body } : current);
-      // Keep edits typed after Save was pressed, and ignore a completion for a
-      // file that was discarded/reselected (even if its path is the same).
-      if (selectionCounter.current === saved.selectionId) setOpError(null);
-      await qc.invalidateQueries({ queryKey: resourceKey(saved.target, "files", saved.target.name, saved.directory, saved.target.namespace) });
-    },
-    onError: (err: Error, saved) => {
-      if (selectionCounter.current === saved.selectionId) setOpError(err.message);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (entry: FileEntry) => {
-      await Files.remove(name, entry.path, entry.dir, ns);
-      return entry;
-    },
-    onSuccess: async (entry) => {
-      void qc.invalidateQueries({ queryKey: ["fleet"] });
-      if (selected?.path === entry.path) {
-        clearSelection();
-        setPane("tree");
-      }
-      setConfirmDelete(null);
-      await qc.invalidateQueries({ queryKey: listKey(cwd) });
-      setOpError(null);
-    },
-    onError: (err: Error) => setOpError(err.message),
-  });
-
-  const mkdirMutation = useMutation({
-    mutationFn: (folderName: string) =>
-      Files.mkdir(name, joinPath(cwd, folderName), ns),
-    onSuccess: async () => {
-      void qc.invalidateQueries({ queryKey: ["fleet"] });
-      setMkdirOpen(false);
-      await qc.invalidateQueries({ queryKey: listKey(cwd) });
-      setOpError(null);
-    },
-    onError: (err: Error) => setOpError(err.message),
-  });
-
-  const newFileMutation = useMutation({
-    mutationFn: async (fileName: string) => {
-      const path = joinPath(cwd, fileName);
-      await Files.write(name, path, "", ns);
-      return path;
-    },
-    onSuccess: async (path) => {
-      void qc.invalidateQueries({ queryKey: ["fleet"] });
-      setNewFileOpen(false);
-      await qc.invalidateQueries({ queryKey: listKey(cwd) });
-      selectFile({
-        name: path.slice(path.lastIndexOf("/") + 1),
-        path,
-        size: 0,
-        dir: false,
-      });
-      setOpError(null);
-    },
-    onError: (err: Error) => setOpError(err.message),
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: (files: FileList) => Files.upload(name, cwd, files, ns),
-    onSuccess: async () => {
-      void qc.invalidateQueries({ queryKey: ["fleet"] });
-      await qc.invalidateQueries({ queryKey: listKey(cwd) });
-      setOpError(null);
-    },
-    onError: (err: Error) => setOpError(err.message),
-  });
-
-  function onUploadPicked(e: ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (canControl && files && files.length > 0) uploadMutation.mutate(files);
-    e.target.value = "";
-  }
-
-  function downloadSelected() {
-    if (!selected || selected.dir) return;
-    window.location.href = Files.downloadURL(name, selected.path, ns);
-  }
+  const entry = isRoot ? ROOT_ENTRY : parentListing.data?.find((item) => item.name === baseName(path));
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <BreadcrumbsNav cwd={cwd} onNavigate={navigateTo} />
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={!canControl} onPress={() => setNewFileOpen(true)}
-          >
-            <FilePlus className="h-4 w-4" /> New file
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={!canControl} onPress={() => setMkdirOpen(true)}
-          >
-            <FolderPlus className="h-4 w-4" /> New folder
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onPress={() => uploadInputRef.current?.click()}
-            isDisabled={!canControl || uploadMutation.isPending}
-          >
-            {uploadMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}{" "}
-            Upload
-          </Button>
-          <input
-            ref={uploadInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={onUploadPicked}
-            data-testid="files-upload-input"
-          />
-          <Button
-            isIconOnly
-            variant="ghost"
-            size="sm"
-            aria-label="Refresh"
-            onPress={() => refetch()}
-          >
-            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-          </Button>
-        </div>
-      </div>
-
-      {opError && <ErrorBanner err={opError} onDismiss={() => setOpError(null)} />}
-
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-divider bg-surface">
-        <aside
-          className={cn(
-            "w-full shrink-0 flex-col border-r border-divider md:flex md:w-72",
-            pane === "tree" ? "flex" : "hidden",
-          )}
-        >
-          <div className="border-b border-divider bg-background px-3 py-2 font-mono text-xs text-default-500">
-            {cwd}
-          </div>
-          <ul className="flex-1 overflow-auto">
-            {cwd !== ROOT && (
-              <li
-                className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-default-500 hover:bg-default-100"
-                onClick={() => navigateTo(parentOf(cwd))}
-              >
-                <Folder className="h-3 w-3" /> ..
-              </li>
-            )}
-            {entries?.length === 0 && (
-              <li className="px-3 py-4 text-center text-xs text-default-500">
-                Empty folder
-              </li>
-            )}
-            {entries?.map((e) => (
-              <li
-                key={e.path}
-                onClick={() => onEntryClick(e)}
-                className={cn(
-                  "group flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-default-100",
-                  selected?.path === e.path && "bg-primary/10 text-foreground",
-                )}
-              >
-                {e.dir ? (
-                  <Folder className="h-3 w-3 text-default-500" />
-                ) : (
-                  <FileIcon className="h-3 w-3 text-default-500" />
-                )}
-                <span className="truncate">{e.name}</span>
-                {e.dir ? (
-                  // Folders open on click, so the delete action sits in its own
-                  // button and the wrapper keeps its click from reaching the row.
-                  <span className="ml-auto" onClick={(ev) => ev.stopPropagation()}>
-                    <Button
-                      isIconOnly
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Delete ${e.name}`}
-                      isDisabled={!canControl}
-                      onPress={() => setConfirmDelete(e)}
-                      className="h-6 w-6 min-w-6 text-danger md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </span>
-                ) : (
-                  <span className="ml-auto text-xs text-default-500">
-                    {formatBytes(e.size)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        <main
-          className={cn(
-            "min-w-0 flex-1 flex-col md:flex",
-            pane === "view" ? "flex" : "hidden",
-          )}
-        >
-          <div className="flex items-center border-b border-divider bg-background px-2 py-1.5 md:hidden">
-            <Button
-              isIconOnly
-              variant="ghost"
-              size="sm"
-              onPress={() => setPane("tree")}
-              aria-label="Back to files"
-              className="text-default-500"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs text-default-500 ml-1">Files</span>
-          </div>
-          {selected && !selected.dir ? (
-            <>
-              <div className="flex items-center justify-between border-b border-divider bg-background px-4 py-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <FileIcon className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">{selected.name}</span>
-                  {dirty && (
-                    <span className="text-xs text-warning">· modified</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onPress={downloadSelected}
-                  >
-                    <Download className="h-3 w-3" /> Download
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    isDisabled={!canControl} onPress={() => setConfirmDelete(selected)}
-                  >
-                    <Trash2 className="h-3 w-3" /> Delete
-                  </Button>
-                  <Button
-                    size="sm"
-                    isDisabled={!canControl || !loadedFile || !dirty || saveMutation.isPending}
-                    onPress={() => {
-                      if (!canControl || !loadedFile || !dirty || saveMutation.isPending) return;
-                      saveMutation.mutate({ target: loadedFile.target, path: loadedFile.path, selectionId: loadedFile.selectionId, directory: cwd, body: loadedFile.editorValue });
-                    }}
-                    variant="primary"
-                  >
-                    {saveMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Save className="h-3 w-3" />
-                    )}{" "}
-                    Save
-                  </Button>
-                </div>
-              </div>
-              <div className="min-h-0 flex-1 bg-background">
-                {loadError ? (
-                  <div className="grid h-full place-items-center text-sm text-danger">
-                    {loadError}
-                  </div>
-                ) : serverContent === null ? (
-                  <div className="grid h-full place-items-center text-sm text-default-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  </div>
-                ) : (
-                  <Editor
-                    theme="vs-dark"
-                    language={guessLang(selected.name)}
-                    value={editorValue}
-                    onChange={(v) => setFileDraft((current) => current && current.selectionId === selection?.id
-                      ? { ...current, editorValue: v ?? "" } : current)}
-                    options={{
-                      minimap: { enabled: false },
-                      fontFamily: "JetBrains Mono",
-                    }}
-                  />
-                )}
-              </div>
-            </>
+    <div className="flex h-full flex-col gap-4 p-6">
+      {entry?.dir ? (
+        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} />
+      ) : entry ? (
+        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} />
+      ) : (
+        <>
+          <Breadcrumbs path={path} onNavigate={onNavigate} />
+          {parentListing.error ? (
+            <ErrorBanner err={parentListing.error} />
+          ) : parentListing.isPending ? (
+            <Spinner />
           ) : (
-            <div className="grid h-full place-items-center text-sm text-default-500">
-              Select a file to edit.
+            <div className="grid flex-1 place-items-center rounded-lg border border-border bg-surface/50 p-10 text-center">
+              <div className="space-y-3">
+                <p className="text-sm text-muted">Nothing exists at this path.</p>
+                <Button variant="secondary" size="sm" onPress={() => onNavigate(parent)}>
+                  Open {parent === ROOT ? "root folder" : baseName(parent)}
+                </Button>
+              </div>
             </div>
           )}
-        </main>
-      </div>
-
-      {confirmDelete && (
-        <ConfirmDialog
-          open={!!confirmDelete}
-          onOpenChange={(open) => !open && setConfirmDelete(null)}
-          title={`Delete ${confirmDelete.name}?`}
-          description={
-            confirmDelete.dir
-              ? `This permanently removes the folder and everything inside it from the server's data volume. This action cannot be undone.`
-              : `This permanently removes the file from the server's data volume. This action cannot be undone.`
-          }
-          destructive
-          confirmLabel="Delete"
-          busy={deleteMutation.isPending}
-          onConfirm={() => deleteMutation.mutate(confirmDelete)}
-        />
+        </>
       )}
-
-      <NamePromptDialog
-        open={mkdirOpen}
-        onOpenChange={setMkdirOpen}
-        title="New folder"
-        label="Folder name"
-        placeholder="my-folder"
-        confirmLabel="Create"
-        busy={mkdirMutation.isPending}
-        onSubmit={(value) => mkdirMutation.mutate(value)}
-      />
-      <NamePromptDialog
-        open={newFileOpen}
-        onOpenChange={setNewFileOpen}
-        title="New file"
-        label="File name"
-        placeholder="config.yaml"
-        confirmLabel="Create"
-        busy={newFileMutation.isPending}
-        onSubmit={(value) => newFileMutation.mutate(value)}
-      />
     </div>
   );
 }
 
-function BreadcrumbsNav({
-  cwd,
-  onNavigate,
-}: {
-  cwd: string;
-  onNavigate: (p: string) => void;
-}): ReactNode {
-  const segments = cwd === ROOT ? [] : cwd.split("/").filter(Boolean);
+function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
+  const canControl = useResourceAccess()?.canControl === true;
+  const { name, namespace: ns } = resourceTarget;
+  const client = useResourceClient(resourceTarget);
+  const qc = useQueryClient();
+  const queryKey = listKey(resourceTarget, path);
+  const listing = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => client.withSignal(signal).Files.list(name, path, ns),
+  });
+  const [error, setError] = useState<Error | null>(null);
+  const [prompt, setPrompt] = useState<"file" | "folder" | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const uploadInput = useRef<HTMLInputElement | null>(null);
+  const entries = listing.data && sortEntries(listing.data);
+
+  async function refresh() {
+    void qc.invalidateQueries({ queryKey: ["fleet"] });
+    await qc.invalidateQueries({ queryKey });
+    setError(null);
+  }
+
+  const create = useMutation({
+    mutationFn: async ({ kind, entryName }: { kind: "file" | "folder"; entryName: string }) => {
+      const target = joinPath(path, entryName);
+      if (kind === "folder") await client.Files.mkdir(name, target, ns);
+      else await client.Files.write(name, target, "", ns);
+      return { kind, target };
+    },
+    onSuccess: async ({ kind, target }) => {
+      setPrompt(null);
+      await refresh();
+      if (kind === "file") onNavigate(target);
+    },
+    onError: (err: Error) => setError(err),
+  });
+
+  const upload = useMutation({
+    mutationFn: (files: FileList) => client.Files.upload(name, path, files, ns),
+    onSuccess: refresh,
+    onError: (err: Error) => setError(err),
+  });
+
+  function uploadFiles(files: FileList | null) {
+    if (canControl && files && files.length > 0) upload.mutate(files);
+  }
+
+  function onDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!canControl) return;
+    event.preventDefault();
+    setDragging(true);
+  }
+
+  function onDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+  }
+
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    uploadFiles(event.dataTransfer.files);
+  }
+
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-divider bg-background px-3 py-1.5">
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Breadcrumbs path={path} onNavigate={onNavigate} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button isIconOnly variant="ghost" size="sm" aria-label="Refresh" onPress={() => void listing.refetch()}>
+            <RefreshCw className={cn("h-4 w-4", listing.isFetching && "animate-spin")} />
+          </Button>
+          <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("folder")}>
+            <FolderPlus className="h-4 w-4" /> New folder
+          </Button>
+          <Button variant="secondary" size="sm" isDisabled={!canControl || upload.isPending} onPress={() => uploadInput.current?.click()}>
+            {upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
+          </Button>
+          <input
+            ref={uploadInput}
+            type="file"
+            multiple
+            className="hidden"
+            data-testid="files-upload-input"
+            onChange={(event) => {
+              uploadFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <Button variant="primary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("file")}>
+            <FilePlus className="h-4 w-4" /> New file
+          </Button>
+        </div>
+      </div>
+
+      {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
+
+      <div
+        data-testid="files-dropzone"
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className={cn(
+          "relative overflow-hidden rounded-lg border border-border bg-surface/50 transition-colors",
+          dragging && "border-primary",
+        )}
+      >
+        <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-xs font-medium text-muted md:flex">
+          <span className="flex-1 pl-7">Name</span>
+          <span className="w-24 text-right">Size</span>
+          <span className="w-28 text-right">Modified</span>
+          <span className="w-[4.5rem]" />
+        </div>
+        {listing.error ? (
+          <div className="p-4">
+            <ErrorBanner err={listing.error} />
+          </div>
+        ) : !entries ? (
+          <Spinner />
+        ) : entries.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-muted">This folder is empty.</p>
+        ) : (
+          <ul>
+            {entries.map((entry) => (
+              <li key={entry.path} className="group flex items-center border-b border-border last:border-b-0 hover:bg-surface">
+                <button
+                  type="button"
+                  onClick={() => onNavigate(entry.path)}
+                  className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left text-sm"
+                >
+                  <EntryIcon entry={entry} />
+                  <span className="min-w-0 flex-1 truncate text-foreground">{entry.name}</span>
+                  <span className="w-24 shrink-0 text-right text-xs text-muted">{entry.dir ? "" : formatBytes(entry.size)}</span>
+                  <span className="hidden w-28 shrink-0 text-right text-xs text-muted md:block">{formatRelative(entry.modTime)}</span>
+                </button>
+                <div className="flex w-[4.5rem] shrink-0 justify-end gap-1 pr-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+                  {!entry.dir && (
+                    <Button
+                      isIconOnly
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Download ${entry.name}`}
+                      onPress={() => download(client.Files.downloadURL(name, entry.path, ns))}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Delete ${entry.name}`}
+                    isDisabled={!canControl}
+                    onPress={() => setConfirmDelete(entry)}
+                    className="text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-sm font-medium text-primary">
+            <Upload className="h-4 w-4" /> Drop files to upload
+          </div>
+        )}
+      </div>
+
+      {confirmDelete && (
+        <DeleteDialog
+          resourceTarget={resourceTarget}
+          entry={confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          onDeleted={() => {
+            setConfirmDelete(null);
+            setError(null);
+          }}
+          onError={setError}
+        />
+      )}
+      <NamePromptDialog
+        open={prompt === "folder"}
+        onOpenChange={(open) => setPrompt(open ? "folder" : null)}
+        title="New folder"
+        label="Folder name"
+        placeholder="my-folder"
+        confirmLabel="Create"
+        busy={create.isPending}
+        onSubmit={(entryName) => create.mutate({ kind: "folder", entryName })}
+      />
+      <NamePromptDialog
+        open={prompt === "file"}
+        onOpenChange={(open) => setPrompt(open ? "file" : null)}
+        title="New file"
+        label="File name"
+        placeholder="config.yaml"
+        confirmLabel="Create"
+        busy={create.isPending}
+        onSubmit={(entryName) => create.mutate({ kind: "file", entryName })}
+      />
+    </>
+  );
+}
+
+function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { entry: FileEntry }) {
+  const canControl = useResourceAccess()?.canControl === true;
+  const { name, namespace: ns } = resourceTarget;
+  const client = useResourceClient(resourceTarget);
+  const qc = useQueryClient();
+  const content = useQuery({
+    queryKey: resourceKey(resourceTarget, "file-content", name, path, ns),
+    queryFn: ({ signal }) => client.withSignal(signal).Files.read(name, path, ns),
+    gcTime: 0,
+    staleTime: Infinity,
+  });
+  const [draft, setDraft] = useState<{ value: string; saved: string } | null>(null);
+  const [failed, setFailed] = useState<{ body: string; error: Error } | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const flush = useRef(() => {});
+  const deleted = useRef(false);
+  if (draft === null && content.data !== undefined) setDraft({ value: content.data, saved: content.data });
+  const dirty = draft !== null && draft.value !== draft.saved;
+
+  const { mutate: save, isPending: saving } = useMutation({
+    scope: { id: JSON.stringify(resourceKey(resourceTarget, "file-save", path)) },
+    mutationFn: (body: string) => client.Files.write(name, path, body, ns),
+    onSuccess: (_data, body) => {
+      setFailed(null);
+      setDraft((current) => current && { ...current, saved: body });
+      void qc.invalidateQueries({ queryKey: ["fleet"] });
+      void qc.invalidateQueries({ queryKey: listKey(resourceTarget, parentOf(path)), refetchType: "none" });
+    },
+    onError: (err: Error, body) => setFailed({ body, error: err }),
+  });
+
+  useEffect(() => {
+    if (!canControl || !draft || !dirty || saving || confirmDelete || draft.value === failed?.body) return;
+    const timer = window.setTimeout(() => {
+      if (!deleted.current) save(draft.value);
+    }, AUTOSAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [canControl, draft, dirty, saving, confirmDelete, failed, save]);
+
+  useEffect(() => {
+    flush.current = () => {
+      if (canControl && draft && dirty && !deleted.current) save(draft.value);
+    };
+  });
+
+  useEffect(() => () => flush.current(), []);
+
+  useEffect(() => {
+    if (!canControl || !dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [canControl, dirty]);
+
+  const saveState = !canControl
+    ? "Read only"
+    : failed && failed.body === draft?.value
+      ? "Save failed"
+      : dirty || saving ? "Saving…" : "Saved";
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Breadcrumbs path={path} onNavigate={onNavigate} />
+        <div className="flex items-center gap-2">
+          {draft && (
+            <span role="status" className="flex items-center gap-1.5 pr-1 text-xs text-muted">
+              {SAVE_ICONS[saveState]} {saveState}
+            </span>
+          )}
+          <Button variant="secondary" size="sm" onPress={() => download(client.Files.downloadURL(name, path, ns))}>
+            <Download className="h-4 w-4" /> Download
+          </Button>
+          <Button variant="danger" size="sm" isDisabled={!canControl} onPress={() => setConfirmDelete(true)}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
+      </div>
+
+      {failed && <ErrorBanner err={failed.error} onDismiss={() => setFailed(null)} />}
+      {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
+
+      <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-lg border border-border bg-background">
+        {content.error ? (
+          <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
+        ) : draft === null ? (
+          <Spinner />
+        ) : (
+          <Editor
+            wrapperProps={{ className: "absolute inset-0" }}
+            theme="vs-dark"
+            language={guessLang(entry.name)}
+            value={draft.value}
+            onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
+            onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
+            options={{
+              minimap: { enabled: false },
+              fontFamily: "JetBrains Mono",
+              readOnly: !canControl,
+            }}
+          />
+        )}
+      </div>
+
+      {confirmDelete && (
+        <DeleteDialog
+          resourceTarget={resourceTarget}
+          entry={entry}
+          onClose={() => setConfirmDelete(false)}
+          onDeleted={() => {
+            deleted.current = true;
+            onNavigate(parentOf(path));
+          }}
+          onError={setError}
+        />
+      )}
+    </>
+  );
+}
+
+const SAVE_ICONS: Record<string, ReactNode> = {
+  "Read only": null,
+  "Save failed": <CircleAlert className="h-3.5 w-3.5 text-danger" />,
+  "Saving…": <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+  Saved: <CircleCheck className="h-3.5 w-3.5 text-success" />,
+};
+
+function DeleteDialog({
+  resourceTarget,
+  entry,
+  onClose,
+  onDeleted,
+  onError,
+}: {
+  resourceTarget: ResourceTarget;
+  entry: FileEntry;
+  onClose: () => void;
+  onDeleted: () => void;
+  onError: (err: Error) => void;
+}) {
+  const { name, namespace: ns } = resourceTarget;
+  const client = useResourceClient(resourceTarget);
+  const qc = useQueryClient();
+  const remove = useMutation({
+    mutationFn: () => client.Files.remove(name, entry.path, entry.dir, ns),
+    onSuccess: async () => {
+      onDeleted();
+      void qc.invalidateQueries({ queryKey: ["fleet"] });
+      await qc.invalidateQueries({ queryKey: listKey(resourceTarget, parentOf(entry.path)) });
+    },
+    onError,
+  });
+  return (
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={`Delete ${entry.name}?`}
+      description={
+        entry.dir
+          ? "This permanently removes the folder and everything inside it from the server's data volume. This action cannot be undone."
+          : "This permanently removes the file from the server's data volume. This action cannot be undone."
+      }
+      destructive
+      confirmLabel="Delete"
+      busy={remove.isPending}
+      onConfirm={() => remove.mutate()}
+    />
+  );
+}
+
+function Breadcrumbs({ path, onNavigate }: { path: string; onNavigate: (path: string) => void }) {
+  const segments = path.split("/").filter(Boolean);
+  return (
+    <nav aria-label="Path" className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
       <button
         type="button"
-        className="text-default-500 hover:text-foreground text-xs font-mono"
+        aria-label="Root folder"
         onClick={() => onNavigate(ROOT)}
+        className="rounded p-1 text-muted hover:bg-surface hover:text-foreground"
       >
-        /
+        <House className="h-4 w-4" />
       </button>
-      {segments.map((seg, i) => {
-        const path = "/" + segments.slice(0, i + 1).join("/");
-        const isLast = i === segments.length - 1;
+      {segments.map((segment, index) => {
+        const target = `/${segments.slice(0, index + 1).join("/")}`;
+        const last = index === segments.length - 1;
         return (
-          <span key={path} className="flex items-center gap-0.5">
+          <span key={target} className="flex min-w-0 items-center gap-1">
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted" />
             <button
               type="button"
+              aria-current={last ? "page" : undefined}
+              onClick={() => onNavigate(target)}
               className={cn(
-                "text-xs font-mono hover:text-foreground",
-                isLast
-                  ? "font-medium text-foreground"
-                  : "text-default-500",
+                "truncate rounded px-1.5 py-0.5 font-mono",
+                last ? "font-medium text-foreground" : "text-muted hover:bg-surface hover:text-foreground",
               )}
-              onClick={() => onNavigate(path)}
             >
-              {seg}
+              {segment}
             </button>
-            {!isLast && <span className="text-default-500">/</span>}
           </span>
         );
       })}
+    </nav>
+  );
+}
+
+function EntryIcon({ entry }: { entry: FileEntry }) {
+  if (entry.dir) return <Folder className="h-4 w-4 shrink-0 text-primary" />;
+  const Icon = ARCHIVE_PATTERN.test(entry.name) ? FileArchive : FileText;
+  return <Icon className="h-4 w-4 shrink-0 text-muted" />;
+}
+
+function Spinner() {
+  return (
+    <div className="grid flex-1 place-items-center py-10">
+      <Loader2 className="h-5 w-5 animate-spin text-muted" />
     </div>
   );
 }
@@ -651,22 +614,35 @@ function NamePromptDialog({
   );
 }
 
+function listKey(target: ResourceTarget, dir: string) {
+  return resourceKey(target, "files", target.name, dir, target.namespace);
+}
+
+function normalize(path: string): string {
+  return `/${path.split("/").filter(Boolean).join("/")}`;
+}
+
+function baseName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+function parentOf(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index <= 0 ? ROOT : path.slice(0, index);
+}
+
 function joinPath(dir: string, name: string): string {
-  if (dir === ROOT) return ROOT + name;
-  return dir.replace(/\/$/, "") + "/" + name;
+  return dir === ROOT ? `/${name}` : `${dir}/${name}`;
 }
 
-function parentOf(p: string): string {
-  if (p === ROOT || p === "") return ROOT;
-  const trimmed = p.replace(/\/$/, "");
-  const idx = trimmed.lastIndexOf("/");
-  return idx <= 0 ? ROOT : trimmed.slice(0, idx);
-}
-
-function confirmDiscard(): boolean {
-  return window.confirm(
-    "You have unsaved changes. Discard them and continue?",
+function sortEntries(entries: FileEntry[]): FileEntry[] {
+  return [...entries].sort((a, b) =>
+    Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
   );
+}
+
+function download(url: string) {
+  window.location.href = url;
 }
 
 function guessLang(name: string): string {
