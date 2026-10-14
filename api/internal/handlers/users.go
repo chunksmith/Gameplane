@@ -19,6 +19,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
+	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
 
@@ -41,6 +42,7 @@ func MountUsers(r chi.Router, store *db.Store, sessions *auth.SessionStore, clus
 		r.Post("/{id}/bindings", h.addBinding)
 		r.Delete("/{id}/bindings/{role}/{namespace}", h.deleteBinding)
 	})
+	mountNetworks(r, store)
 }
 
 type userHandler struct {
@@ -127,7 +129,7 @@ func (h *userHandler) create(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	if body.Role == "" {
-		body.Role = "viewer"
+		body.Role = rbac.RoleMember
 	}
 	if ok, err := h.db.RoleExists(req.Context(), body.Role); err != nil {
 		httperr.Write(w, req, err)

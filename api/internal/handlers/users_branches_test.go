@@ -39,7 +39,7 @@ func TestUsers_Create_ValidationBranches(t *testing.T) {
 	}
 }
 
-func TestUsers_Create_NoPasswordDefaultsToPendingViewer(t *testing.T) {
+func TestUsers_Create_NoPasswordDefaultsToPendingMember(t *testing.T) {
 	srv, _, _ := newUsersServer(t, &auth.User{ID: 1, Role: "admin"})
 	status, body := doReq(t, "POST", srv.URL+"/users", map[string]any{"username": "pendinguser"})
 	if status != http.StatusOK {
@@ -52,8 +52,8 @@ func TestUsers_Create_NoPasswordDefaultsToPendingViewer(t *testing.T) {
 	if u.Provider != "pending" {
 		t.Fatalf("provider=%q want pending", u.Provider)
 	}
-	if u.Role != "viewer" {
-		t.Fatalf("role=%q want viewer (default)", u.Role)
+	if u.Role != "member" {
+		t.Fatalf("role=%q want member (default)", u.Role)
 	}
 }
 
