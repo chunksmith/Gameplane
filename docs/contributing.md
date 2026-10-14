@@ -7,15 +7,13 @@ make dev-up      # creates kind cluster, builds images, installs Helm chart
 make web-dev     # starts the Vite dev server with proxy to in-cluster API
 ```
 
-## Design first for UI changes
+## UI design
 
-**Any change to the web dashboard's visual surface starts in
-`design.pen` (Pencil), not in code.** Open `design.pen`, update the
-relevant screen, review with the maintainers, *then* translate to
-React. This keeps the 18 designed screens the source of truth and
-prevents the dashboard from drifting into code-led redesigns.
-
-Backend/operator/API changes do not need a Pencil pass.
+UI changes are designed directly in code. Keep them modern and
+consistent: build on HeroUI v3 components and the semantic tokens in
+`web/src/styles/globals.css`, stay responsive down to mobile widths,
+and check both light and dark themes. No separate design tool or
+design file is required.
 
 ## UI components
 
@@ -137,7 +135,7 @@ the same review, lint, and test gates below.
 
 1. Fork + feature branch
 2. **Do not run `make test` or `make lint` locally.** A quick compile check (`go build ./...` or `tsc --noEmit`) is fine to avoid pushing obviously-broken code, but the full test and lint suites run only on CI (GitHub Actions) — that is where they are gated and where failures surface. The exception is workflow changes: if you modify `.github/workflows/` or `.github/actions/`, run `actionlint` and `zizmor` locally before pushing (see CI and workflows section above).
-3. For UI work, include the Pencil node id(s) touched in the PR description
+3. For UI work, include before/after screenshots in the PR description
 4. Sign commits (`git commit -s`)
 5. **PR labels**: every PR must carry at least one `type:` and one `area:` label. CodeRabbit (see Code review below) applies them automatically, and the `auto-label` workflow (`hack/auto_label.py`, every 15 minutes) fills in a missing `type:` from the conventional-commit title prefix and a missing `area:` from the changed paths; `type: security` is never derived. You are responsible for verifying they are correct. The `type:` taxonomy is `feature` / `fix` / `refactor` / `test` / `ci` / `chore` / `docs` / `security`. The `area:` taxonomy is `operator` / `api` / `agent` / `web` / `modules` / `chart` / `e2e` / `specs` / `shared` / `optional-components`. A breaking CRD, API, or chart-value change also takes `breaking`. The `status:` labels (`blocked`, `needs-maintainer`, `in-progress`) are optional. A PR spanning several components takes several `area:` labels rather than being left unlabelled.
 

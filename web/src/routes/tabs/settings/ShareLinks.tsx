@@ -540,7 +540,7 @@ export function ShareLinksSection({ name, ns }: ShareLinksProps) {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-base font-medium">Share links</h3>
+          <h3 className="text-lg font-semibold">Share links</h3>
           <p className="mt-1 text-sm text-muted">
             Let people without a Gameplane account check this server&apos;s status and connection
             address. Only the owner can create or revoke links.
