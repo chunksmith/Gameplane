@@ -237,6 +237,7 @@ func (r *GameServerReconciler) reconcileTunnel(
 			FSGroup:        &uid,
 			SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 		}
+		dep.Spec.Template.Spec.ImagePullSecrets = r.ImagePullSecrets
 
 		// ServiceAccountName: only playit needs the grant to patch status with
 		// the assigned address. Other providers (frp, tailscale) use static
