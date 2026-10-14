@@ -2,7 +2,7 @@
 # actual contents of this checkout. Enforcement lives in
 # .claude/settings.json permissions.deny; keep the two in sync.
 
-# CLAUDE.md rule 2 — .pen files are Pencil-MCP-only (multi-MB JSON)
+# Legacy multi-MB .pen design files
 *.pen
 design.pen.bak
 

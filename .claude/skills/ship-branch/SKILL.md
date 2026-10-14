@@ -1,6 +1,6 @@
 ---
 name: ship-branch
-description: "Use when a branch is ready to become a PR, or a merged PR needs closing out — encodes this repo's PR labels, ruleset, and branch-hygiene rules."
+description: "Use when a branch is ready to become a PR, or a merged PR needs closing out — encodes this repo's PR target (chunksmith/Gameplane only, never upstream), labels, and branch-hygiene rules."
 ---
 
 ## Push & Watch CI
@@ -36,13 +36,13 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
    - The new commit re-triggers CI automatically.
    - Repeat until the branch is green.
 
-5. **Do not request review until CI is green.** Rule 12 / `dismiss_stale_reviews_on_push` means any later commits **drop an approval** — get the branch fully passing before asking.
+5. **Do not request review until CI is green.** Get the branch fully passing before asking.
 
 ## Create the PR
 
-6. Open the PR:
+6. Open the PR on `chunksmith/Gameplane` only (rule 19). **NEVER** open a PR against `GameplanePanel/Gameplane` or any other upstream; `origin` is a fork, so `--repo` is mandatory:
    ```sh
-   gh pr create --title "brief title (under 70 chars)" --body "$(cat <<'EOF'
+   gh pr create --repo chunksmith/Gameplane --base master --head <branch-name> --title "brief title (under 70 chars)" --body "$(cat <<'EOF'
    ## Summary
    - Change 1
    - Change 2
@@ -62,7 +62,7 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
    **Add labels via REST API** (rule 14: `gh pr edit` is broken on this repo):
    ```sh
    # Example: type:fix + area:api
-   gh api -X POST repos/GameplanePanel/Gameplane/issues/<PR_NUMBER>/labels \
+   gh api -X POST repos/chunksmith/Gameplane/issues/<PR_NUMBER>/labels \
      -f "labels[]=type: fix" \
      -f "labels[]=area: api"
    ```
@@ -75,13 +75,13 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
 
 8. Verify labels were applied:
    ```sh
-   gh api repos/GameplanePanel/Gameplane/issues/<PR_NUMBER>/labels \
+   gh api repos/chunksmith/Gameplane/issues/<PR_NUMBER>/labels \
      -q '[.[].name]|join(", ")'
    ```
 
 ## Await Maintainer Merge
 
-9. The PR is now blocked waiting on the maintainer (rule 12: `required_approving_review_count: 1` and self-approval is impossible). Do not use `gh pr merge --admin` or any other bypass.
+9. The PR now waits on the maintainer (rule 12: agents never merge). Do not use `gh pr merge`, `--admin` or any other bypass.
 
 10. Watch for the maintainer's approval and merge. Once merged:
 
@@ -101,7 +101,8 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
 
 ## Notes
 
-- **Master is protected** by a ruleset (rule 12): direct pushes refused, requires approval, dismisses stale reviews on later pushes.
+- **PRs only on `chunksmith/Gameplane`** (rule 19): head and base both in the fork, never upstream.
+- **Never push to `master`** (rule 12); a human merges.
 - **Codegen output** (e.g., CRD regenerates per rule 7) goes in the same commit as the source change that triggered it.
 - **Breaking changes** to CRDs, API, or the Helm chart require the `breaking` label (rule 14).
 - **Session URL**: both the PR body footer and the commit trailer must cite the session that produced the work.
