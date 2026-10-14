@@ -5,6 +5,7 @@ import { Button, Tabs } from "@heroui/react";
 import {
   AlertTriangle,
   CalendarClock,
+  Check,
   HardDrive,
   Layers,
   Link2,
@@ -16,6 +17,7 @@ import {
   Sliders,
   SlidersHorizontal,
   Variable,
+  type LucideIcon,
 } from "lucide-react";
 
 import type { GameServer } from "@/types";
@@ -23,6 +25,7 @@ import { APIError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { mergeDraftOntoLatest, SettingsConflictError } from "@/lib/settingsMerge";
 import { validateConfig } from "@/lib/validation";
+import { cn } from "@/lib/utils";
 
 
 import { GeneralSection } from "./settings/General";
@@ -56,20 +59,29 @@ type SectionKey =
   | "sharelinks"
   | "danger";
 
-const SECTIONS: { key: SectionKey; label: string; icon: typeof SettingsIcon }[] = [
-  { key: "general",    label: "General",       icon: SettingsIcon },
-  { key: "version",    label: "Version",       icon: Layers },
+interface Section {
+  key: SectionKey;
+  label: string;
+  icon: LucideIcon;
+  description?: string;
+  framed?: boolean;
+  divider?: boolean;
+}
+
+const SECTIONS: Section[] = [
+  { key: "general",    label: "General",            icon: SettingsIcon,      framed: true, description: "Identity, description, container image and labels." },
+  { key: "version",    label: "Version",            icon: Layers },
   { key: "config",     label: "Game configuration", icon: SlidersHorizontal },
-  { key: "resources",  label: "Resources",     icon: HardDrive },
-  { key: "networking", label: "Networking",    icon: Network },
-  { key: "env",        label: "Environment",   icon: Variable },
-  { key: "lifecycle",  label: "Lifecycle",     icon: Sliders },
-  { key: "backups",    label: "Scheduled backups", icon: CalendarClock },
-  { key: "capture",    label: "Network capture", icon: RadioTower },
-  { key: "placement",  label: "Placement",     icon: MapPin },
-  { key: "access",     label: "RBAC & access", icon: ShieldCheck },
-  { key: "sharelinks", label: "Share links",   icon: Link2 },
-  { key: "danger",     label: "Danger zone",   icon: AlertTriangle },
+  { key: "resources",  label: "Resources",          icon: HardDrive,         framed: true, divider: true, description: "CPU, memory and storage reserved for the game container." },
+  { key: "networking", label: "Networking",         icon: Network,           framed: true, description: "Service exposure, tunnels and ports that players connect through." },
+  { key: "env",        label: "Environment",        icon: Variable,          framed: true, description: "Environment variables passed to the game container." },
+  { key: "lifecycle",  label: "Lifecycle",          icon: Sliders,           framed: true, divider: true, description: "Auto-restart, graceful shutdown, health probes and idle auto-sleep." },
+  { key: "backups",    label: "Scheduled backups",  icon: CalendarClock,     framed: true, description: "Recurring backups of this server's data volume." },
+  { key: "capture",    label: "Network capture",    icon: RadioTower,        framed: true, description: "Packet capture for debugging connection problems." },
+  { key: "placement",  label: "Placement",          icon: MapPin,            framed: true, description: "Kubernetes scheduling rules: node tolerations and affinity." },
+  { key: "access",     label: "RBAC & access",      icon: ShieldCheck,       divider: true, description: "The owner and collaborators who can manage this server." },
+  { key: "sharelinks", label: "Share links",        icon: Link2 },
+  { key: "danger",     label: "Danger zone",        icon: AlertTriangle,     divider: true, description: "Irreversible actions for this server. Proceed with care." },
 ];
 
 export interface SettingsTabProps {
@@ -249,21 +261,30 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
   // Without servers:write the Game configuration section is view-only and the
   // footer shows a note instead of Discard/Save.
   const readOnlyConfig = section === "config" && !access?.canWrite;
+  const active = SECTIONS.find((s) => s.key === section);
 
   return (
     <div className="flex h-full">
-      <nav className="w-56 shrink-0 border-r border-border bg-surface/30 p-2">
+      <nav className="w-60 shrink-0 overflow-y-auto border-r border-border p-3 scrollbar-thin">
         <Tabs
           selectedKey={section}
           onSelectionChange={(k) => {
             setSection(k as SectionKey);
           }}
           orientation="vertical"
+          className="server-settings-nav"
         >
-          <Tabs.List>
-            {sections.map((s) => (
-              <Tabs.Tab key={s.key} id={s.key}>
-                {s.label}
+          <Tabs.List aria-label="Settings sections">
+            {sections.map(({ key, label, icon: Icon, divider }) => (
+              <Tabs.Tab
+                key={key}
+                id={key}
+                data-divider={divider || undefined}
+                data-danger={key === "danger" || undefined}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{label}</span>
+                <Tabs.Indicator />
               </Tabs.Tab>
             ))}
           </Tabs.List>
@@ -273,33 +294,38 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Share dialogs own their state independently of the settings draft.
             A status refresh must not discard a newly issued, one-time token. */}
-        <fieldset key={section === "sharelinks" ? "sharelinks" : draftRevision} disabled={save.isPending} inert={save.isPending} className="min-w-0 flex-1 overflow-auto border-0 p-6 scrollbar-thin">
-          {section === "general"    && <GeneralSection    draft={draft} onChange={onChangeDraft} template={template} />}
-          {section === "version"    && <VersionSection    draft={draft} onChange={onChangeDraft} template={template} />}
-          {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
-          {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} />}
-          {section === "networking" && <NetworkingSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.networking} />}
-          {section === "env"        && <EnvVarsSection    draft={draft} onChange={onChangeDraft} template={template} />}
-          {section === "lifecycle"  && <LifecycleSection  draft={draft} onChange={onChangeDraft} template={template} />}
-          {section === "backups"    && <BackupsSection    draft={draft} onChange={onChangeDraft} template={template} />}
-          {section === "capture"    && <NetworkCaptureSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.capture} />}
-          {section === "placement"  && (
-            <Suspense fallback={<div className="text-sm text-muted">Loading…</div>}>
-              <PlacementSection
-                draft={draft}
-                onChange={onChangeDraft}
-                template={template}
-                onValidityChange={validityCallbacks.placement}
-              />
-            </Suspense>
-          )}
-          {section === "access"     && <AccessSection     gs={gs} />}
-          {section === "sharelinks" && <ShareLinksSection name={name} ns={ns} />}
-          {section === "danger"     && <DangerSection     name={name} ns={ns} />}
+        <fieldset key={section === "sharelinks" ? "sharelinks" : draftRevision} disabled={save.isPending} inert={save.isPending} className="min-w-0 flex-1 overflow-auto border-0 p-6 scrollbar-thin lg:px-10 lg:py-8">
+          <div className="max-w-4xl">
+            {active?.description && <SectionHeader section={active} />}
+            <div className={cn(active?.framed && "rounded-xl border border-border bg-card p-6")}>
+              {section === "general"    && <GeneralSection    draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "version"    && <VersionSection    draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
+              {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "networking" && <NetworkingSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.networking} />}
+              {section === "env"        && <EnvVarsSection    draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "lifecycle"  && <LifecycleSection  draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "backups"    && <BackupsSection    draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "capture"    && <NetworkCaptureSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.capture} />}
+              {section === "placement"  && (
+                <Suspense fallback={<div className="text-sm text-muted">Loading…</div>}>
+                  <PlacementSection
+                    draft={draft}
+                    onChange={onChangeDraft}
+                    template={template}
+                    onValidityChange={validityCallbacks.placement}
+                  />
+                </Suspense>
+              )}
+              {section === "access"     && <AccessSection     gs={gs} />}
+              {section === "sharelinks" && <ShareLinksSection name={name} ns={ns} />}
+              {section === "danger"     && <DangerSection     name={name} ns={ns} />}
+            </div>
+          </div>
         </fieldset>
 
         {section !== "danger" && section !== "access" && section !== "sharelinks" && (
-          <footer className="flex items-center justify-between gap-4 border-t border-border bg-surface/30 px-6 py-3">
+          <footer className="flex items-center justify-between gap-4 border-t border-border bg-background px-6 py-3 lg:px-10">
             <div className="min-w-0 text-xs">
               {conflict && !error && (
                 <span className="text-warning">
@@ -324,10 +350,16 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
                 </span>
               )}
               {!conflict && !error && dirty && (
-                <span className="text-muted">Unsaved changes</span>
+                <span className="inline-flex items-center gap-2 text-warning">
+                  <span className="h-2 w-2 rounded-full bg-warning" />
+                  Unsaved changes
+                </span>
               )}
               {!conflict && !error && !dirty && savedAt && (
-                <span className="text-muted">Saved.</span>
+                <span className="inline-flex items-center gap-1.5 text-success">
+                  <Check className="h-3.5 w-3.5" />
+                  Saved.
+                </span>
               )}
               {readOnlyConfig && (
                 <span className="text-muted">
@@ -356,6 +388,26 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
             )}
           </footer>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ section }: { section: Section }) {
+  const Icon = section.icon;
+  return (
+    <div className="flex items-start gap-3 pb-6">
+      <span
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+          section.key === "danger" ? "bg-danger/10 text-danger" : "bg-primary/10 text-primary",
+        )}
+      >
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold leading-tight text-fg">{section.label}</h2>
+        <p className="pt-1 text-[13px] text-muted">{section.description}</p>
       </div>
     </div>
   );

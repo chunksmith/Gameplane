@@ -1,8 +1,10 @@
 import { Input, TextArea, Button } from "@heroui/react";
-import { X } from "lucide-react";
+import { Lock, Plus, Tag, X } from "lucide-react";
 import { useState } from "react";
 import { DESCRIPTION_ANNOTATION, type SectionProps } from "./types";
 import { Field } from "./Field";
+
+const DESCRIPTION_MAX = 1024;
 
 export function GeneralSection({ draft, onChange, template }: SectionProps) {
   const annotations = draft.metadata.annotations ?? {};
@@ -41,23 +43,36 @@ export function GeneralSection({ draft, onChange, template }: SectionProps) {
     setLabelDraft({ key: "", value: "" });
   };
 
+  const removeLabel = (key: string) => {
+    const next = { ...labels };
+    delete next[key];
+    setLabels(next);
+  };
+
+  const labelEntries = Object.entries(labels);
+
   return (
     <div className="space-y-6">
       <Field label="Name" hint="Pinned to the GameServer UID; cannot change.">
-        <Input value={draft.metadata.name} disabled />
+        <LockedInput value={draft.metadata.name} />
       </Field>
 
       <Field label="Template">
-        <Input value={draft.spec.templateRef.name} disabled />
+        <LockedInput value={draft.spec.templateRef.name} />
       </Field>
 
       <Field label="Description" hint="Shown in the dashboard server list.">
         <TextArea
           value={description}
           onChange={(e) => setAnnotation(DESCRIPTION_ANNOTATION, e.target.value)}
-          maxLength={1024}
+          maxLength={DESCRIPTION_MAX}
+          rows={3}
           placeholder="Long-standing survival realm. Invite-only."
+          className="w-full resize-y"
         />
+        <div className="pt-1.5 text-right text-xs tabular-nums text-muted">
+          {description.length}/{DESCRIPTION_MAX}
+        </div>
       </Field>
 
       <Field label="Image override" hint="Pin a specific game-container image. Leave blank to use the template default.">
@@ -71,55 +86,59 @@ export function GeneralSection({ draft, onChange, template }: SectionProps) {
           }
           placeholder={template?.spec.image ?? "(template image)"}
           spellCheck={false}
+          className="w-full font-mono text-[13px]"
         />
       </Field>
 
       <Field label="Labels" hint="Free-form Kubernetes labels.">
-        <div className="space-y-2">
-          {Object.entries(labels).map(([k, v]) => (
-            <div key={k} className="flex items-center gap-2 rounded border border-border bg-surface/40 px-2 py-1">
-              <span className="font-mono text-xs text-muted">{k}</span>
-              <span className="text-muted">=</span>
-              <span className="font-mono text-xs text-fg">{v}</span>
-              {/* The tooltip lives on a wrapping element's title (react-aria's
-                  Button strips a bare `title` prop) so the button keeps its
-                  aria-label as the accessible name for role queries. */}
-              <span title="Remove label" className="ml-auto">
-                <Button
-                  isIconOnly
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Remove label"
-                  onPress={() => {
-                    const next = { ...labels };
-                    delete next[k];
-                    setLabels(next);
-                  }}
+        <div className="space-y-3">
+          {labelEntries.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {labelEntries.map(([key, value]) => (
+                <span
+                  key={key}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-default py-0.5 pl-2 pr-0.5 font-mono text-xs"
                 >
-                  <X className="h-3 w-3" />
-                </Button>
-              </span>
+                  <Tag className="h-3 w-3 text-muted" />
+                  <span className="text-muted">{key}</span>
+                  <span className="text-muted">=</span>
+                  <span className="text-fg">{value}</span>
+                  {/* The tooltip lives on a wrapping element's title (react-aria's
+                      Button strips a bare `title` prop) so the button keeps its
+                      aria-label as the accessible name for role queries. */}
+                  <span title="Remove label">
+                    <Button
+                      isIconOnly
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Remove label"
+                      onPress={() => removeLabel(key)}
+                      className="h-6 w-6 min-w-6"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </span>
+                </span>
+              ))}
             </div>
-          ))}
+          )}
           <div className="flex items-center gap-2">
             <Input
               value={labelDraft.key}
               onChange={(e) => setLabelDraft({ ...labelDraft, key: e.target.value })}
               placeholder="key"
-              className="flex-1"
+              spellCheck={false}
+              className="min-w-0 flex-1 font-mono text-[13px]"
             />
             <Input
               value={labelDraft.value}
               onChange={(e) => setLabelDraft({ ...labelDraft, value: e.target.value })}
               placeholder="value"
-              className="flex-1"
+              spellCheck={false}
+              className="min-w-0 flex-1 font-mono text-[13px]"
             />
-            <Button
-              size="sm"
-              variant="outline"
-              onPress={addLabel}
-              isDisabled={!labelDraft.key.trim()}
-            >
+            <Button variant="outline" onPress={addLabel} isDisabled={!labelDraft.key.trim()}>
+              <Plus className="h-4 w-4" />
               Add
             </Button>
           </div>
@@ -129,3 +148,15 @@ export function GeneralSection({ draft, onChange, template }: SectionProps) {
   );
 }
 
+function LockedInput({ value }: { value: string }) {
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        disabled
+        className="w-full pr-9 font-mono text-[13px] disabled:text-muted disabled:opacity-100"
+      />
+      <Lock className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+    </div>
+  );
+}

@@ -644,3 +644,101 @@ input:-webkit-autofill:focus {
   flex-direction: row;
 }
 
+.server-detail-tabs .tabs__list {
+  background-color: transparent;
+  border-radius: 0;
+  padding: 0;
+  gap: 4px;
+}
+
+.server-detail-tabs .tabs__tab {
+  width: auto;
+  flex: none;
+  height: 44px;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 0;
+  white-space: nowrap;
+}
+
+.server-detail-tabs .tabs__tab:not([data-selected="true"]):hover {
+  color: var(--foreground);
+  opacity: 1;
+}
+
+.server-detail-tabs .tabs__tab[data-selected="true"] {
+  color: var(--foreground);
+}
+
+.server-detail-tabs .tabs__tab[data-selected="true"] svg {
+  color: var(--accent);
+}
+
+.server-detail-tabs .tabs__indicator {
+  top: auto;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background-color: var(--accent);
+  box-shadow: none;
+}
+
+.server-settings-nav .tabs__list {
+  width: 100%;
+  background-color: transparent;
+  border-radius: 0;
+  padding: 0;
+  gap: 2px;
+}
+
+.server-settings-nav .tabs__tab {
+  justify-content: flex-start;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  text-align: start;
+  color: var(--muted);
+}
+
+.server-settings-nav .tabs__tab:not([data-selected="true"]):hover {
+  color: var(--foreground);
+  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+  opacity: 1;
+}
+
+.server-settings-nav .tabs__tab[data-selected="true"] {
+  color: var(--accent);
+}
+
+.server-settings-nav .tabs__indicator {
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: none;
+}
+
+.server-settings-nav .tabs__tab[data-danger],
+.server-settings-nav .tabs__tab[data-danger]:hover {
+  color: var(--danger);
+}
+
+.server-settings-nav .tabs__tab[data-danger] .tabs__indicator {
+  background-color: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.server-settings-nav .tabs__tab[data-divider] {
+  margin-top: 13px;
+}
+
+.server-settings-nav .tabs__tab[data-divider]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 10px;
+  top: -8px;
+  height: 1px;
+  background-color: var(--border);
+}
+
+.settings-field + .settings-field {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
