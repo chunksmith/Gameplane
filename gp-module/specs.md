@@ -14,7 +14,7 @@
 
 ## Responsibilities
 
-- Generate valid `module.yaml`, `template.yaml`, `README.md`, and `icon.png` from archetype definitions.
+- Generate valid `module.yaml`, `template.yaml`, `README.md`, and `icon.png` from archetype definitions, plus a static `AGENTS.md` guide for AI assistants (CLI scaffold only, not a bundle file).
 - Enforce Kubernetes DNS-1123 label naming standards: 1–63 characters, matching `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`.
 - Perform static preflight checks completely offline without network or cluster connectivity.
 - Parse YAML AST to report exact file and line numbers for all diagnostic findings.
@@ -56,6 +56,7 @@ gp-module/
 │   │   └── yaml_ast.go           # YAML AST line-number locator utilities
 │   ├── scaffold/
 │   │   ├── scaffold.go           # Scaffolding engine and directory builder
+│   │   ├── module-agents.md      # Embedded AGENTS.md written into scaffolded modules
 │   │   └── scaffold_test.go      # Scaffolding unit tests
 │   ├── validator/
 │   │   ├── validator.go          # Core offline validator orchestrator
