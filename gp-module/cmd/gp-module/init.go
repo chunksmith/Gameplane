@@ -69,7 +69,7 @@ func runInit(args []string) {
 		fmt.Fprintf(os.Stderr, `Usage: gp-module init [NAME] [options]
 
 Scaffold a new game module directory pre-populated with module.yaml, template.yaml,
-README.md, and a placeholder icon asset.
+README.md, a placeholder icon asset, and an AGENTS.md guide for AI assistants.
 
 Options:
 `)

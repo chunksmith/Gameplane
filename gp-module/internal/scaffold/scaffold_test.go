@@ -35,7 +35,7 @@ func TestScaffoldArchetypes(t *testing.T) {
 		}
 
 		// Verify files exist on disk
-		for _, file := range []string{"module.yaml", "template.yaml", "README.md", "icon.png"} {
+		for _, file := range []string{"module.yaml", "template.yaml", "README.md", "icon.png", "AGENTS.md"} {
 			p := filepath.Join(outDir, file)
 			if fi, err := os.Stat(p); err != nil || fi.Size() == 0 {
 				t.Errorf("expected non-empty file at %s, err = %v", p, err)
