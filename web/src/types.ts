@@ -770,6 +770,16 @@ export interface Role {
   permissions: string[];
 }
 
+export interface NetworkMember {
+  id: number;
+  username: string;
+}
+
+export interface Network {
+  name: string;
+  members: NetworkMember[];
+}
+
 // One grantable permission and whether it is namespaced.
 export interface Permission {
   key: string;

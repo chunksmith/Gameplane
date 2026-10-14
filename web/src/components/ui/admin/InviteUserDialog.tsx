@@ -56,6 +56,10 @@ export interface InviteUserDialogProps {
   submitLabel?: string;
 }
 
+function defaultRole(roles?: string[]): string {
+  return ["member", "viewer"].find((role) => roles?.includes(role)) ?? roles?.[0] ?? "viewer";
+}
+
 export function InviteUserDialog({
   open,
   onOpenChange,
@@ -72,7 +76,8 @@ export function InviteUserDialog({
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState(roles?.includes("viewer") ? "viewer" : (roles?.[0] ?? "viewer"));
+  const [chosenRole, setChosenRole] = useState<string>();
+  const role = chosenRole ?? defaultRole(roles);
   const [error, setError] = useState<string>("");
 
   const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LEN;
@@ -120,7 +125,7 @@ export function InviteUserDialog({
     setDisplayName("");
     setEmail("");
     setPassword("");
-    setRole(roles?.includes("viewer") ? "viewer" : (roles?.[0] ?? "viewer"));
+    setChosenRole(undefined);
     setError("");
     onOpenChange(false);
   };
@@ -203,7 +208,7 @@ export function InviteUserDialog({
 
             {hasRoles && (
               <div>
-                <Select className="flex flex-col gap-1.5" value={role} onChange={(v) => setRole(String(v))} isDisabled={isLoading}>
+                <Select className="flex flex-col gap-1.5" value={role} onChange={(v) => setChosenRole(String(v))} isDisabled={isLoading}>
                   <Label htmlFor="invite-role" className="text-xs">
                     Role
                   </Label>

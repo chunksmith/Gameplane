@@ -10,6 +10,7 @@ import { OWNER_ANNOTATION } from "@/lib/annotations";
 
 const COLLABORATORS_ANNOTATION = "gameplane.local/collaborators";
 const COLLABORATOR_NAMES_ANNOTATION = "gameplane.local/collaborator-names";
+const NETWORK_ANNOTATION = "gameplane.local/network";
 
 interface Props {
   gs?: GameServer;
@@ -23,6 +24,7 @@ export function AccessSection({ gs }: Props) {
   const access = useResourceAccess();
   const [addInput, setAddInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [networkInput, setNetworkInput] = useState("");
 
   const setCollab = useMutation({
     mutationFn: async (body: { userIds?: number[]; usernames?: string[] }) => {
@@ -41,12 +43,29 @@ export function AccessSection({ gs }: Props) {
     },
   });
 
+  const setNetwork = useMutation({
+    mutationFn: async (network: string) => {
+      if (!gs) return;
+      return Servers.setNetwork(gs.metadata.name, gs.metadata.namespace ?? "gameplane-games", network);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["fleet"] });
+      setNetworkInput("");
+      setError(null);
+      return qc.invalidateQueries({ queryKey: resourceKey(resourceTarget, "server", gs?.metadata.name) });
+    },
+    onError: (err) => {
+      setError(errMsg(err));
+    },
+  });
+
   if (!gs) {
     return <div className="p-6 text-sm text-default-500">Loading…</div>;
   }
 
   const ann = gs.metadata.annotations ?? {};
   const ownerName = ann[OWNER_ANNOTATION] ?? "—";
+  const network = ann[NETWORK_ANNOTATION] ?? "";
   const collaboratorIDs = ann[COLLABORATORS_ANNOTATION]
     ? ann[COLLABORATORS_ANNOTATION].split(",").map((s) => s.trim())
     : [];
@@ -166,6 +185,63 @@ export function AccessSection({ gs }: Props) {
                   isDisabled={!addInput.trim() || setCollab.isPending}
                 >
                   Add
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-divider bg-default/40">
+        <CardContent className="gap-0 px-4 py-4">
+          <div className="space-y-3">
+            <div>
+              <Label className="text-sm font-medium">Network</Label>
+              <p className="pt-1 text-xs text-default-500">
+                Members of this network get the same access as collaborators. Only the owner or an admin can change it.
+              </p>
+            </div>
+            {network ? (
+              <Chip variant="soft" color="default" className="flex w-fit items-center gap-1">
+                <span>{network}</span>
+                {canManage && (
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    size="sm"
+                    className="ml-0.5 text-danger"
+                    onPress={() => setNetwork.mutate("")}
+                    isDisabled={setNetwork.isPending}
+                    aria-label="Remove from network"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </Chip>
+            ) : (
+              <div className="text-xs text-default-500">Not in a network</div>
+            )}
+            {canManage && (
+              <div className="flex items-center gap-2 pt-1">
+                <Input
+                  value={networkInput}
+                  onChange={(e) => setNetworkInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && networkInput.trim()) setNetwork.mutate(networkInput.trim());
+                  }}
+                  placeholder="Assign to network…"
+                  aria-label="Network name"
+                  className="flex-1"
+                  disabled={setNetwork.isPending}
+                  type="text"
+                />
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onPress={() => setNetwork.mutate(networkInput.trim())}
+                  isDisabled={!networkInput.trim() || setNetwork.isPending}
+                >
+                  Assign
                 </Button>
               </div>
             )}
