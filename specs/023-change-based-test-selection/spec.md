@@ -176,8 +176,9 @@ otherwise a green PR can hide a suite that should have run.
 - **FR-009**: Per-module coverage minimums MUST stay enforced on every full run (default
   branch pushes and forced full runs). On a partial PR run, CI MUST instead check coverage
   of the lines the PR changed. (Settled 2026-10-09, OD-1.)
-- **FR-010**: Every end-to-end suite selected for a PR MUST run on both CPU architectures
-  (amd64 and arm64), as today. (Settled 2026-10-09, OD-2.)
+- **FR-010**: Every end-to-end suite selected for a PR MUST run on amd64. arm64 legs run on
+  default-branch pushes only and, when they run, share the amd64 selection. (Settled
+  2026-10-15, OD-12; supersedes OD-2.)
 - **FR-014**: Each shared CI configuration file MUST be mapped to the jobs it feeds, and
   an edit to it MUST run only those jobs plus workflow validation. Only the selection
   script and its tests, the Makefile, the Go workspace files and the shared composite
@@ -226,7 +227,7 @@ All three were answered by the maintainer on 2026-10-09.
 - **Q1 (FR-009) Coverage on partial runs.** Settled 2026-10-09: module minimums on full
   runs only; PRs check coverage of changed lines.
 - **Q2 (FR-010) arm64 on PRs.** Settled 2026-10-09: keep both architectures for every
-  selected suite.
+  selected suite. Re-ruled 2026-10-15 (OD-12): arm64 on default-branch pushes only.
 - **Q3 (US3) Shared CI config edits.** Settled 2026-10-09: map each shared file to the
   jobs it feeds; only the selection script, Makefile, workspace files and composite
   actions still force everything.
