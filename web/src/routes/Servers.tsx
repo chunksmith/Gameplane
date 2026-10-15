@@ -370,12 +370,7 @@ export function ServersPage() {
               {visible.map((gs) => (
                 <Table.Row key={targetKey(resourceTarget(gs))}>
                   <Table.Cell>
-                    <Link
-                      to="/servers/$name"
-                      params={{ name: gs.metadata.name }}
-                      search={targetSearch(resourceTarget(gs))}
-                      className="group flex min-w-0 items-center gap-3"
-                    >
+                    <div className="group relative flex min-w-0 items-center gap-3">
                       <GameIcon
                         game={gs.spec.templateRef.name}
                         icon={byName.get(templateKey(resourceTarget(gs).cluster, gs.spec.templateRef.name))?.spec.icon}
@@ -383,10 +378,17 @@ export function ServersPage() {
                         size="sm"
                       />
                       <div className="min-w-0">
-                        <div className="truncate font-mono text-sm text-foreground group-hover:text-primary">{gs.metadata.name}</div>
+                        <Link
+                          to="/servers/$name"
+                          params={{ name: gs.metadata.name }}
+                          search={targetSearch(resourceTarget(gs))}
+                          className="block truncate font-mono text-sm text-foreground after:absolute after:inset-0 group-hover:text-primary"
+                        >
+                          {gs.metadata.name}
+                        </Link>
                         <div className="truncate text-xs text-muted">{targetLabel(resourceTarget(gs))}</div>
                       </div>
-                    </Link>
+                    </div>
                   </Table.Cell>
                   <Table.Cell>{gs.spec.templateRef.name}</Table.Cell>
                   <Table.Cell>
@@ -576,12 +578,7 @@ function ServerCard({
     <Card className="border border-border bg-card p-3.5">
       {/* Row 1: Icon + Name + Address on left, Status pill on right */}
       <div className="flex items-start justify-between gap-3">
-        <Link
-          to="/servers/$name"
-          params={{ name: gs.metadata.name }}
-          search={targetSearch(resourceTarget(gs))}
-          className="group flex min-w-0 items-center gap-3"
-        >
+        <div className="group relative flex min-w-0 items-center gap-3">
           <GameIcon
             game={gs.spec.templateRef.name}
             icon={templates?.find((t) => t.metadata.name === gs.spec.templateRef.name)?.spec.icon}
@@ -589,13 +586,20 @@ function ServerCard({
             size="sm"
           />
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-foreground group-hover:text-primary">{gs.metadata.name}</div>
+            <Link
+              to="/servers/$name"
+              params={{ name: gs.metadata.name }}
+              search={targetSearch(resourceTarget(gs))}
+              className="block truncate text-sm font-medium text-foreground after:absolute after:inset-0 group-hover:text-primary"
+            >
+              {gs.metadata.name}
+            </Link>
             <div className="truncate text-xs text-muted">{targetLabel(resourceTarget(gs))}</div>
             <div className="truncate text-xs text-foreground/60 font-mono">
               {address}
             </div>
           </div>
-        </Link>
+        </div>
         <PhaseChip phase={phase} asleep={asleep} className="px-1 py-0.5 text-[11px] font-medium rounded-2xl" />
       </div>
 
