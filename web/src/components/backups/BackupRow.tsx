@@ -63,7 +63,7 @@ export function BackupRow({ backup, showServer, onSelect, onRestore, target, per
         <Button
           size="sm"
           variant="outline"
-          isDisabled={!restorable || !resourceCan(permissions, "backups:restore")}
+          isDisabled={!restorable || !resourceCan(permissions, "*")}
           onPress={() => onRestore(backup)}
         >
           <RotateCcw className="h-3.5 w-3.5" /> Restore

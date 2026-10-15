@@ -239,7 +239,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
                           <Button
                             size="sm"
                             variant="outline"
-                            isDisabled={!restorable || !resourceCan(permissions, "backups:restore")}
+                            isDisabled={!restorable || !resourceCan(permissions, "*")}
                             onPress={() => setRestoringBackup(b)}
                           >
                             Restore

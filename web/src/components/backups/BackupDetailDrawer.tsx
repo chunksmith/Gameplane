@@ -106,7 +106,7 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
               <Button
                 variant="danger"
                 size="sm"
-                isDisabled={!backup || remove.isPending || !resourceCan(permissions, "backups:write")}
+                isDisabled={!backup || remove.isPending || !resourceCan(permissions, "*")}
                 onPress={() => remove.mutate()}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -115,7 +115,7 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
               <Button
                 variant="primary"
                 size="sm"
-                isDisabled={!restorable || !resourceCan(permissions, "backups:restore")}
+                isDisabled={!restorable || !resourceCan(permissions, "*")}
                 onPress={() => backup && onRestore(backup)}
               >
                 <RotateCcw className="h-3.5 w-3.5" />

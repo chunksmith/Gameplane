@@ -192,11 +192,15 @@ func TestAllow(t *testing.T) {
 		{RoleViewer, "POST", "/admin/telemetry/install-id", scope.DefaultCluster, false},
 		{RoleOperator, "POST", "/admin/telemetry/install-id", scope.DefaultCluster, false},
 		{RoleAdmin, "POST", "/admin/telemetry/install-id", scope.DefaultCluster, true},
-		// Restores: read viewer+, create operator+ (backups:restore).
+		// Restores: read viewer+, create admin-only.
 		{RoleViewer, "GET", "/restores", scope.DefaultCluster, true},
 		{RoleViewer, "POST", "/restores", scope.DefaultCluster, false},
-		{RoleOperator, "POST", "/restores", scope.DefaultCluster, true},
+		{RoleOperator, "POST", "/restores", scope.DefaultCluster, false},
 		{RoleAdmin, "POST", "/restores", scope.DefaultCluster, true},
+		// Backups: create operator+, delete admin-only.
+		{RoleOperator, "POST", "/backups", scope.DefaultCluster, true},
+		{RoleOperator, "DELETE", "/backups/b1", scope.DefaultCluster, false},
+		{RoleAdmin, "DELETE", "/backups/b1", scope.DefaultCluster, true},
 		{RoleViewer, "GET", "/serversets", scope.DefaultCluster, true},
 		{RoleViewer, "POST", "/serversets", scope.DefaultCluster, false},
 		{RoleOperator, "POST", "/serversets", scope.DefaultCluster, true},
