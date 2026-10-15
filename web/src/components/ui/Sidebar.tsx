@@ -1,6 +1,6 @@
 import { useLocation, Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { ShieldCheck, X, LogOut, Palette } from "lucide-react";
+import { ShieldCheck, X, LogOut, Palette, GitCommitHorizontal } from "lucide-react";
 import {
   Drawer,
 } from "@heroui/react";
@@ -35,6 +35,16 @@ export interface SidebarProps {
   /** D4: true while a custom-colors theme is active — disables the footer AppearanceToggle. */
   isCustomColorsActive?: boolean;
   version?: string;
+  buildDate?: string;
+}
+
+const REPO_URL = "https://github.com/chunksmith/Gameplane";
+
+function versionLink(version: string): { label: string; href?: string } {
+  const sha = /^edge-([0-9a-f]{7,40})$/.exec(version)?.[1];
+  if (sha) return { label: `edge · ${sha.slice(0, 7)}`, href: `${REPO_URL}/commit/${sha}` };
+  if (/^v\d/.test(version)) return { label: version, href: `${REPO_URL}/tree/${version}` };
+  return { label: version };
 }
 
 export function Sidebar({
@@ -51,8 +61,10 @@ export function Sidebar({
   onCustomizeTheme,
   isCustomColorsActive = false,
   version,
+  buildDate,
 }: SidebarProps) {
   const { pathname } = useLocation();
+  const release = version ? versionLink(version) : undefined;
 
   // Compute which nav item is active (exact vs prefix matching per contract).
   const isActive = (to: string): boolean => {
@@ -193,9 +205,23 @@ export function Sidebar({
           </button>
         </div>
 
-        {version && (
-          <div className="truncate px-2 font-mono text-[11px] text-muted" title={version}>
-            {version}
+        {release && (
+          <div className="flex items-center justify-between gap-2 px-2 font-mono text-[10px] text-muted">
+            {release.href ? (
+              <a
+                href={release.href}
+                target="_blank"
+                rel="noreferrer"
+                title={version}
+                className="flex min-w-0 items-center gap-1.5 rounded transition-colors hover:text-fg"
+              >
+                <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{release.label}</span>
+              </a>
+            ) : (
+              <span className="truncate" title={version}>{release.label}</span>
+            )}
+            {buildDate && <time dateTime={buildDate} className="shrink-0">{new Date(buildDate).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}</time>}
           </div>
         )}
       </div>
