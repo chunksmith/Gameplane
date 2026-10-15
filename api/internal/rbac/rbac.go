@@ -58,11 +58,6 @@ const (
 
 const networkAnnotation = "gameplane.local/network"
 
-func inNetwork(obj *unstructured.Unstructured, u *auth.User) bool {
-	network := obj.GetAnnotations()[networkAnnotation]
-	return network != "" && slices.Contains(u.Networks, network)
-}
-
 // Middleware blocks requests the caller isn't permitted to make. It
 // finds the matching rule, resolves the target namespace for namespaced
 // permissions, and checks the caller's permission set. When that check
@@ -126,6 +121,10 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 				}
 			}
 			if !allow(u, req.Method, req.URL.Path, cl, ns) {
+				if r.perm == "templates:read" && fetch != nil && serverTemplateReadable(req, fetch, u) {
+					next.ServeHTTP(w, req)
+					return
+				}
 				// Try owner/collaborator fallback for namespaced server permissions.
 				if Namespaced(r.perm) && fetch != nil &&
 					(r.perm == "servers:read" || r.perm == "servers:write" || r.perm == "servers:console") {
@@ -143,7 +142,8 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 						obj, err := fetch.GetServer(req.Context(), cl, ns, name)
 						if err == nil && obj != nil {
 							role := ownershipRole(obj, u.ID)
-							if role == roleNone && inNetwork(obj, u) {
+							if granted, member := u.Networks[obj.GetAnnotations()[networkAnnotation]]; role == roleNone && member &&
+								(r.perm == "servers:read" || slices.Contains(granted, r.perm)) {
 								role = roleCollaborator
 							}
 							if role != roleNone {
@@ -413,6 +413,31 @@ func parseServerPath(path string) (string, string, bool, bool) {
 func ownerOnlyOperation(method, verb string, isExact bool) bool {
 	return verb == "transfer" || verb == "collaborators" || verb == "network" || verb == "wipe-data" ||
 		(method == http.MethodDelete && isExact)
+}
+
+func serverTemplateReadable(req *http.Request, fetch ServerFetcher, u *auth.User) bool {
+	name, ok := strings.CutPrefix(req.URL.Path, "/templates/")
+	server := req.URL.Query().Get("server")
+	if !ok || name == "" || strings.Contains(name, "/") || server == "" {
+		return false
+	}
+	ns, err := scope.Resolve(req)
+	if err != nil {
+		return false
+	}
+	cl, err := scope.ResolveCluster(req, fetch)
+	if err != nil {
+		return false
+	}
+	obj, err := fetch.GetServer(req.Context(), cl, ns, server)
+	if err != nil || obj == nil {
+		return false
+	}
+	if ref, _, _ := unstructured.NestedString(obj.Object, "spec", "templateRef", "name"); ref != name {
+		return false
+	}
+	_, member := u.Networks[obj.GetAnnotations()[networkAnnotation]]
+	return member || ownershipRole(obj, u.ID) != roleNone || u.Can("servers:read", true, cl, ns)
 }
 
 // ownershipRole returns the ownership role of a user in the server:

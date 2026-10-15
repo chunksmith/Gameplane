@@ -4,19 +4,24 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
 
-func TestMiddleware_NetworkMemberGetsCollaboratorAccess(t *testing.T) {
+func TestMiddleware_NetworkMemberGetsGrantedAccess(t *testing.T) {
 	obj := newServerWithAnnotations(42, nil)
 	ann := obj.GetAnnotations()
 	ann[networkAnnotation] = "skyblock"
 	obj.SetAnnotations(ann)
+	obj.Object["spec"] = map[string]any{"templateRef": map[string]any{"name": "mc"}}
 	fetch := &fakeFetcher{obj: obj}
 	member := userWith(7, scope.DefaultCluster, "unrelated")
-	member.Networks = []string{"skyblock"}
+	member.Networks = map[string][]string{"skyblock": {"servers:console", "servers:write"}}
 	outsider := userWith(8, scope.DefaultCluster, "unrelated")
-	outsider.Networks = []string{"survival"}
+	outsider.Networks = map[string][]string{"survival": {"servers:console", "servers:write"}}
+	viewer := userWith(9, scope.DefaultCluster, "unrelated")
+	viewer.Networks = map[string][]string{"skyblock": {}}
+	users := map[int64]*auth.User{7: member, 8: outsider, 9: viewer}
 	cases := []struct {
 		name    string
 		method  string
@@ -27,18 +32,24 @@ func TestMiddleware_NetworkMemberGetsCollaboratorAccess(t *testing.T) {
 		{"member reads server", http.MethodGet, "/servers/alpha", 7, true},
 		{"member starts server", http.MethodPost, "/servers/alpha:start", 7, true},
 		{"member writes files", http.MethodPut, "/servers/alpha/files/content", 7, true},
+		{"member opens console", http.MethodGet, "/ws/servers/alpha/console-pty", 7, true},
+		{"member reads server template", http.MethodGet, "/templates/mc?server=alpha", 7, true},
+		{"member cannot read another template", http.MethodGet, "/templates/other?server=alpha", 7, false},
+		{"member cannot read template without server", http.MethodGet, "/templates/mc", 7, false},
 		{"member cannot delete", http.MethodDelete, "/servers/alpha", 7, false},
 		{"member cannot change network", http.MethodPut, "/servers/alpha:network", 7, false},
 		{"member cannot transfer", http.MethodPost, "/servers/alpha:transfer", 7, false},
+		{"viewer reads server", http.MethodGet, "/servers/alpha", 9, true},
+		{"viewer reads server template", http.MethodGet, "/templates/mc?server=alpha", 9, true},
+		{"viewer cannot start server", http.MethodPost, "/servers/alpha:start", 9, false},
+		{"viewer cannot write files", http.MethodPut, "/servers/alpha/files/content", 9, false},
+		{"viewer cannot open console", http.MethodGet, "/ws/servers/alpha/console-pty", 9, false},
 		{"outsider cannot read", http.MethodGet, "/servers/alpha", 8, false},
+		{"outsider cannot read server template", http.MethodGet, "/templates/mc?server=alpha", 8, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			u := member
-			if c.user == 8 {
-				u = outsider
-			}
-			_, called := serveThrough(t, fetch, u, c.method, c.path)
+			_, called := serveThrough(t, fetch, users[c.user], c.method, c.path)
 			if called != c.allowed {
 				t.Fatalf("%s %s allowed=%v, want %v", c.method, c.path, called, c.allowed)
 			}

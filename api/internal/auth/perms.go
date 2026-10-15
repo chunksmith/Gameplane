@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
@@ -44,20 +45,21 @@ func (s *SessionStore) LoadPerms(ctx context.Context, userID int64) (map[string]
 	return perms, nil
 }
 
-// LoadNetworks returns the names of the networks the user belongs to.
-func (s *SessionStore) LoadNetworks(ctx context.Context, userID int64) ([]string, error) {
-	rows, err := s.db.DB.QueryContext(ctx, `SELECT network_name FROM network_members WHERE user_id = ? ORDER BY network_name`, userID)
+// LoadNetworks maps each network the user belongs to onto the permissions
+// its membership grants.
+func (s *SessionStore) LoadNetworks(ctx context.Context, userID int64) (map[string][]string, error) {
+	rows, err := s.db.DB.QueryContext(ctx, `SELECT network_name, permissions FROM network_members WHERE user_id = ?`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("load networks for user %d: %w", userID, err)
 	}
 	defer func() { _ = rows.Close() }()
-	var networks []string
+	networks := map[string][]string{}
 	for rows.Next() {
-		var network string
-		if err := rows.Scan(&network); err != nil {
+		var network, permissions string
+		if err := rows.Scan(&network, &permissions); err != nil {
 			return nil, fmt.Errorf("scan network: %w", err)
 		}
-		networks = append(networks, network)
+		networks[network] = strings.FieldsFunc(permissions, func(r rune) bool { return r == ',' })
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate networks: %w", err)

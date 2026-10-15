@@ -1,9 +1,11 @@
 import { useResourceClient, useResourceTarget, resourceKey, useResourceAccess } from "@/lib/resourceTarget";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import type { GameServer } from "@/types";
-import { Button, Input, Label, Chip, Card, CardContent } from "@heroui/react";
+import { Button, Input, Label, Chip, Card, CardContent, Select, ListBox, ListBoxItem } from "@heroui/react";
+import { useMe, can } from "@/lib/auth";
+import { Networks } from "@/lib/endpoints";
 
 import { errorText } from "@/lib/errors";
 import { OWNER_ANNOTATION } from "@/lib/annotations";
@@ -57,6 +59,13 @@ export function AccessSection({ gs }: Props) {
     onError: (err) => {
       setError(errMsg(err));
     },
+  });
+
+  const { data: me } = useMe();
+  const { data: networks } = useQuery({
+    queryKey: ["networks"],
+    queryFn: () => Networks.list(),
+    enabled: access?.canDelete === true && can(me, "users:read"),
   });
 
   if (!gs) {
@@ -198,7 +207,7 @@ export function AccessSection({ gs }: Props) {
             <div>
               <Label className="text-sm font-medium">Network</Label>
               <p className="pt-1 text-xs text-default-500">
-                Members of this network get the same access as collaborators. Only the owner or an admin can change it.
+                Members of this network can view this server; console and manage access follow each member&apos;s network permissions. Only the owner or an admin can change it.
               </p>
             </div>
             {network ? (
@@ -223,18 +232,45 @@ export function AccessSection({ gs }: Props) {
             )}
             {canManage && (
               <div className="flex items-center gap-2 pt-1">
-                <Input
-                  value={networkInput}
-                  onChange={(e) => setNetworkInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && networkInput.trim()) setNetwork.mutate(networkInput.trim());
-                  }}
-                  placeholder="Assign to network…"
-                  aria-label="Network name"
-                  className="flex-1"
-                  disabled={setNetwork.isPending}
-                  type="text"
-                />
+                {networks ? (
+                  <Select
+                    aria-label="Network name"
+                    placeholder="Assign to network…"
+                    value={networkInput}
+                    onChange={(value) => setNetworkInput(String(value))}
+                    isDisabled={setNetwork.isPending}
+                    className="flex-1"
+                  >
+                    <Select.Trigger className="w-full items-center rounded border border-border bg-surface px-3 py-2 text-sm hover:bg-surface/80">
+                      <Select.Value className="text-[var(--field-placeholder)]" />
+                      <Select.Indicator className="ml-auto h-4 w-4" />
+                    </Select.Trigger>
+                    <Select.Popover className="rounded border border-border">
+                      <ListBox className="p-0" aria-label="Networks">
+                        {networks
+                          .filter((option) => option.name !== network)
+                          .map((option) => (
+                            <ListBoxItem key={option.name} id={option.name}>
+                              {option.name}
+                            </ListBoxItem>
+                          ))}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                ) : (
+                  <Input
+                    value={networkInput}
+                    onChange={(e) => setNetworkInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && networkInput.trim()) setNetwork.mutate(networkInput.trim());
+                    }}
+                    placeholder="Assign to network…"
+                    aria-label="Network name"
+                    className="flex-1"
+                    disabled={setNetwork.isPending}
+                    type="text"
+                  />
+                )}
                 <Button
                   size="sm"
                   variant="primary"

@@ -146,7 +146,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   const templateName = gs?.spec.templateRef.name;
   const { data: tmpl } = useQuery({
     queryKey: resourceKey(target, "template", templateName),
-    queryFn: ({ signal }) => client.withSignal(signal).Templates.get(templateName as string),
+    queryFn: ({ signal }) => client.withSignal(signal).Templates.forServer(templateName as string, name, ns),
     enabled: !!templateName,
   });
 

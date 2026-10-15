@@ -8,9 +8,10 @@ import { makeServer } from "@/test/factories";
 import { AccessSection } from "./Access";
 import { ResourceTargetProvider, type ServerAccess } from "@/lib/resourceTarget";
 
+const useMeMock = vi.fn();
 vi.mock("@/lib/auth", async (orig) => ({
   ...(await orig<typeof import("@/lib/auth")>()),
-  useMe: () => ({ data: { id: 1, username: "alice", permissions: {} } }),
+  useMe: () => useMeMock(),
 }));
 
 const OWNER: ServerAccess = { canWrite: false, canControl: true, canConsole: true, canDelete: true, isOwner: true, isCollaborator: false, permissions: [] };
@@ -33,6 +34,7 @@ describe("AccessSection network", () => {
   let requestURL: string;
 
   beforeEach(() => {
+    useMeMock.mockReturnValue({ data: { id: 1, username: "alice", permissions: {} } });
     requestBody = undefined;
     requestURL = "";
     server.use(
@@ -56,6 +58,23 @@ describe("AccessSection network", () => {
     await waitFor(() => expect(requestBody).toEqual({ network: "skyblock" }));
     expect(new URL(requestURL).searchParams.get("namespace")).toBe("ns");
     expect(new URL(requestURL).searchParams.get("cluster")).toBe("remote");
+  });
+
+  it("lets an admin pick the network from a dropdown", async () => {
+    useMeMock.mockReturnValue({ data: { id: 1, username: "alice", permissions: { "*": ["*"] } } });
+    server.use(
+      http.get("/networks", () =>
+        HttpResponse.json([
+          { name: "skyblock", members: [] },
+          { name: "smp", members: [] },
+        ]),
+      ),
+    );
+    renderAccess({}, OWNER);
+    await userEvent.click(await screen.findByRole("button", { name: /Network name/i }));
+    await userEvent.click(await screen.findByRole("option", { name: "smp" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Assign$/i }));
+    await waitFor(() => expect(requestBody).toEqual({ network: "smp" }));
   });
 
   it("lets the owner clear the network", async () => {

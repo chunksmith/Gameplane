@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -358,8 +357,8 @@ func (h *ownershipHandler) setNetwork(w http.ResponseWriter, req *http.Request) 
 }
 
 func inNetwork(obj *unstructured.Unstructured, u *auth.User) bool {
-	network := obj.GetAnnotations()[networkAnnotation]
-	return network != "" && slices.Contains(u.Networks, network)
+	_, ok := u.Networks[obj.GetAnnotations()[networkAnnotation]]
+	return ok
 }
 
 // getOwnedServers returns GameServers where the caller is owner or collaborator.

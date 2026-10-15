@@ -44,8 +44,9 @@ describe("Networks endpoints", () => {
   });
 
   it("adds and removes members", async () => {
-    await Networks.addMember("smp", 7);
+    await Networks.addMember("smp", 7, ["servers:console"]);
     expect(last()).toMatchObject({ url: "/networks/smp/members/7", method: "PUT" });
+    expect(JSON.parse(last().body ?? "{}")).toEqual({ permissions: ["servers:console"] });
     await Networks.removeMember("smp", 7);
     expect(last()).toMatchObject({ url: "/networks/smp/members/7", method: "DELETE" });
   });

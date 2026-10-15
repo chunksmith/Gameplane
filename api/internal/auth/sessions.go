@@ -42,7 +42,7 @@ type User struct {
 	// Nil for Users built outside the session path (treated as holding nothing).
 	Perms map[string]map[string]map[string]struct{}
 
-	Networks []string
+	Networks map[string][]string
 }
 
 // SessionStore manages session lifecycle for authenticated users.

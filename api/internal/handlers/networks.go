@@ -4,8 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -13,9 +16,12 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 )
 
+var networkPermissions = []string{"servers:console", "servers:write"}
+
 type networkMemberDTO struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
+	ID          int64    `json:"id"`
+	Username    string   `json:"username"`
+	Permissions []string `json:"permissions"`
 }
 
 type networkDTO struct {
@@ -61,7 +67,7 @@ func (h *networkHandler) list(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	members, err := h.db.DB.QueryContext(req.Context(), `
-		SELECT m.network_name, u.id, u.username
+		SELECT m.network_name, u.id, u.username, m.permissions
 		FROM network_members m JOIN users u ON u.id = m.user_id
 		ORDER BY u.username`)
 	if err != nil {
@@ -70,12 +76,13 @@ func (h *networkHandler) list(w http.ResponseWriter, req *http.Request) {
 	}
 	defer func() { _ = members.Close() }()
 	for members.Next() {
-		var network string
+		var network, permissions string
 		var member networkMemberDTO
-		if err := members.Scan(&network, &member.ID, &member.Username); err != nil {
+		if err := members.Scan(&network, &member.ID, &member.Username, &permissions); err != nil {
 			httperr.Write(w, req, err)
 			return
 		}
+		member.Permissions = strings.FieldsFunc(permissions, func(r rune) bool { return r == ',' })
 		if i, ok := index[network]; ok {
 			out[i].Members = append(out[i].Members, member)
 		}
@@ -146,8 +153,24 @@ func (h *networkHandler) addMember(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		return
 	}
+	var body struct {
+		Permissions []string `json:"permissions"`
+	}
+	if err := json.NewDecoder(io.LimitReader(req.Body, 1<<16)).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	for _, permission := range body.Permissions {
+		if !slices.Contains(networkPermissions, permission) {
+			http.Error(w, "invalid permission", http.StatusBadRequest)
+			return
+		}
+	}
+	slices.Sort(body.Permissions)
 	if _, err := h.db.DB.ExecContext(req.Context(),
-		`INSERT INTO network_members(network_name, user_id) VALUES (?, ?) ON CONFLICT (network_name, user_id) DO NOTHING`, name, id); err != nil {
+		`INSERT INTO network_members(network_name, user_id, permissions) VALUES (?, ?, ?)
+		ON CONFLICT (network_name, user_id) DO UPDATE SET permissions = excluded.permissions`,
+		name, id, strings.Join(slices.Compact(body.Permissions), ",")); err != nil {
 		httperr.Write(w, req, err)
 		return
 	}

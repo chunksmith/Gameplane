@@ -154,7 +154,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
 
   const { data: template } = useQuery({
     queryKey: resourceKey(resourceTarget, "template", draft?.spec.templateRef.name),
-    queryFn: ({ signal }) => resourceClient.withSignal(signal).Templates.get(draft!.spec.templateRef.name),
+    queryFn: ({ signal }) => resourceClient.withSignal(signal).Templates.forServer(draft!.spec.templateRef.name, draft!.metadata.name, draft!.metadata.namespace),
     enabled: !!draft?.spec.templateRef.name,
   });
 

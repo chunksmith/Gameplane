@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -34,11 +35,17 @@ func TestNetworks_Lifecycle(t *testing.T) {
 	}
 	id := seedUser(t, store, "ayse", "member", "")
 	member := srv.URL + "/networks/skyblock/members/" + strconv.FormatInt(id, 10)
-	if status, body := doReq(t, "PUT", member, nil); status != 204 {
+	if status, _ := doReq(t, "PUT", member, nil); status != 400 {
+		t.Fatalf("add member without body want 400 got %d", status)
+	}
+	if status, _ := doReq(t, "PUT", member, map[string]any{"permissions": []string{"*"}}); status != 400 {
+		t.Fatalf("add member with unknown permission want 400 got %d", status)
+	}
+	if status, body := doReq(t, "PUT", member, map[string]any{"permissions": []string{"servers:console"}}); status != 204 {
 		t.Fatalf("add member want 204 got %d body=%s", status, body)
 	}
-	if status, _ := doReq(t, "PUT", member, nil); status != 204 {
-		t.Fatalf("repeat add member want 204 got %d", status)
+	if status, _ := doReq(t, "PUT", member, map[string]any{"permissions": []string{"servers:write", "servers:console", "servers:write"}}); status != 204 {
+		t.Fatalf("update member permissions want 204 got %d", status)
 	}
 	if status, _ := doReq(t, "PUT", srv.URL+"/networks/missing/members/"+strconv.FormatInt(id, 10), nil); status != 404 {
 		t.Fatalf("unknown network want 404 got %d", status)
@@ -54,7 +61,8 @@ func TestNetworks_Lifecycle(t *testing.T) {
 	if err := json.Unmarshal(body, &networks); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(networks) != 1 || len(networks[0].Members) != 1 || networks[0].Members[0].Username != "ayse" {
+	if len(networks) != 1 || len(networks[0].Members) != 1 || networks[0].Members[0].Username != "ayse" ||
+		!slices.Equal(networks[0].Members[0].Permissions, []string{"servers:console", "servers:write"}) {
 		t.Fatalf("list = %+v", networks)
 	}
 	if status, _ := doReq(t, "DELETE", member, nil); status != 204 {
@@ -63,8 +71,8 @@ func TestNetworks_Lifecycle(t *testing.T) {
 	if status, _ := doReq(t, "DELETE", member, nil); status != 404 {
 		t.Fatalf("repeat remove want 404 got %d", status)
 	}
-	if status, _ := doReq(t, "PUT", member, nil); status != 204 {
-		t.Fatalf("re-add member want 204 got %d", status)
+	if status, _ := doReq(t, "PUT", member, map[string]any{"permissions": []string{}}); status != 204 {
+		t.Fatalf("re-add view-only member want 204 got %d", status)
 	}
 	if status, _ := doReq(t, "DELETE", srv.URL+"/networks/skyblock", nil); status != 204 {
 		t.Fatalf("delete want 204 got %d", status)

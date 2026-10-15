@@ -279,8 +279,8 @@ export const Networks = {
   list: () => api<Network[]>("/networks"),
   create: (name: string) => api<Network>("/networks", { method: "POST", body: { name } }),
   remove: (name: string) => api<void>(`/networks/${encodeURIComponent(name)}`, { method: "DELETE" }),
-  addMember: (name: string, userId: number) =>
-    api<void>(`/networks/${encodeURIComponent(name)}/members/${userId}`, { method: "PUT" }),
+  addMember: (name: string, userId: number, permissions: string[]) =>
+    api<void>(`/networks/${encodeURIComponent(name)}/members/${userId}`, { method: "PUT", body: { permissions } }),
   removeMember: (name: string, userId: number) =>
     api<void>(`/networks/${encodeURIComponent(name)}/members/${userId}`, { method: "DELETE" }),
 };
@@ -832,6 +832,8 @@ function makeResourceEndpoints(request: RequestClient) {
   const Templates = {
     list: (cluster?: string, signal?: AbortSignal) => api<List<GameTemplate>>("/templates", { cluster, signal }),
     get: (name: string, cluster?: string, signal?: AbortSignal) => api<GameTemplate>(`/templates/${name}`, { cluster, signal }),
+    forServer: (name: string, server: string, ns?: string) =>
+      api<GameTemplate>(withNS(`/templates/${name}?server=${encodeURIComponent(server)}`, ns)),
   };
 
   const Namespaces = {

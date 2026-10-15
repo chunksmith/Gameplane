@@ -797,6 +797,7 @@ export interface Role {
 export interface NetworkMember {
   id: number;
   username: string;
+  permissions: string[];
 }
 
 export interface Network {
