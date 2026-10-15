@@ -25,17 +25,20 @@ func TestIsStreamingRequest(t *testing.T) {
 		{"unrelated upgrade value", "GET", "/servers/alpha", "h2c", false},
 		// F-074: large-transfer routes (isLargeTransferPath).
 		{"files download GET", "GET", "/servers/a/files/download", "", true},
+		{"files archive GET", "GET", "/servers/a/files/archive", "", true},
 		{"logs download GET", "GET", "/servers/a/logs/download", "", true},
 		{"capture file GET", "GET", "/servers/a:capture-file", "", true},
 		{"audit export GET", "GET", "/admin/audit/export", "", true},
 		{"files upload POST", "POST", "/servers/a/files/upload", "", true},
 		{"files write POST", "POST", "/servers/a/files/write", "", true},
+		{"files zip POST", "POST", "/servers/a/files/zip", "", true},
 		{"mods upload POST", "POST", "/servers/a/mods/upload", "", true},
 		{"mods install POST", "POST", "/servers/a/mods/install", "", true},
 		{"mods install wrong method", "GET", "/servers/a/mods/install", "", false},
 		{"mods install outside servers", "POST", "/other/mods/install", "", false},
 		{"files download wrong method", "POST", "/servers/a/files/download", "", false},
 		{"files write wrong method", "GET", "/servers/a/files/write", "", false},
+		{"files archive wrong method", "POST", "/servers/a/files/archive", "", false},
 		{"files download outside /servers/", "GET", "/other/files/download", "", false},
 	}
 	for _, tc := range cases {

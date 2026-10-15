@@ -10,6 +10,7 @@ import {
   ModalBody,
   ModalFooter,
   Button,
+  Checkbox,
   Input,
 } from "@heroui/react";
 import Editor from "@monaco-editor/react";
@@ -42,6 +43,7 @@ const ARCHIVE_PATTERN = /\.(zip|tar|gz|tgz|rar|7z|jar)$/i;
 const LIST_REFRESH_MS = 5_000;
 const MAX_UPLOAD_FILES = 64;
 const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
+const SIZE_CACHE_MS = 60_000;
 
 interface ViewProps {
   resourceTarget: ResourceTarget;
@@ -107,16 +109,42 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
     refetchInterval: LIST_REFRESH_MS,
   });
   const [error, setError] = useState<Error | null>(null);
-  const [prompt, setPrompt] = useState<"file" | "folder" | null>(null);
+  const [prompt, setPrompt] = useState<"file" | "folder" | "zip" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [dragging, setDragging] = useState(false);
   const entries = listing.data && sortEntries(listing.data.entries);
   const total = listing.data?.total ?? 0;
+  const selection = entries?.filter((entry) => selected.has(entry.path)) ?? [];
+  const allSelected = selection.length > 0 && selection.length === entries?.length;
+  const selectionPaths =
+    allSelected && selection.length > 1 && total === selection.length && path !== ROOT
+      ? [path]
+      : selection.map((entry) => entry.path);
 
   async function refresh() {
     void qc.invalidateQueries({ queryKey: ["fleet"] });
+    void qc.invalidateQueries({ queryKey: sizeKey(resourceTarget) });
     await qc.invalidateQueries({ queryKey });
     setError(null);
+  }
+
+  function toggle(entryPath: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (!next.delete(entryPath)) next.add(entryPath);
+      return next;
+    });
+  }
+
+  function downloadSelection() {
+    const single = selection.length === 1 ? selection[0] : undefined;
+    download(
+      single && !single.dir
+        ? client.Files.downloadURL(name, single.path, ns)
+        : client.Files.archiveURL(name, selectionPaths, ns),
+    );
   }
 
   const create = useMutation({
@@ -146,6 +174,33 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
     onError: (err: Error) => setError(err),
   });
 
+  const zip = useMutation({
+    mutationFn: ({ entryName, paths }: { entryName: string; paths: string[] }) =>
+      client.Files.zip(name, joinPath(path, entryName), paths, ns),
+    onSuccess: async () => {
+      setPrompt(null);
+      setSelected(new Set());
+      await refresh();
+    },
+    onError: (err: Error) => setError(err),
+  });
+
+  const removeSelected = useMutation({
+    mutationFn: async (targets: FileEntry[]) => {
+      for (const entry of targets) await client.Files.remove(name, entry.path, entry.dir, ns);
+    },
+    onSuccess: async () => {
+      setConfirmBulkDelete(false);
+      setSelected(new Set());
+      await refresh();
+    },
+    onError: (err: Error) => {
+      setConfirmBulkDelete(false);
+      setError(err);
+      void qc.invalidateQueries({ queryKey });
+    },
+  });
+
   function onDragOver(event: DragEvent<HTMLDivElement>) {
     if (!canControl) return;
     event.preventDefault();
@@ -173,7 +228,16 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Breadcrumbs path={path} onNavigate={onNavigate} />
         <div className="flex flex-wrap items-center gap-2">
-          <Button isIconOnly variant="ghost" size="sm" aria-label="Refresh" onPress={() => void listing.refetch()}>
+          <Button
+            isIconOnly
+            variant="ghost"
+            size="sm"
+            aria-label="Refresh"
+            onPress={() => {
+              void qc.invalidateQueries({ queryKey: sizeKey(resourceTarget) });
+              void listing.refetch();
+            }}
+          >
             <RefreshCw className={cn("h-4 w-4", listing.isFetching && "animate-spin")} />
           </Button>
           <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("folder")}>
@@ -192,6 +256,30 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
 
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
 
+      {selection.length > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Selection actions"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-2"
+        >
+          <span className="text-sm font-medium text-foreground">{selection.length.toLocaleString()} selected</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" onPress={() => setSelected(new Set())}>
+              Clear
+            </Button>
+            <Button variant="secondary" size="sm" onPress={downloadSelection}>
+              <Download className="h-4 w-4" /> Download
+            </Button>
+            <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("zip")}>
+              <FileArchive className="h-4 w-4" /> Zip
+            </Button>
+            <Button variant="danger" size="sm" isDisabled={!canControl} onPress={() => setConfirmBulkDelete(true)}>
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div
         data-testid="files-dropzone"
         onDragOver={onDragOver}
@@ -202,10 +290,17 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
           dragging && "border-primary",
         )}
       >
-        <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-xs font-medium text-muted md:flex">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-xs font-medium text-muted">
+          <SelectBox
+            label="Select all"
+            isSelected={allSelected}
+            isIndeterminate={selection.length > 0 && !allSelected}
+            isDisabled={!entries?.length}
+            onChange={() => setSelected(allSelected ? new Set() : new Set(entries?.map((entry) => entry.path)))}
+          />
           <span className="flex-1 pl-7">Name</span>
           <span className="w-24 text-right">Size</span>
-          <span className="w-28 text-right">Modified</span>
+          <span className="hidden w-28 text-right md:block">Modified</span>
           <span className="w-[4.5rem]" />
         </div>
         {listing.error ? (
@@ -219,29 +314,42 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
         ) : (
           <ul>
             {entries.map((entry) => (
-              <li key={entry.path} className="group flex items-center border-b border-border last:border-b-0 hover:bg-surface">
+              <li
+                key={entry.path}
+                className={cn(
+                  "group flex items-center gap-3 border-b border-border pl-4 last:border-b-0 hover:bg-surface",
+                  selected.has(entry.path) && "bg-surface",
+                )}
+              >
+                <SelectBox label={`Select ${entry.name}`} isSelected={selected.has(entry.path)} onChange={() => toggle(entry.path)} />
                 <button
                   type="button"
                   onClick={() => onNavigate(entry.path)}
-                  className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left text-sm"
+                  className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 text-left text-sm"
                 >
                   <EntryIcon entry={entry} />
                   <span className="min-w-0 flex-1 truncate text-foreground">{entry.name}</span>
-                  <span className="w-24 shrink-0 text-right text-xs text-muted">{entry.dir ? "" : formatBytes(entry.size)}</span>
+                  <span className="w-24 shrink-0 text-right text-xs text-muted">
+                    {entry.dir ? <DirSize resourceTarget={resourceTarget} path={entry.path} /> : formatBytes(entry.size)}
+                  </span>
                   <span className="hidden w-28 shrink-0 text-right text-xs text-muted md:block">{formatRelative(entry.modTime)}</span>
                 </button>
                 <div className="flex w-[4.5rem] shrink-0 justify-end gap-1 pr-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
-                  {!entry.dir && (
-                    <Button
-                      isIconOnly
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Download ${entry.name}`}
-                      onPress={() => download(client.Files.downloadURL(name, entry.path, ns))}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Download ${entry.name}`}
+                    onPress={() =>
+                      download(
+                        entry.dir
+                          ? client.Files.archiveURL(name, [entry.path], ns)
+                          : client.Files.downloadURL(name, entry.path, ns),
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
                   <Button
                     isIconOnly
                     variant="ghost"
@@ -287,6 +395,18 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
           onError={setError}
         />
       )}
+      {confirmBulkDelete && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setConfirmBulkDelete(false)}
+          title={`Delete ${selection.length.toLocaleString()} ${selection.length === 1 ? "item" : "items"}?`}
+          description="This permanently removes the selected files and folders, including everything inside the folders, from the server's data volume. This action cannot be undone."
+          destructive
+          confirmLabel="Delete"
+          busy={removeSelected.isPending}
+          onConfirm={() => removeSelected.mutate(selection)}
+        />
+      )}
       <NamePromptDialog
         open={prompt === "folder"}
         onOpenChange={(open) => setPrompt(open ? "folder" : null)}
@@ -306,6 +426,17 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
         confirmLabel="Create"
         busy={create.isPending}
         onSubmit={(entryName) => create.mutate({ kind: "file", entryName })}
+      />
+      <NamePromptDialog
+        open={prompt === "zip"}
+        onOpenChange={(open) => setPrompt(open ? "zip" : null)}
+        title="Create zip archive"
+        label="Archive name"
+        placeholder="archive.zip"
+        initialValue={archiveName(entries ?? [], selection)}
+        confirmLabel="Create"
+        busy={zip.isPending}
+        onSubmit={(entryName) => zip.mutate({ entryName, paths: selectionPaths })}
       />
     </>
   );
@@ -532,12 +663,56 @@ function Spinner() {
   );
 }
 
+function SelectBox({
+  label,
+  isSelected,
+  isIndeterminate,
+  isDisabled,
+  onChange,
+}: {
+  label: string;
+  isSelected: boolean;
+  isIndeterminate?: boolean;
+  isDisabled?: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <Checkbox
+      aria-label={label}
+      isSelected={isSelected}
+      isIndeterminate={isIndeterminate}
+      isDisabled={isDisabled}
+      onChange={onChange}
+      className="shrink-0"
+    >
+      <Checkbox.Content>
+        <Checkbox.Control>
+          <Checkbox.Indicator />
+        </Checkbox.Control>
+      </Checkbox.Content>
+    </Checkbox>
+  );
+}
+
+function DirSize({ resourceTarget, path }: { resourceTarget: ResourceTarget; path: string }) {
+  const client = useResourceClient(resourceTarget);
+  const size = useQuery({
+    queryKey: sizeKey(resourceTarget, path),
+    queryFn: ({ signal }) => client.withSignal(signal).Files.size(resourceTarget.name, path, resourceTarget.namespace),
+    staleTime: SIZE_CACHE_MS,
+    retry: false,
+  });
+  if (size.isPending) return <Loader2 aria-label="Calculating size" className="ml-auto h-3.5 w-3.5 animate-spin" />;
+  return size.data === undefined ? "—" : formatBytes(size.data);
+}
+
 interface NamePromptProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   label: string;
   placeholder?: string;
+  initialValue?: string;
   confirmLabel: string;
   busy?: boolean;
   onSubmit: (value: string) => void;
@@ -549,6 +724,7 @@ function NamePromptDialog({
   title,
   label,
   placeholder,
+  initialValue,
   confirmLabel,
   busy,
   onSubmit,
@@ -560,7 +736,7 @@ function NamePromptDialog({
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
     setPrevOpen(open);
-    if (open) setValue("");
+    if (open) setValue(initialValue ?? "");
   }
   const trimmed = value.trim();
   // Reject empty, slashes, and dot-only names — keeps the prompt aligned with
@@ -629,6 +805,18 @@ function NamePromptDialog({
 
 function listKey(target: ResourceTarget, dir: string) {
   return resourceKey(target, "files", target.name, dir, target.namespace);
+}
+
+function sizeKey(target: ResourceTarget, ...path: string[]) {
+  return resourceKey(target, "file-size", ...path);
+}
+
+function archiveName(entries: FileEntry[], selection: FileEntry[]): string {
+  const stem = selection.length === 1 ? selection[0].name : "archive";
+  const taken = new Set(entries.map((entry) => entry.name));
+  let candidate = `${stem}.zip`;
+  for (let index = 2; taken.has(candidate); index++) candidate = `${stem}-${index}.zip`;
+  return candidate;
 }
 
 function normalize(path: string): string {

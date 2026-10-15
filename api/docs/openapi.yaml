@@ -359,6 +359,11 @@ paths:
       responses:
         '200':
           description: OK
+  '/servers/{name}/files/archive':
+    get:
+      responses:
+        '200':
+          description: OK
   '/servers/{name}/files/delete':
     delete:
       responses:
@@ -384,12 +389,22 @@ paths:
       responses:
         '200':
           description: OK
+  '/servers/{name}/files/size':
+    get:
+      responses:
+        '200':
+          description: OK
   '/servers/{name}/files/upload':
     post:
       responses:
         '200':
           description: OK
   '/servers/{name}/files/write':
+    post:
+      responses:
+        '200':
+          description: OK
+  '/servers/{name}/files/zip':
     post:
       responses:
         '200':

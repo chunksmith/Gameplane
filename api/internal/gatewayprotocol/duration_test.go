@@ -13,8 +13,10 @@ func TestLongRunningOperation(t *testing.T) {
 		{http.MethodGet, "/console", true},
 		{http.MethodGet, "/logs/tail", true},
 		{http.MethodGet, "/files/download", true},
+		{http.MethodGet, "/files/archive", true},
 		{http.MethodGet, "/logs/download", true},
 		{http.MethodPost, "/files/upload", true},
+		{http.MethodPost, "/files/zip", true},
 		{http.MethodPost, "/mods/upload", true},
 		{http.MethodPost, "/mods/install", true},
 		{http.MethodGet, "/mods/install", false},
@@ -22,6 +24,7 @@ func TestLongRunningOperation(t *testing.T) {
 		{http.MethodPost, "/mods/install/extra", false},
 		{http.MethodGet, "/files/download/extra", false},
 		{http.MethodGet, "/status", false},
+		{http.MethodGet, "/files/size", false},
 		{http.MethodPost, "/console", false},
 		{http.MethodDelete, "/mods", false},
 	} {

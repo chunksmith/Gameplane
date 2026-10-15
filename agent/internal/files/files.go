@@ -63,10 +63,13 @@ func Mount(r chi.Router, root string) {
 	r.Route("/files", func(r chi.Router) {
 		// Transfers can legitimately outlive the ordinary operation timeout.
 		r.Get("/download", h.download)
+		r.Get("/archive", h.archive)
 		r.Post("/upload", h.upload)
+		r.Post("/zip", h.createZip)
 		r.Group(func(bounded chi.Router) {
 			bounded.Use(middleware.Timeout(30 * time.Second))
 			bounded.Get("/list", h.list)
+			bounded.Get("/size", h.size)
 			bounded.Get("/read", h.read)
 			bounded.Post("/write", h.write)
 			bounded.Post("/mkdir", h.mkdir)
@@ -222,6 +225,80 @@ func (h *handler) download(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Disposition",
 		fmt.Sprintf(`attachment; filename=%q`, fi.Name()))
 	http.ServeContent(w, req, fi.Name(), fi.ModTime(), f)
+}
+
+const maxArchivePaths = 1000
+
+func (h *handler) size(w http.ResponseWriter, req *http.Request) {
+	comps, err := h.components(req.URL.Query().Get("path"))
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	total, err := h.treeSize(req.Context(), comps)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, map[string]int64{"size": total})
+}
+
+func (h *handler) archiveTargets(w http.ResponseWriter, req *http.Request) ([][]string, bool) {
+	paths := req.URL.Query()["path"]
+	if len(paths) == 0 || len(paths) > maxArchivePaths {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return nil, false
+	}
+	targets := make([][]string, 0, len(paths))
+	for _, path := range paths {
+		comps, err := h.components(path)
+		if err != nil {
+			h.fail(w, err)
+			return nil, false
+		}
+		if len(comps) == 0 {
+			http.Error(w, "refusing to archive root", http.StatusBadRequest)
+			return nil, false
+		}
+		targets = append(targets, comps)
+	}
+	return targets, true
+}
+
+func (h *handler) archive(w http.ResponseWriter, req *http.Request) {
+	targets, ok := h.archiveTargets(w, req)
+	if !ok {
+		return
+	}
+	name := "archive.zip"
+	if len(targets) == 1 {
+		name = targets[0][len(targets[0])-1] + ".zip"
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, name))
+	if err := h.writeArchive(req.Context(), w, targets); err != nil {
+		slog.Warn("files archive failed", "err", err)
+	}
+}
+
+func (h *handler) createZip(w http.ResponseWriter, req *http.Request) {
+	targets, ok := h.archiveTargets(w, req)
+	if !ok {
+		return
+	}
+	dest, err := h.components(req.URL.Query().Get("dest"))
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	err = h.writeFile(dest, func(dst io.Writer) error {
+		return h.writeArchive(req.Context(), dst, targets)
+	})
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // maxWriteBytes caps a single /files/write body. The API-side ws proxy

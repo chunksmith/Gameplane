@@ -1,7 +1,7 @@
 import { ResourceTargetProvider } from "@/lib/resourceTarget";
 import { useState, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithQuery as baseRenderWithQuery } from "@/test/render";
 import { FilesTab } from "./Files";
 
@@ -111,6 +111,16 @@ function stubLocation() {
   return () => {
     Object.defineProperty(window, "location", { value: original });
   };
+}
+
+const CONFIG_SIZE = "GET /servers/mc-survival/files/size?path=%2Fconfig";
+
+function row(entryName: string) {
+  return screen.getByText(entryName).closest("li") as HTMLElement;
+}
+
+function toolbar() {
+  return screen.getByRole("toolbar", { name: "Selection actions" });
 }
 
 describe("FilesTab", () => {
@@ -639,6 +649,190 @@ describe("FilesTab", () => {
     expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
     await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument(), { timeout: 3000 });
     expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
+  });
+
+  it("shows a spinner until a folder's total size loads", async () => {
+    const size = deferredResponse();
+    mockServerProperties({ [CONFIG_SIZE]: () => size.promise });
+    renderWithQuery(<Harness />);
+    expect(await screen.findByLabelText("Calculating size")).toBeInTheDocument();
+    size.resolve(jsonRes({ size: 2048 }));
+    expect(await screen.findByText("2.0 KB")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Calculating size")).not.toBeInTheDocument();
+  });
+
+  it("shows a dash when a folder size cannot be loaded", async () => {
+    mockServerProperties({ [CONFIG_SIZE]: () => textRes("timeout", 504) });
+    renderWithQuery(<Harness />);
+    await screen.findByText("config");
+    await waitFor(() => expect(within(row("config")).queryByLabelText("Calculating size")).not.toBeInTheDocument());
+    expect(within(row("config")).getAllByText("—")).toHaveLength(2);
+  });
+
+  it("selects every entry and downloads them as one zip", async () => {
+    mockServerProperties();
+    const restoreLocation = stubLocation();
+    try {
+      renderWithQuery(<Harness />);
+      await screen.findByText("server.properties");
+      fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+      expect(within(toolbar()).getByText("2 selected")).toBeInTheDocument();
+      fireEvent.click(within(toolbar()).getByRole("button", { name: "Download" }));
+      await waitFor(() =>
+        expect(window.location.href).toBe("/servers/mc-survival/files/archive?path=%2Fconfig&path=%2Fserver.properties"),
+      );
+    } finally {
+      restoreLocation();
+    }
+  });
+
+  it("downloads a fully selected sub-folder as that folder's zip", async () => {
+    mockServerProperties({
+      "GET /servers/mc-survival/files/list?path=%2Fconfig": () =>
+        jsonRes([
+          { name: "a.yml", path: "/config/a.yml", size: 1, dir: false },
+          { name: "b.yml", path: "/config/b.yml", size: 1, dir: false },
+        ]),
+    });
+    const restoreLocation = stubLocation();
+    try {
+      renderWithQuery(<Harness initialPath="/config" />);
+      await screen.findByText("a.yml");
+      fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+      fireEvent.click(within(toolbar()).getByRole("button", { name: "Download" }));
+      await waitFor(() => expect(window.location.href).toBe("/servers/mc-survival/files/archive?path=%2Fconfig"));
+    } finally {
+      restoreLocation();
+    }
+  });
+
+  it("downloads a single selected file directly", async () => {
+    mockServerProperties();
+    const restoreLocation = stubLocation();
+    try {
+      renderWithQuery(<Harness />);
+      await screen.findByText("server.properties");
+      fireEvent.click(screen.getByRole("checkbox", { name: "Select server.properties" }));
+      fireEvent.click(within(toolbar()).getByRole("button", { name: "Download" }));
+      await waitFor(() => expect(window.location.href).toBe("/servers/mc-survival/files/download?path=%2Fserver.properties"));
+    } finally {
+      restoreLocation();
+    }
+  });
+
+  it("downloads a folder as a zip from its row", async () => {
+    mockServerProperties();
+    const restoreLocation = stubLocation();
+    try {
+      renderWithQuery(<Harness />);
+      fireEvent.click(await screen.findByRole("button", { name: "Download config" }));
+      await waitFor(() => expect(window.location.href).toBe("/servers/mc-survival/files/archive?path=%2Fconfig"));
+    } finally {
+      restoreLocation();
+    }
+  });
+
+  it("toggles entries, selects all, and clears the selection", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    expect(within(toolbar()).getByText("1 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(within(toolbar()).getByText("2 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    fireEvent.click(within(toolbar()).getByRole("button", { name: "Clear" }));
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+  });
+
+  it("names a single-entry zip after the entry", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    fireEvent.click(within(toolbar()).getByRole("button", { name: "Zip" }));
+    expect(await screen.findByPlaceholderText("archive.zip")).toHaveValue("config.zip");
+  });
+
+  it("zips the selection into the current folder under a free name", async () => {
+    const zipRequest = "POST /servers/mc-survival/files/zip?dest=%2Farchive-2.zip&path=%2Fconfig&path=%2Fserver.properties";
+    mockServerProperties({
+      [ROOT_LIST]: () => jsonRes([...ROOT_ENTRIES, { name: "archive.zip", path: "/archive.zip", size: 10, dir: false }]),
+      [zipRequest]: () => new Response(null, { status: 204 }),
+    });
+    renderWithQuery(<Harness />);
+    await screen.findByText("archive.zip");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select server.properties" }));
+    fireEvent.click(within(toolbar()).getByRole("button", { name: "Zip" }));
+    expect(await screen.findByPlaceholderText("archive.zip")).toHaveValue("archive-2.zip");
+    fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
+    await waitFor(() => expect(requests()).toContain(zipRequest));
+    await waitFor(() => expect(screen.queryByRole("toolbar")).not.toBeInTheDocument());
+  });
+
+  it("shows the error when zipping fails", async () => {
+    mockServerProperties({
+      "POST /servers/mc-survival/files/zip?dest=%2Fconfig.zip&path=%2Fconfig": () => textRes("disk full", 400),
+    });
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    fireEvent.click(within(toolbar()).getByRole("button", { name: "Zip" }));
+    await screen.findByPlaceholderText("archive.zip");
+    fireEvent.click(screen.getByRole("button", { name: /^Create$/ }));
+    expect(await screen.findByText("disk full")).toBeInTheDocument();
+  });
+
+  it("deletes the selection after confirmation", async () => {
+    mockServerProperties({
+      "DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true": () => new Response(null, { status: 204 }),
+      "DELETE /servers/mc-survival/files/delete?path=%2Fserver.properties": () => new Response(null, { status: 204 }),
+    });
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    fireEvent.click(within(toolbar()).getByRole("button", { name: "Delete" }));
+    expect(await screen.findByText("Delete 2 items?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    await waitFor(() =>
+      expect(requests()).toEqual(
+        expect.arrayContaining([
+          "DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true",
+          "DELETE /servers/mc-survival/files/delete?path=%2Fserver.properties",
+        ]),
+      ),
+    );
+    await waitFor(() => expect(screen.queryByRole("toolbar")).not.toBeInTheDocument());
+  });
+
+  it("keeps the selection and shows the error when deleting it fails", async () => {
+    mockServerProperties({
+      "DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true": () => textRes("folder busy", 400),
+    });
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    fireEvent.click(within(toolbar()).getByRole("button", { name: "Delete" }));
+    expect(await screen.findByText("Delete 1 item?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    expect(await screen.findByText("folder busy")).toBeInTheDocument();
+    expect(within(toolbar()).getByText("1 selected")).toBeInTheDocument();
+  });
+
+  it("disables zip and delete for a read-only selection", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />, { canControl: false });
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    expect(within(toolbar()).getByRole("button", { name: "Zip" })).toBeDisabled();
+    expect(within(toolbar()).getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(within(toolbar()).getByRole("button", { name: "Download" })).toBeEnabled();
   });
 });
 
