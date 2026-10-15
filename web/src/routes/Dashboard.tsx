@@ -33,6 +33,7 @@ import {
   formatBytes,
   formatCores,
   formatRelative,
+  formatSize,
   type StorageReading,
 } from "@/lib/utils";
 import { useMe, can } from "@/lib/auth";
@@ -90,6 +91,9 @@ export function DashboardPage() {
   const nodesTotal = clusterView.total;
   const cpu = inventory?.partial ? { known: false, pct: 0 } : sumUsage(nodes, "cpu");
   const mem = inventory?.partial ? { known: false, pct: 0 } : sumUsage(nodes, "memory");
+  const cpuAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(nodes, "cpu");
+  const memAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(nodes, "memory");
+  const network = sumNetwork(servers);
   const vcpus = nodes.reduce((sum, n) => sum + (n.cpu?.capacity ?? 0), 0);
   const storage = clusterView.usedStorageBytes === undefined ? { valueText: "—", subText: "inventory unavailable", overcommitted: false } : describeStorageProvisioned(clusterView.usedStorageBytes, clusterView.totalStorageBytes);
   const storagePct = clusterView.totalStorageBytes ? ((clusterView.usedStorageBytes ?? 0) / clusterView.totalStorageBytes) * 100 : 0;
@@ -168,7 +172,7 @@ export function DashboardPage() {
             />
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {countsUnavailable
               ? <ErrorCard message={"Couldn't load servers. Status and player totals are unavailable."} />
               : <FleetStatusCard complete={!fleet?.partial} groups={groups} gameCodes={gameCodes} byName={byName} />}
@@ -181,7 +185,9 @@ export function DashboardPage() {
               nodesReady={nodesReady}
               nodesTotal={nodesTotal}
               canViewCluster={canCluster}
+              network={network}
             />
+            <AllocationCard cpu={cpuAllocation} mem={memAllocation} />
           </div>
 
           <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
@@ -291,6 +297,23 @@ function AttentionRow({
   );
 }
 
+interface Allocation {
+  known: boolean;
+  requestPct: number;
+  limitPct: number;
+  requestSub?: string;
+  limitSub?: string;
+}
+
+const UNKNOWN_ALLOCATION: Allocation = { known: false, requestPct: 0, limitPct: 0 };
+
+interface NetworkUsage {
+  known: boolean;
+  rx: number;
+  tx: number;
+  servers: number;
+}
+
 interface Usage {
   pct: number;
   sub?: string;
@@ -308,6 +331,7 @@ function ClusterResourcesCard({
   nodesReady,
   nodesTotal,
   canViewCluster,
+  network,
 }: {
   cpu: Usage;
   mem: Usage;
@@ -317,11 +341,18 @@ function ClusterResourcesCard({
   nodesReady: number;
   nodesTotal: number;
   canViewCluster: boolean;
+  network: NetworkUsage;
 }) {
   return (
     <Card className="min-w-0 space-y-4 p-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Cluster resources</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">Cluster resources</h3>
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium text-success">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+            Live
+          </span>
+        </div>
         {canViewCluster ? (
           <Link to="/clusters" className="text-xs text-primary hover:underline">
             View clusters
@@ -343,6 +374,19 @@ function ClusterResourcesCard({
           unknown={storage.valueText === "—"}
           accent={storage.overcommitted ? "warning" : "success"}
         />
+        <div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted">Network</span>
+            <span className={cn("font-mono", network.known ? "text-foreground" : "text-muted")}>
+              {network.known ? `${formatBytes(network.rx + network.tx)}/s` : "—"}
+            </span>
+          </div>
+          <div className="pt-1 text-[10px] text-muted">
+            {network.known
+              ? `In ${formatBytes(network.rx)}/s · Out ${formatBytes(network.tx)}/s · ${network.servers} game ${network.servers === 1 ? "server" : "servers"}`
+              : "no game server traffic reported"}
+          </div>
+        </div>
       </div>
 
       {nodes.length > 0 && (
@@ -353,6 +397,26 @@ function ClusterResourcesCard({
           ))}
         </div>
       )}
+    </Card>
+  );
+}
+
+function AllocationCard({ cpu, mem }: { cpu: Allocation; mem: Allocation }) {
+  return (
+    <Card className="min-w-0 space-y-4 p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Allocation</h3>
+        <span className="text-xs text-muted">pod requests &amp; limits</span>
+      </div>
+      <div className="space-y-3">
+        <Meter label="CPU requested" pct={cpu.requestPct} sub={cpu.requestSub} unknown={!cpu.known} accent="primary" />
+        <Meter label="CPU limits" pct={cpu.limitPct} sub={cpu.limitSub} unknown={!cpu.known} accent={cpu.limitPct > 100 ? "warning" : "primary"} />
+        <Meter label="Memory requested" pct={mem.requestPct} sub={mem.requestSub} unknown={!mem.known} accent="violet" />
+        <Meter label="Memory limits" pct={mem.limitPct} sub={mem.limitSub} unknown={!mem.known} accent={mem.limitPct > 100 ? "warning" : "violet"} />
+      </div>
+      <p className="border-t border-border pt-4 text-[11px] text-muted">
+        Requests are reserved by the scheduler; limits are the most pods may burst to and can exceed capacity.
+      </p>
     </Card>
   );
 }
@@ -479,7 +543,7 @@ function BackupRow({
         <div className="truncate text-[11px] text-muted">{targetLabel(target)} · {formatRelative(when)}</div>
       </div>
       {backup.status?.size && (
-        <span className="shrink-0 font-mono text-xs text-foreground">{backup.status.size}</span>
+        <span className="shrink-0 font-mono text-xs text-foreground">{formatSize(backup.status.size)}</span>
       )}
       <PhaseChip phase={backup.status?.phase} />
     </div>
@@ -507,6 +571,33 @@ function sumUsage(nodes: ClusterNode[], key: "cpu" | "memory"): Usage {
     ? `${formatBytes(reading.used)} / ${formatBytes(reading.capacity)}`
     : `${formatCores(reading.used)} / ${formatCores(reading.capacity)} cores`;
   return { pct: reading.pct, sub, known: true };
+}
+
+function sumAllocation(nodes: ClusterNode[], key: "cpu" | "memory"): Allocation {
+  const known = nodes.length > 0 && nodes.every((node) => typeof node[key]?.requests === "number" && (node[key]?.capacity ?? 0) > 0);
+  if (!known) return UNKNOWN_ALLOCATION;
+  const capacity = nodes.reduce((sum, node) => sum + (node[key]?.capacity ?? 0), 0);
+  const requests = nodes.reduce((sum, node) => sum + (node[key]?.requests ?? 0), 0);
+  const limits = nodes.reduce((sum, node) => sum + (node[key]?.limits ?? 0), 0);
+  const format = (value: number) => (key === "memory" ? formatBytes(value) : `${formatCores(value)} cores`);
+  return {
+    known: true,
+    requestPct: (requests / capacity) * 100,
+    limitPct: (limits / capacity) * 100,
+    requestSub: `${format(requests)} of ${format(capacity)}`,
+    limitSub: `${format(limits)} of ${format(capacity)}`,
+  };
+}
+
+function sumNetwork(servers: GameServer[]): NetworkUsage {
+  const reporting = servers.filter((gs) =>
+    typeof gs.status?.agent?.networkRxBytesPerSec === "number" && typeof gs.status?.agent?.networkTxBytesPerSec === "number");
+  return {
+    known: reporting.length > 0,
+    servers: reporting.length,
+    rx: reporting.reduce((sum, gs) => sum + (gs.status?.agent?.networkRxBytesPerSec ?? 0), 0),
+    tx: reporting.reduce((sum, gs) => sum + (gs.status?.agent?.networkTxBytesPerSec ?? 0), 0),
+  };
 }
 
 function pctOf(used?: number, cap?: number): number {

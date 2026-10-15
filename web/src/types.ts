@@ -308,6 +308,7 @@ export interface GameTemplate {
     image: string;
     versions?: GameVersion[];
     logPath?: string;
+    resources?: ResourceRequirements;
     consoleMode?: "rcon" | "pty" | "none";
     // authentication: whether the console requires a password (default true).
     // false means no password Secret is minted (e.g. Nuclear Option's loopback port).
@@ -844,8 +845,8 @@ export interface ClusterNode {
   uptime?: string;
   startedAt?: string;
   pods?: { used?: number; capacity?: number };
-  cpu?: { used?: number; capacity?: number };
-  memory?: { used?: number; capacity?: number };
+  cpu?: { used?: number; capacity?: number; requests?: number; limits?: number };
+  memory?: { used?: number; capacity?: number; requests?: number; limits?: number };
   labels?: string[];
 }
 

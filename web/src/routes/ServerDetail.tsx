@@ -319,11 +319,6 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
                 <Play className="h-4 w-4" /> Start
               </Button>
             )}
-            {consoleAvailable && (
-              <Button className="rounded-full" onPress={() => selectTab("console")}>
-                <Terminal className="h-4 w-4" /> Open console
-              </Button>
-            )}
             {gs && (
               <ServerActionsMenu
                 gs={gs}

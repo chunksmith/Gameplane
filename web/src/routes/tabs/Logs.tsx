@@ -1,12 +1,11 @@
 import { useResourceClient, useResourceTarget } from "@/lib/resourceTarget";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertTriangle, Download, Loader2 } from "lucide-react";
+import { AlertTriangle, Box, Download, FileText, Loader2, Search } from "lucide-react";
 import { Button, Input, Tabs, Tab as TabComponent } from "@heroui/react";
 
-
-
 import { openWS } from "@/lib/ws";
+import { parseAnsi, type AnsiSegment } from "@/lib/ansi";
 import { capitalize, cn } from "@/lib/utils";
 import type { GameServerPhase } from "@/types";
 
@@ -34,6 +33,24 @@ const LEVEL_CLASS: Record<LogLevel, string> = {
   INFO: "",
   DEBUG: "text-muted",
 };
+const LEVEL_DOT: Record<LogLevel, string> = {
+  ERROR: "bg-danger",
+  WARN: "bg-warning",
+  INFO: "bg-accent",
+  DEBUG: "bg-muted",
+};
+
+interface LogRow {
+  text: string;
+  segments: AnsiSegment[];
+  level: LogLevel | null;
+}
+
+function toRow(raw: string): LogRow {
+  const segments = parseAnsi(raw);
+  const text = segments.map((segment) => segment.text).join("");
+  return { text, segments, level: parseLogLevel(text) };
+}
 
 // Log sources the tab streams from. "pod" follows the whole pod timeline —
 // each setup/init container's output, then the game container's stdout —
@@ -59,7 +76,7 @@ export function LogsTab({
   const resourceClient = useResourceClient(resourceTarget);
   const { Logs } = resourceClient;
 
-  const [lines, setLines] = useState<string[]>([]);
+  const [lines, setLines] = useState<LogRow[]>([]);
   const [filter, setFilter] = useState("");
   const [level, setLevel] = useState<"all" | LogLevel>("all");
   // Default to container output so logs are never empty during startup.
@@ -96,34 +113,32 @@ export function LogsTab({
           setStreamFailed(true);
         }
       },
-      onMessage: (data) =>
+      onMessage: (data) => {
+        if (typeof data !== "string") return;
+        const rows = data.replace(/\r?\n$/, "").split(/\r?\n/).map(toRow);
         setLines((prev) => {
-          const next = prev.concat(typeof data === "string" ? data.split(/\r?\n/) : []);
+          const next = prev.concat(rows);
           return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
-        }),
+        });
+      },
     });
     return () => sock.close();
   }, [name, ns, effectiveSource, Logs]);
 
-  // Parse each line's level once; derive counts + the filtered view from it.
-  const parsed = useMemo(
-    () => lines.map((text) => ({ text, level: parseLogLevel(text) })),
-    [lines],
-  );
   const counts = useMemo(() => {
     const c: Record<LogLevel, number> = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0 };
-    for (const p of parsed) if (p.level) c[p.level]++;
+    for (const row of lines) if (row.level) c[row.level]++;
     return c;
-  }, [parsed]);
+  }, [lines]);
   const needle = filter.toLowerCase();
   const filtered = useMemo(
     () =>
-      parsed.filter((p) => {
-        if (needle && !p.text.toLowerCase().includes(needle)) return false;
-        if (level !== "all" && p.level !== level) return false;
+      lines.filter((row) => {
+        if (needle && !row.text.toLowerCase().includes(needle)) return false;
+        if (level !== "all" && row.level !== level) return false;
         return true;
       }),
-    [parsed, needle, level],
+    [lines, needle, level],
   );
 
   const rowVirtualizer = useVirtualizer({
@@ -152,41 +167,69 @@ export function LogsTab({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         {logPath ? (
-          <Tabs selectedKey={source} onSelectionChange={(key) => setSource(key as LogSource)} variant="secondary" aria-label="Log source">
-            <Tabs.List>
-              <TabComponent id="pod">Container output</TabComponent>
-              <TabComponent id="file">Game log</TabComponent>
+          <Tabs className="shrink-0" selectedKey={source} onSelectionChange={(key) => setSource(key as LogSource)} variant="secondary" aria-label="Log source">
+            <Tabs.List className="servers-status-filter">
+              <TabComponent id="pod">
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <Box className="h-3.5 w-3.5" />
+                  Container output
+                </span>
+              </TabComponent>
+              <TabComponent id="file">
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <FileText className="h-3.5 w-3.5" />
+                  Game log
+                </span>
+              </TabComponent>
             </Tabs.List>
           </Tabs>
         ) : (
           <span
-            className="text-xs font-medium text-muted"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted"
             title="Follow the pod's setup + game container output (install/startup)"
           >
+            <Box className="h-3.5 w-3.5" />
             Container output
           </span>
         )}
-        <div className="w-64 shrink-0">
+        <div className="relative min-w-[12rem] max-w-xs flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
-            placeholder="filter…"
+            placeholder="Filter lines…"
+            aria-label="Filter log lines"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="font-mono text-xs"
+            className="w-full pl-9 font-mono text-xs"
           />
         </div>
-        <Tabs selectedKey={level} onSelectionChange={(key) => setLevel(key as "all" | LogLevel)} variant="secondary" aria-label="Log level">
-          <Tabs.List className="w-fit">
+        <Tabs className="shrink-0" selectedKey={level} onSelectionChange={(key) => setLevel(key as "all" | LogLevel)} variant="secondary" aria-label="Log level">
+          <Tabs.List className="servers-status-filter w-fit">
             {(["all", ...LEVELS] as const).map((lv) => (
               <TabComponent key={lv} id={lv}>
-                {lv === "all" ? "All" : `${lv[0]}${lv.slice(1).toLowerCase()}`}{lv !== "all" && ` ${counts[lv]}`}
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  {lv !== "all" && <span className={cn("h-1.5 w-1.5 rounded-full", LEVEL_DOT[lv])} />}
+                  {lv === "all" ? "All" : `${lv[0]}${lv.slice(1).toLowerCase()}`}
+                  {lv !== "all" && (
+                    <>
+                      {" "}
+                      <span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
+                        {counts[lv]}
+                      </span>
+                    </>
+                  )}
+                </span>
               </TabComponent>
             ))}
           </Tabs.List>
         </Tabs>
-        <span className="text-xs text-muted">{filtered.length.toLocaleString()} lines</span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted">
+            <span className={cn("h-2 w-2 rounded-full", connected ? "animate-pulse bg-success" : "bg-muted")} />
+            {connected ? "Live" : "Disconnected"}
+          </span>
+          <span className="whitespace-nowrap text-xs text-muted">{filtered.length.toLocaleString()} lines</span>
           <Button
             size="sm"
             variant="outline"
@@ -199,7 +242,7 @@ export function LogsTab({
           </Button>
         </div>
       </div>
-      <div ref={scrollerRef} className="flex-1 overflow-auto bg-[#0b0b0d] font-mono text-xs">
+      <div ref={scrollerRef} className="m-4 min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-[#0b0b0d] py-2 font-mono text-xs text-zinc-300 [tab-size:4]">
         {noOutput ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-8 text-center">
             {failed ? (
@@ -272,9 +315,11 @@ export function LogsTab({
                     position: "absolute", top: 0, left: 0, right: 0,
                     transform: `translateY(${v.start}px)`, height: v.size,
                   }}
-                  className={cn("whitespace-pre px-4 leading-[18px]", row.level && LEVEL_CLASS[row.level])}
+                  className={cn("whitespace-pre px-4 leading-[18px] hover:bg-white/5", row.level && LEVEL_CLASS[row.level])}
                 >
-                  {row.text}
+                  {row.segments.map((segment, index) =>
+                    segment.style ? <span key={index} style={segment.style}>{segment.text}</span> : segment.text,
+                  )}
                 </div>
               );
             })}

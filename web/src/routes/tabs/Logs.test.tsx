@@ -81,8 +81,7 @@ describe("LogsTab", () => {
     // path (via useVirtualizer) is exercised in real browsers and e2e.
     render(<LogsTab name="alpha" />);
     sockets[0].sendMsg("first line\nsecond line\n");
-    // Two newlines produce three split entries (first, second, "").
-    await waitFor(() => expect(screen.getByText(/3 lines/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/2 lines/)).toBeInTheDocument());
   });
 
   it("filters lines by user-typed substring", async () => {
