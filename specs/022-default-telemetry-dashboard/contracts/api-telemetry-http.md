@@ -60,7 +60,7 @@ The old ID is discarded and never sent again (US3 scenario 4).
   "destination": { "kind": "default", "host": "telemetry.example.org" },
   "fields": {
     "basic": ["version", "servers", "templates"],
-    "extended": ["installId", "env.k8s", "env.distro", "env.arch", "env.nodes", "games", "features"]
+    "extended": ["installId", "env.k8s", "env.distro", "env.arch", "env.nodes", "env.deployment", "games", "features"]
   }
 }
 ```

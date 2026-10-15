@@ -1,6 +1,6 @@
 # Open Decisions
 
-**Status**: 0 open; 10 ruled (OD-2, OD-3 and OD-4 on 2026-10-06, OD-1 and OD-5 on 2026-10-07, OD-6 on 2026-10-08, OD-7 to OD-10 on 2026-10-14).
+**Status**: 0 open; 16 ruled (OD-2, OD-3 and OD-4 on 2026-10-06, OD-1 and OD-5 on 2026-10-07, OD-6 on 2026-10-08, OD-7 to OD-16 on 2026-10-14).
 
 Per CLAUDE.md rule 10, an open value MUST NOT be committed as a settled contract in code, chart defaults or docs until it is ruled here.
 
@@ -166,3 +166,80 @@ Per CLAUDE.md rule 10, an open value MUST NOT be committed as a settled contract
 
 **Ruling**: (2) any semver. The highest semver version seen in the range sets the bar, pre-releases included. One install on `v0.4.0-rc.1` makes every install on `v0.3.0` stale for the days in the range.
 
+---
+
+## Amendment 2026-10-14: standalone and multicluster reporting (FR-043–FR-045)
+
+Since the standalone panel (GameplanePanel/Gameplane#630) the API can run without a local cluster and manage only registered remote clusters. `Collect` (`api/internal/telemetry/collect.go`) counts servers, templates, games and features on the local cluster only, so a standalone panel reports 0 servers and a central panel misses its members' servers. The user asked that standalone panels and multicluster members still report through the central panel.
+
+### OD-11: Which clusters a report counts
+
+**Status**: RULED (2026-10-14, user)
+
+**Question**: Should the report count servers and templates across every cluster the central panel manages?
+
+**Options**:
+1. All managed clusters: one report per central panel, with servers, templates, games and features summed over the local cluster (if any) plus every registered remote.
+2. Local only: counts stay local; a standalone panel keeps reporting 0 and a multicluster install misses member servers.
+
+**Ruling**: (1) all managed clusters.
+
+### OD-12: A managed cluster can't be reached
+
+**Status**: RULED (2026-10-14, user)
+
+**Question**: When the central panel builds its daily report, a registered remote cluster may be offline or its credentials may have expired. Is the report still sent?
+
+**Options**:
+1. Send, reachable only: the report counts the clusters that answered and is sent on schedule; an offline cluster's servers are missing for that day.
+2. Skip and retry: no report until every cluster answers; an always-offline cluster stops the install's telemetry.
+
+**Ruling**: (1) send with the clusters that answered.
+
+### OD-13: Deployment marker
+
+**Status**: RULED (2026-10-14, user)
+
+**Question**: Should extended reports carry a deployment marker, `cluster` or `standalone`, shown as a new environment breakdown on the dashboard? (The "telemetry marker for standalone installs" proposed on #630, which the user ruled a follow-up rather than a merge condition of #630.) The receiver rejects unknown fields, so it must learn the field first through a new extended schema version. An install that sends it to an older self-hosted receiver has its extended report refused and falls back to basic only (FR-016).
+
+**Options**:
+1. Add the marker: a new extended field and dashboard breakdown; the receiver learns it first, installs send it from the next release.
+2. No marker: no schema change; standalone installs show up only through their cluster counts and `other` environment values.
+
+**Ruling**: (1) add the marker.
+
+### OD-14: Older reports in the deployment breakdown
+
+**Status**: RULED (2026-10-14, user)
+
+**Question**: Installs on releases before the marker send extended reports without it (schema 1). Their deployment is unknown. How does the breakdown show them?
+
+**Options**:
+1. Count as `other`, the rule every other environment field uses for a value that doesn't fit (FR-013). **Recommended.**
+2. Leave them out: shares are computed only over installs that send the marker, and the card says how many sent it.
+
+**Ruling**: (1) count as `other`.
+
+### OD-15: Environment fields on a standalone or central panel
+
+**Status**: RULED (2026-10-14, user)
+
+**Question**: The environment fields (Kubernetes minor version, distribution, CPU architectures, node-count band) are single values describing the cluster the API runs on. Do they keep doing so now that the counts span every managed cluster (OD-11)?
+
+**Options**:
+1. Own cluster only: no change to `env`; a standalone panel sends `other` (and `["other"]` for `arch`), and a central panel with a local cluster describes that cluster. **Recommended.**
+2. All managed clusters: the environment fields become per-cluster sets across members; a larger schema change and new dashboard logic.
+
+**Ruling**: (2) all managed clusters. The Kubernetes minor version and the distribution become sorted, de-duplicated sets over the reachable managed clusters, as `arch` already is. On the dashboard an install counts once under each value it reports, so those shares can add up to more than 100%, as architectures already do. How the node-count band is reported is OD-16.
+
+### OD-16: Node-count band across clusters
+
+**Status**: RULED (2026-10-14, user)
+
+**Question**: With the environment fields covering every managed cluster (OD-15), is the node-count band one band for the total, or one band per cluster? The dashboard uses it for the share of single-node installs (SC-007).
+
+**Options**:
+1. Total nodes: one band over all nodes of the reachable clusters; three single-node clusters report `2-3`, and shares still add up to 100%. **Recommended.**
+2. Band per cluster: a set of bands; three single-node clusters report `1`, and shares can add up to more than 100%.
+
+**Ruling**: (1) total nodes. `env.nodes` stays one band, over all nodes of the reachable managed clusters.

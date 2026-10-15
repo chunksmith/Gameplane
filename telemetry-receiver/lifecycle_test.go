@@ -8,7 +8,7 @@ import (
 )
 
 // dailyTables are the day-keyed tables the retention sweep covers.
-var dailyTables = []string{"daily_basic", "daily_version", "daily_fleet", "daily_ext", "daily_dim", "daily_game"}
+var dailyTables = []string{"daily_basic", "daily_version", "daily_fleet", "daily_ext", "daily_dim", "daily_game", "daily_install_version", "daily_version_change"}
 
 var lifecycleNow = time.Date(2026, 10, 7, 3, 30, 0, 0, time.UTC) // yesterday is 2026-10-06
 
@@ -51,6 +51,8 @@ func seedAllDaily(t *testing.T, st *store, day string) {
 		`INSERT INTO daily_ext (day, ext_reports) VALUES (?, 1)`,
 		`INSERT INTO daily_dim (day, dim, value, installs) VALUES (?, 'k8s', '1.31', 1)`,
 		`INSERT INTO daily_game (day, module, installs, servers) VALUES (?, 'custom', 1, 1)`,
+		`INSERT INTO daily_install_version (day, version, installs) VALUES (?, '1.0.0', 1)`,
+		`INSERT INTO daily_version_change (day, kind, installs) VALUES (?, 'upgraded', 1)`,
 	} {
 		if _, err := st.db.ExecContext(ctx, q, day); err != nil {
 			t.Fatalf("seed %s: %v", q, err)

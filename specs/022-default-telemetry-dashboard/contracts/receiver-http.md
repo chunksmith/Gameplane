@@ -117,7 +117,7 @@ An E2E check (R17) compares the unauthenticated response against the login page 
     "lapsedPerDay": [{"day": "2026-09-06", "count": 4}],
     "versionsByInstall": {"windowDays": 30, "items": [{"label": "0.3.0", "installs": 1011}]},
     "versionTrend": {"newestRelease": "v0.3.0", "days": [{"day": "2026-09-06", "upgraded": 14, "downgraded": 1, "unordered": 0, "stale": 212}]},
-    "env": {"k8s": [{"label": "1.31", "share": 0.42}], "distro": [], "arch": [], "nodes": []},
+    "env": {"k8s": [{"label": "1.31", "share": 0.42}], "distro": [], "arch": [], "nodes": [], "deployment": [{"label": "cluster", "share": 0.93}]},
     "games": [{"module": "minecraft-java", "installsShare": 0.63, "serversPerDay": 2140.5}, {"module": "custom", "installsShare": 0.08, "serversPerDay": 77.1}],
     "features": [{"feature": "wakeOnConnect", "share": 0.18}],
     "tunnels": [{"label": "playit", "share": 0.05}],

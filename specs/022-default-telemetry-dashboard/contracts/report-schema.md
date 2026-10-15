@@ -49,12 +49,14 @@ Gameplane-Telemetry-Signature: ed25519=<base64url Ed25519 signature over the exa
 | `version` | string | `^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$` | The receiver buckets it as `invalid`. |
 | `servers`, `templates` | integer | ≥ 0 | 400 |
 | `ext` | object | optional | — |
-| `ext.schema` | integer | `1` | A higher value gets 400, which triggers the API's basic-only fallback. |
+| `ext.schema` | integer | `1` or `2` (`2` adds `ext.env.deployment`, FR-045) | A higher value gets 400, which triggers the API's basic-only fallback. |
 | `ext.installId` | string | lowercase UUIDv4 | Once `ext` passes the structural checks, the receiver ignores it and counts the report as basic. A structurally broken `ext` is a 400 whatever the ID. |
 | `ext.env.k8s` | string | `1.<minor>`, where minor is 1–3 digits | `other` |
 | `ext.env.distro` | string | `k3s` `rke2` `k0s` `eks` `gke` `aks` `openshift` `microk8s` `minikube` `kind` `doks` `talos` `other` | `other` |
 | `ext.env.arch` | string[] | non-empty, sorted, unique, drawn from `amd64` `arm64` `arm` `ppc64le` `s390x` `riscv64` `other` | Unknown members become `other`. An empty array gets 400. |
 | `ext.env.nodes` | string | `1` `2-3` `4-10` `11-50` `51+` | `other` |
+| `ext.env.k8s`, `ext.env.distro` in schema 2 | string[] | non-empty, sorted, unique; members follow the schema 1 rules above, one per value across the reachable managed clusters (OD-15) | Unknown members become `other`; a panel with no reachable cluster sends `["other"]`. An empty array gets 400. |
+| `ext.env.deployment` | string | `cluster` `standalone`. Required in schema 2, refused (unknown key, 400) in schema 1. | `other` |
 | `ext.games.official` | object | keys are module names from the embedded catalog, values are integers ≥ 1 | Unknown keys are added to `custom`. A non-positive value gets 400. |
 | `ext.games.custom` | integer | ≥ 0 | 400 |
 | `ext.features.wakeOnConnect`, `capture`, `backups`, `sso`, `auditForwarding` | boolean | — | 400 |
@@ -118,5 +120,6 @@ A refused report changes no stored data.
 | Old install (basic only) → new receiver | Accepted, counted as basic. |
 | New install with `ext` → a receiver released before this feature (≤ v0.3.0) | 400. The install re-POSTs basic only, which is accepted, and suppresses `ext` for that endpoint for 7 days. |
 | New install with `ext.schema` N → receiver that supports a lower schema | 400. Same fallback as the row above. |
+| Install on schema 1 (no `deployment`) → receiver that supports schema 2 | Accepted. The deployment breakdown counts it as `other` (OD-14). |
 | Install whose ID is claimed by another key → new receiver | 409. The install replaces its ID, re-signs and re-POSTs once (FR-037). |
 | Bad signature, stale send time or replay → new receiver | 403. Counts as a failed attempt with normal backoff. No fallback and no ID rotation. |

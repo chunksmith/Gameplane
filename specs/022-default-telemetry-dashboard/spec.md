@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-06
 
-**Status**: Draft (clarified); amended 2026-10-14 with the version trend (US5, FR-042)
+**Status**: Draft (clarified); amended 2026-10-14 with the version trend (US5, FR-042), and again on 2026-10-14 with standalone and multicluster reporting (FR-043–FR-045)
 
 **Input**: User description: "Right now telemetry is only something someone can add. i want to add a default to a domain (not yet defined) and also build a dashboard to show the data provided by the telemetry provider". Follow-ups: "also could we extend the telemetry?" and "right now there is no verif for data sent. so i want a way for server to 'claim' the id with a key derivated from stable local value to sign the data so no one can impersonatte other id"
 
@@ -40,6 +40,14 @@ The Versions panel showed "pr617 6" for one install that had sent 6 daily report
 - Q14: How are versions that aren't releases (`pr617`, `dev`, `edge-<sha>`) ordered? → A: **Semver only.** Only semver versions are ordered. A change to or from anything else counts as "changed (unordered)", never as an upgrade or downgrade, and such an install is never stale (OD-8).
 - Q15: Where do the views go? → A: **Keep both, add the trend.** The basic reports-by-version panel stays and is renamed "Reports by version". The trend goes under "Versions by install" in the extended section (OD-9).
 - Q16: Can a pre-release (`v0.4.0-rc.1`) set the newest-release bar for stale? → A: **Any semver.** The highest semver version seen in the range sets the bar, pre-releases included, so one install on `v0.4.0-rc.1` makes installs on `v0.3.0` stale (OD-10).
+
+### Session 2026-10-14 (amendment: standalone and multicluster reporting)
+
+Since the standalone panel (GameplanePanel/Gameplane#630) the API can run without a local cluster and manage only registered remote clusters. Reports counted the local cluster only, so a standalone panel reported 0 servers and a central panel missed its members' servers. The user asked that standalone panels and multicluster members still report through the central panel.
+
+- Q17: Which clusters does a report count? → A: **All managed clusters.** The central panel sends one report, with servers, templates, games and features summed over its local cluster (if any) plus every registered remote cluster (OD-11).
+- Q18: What if a managed cluster can't be reached? → A: **Send with the clusters that answered.** The report goes out on schedule; an unreachable cluster's servers are missing for that day (OD-12).
+- Q19: Should reports say whether the install is a cluster install or a standalone panel? → A: **Add a marker.** Extended reports carry `cluster` or `standalone`, shown as an environment breakdown (OD-13).
 
 ## Context
 
@@ -184,6 +192,7 @@ These answer questions that basic counts can't, such as "how many installs are s
 7. **Given** installs whose extended reports change version within the range, **When** an authorized viewer looks at the version trend, **Then** it shows per day how many installs upgraded, downgraded, or changed between versions that can't be ordered (FR-042).
 8. **Given** installs active on several semver versions within the range, **When** an authorized viewer looks at the version trend, **Then** it shows per day how many active installs were stale, that is, on a version lower than the newest release seen in the range (FR-042, OD-7, OD-10).
 9. **Given** an install that only ever reports a version that isn't semver (for example `pr617`), **When** an authorized viewer looks at the version trend, **Then** that install is never counted as upgraded, downgraded or stale, and a change of its version counts only as "changed (unordered)".
+10. **Given** extended reports from cluster installs and standalone panels, **When** an authorized viewer looks at environment, **Then** it also shows each install's share by deployment, cluster or standalone (FR-045).
 
 ---
 
@@ -234,6 +243,8 @@ Someone learns an install's ID, for example from a screenshot of Admin Settings,
 - **Look-alike module names.** A module that shares a name with an official catalog module, but comes from any other source, counts as "custom". Its name is never sent.
 - **Older provider.** A self-hosted provider older than this feature rejects extended reports. The install still delivers its basic report to it (FR-016).
 - **Older installs.** The provider keeps accepting basic-only reports from installs older than this feature.
+- **Managed cluster offline.** A registered cluster that can't be reached while a report is built is left out of that day's counts, and the report is still sent (FR-044). The install's server count drops for that day and returns when the cluster answers again.
+- **Standalone panel with no clusters yet.** It reports 0 servers and templates, as a cluster install with no servers does, and its deployment marker says `standalone` (FR-045).
 - **No route to the internet** (air-gapped cluster or restrictive egress). Delivery fails quietly. No user-facing error appears beyond the US3 status line, retries are bounded so a failure never becomes a request storm, and the rest of the product is unaffected.
 - **Frequent restarts.** An install whose control plane restarts more often than once a day must still report about daily, and must never send more than one report per day (FR-007). Repeated restarts must not inflate counts.
 - **Default provider unreachable or rejecting reports.** The install backs off and retries at the next cycle. Reports are never queued and replayed in bulk.
@@ -286,6 +297,7 @@ Someone learns an install's ID, for example from a screenshot of Admin Settings,
      - distribution category (from a fixed published list, plus "other")
      - CPU architecture(s) of the nodes
      - node-count band: 1, 2–3, 4–10, 11–50, 50+
+     - deployment: cluster or standalone (FR-045)
   3. **Game usage**: the server count for each module from the official catalog, plus one combined count for all other modules, labelled "custom".
   4. **Feature adoption**:
      - wake-on-connect in use (yes/no)
@@ -402,6 +414,12 @@ Someone learns an install's ID, for example from a screenshot of Admin Settings,
 
   An install's first report (no activity record yet) is never a change. Version changes MUST be stored only as daily counts, never linked to an install ID (FR-014). The trend starts on the day the provider gains this feature, with no backfill.
 
+**Standalone and multicluster reporting** (amendment 2026-10-14)
+
+- **FR-043**: An install MUST send one report for everything its panel manages. Server and template counts (FR-010) and per-module game counts MUST be summed, and the cluster-derived features combined (wake-on-connect and backups: true when any cluster has them; relay tunnels: the union of the providers in use), over the local cluster, when there is one, plus every registered remote cluster (OD-11). A standalone panel, which has no local cluster, counts its registered clusters only. A registered cluster's servers count in the report of the panel that manages them. The basic report keeps exactly its three fields (FR-010).
+- **FR-044**: When a registered cluster can't be listed while a report is built (unreachable, or its credentials rejected), the install MUST leave that cluster out of the counts and still send the report on schedule (OD-12). The report MUST NOT be delayed, retried or skipped because of it, and the clusters band (FR-011) MUST still count every registered cluster.
+- **FR-045**: The extended report MUST carry a **deployment** marker in its environment: `standalone` when the panel runs without a local cluster, `cluster` otherwise (OD-13). It is a new extended schema version. The provider MUST accept both the new and the previous schema, and MUST keep a daily per-category count for deployment like the other environment fields (FR-020). A provider older than this amendment refuses the new schema, and the install falls back to basic reports for it (FR-016). Reports on the previous schema carry no marker and count as `other` in the breakdown (OD-14). The other environment fields cover every reachable managed cluster (OD-15): the Kubernetes minor version and the distribution become sets of values, as CPU architectures already are, and a standalone panel with no reachable cluster sends `other` for each. The node-count band stays one value, over all nodes of the reachable managed clusters (OD-16).
+
 ### Key Entities
 
 - **Basic report**: one anonymous sample from one install, carrying version, server count, and template count. Unchanged by this feature.
@@ -448,6 +466,7 @@ Someone learns an install's ID, for example from a screenshot of Admin Settings,
 - **SC-015**: An install whose ID was claimed by another key has a report accepted under a new ID within the same delivery attempt in 100% of tested cases.
 - **SC-016**: With proof-of-work on, a challenge issued while demand is at or below the normal rate requires no work, and a challenge issued while demand is 1,000 times the normal rate requires at least 2^20 hash attempts on average (FR-039).
 - **SC-017**: For a synthetic population with known upgrades, downgrades, unordered changes and installs left on older releases, every daily upgraded, downgraded, unordered and stale count on the version trend matches the expected value exactly.
+- **SC-018**: A central panel managing a local cluster and two registered clusters, one of them unreachable, sends its report on schedule, and the report's server and template counts equal the sum over the two reachable clusters. A standalone panel's extended report says `standalone`, and the provider's deployment breakdown counts it once.
 
 ## Assumptions
 

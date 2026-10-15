@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GameplanePanel/gameplane/telemetryschema"
+	"golang.org/x/mod/semver"
 )
 
 // validRanges are the dashboard ranges in days (FR-022); anything else falls
@@ -54,6 +55,7 @@ type ExtendedViews struct {
 	NewPerDay         []DayCount        `json:"newPerDay"`
 	LapsedPerDay      []DayCount        `json:"lapsedPerDay"`
 	VersionsByInstall VersionsByInstall `json:"versionsByInstall"`
+	VersionTrend      VersionTrend      `json:"versionTrend"`
 	Env               EnvViews          `json:"env"`
 	Games             []GameShare       `json:"games"`
 	Features          []FeatureShare    `json:"features"`
@@ -88,6 +90,23 @@ type VersionsByInstall struct {
 type InstallVersion struct {
 	Label    string `json:"label"`
 	Installs int64  `json:"installs"`
+}
+
+// VersionTrend is the daily version trend over the range (FR-042).
+// NewestRelease is the highest semver version reported by any install in the
+// range, pre-releases included (OD-7, OD-10), or "" when none is semver.
+type VersionTrend struct {
+	NewestRelease string            `json:"newestRelease"`
+	Days          []VersionTrendDay `json:"days"`
+}
+
+// VersionTrendDay is one day of the version trend.
+type VersionTrendDay struct {
+	Day        string `json:"day"`
+	Upgraded   int64  `json:"upgraded"`
+	Downgraded int64  `json:"downgraded"`
+	Unordered  int64  `json:"unordered"`
+	Stale      int64  `json:"stale"`
 }
 
 // EnvViews are the environment shares.
@@ -418,6 +437,9 @@ func buildExtended(ctx context.Context, st *store, rangeDays int, from, to strin
 	if e.VersionsByInstall.Items, err = queryInstallVersions(ctx, st.db, dayString(asOf.AddDate(0, 0, 1-window))); err != nil {
 		return nil, err
 	}
+	if e.VersionTrend, err = queryVersionTrend(ctx, st.db, asOf, rangeDays); err != nil {
+		return nil, err
+	}
 	dims, err := queryDims(ctx, st.db, from, to, extReports)
 	if err != nil {
 		return nil, err
@@ -489,6 +511,85 @@ func queryNewLapsed(ctx context.Context, db *sql.DB, asOf time.Time, rangeDays i
 		lapsedPer = append(lapsedPer, DayCount{Day: day, Count: lapsedBy[day]})
 	}
 	return newPer, lapsedPer, nil
+}
+
+// queryVersionTrend returns the dense daily version trend over the rangeDays
+// ending on asOf (FR-042, data-model § Derived views). Changes come from
+// daily_version_change. Stale counts, per day, the installs on a semver
+// version lower than the newest semver version seen in the range; versions
+// that aren't semver are never stale (OD-8).
+func queryVersionTrend(ctx context.Context, db *sql.DB, asOf time.Time, rangeDays int) (VersionTrend, error) {
+	from := asOf.AddDate(0, 0, 1-rangeDays)
+	fromDay, toDay := dayString(from), dayString(asOf)
+	t := VersionTrend{Days: make([]VersionTrendDay, 0, rangeDays)}
+
+	type dayVersion struct {
+		day, version string
+		installs     int64
+	}
+	var installs []dayVersion
+	rows, err := db.QueryContext(ctx,
+		`SELECT day, version, installs FROM daily_install_version WHERE day >= ? AND day <= ?`, fromDay, toDay)
+	if err != nil {
+		return VersionTrend{}, fmt.Errorf("query daily_install_version: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	newest := ""
+	for rows.Next() {
+		var dv dayVersion
+		if err := rows.Scan(&dv.day, &dv.version, &dv.installs); err != nil {
+			return VersionTrend{}, fmt.Errorf("scan daily_install_version: %w", err)
+		}
+		installs = append(installs, dv)
+		if v, ok := canonicalSemver(dv.version); ok && (newest == "" || semver.Compare(v, newest) > 0) {
+			newest = v
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return VersionTrend{}, fmt.Errorf("read daily_install_version: %w", err)
+	}
+	stale := make(map[string]int64)
+	for _, dv := range installs {
+		if v, ok := canonicalSemver(dv.version); ok && semver.Compare(v, newest) < 0 {
+			stale[dv.day] += dv.installs
+		}
+	}
+	t.NewestRelease = newest
+
+	changes := make(map[string]map[string]int64)
+	crows, err := db.QueryContext(ctx,
+		`SELECT day, kind, installs FROM daily_version_change WHERE day >= ? AND day <= ?`, fromDay, toDay)
+	if err != nil {
+		return VersionTrend{}, fmt.Errorf("query daily_version_change: %w", err)
+	}
+	defer func() { _ = crows.Close() }()
+	for crows.Next() {
+		var day, kind string
+		var n int64
+		if err := crows.Scan(&day, &kind, &n); err != nil {
+			return VersionTrend{}, fmt.Errorf("scan daily_version_change: %w", err)
+		}
+		if changes[day] == nil {
+			changes[day] = make(map[string]int64)
+		}
+		changes[day][kind] = n
+	}
+	if err := crows.Err(); err != nil {
+		return VersionTrend{}, fmt.Errorf("read daily_version_change: %w", err)
+	}
+
+	for i := range rangeDays {
+		day := dayString(from.AddDate(0, 0, i))
+		c := changes[day]
+		t.Days = append(t.Days, VersionTrendDay{
+			Day:        day,
+			Upgraded:   c[changeUpgraded],
+			Downgraded: c[changeDowngraded],
+			Unordered:  c[changeUnordered],
+			Stale:      stale[day],
+		})
+	}
+	return t, nil
 }
 
 // queryInstallVersions counts installs per last reported version among the

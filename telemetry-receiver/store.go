@@ -93,6 +93,18 @@ var storeSchema = []string{
 		servers  INTEGER NOT NULL DEFAULT 0,
 		PRIMARY KEY (day, module)
 	)`,
+	`CREATE TABLE IF NOT EXISTS daily_install_version (
+		day      TEXT NOT NULL,
+		version  TEXT NOT NULL,
+		installs INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (day, version)
+	)`,
+	`CREATE TABLE IF NOT EXISTS daily_version_change (
+		day      TEXT NOT NULL,
+		kind     TEXT NOT NULL,
+		installs INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (day, kind)
+	)`,
 	`CREATE TABLE IF NOT EXISTS activity (
 		id_hmac      TEXT PRIMARY KEY,
 		key_fp       TEXT NOT NULL,
@@ -296,6 +308,8 @@ var retentionSweeps = []string{
 	`DELETE FROM daily_ext WHERE day < ?`,
 	`DELETE FROM daily_dim WHERE day < ?`,
 	`DELETE FROM daily_game WHERE day < ?`,
+	`DELETE FROM daily_install_version WHERE day < ?`,
+	`DELETE FROM daily_version_change WHERE day < ?`,
 }
 
 // pendingDays returns the completed UTC days after through, up to and
