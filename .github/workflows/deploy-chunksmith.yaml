@@ -1,0 +1,44 @@
+name: deploy chunksmith
+
+on:
+  workflow_run:
+    workflows: [harbor]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-chunksmith
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'chunksmith/Gameplane' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    name: helm upgrade & restart control plane
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: chunksmith
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: deploy
+        env:
+          KUBECONFIG_DATA: ${{ secrets.CHUNKSMITH_KUBECONFIG }}
+        run: |
+          set -euo pipefail
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          printf '%s' "$KUBECONFIG_DATA" > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+          helm upgrade gameplane charts/gameplane -n gameplane --reset-then-reuse-values --wait --timeout 10m
+          kubectl -n gameplane rollout restart deploy/gameplane-operator deploy/gameplane-api deploy/gameplane-web
+          for component in operator api web; do
+            kubectl -n gameplane rollout status "deploy/gameplane-$component" --timeout 5m
+          done
