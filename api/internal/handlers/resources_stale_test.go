@@ -13,6 +13,7 @@ var usageKeys = []string{
 	"cpuMillicores", "cpuLimitMillicores",
 	"memoryBytes", "memoryLimitBytes",
 	"diskUsedBytes", "diskTotalBytes",
+	"networkRxBytes", "networkTxBytes", "networkRxBytesPerSec", "networkTxBytesPerSec",
 }
 
 func gsWithHeartbeat(age time.Duration, players int64) *unstructured.Unstructured {

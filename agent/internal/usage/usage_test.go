@@ -384,3 +384,48 @@ func TestReadProcStatmRSS(t *testing.T) {
 		t.Fatalf("absent statm rss = %d, want 0", got)
 	}
 }
+
+func writeNetDev(t *testing.T, procRoot, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(procRoot, "net"), 0o700); err != nil {
+		t.Fatalf("mkdir net: %v", err)
+	}
+	writeFile(t, filepath.Join(procRoot, "net"), "dev", body)
+}
+
+func netDev(rx, tx int) string {
+	return "Inter-|   Receive                                                |  Transmit\n" +
+		" face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n" +
+		"    lo:  5000   10    0    0    0     0          0         0   5000   10    0    0    0     0       0          0\n" +
+		fmt.Sprintf("  eth0: %d 1 0 0 0 0 0 0 %d 1 0 0 0 0 0 0\n", rx, tx)
+}
+
+func TestRead_Network(t *testing.T) {
+	procRoot := t.TempDir()
+	writeNetDev(t, procRoot, netDev(1000, 4000))
+	clock := &fakeClock{t: time.Unix(100, 0)}
+	r := New(Config{Root: t.TempDir(), ProcRoot: procRoot, now: clock.now})
+
+	s1 := r.Read()
+	if !s1.NetKnown || s1.NetRxBytes != 1000 || s1.NetTxBytes != 4000 || s1.NetRateKnown {
+		t.Fatalf("first read: %+v", s1)
+	}
+
+	clock.t = clock.t.Add(2 * time.Second)
+	writeNetDev(t, procRoot, netDev(3000, 10000))
+	s2 := r.Read()
+	if !s2.NetRateKnown || s2.NetRxBytesPerSec != 1000 || s2.NetTxBytesPerSec != 3000 {
+		t.Fatalf("second read: %+v", s2)
+	}
+}
+
+func TestRead_NetworkUnknown(t *testing.T) {
+	if s := New(Config{Root: t.TempDir(), ProcRoot: t.TempDir()}).Read(); s.NetKnown {
+		t.Fatalf("missing net/dev should be unknown: %+v", s)
+	}
+	procRoot := t.TempDir()
+	writeNetDev(t, procRoot, "    lo: 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0\n  eth0: x 1 0 0 0 0 0 0 y\n")
+	if s := New(Config{Root: t.TempDir(), ProcRoot: procRoot}).Read(); s.NetKnown {
+		t.Fatalf("loopback-only or malformed net/dev should be unknown: %+v", s)
+	}
+}

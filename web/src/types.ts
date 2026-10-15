@@ -585,6 +585,10 @@ export interface GameServer {
       memoryLimitBytes?: number | null;
       diskUsedBytes?: number | null;
       diskTotalBytes?: number | null;
+      networkRxBytes?: number | null;
+      networkTxBytes?: number | null;
+      networkRxBytesPerSec?: number | null;
+      networkTxBytesPerSec?: number | null;
       // Set by the API when the heartbeat is older than the freshness
       // window — the reported values are no longer current.
       stale?: boolean;

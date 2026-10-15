@@ -468,6 +468,7 @@ func gateStaleAgent(obj *unstructured.Unstructured) {
 		"cpuMillicores", "cpuLimitMillicores",
 		"memoryBytes", "memoryLimitBytes",
 		"diskUsedBytes", "diskTotalBytes",
+		"networkRxBytes", "networkTxBytes", "networkRxBytesPerSec", "networkTxBytesPerSec",
 	} {
 		delete(agent, k)
 	}

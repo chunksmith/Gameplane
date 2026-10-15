@@ -6,7 +6,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { server } from "@/test/server";
 import { renderWithQuery as baseRenderWithQuery } from "@/test/render";
-import { makePlayers, makePlayerEntry } from "@/test/factories";
+import { makePlayers, makePlayerEntry, makeTemplate } from "@/test/factories";
 import { PlayersTab } from "./Players";
 
 describe("PlayersTab", () => {
@@ -20,6 +20,19 @@ describe("PlayersTab", () => {
     expect(await screen.findByText(/2 \/ 20 online/)).toBeInTheDocument();
     expect(screen.getByText("alice")).toBeInTheDocument();
     expect(screen.getByText("bob")).toBeInTheDocument();
+  });
+
+  it("shows Minecraft player heads", async () => {
+    server.use(
+      http.get("/servers/alpha/players", () =>
+        HttpResponse.json(makePlayers({ online: 1, players: ["Notch"] })),
+      ),
+    );
+    const { container } = renderWithQuery(<PlayersTab name="alpha" tmpl={makeTemplate()} />);
+    await screen.findByText("Notch");
+    await waitFor(() =>
+      expect(container.querySelector('img[src="https://mc-heads.net/avatar/notch/64"]')).not.toBeNull(),
+    );
   });
 
   it("shows loading state initially", () => {

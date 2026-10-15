@@ -1,5 +1,5 @@
 import { useResourceClient, useResourceAccess, useResourceTarget, resourceKey } from "@/lib/resourceTarget";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -17,6 +17,8 @@ import { StatCard } from "@/components/ui/StatCard";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { errorText } from "@/lib/errors";
 import { playerRows } from "@/lib/players";
+import { playerHeadUrl } from "@/lib/playerHeads";
+import type { GameTemplate } from "@/types";
 
 import { cn } from "@/lib/utils";
 
@@ -27,7 +29,7 @@ interface ModResp {
 
 type Action = "kick" | "ban";
 
-export function PlayersTab({ name, ns }: { name: string; ns?: string }) {
+export function PlayersTab({ name, ns, tmpl }: { name: string; ns?: string; tmpl?: GameTemplate }) {
   const canControl = useResourceAccess()?.canControl === true;
   const resourceTarget = useResourceTarget({ name, namespace: ns });
   const resourceClient = useResourceClient(resourceTarget);
@@ -47,6 +49,7 @@ export function PlayersTab({ name, ns }: { name: string; ns?: string }) {
   });
   const caps = data?.capabilities;
   const rows = playerRows(data);
+  const heads = tmpl?.spec.game.startsWith("minecraft") === true;
 
   // Banned + whitelist are fetched whenever the game supports them so the
   // summary tiles always have counts; the sections below just toggle the
@@ -162,20 +165,27 @@ export function PlayersTab({ name, ns }: { name: string; ns?: string }) {
         <p className="text-sm text-muted">Player moderation isn&apos;t supported for this game.</p>
       )}
 
-      <ul className="grid gap-1 md:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => (
           <li
             key={r.id}
-            className="flex items-center justify-between gap-2 rounded border border-border bg-surface/30 px-3 py-2 font-mono text-sm"
+            className="flex items-center gap-3 rounded-xl border border-border bg-surface/40 p-3 transition-colors hover:border-accent/40 hover:bg-surface"
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className={cn("truncate", !r.named && "text-muted")}>{r.label}</span>
-              {r.faction && (
-                <span className="rounded-full bg-accent/10 px-2 py-0.5 font-sans text-xs text-accent">{r.faction}</span>
-              )}
+            <PlayerAvatar name={r.label} head={heads && r.named} />
+            <div className="min-w-0 flex-1">
+              <div className={cn("truncate text-sm font-medium text-foreground", !r.named && "font-mono text-muted")}>
+                {r.label}
+              </div>
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                <span>In game</span>
+                {r.faction && (
+                  <span className="truncate rounded-full bg-accent/10 px-2 py-0.5 text-accent">{r.faction}</span>
+                )}
+              </div>
             </div>
             {caps && (caps.kick || caps.ban) && (
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {caps.kick && (
                   <Button
                     isIconOnly
@@ -408,6 +418,37 @@ function ConfirmAction({
           {submitting ? `${verbing}…` : verb}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function PlayerAvatar({ name, head }: { name: string; head: boolean }) {
+  const [src, setSrc] = useState<string>();
+  useEffect(() => {
+    if (!head) return;
+    let active = true;
+    void playerHeadUrl(name).then(
+      (url) => {
+        if (active) setSrc(url);
+      },
+      () => undefined,
+    );
+    return () => {
+      active = false;
+    };
+  }, [name, head]);
+  if (src)
+    return (
+      <img
+        src={src}
+        alt=""
+        referrerPolicy="no-referrer"
+        className="h-10 w-10 shrink-0 rounded-lg [image-rendering:pixelated]"
+      />
+    );
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--default)] font-mono text-xs font-semibold text-muted">
+      {name.slice(0, 2).toUpperCase()}
     </div>
   );
 }

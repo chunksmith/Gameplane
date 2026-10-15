@@ -384,7 +384,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
           {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} />}
           {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
           {activeTab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
-          {activeTab === "players"  && <PlayersTab name={name} ns={ns} />}
+          {activeTab === "players"  && <PlayersTab name={name} ns={ns} tmpl={tmpl} />}
           {activeTab === "backups"  && <BackupsTab name={name} ns={ns} />}
           {activeTab === "capture"  && <CaptureWidget name={name} ns={ns} gs={gs} />}
           {activeTab === "settings" && (

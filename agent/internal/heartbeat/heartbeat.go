@@ -188,6 +188,10 @@ func sendOnce(ctx context.Context, dyn dynamic.Interface, cfg Config) error {
 		agent["memoryLimitBytes"] = nullable(s.MemoryLimitBytes, s.MemoryLimitKnown)
 		agent["diskUsedBytes"] = nullable(s.DiskUsedBytes, s.DiskKnown)
 		agent["diskTotalBytes"] = nullable(s.DiskTotalBytes, s.DiskKnown)
+		agent["networkRxBytes"] = nullable(s.NetRxBytes, s.NetKnown)
+		agent["networkTxBytes"] = nullable(s.NetTxBytes, s.NetKnown)
+		agent["networkRxBytesPerSec"] = nullable(s.NetRxBytesPerSec, s.NetRateKnown)
+		agent["networkTxBytesPerSec"] = nullable(s.NetTxBytesPerSec, s.NetRateKnown)
 		// Update metrics with usage data.
 		if cfg.Metrics != nil {
 			metricsSnap.CPUMillicores = s.CPUMillicores

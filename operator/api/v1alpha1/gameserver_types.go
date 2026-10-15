@@ -708,6 +708,11 @@ type AgentStatus struct {
 	// nil means "unknown".
 	// +optional
 	DiskTotalBytes *int64 `json:"diskTotalBytes,omitempty"`
+
+	NetworkRxBytes       *int64 `json:"networkRxBytes,omitempty"`
+	NetworkTxBytes       *int64 `json:"networkTxBytes,omitempty"`
+	NetworkRxBytesPerSec *int64 `json:"networkRxBytesPerSec,omitempty"`
+	NetworkTxBytesPerSec *int64 `json:"networkTxBytesPerSec,omitempty"`
 }
 
 // +kubebuilder:object:root=true

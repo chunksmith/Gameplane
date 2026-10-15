@@ -2389,6 +2389,18 @@ spec:
                       when unlimited / unknown.
                     format: int64
                     type: integer
+                  networkRxBytes:
+                    format: int64
+                    type: integer
+                  networkRxBytesPerSec:
+                    format: int64
+                    type: integer
+                  networkTxBytes:
+                    format: int64
+                    type: integer
+                  networkTxBytesPerSec:
+                    format: int64
+                    type: integer
                   playersMax:
                     description: PlayersMax is the configured max player count, if
                       known.
