@@ -70,25 +70,27 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
      -q '[.[].name]|join(", ")'
    ```
 
+9. **Enable Auto-fix** right after the PR is open (Claude desktop app): call `mcp__ccd_pr__get_status` (bind with `mcp__ccd_pr__bind_pr` if it does not report the PR), then `mcp__ccd_pr__set_monitor` with `auto_fix: true`, `address_comments: true` and the PR `url`. The app then wakes the session on CI failures, merge conflicts and review comments, so skip the `gh run watch` polling from step 3. Without the `ccd_pr` tools, watch CI per step 3.
+
 ## Await Maintainer Merge
 
-9. The PR now waits on the maintainer (rule 12: agents never merge). Do not use `gh pr merge`, `--admin` or any other bypass.
+10. The PR now waits on the maintainer (rule 12: agents never merge). Do not use `gh pr merge`, `--admin` or any other bypass.
 
-10. Watch for the maintainer's approval and merge. Once merged:
+11. Watch for the maintainer's approval and merge. Once merged:
 
 ## Clean Up After Merge
 
-11. Delete the remote branch:
+12. Delete the remote branch:
     ```sh
     git push origin --delete <branch-name>
     ```
 
-12. Delete the local branch:
+13. Delete the local branch:
     ```sh
     git branch -d <branch-name>
     ```
 
-13. **Do not delete unmerged branches** or stacked children whose descendants still depend on them (merge bottom-up first).
+14. **Do not delete unmerged branches** or stacked children whose descendants still depend on them (merge bottom-up first).
 
 ## Notes
 
