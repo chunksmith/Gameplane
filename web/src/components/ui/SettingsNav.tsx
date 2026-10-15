@@ -55,9 +55,9 @@ const navItems: Array<{ key: SettingsNavKey; label: string; icon: ComponentType<
 
 const itemClass = (active: boolean) =>
   cn(
-    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary",
-    active ? "bg-surface text-fg" : "text-muted hover:bg-surface/60 hover:text-fg",
+    "flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors lg:w-full",
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent",
+    active ? "bg-accent/10 font-medium text-accent" : "text-muted hover:bg-foreground/5 hover:text-foreground",
   );
 
 export function SettingsNav({
@@ -72,11 +72,11 @@ export function SettingsNav({
 }) {
   const items = showAdminSections ? navItems : navItems.filter((i) => i.key === "theme");
   return (
-    <nav className="space-y-0.5" aria-label="Settings sections">
+    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 scrollbar-thin lg:sticky lg:top-6 lg:mx-0 lg:block lg:space-y-0.5 lg:self-start lg:overflow-visible lg:px-0 lg:pb-0" aria-label="Settings sections">
       {items.map(({ key, label, icon: Icon }) =>
         key === "theme" ? (
           <Link key={key} to="/settings/theme" className={itemClass(active === key)} aria-current={active === key ? "page" : undefined}>
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 shrink-0" />
             <span>{label}</span>
           </Link>
         ) : (
@@ -87,7 +87,7 @@ export function SettingsNav({
             aria-current={active === key ? "page" : undefined}
             className={itemClass(active === key)}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 shrink-0" />
             <span>{label}</span>
           </button>
         ),

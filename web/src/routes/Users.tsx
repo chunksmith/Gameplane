@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useInstallation } from "@/lib/useInstallation";
 import {
   useMutation,
@@ -34,14 +34,20 @@ import {
   ListBoxItem,
 } from "@heroui/react";
 import {
+  Bot,
+  Fingerprint,
   KeyRound,
   MoreHorizontal,
+  Network,
   Pencil,
   Plus,
   ScrollText,
   Search,
+  ShieldCheck,
   Trash2,
+  UsersRound,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RoleEditorModal } from "@/components/ui/RoleEditorModal";
 import { InviteUserDialog } from "@/components/ui/admin/InviteUserDialog";
@@ -61,10 +67,18 @@ import type { ExtendedUser, Role, RoleBinding } from "@/types";
 
 type TabKey = "users" | "roles" | "networks" | "service" | "idp";
 
+const TABS: { id: TabKey; label: string; icon: ReactNode }[] = [
+  { id: "users", label: "Users", icon: <UsersRound className="h-4 w-4" /> },
+  { id: "roles", label: "Roles", icon: <ShieldCheck className="h-4 w-4" /> },
+  { id: "networks", label: "Networks", icon: <Network className="h-4 w-4" /> },
+  { id: "service", label: "Service accounts", icon: <Bot className="h-4 w-4" /> },
+  { id: "idp", label: "Identity providers", icon: <Fingerprint className="h-4 w-4" /> },
+];
+
 const roleColor: Record<string, string> = {
   admin: "bg-warning/15 text-warning",
   operator: "bg-violet/15 text-violet",
-  viewer: "",
+  viewer: "bg-default/60 text-muted",
 };
 
 function apiErrorText(error: unknown): string | undefined {
@@ -171,34 +185,34 @@ export function UsersPage() {
         onSelectionChange={(key) => setTab(key as TabKey)}
         variant="secondary"
       >
-        <div className="flex items-center gap-3">
-          <Tabs.List className="users-rbac-tabs w-fit min-w-0">
-            <TabComponent id="users">
-              <div className="flex items-center gap-2">
-                <span>Users</span>
-                <span className="text-xs text-foreground/60">({counts.users})</span>
-              </div>
-            </TabComponent>
-            <TabComponent id="roles">
-              <div className="flex items-center gap-2">
-                <span>Roles</span>
-                <span className="text-xs text-foreground/60">({counts.roles})</span>
-              </div>
-            </TabComponent>
-            <TabComponent id="networks">Networks</TabComponent>
-            <TabComponent id="service">Service accounts</TabComponent>
-            <TabComponent id="idp">Identity providers</TabComponent>
-          </Tabs.List>
-          <div className="relative ml-auto w-64 shrink-0">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" />
-            <Input
-              className="pl-9"
-              placeholder={tab === "users" ? "Search users…" : "Search…"}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              aria-label="Search users"
-            />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="-mx-1 flex min-w-0 overflow-x-auto px-1">
+            <Tabs.List aria-label="Users and access sections" className="servers-status-filter">
+              {TABS.map((t) => (
+                <TabComponent key={t.id} id={t.id}>
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    {t.icon}
+                    {t.label}
+                    {(t.id === "users" || t.id === "roles") && (
+                      <span aria-hidden="true" className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">{counts[t.id]}</span>
+                    )}
+                  </span>
+                </TabComponent>
+              ))}
+            </Tabs.List>
           </div>
+          {tab === "users" && (
+            <div className="relative w-full sm:ml-auto sm:w-64 sm:shrink-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Input
+                className="pl-9"
+                placeholder={tab === "users" ? "Search users…" : "Search…"}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                aria-label="Search users"
+              />
+            </div>
+          )}
         </div>
 
         <Tabs.Panel id="users">
@@ -210,8 +224,8 @@ export function UsersPage() {
               </Alert>
             )}
 
-            <Card className="overflow-hidden p-0">
-            <Table.Root>
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <Table.Root className="bg-transparent">
               <Table.ScrollContainer>
                 <Table.Content aria-label="Users list" keyboardNavigationBehavior="arrow">
                   <Table.Header>
@@ -222,13 +236,13 @@ export function UsersPage() {
                     <Table.Column id="actions" className="text-right" aria-label="Actions" />
                   </Table.Header>
                   <Table.Body
-                    renderEmptyState={() => <span>No entries.</span>}
+                    renderEmptyState={() => <EmptyState icon={<UsersRound />} title="No entries." />}
                   >
                     {visible.map((u) => (
                   <Table.Row key={u.id}>
                     <Table.Cell>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 font-mono text-xs text-primary">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 font-mono text-xs text-accent">
                           {(u.displayName || u.username).slice(0, 2).toUpperCase()}
                         </div>
                         <div className="min-w-0">
@@ -250,12 +264,12 @@ export function UsersPage() {
                       </div>
                     </Table.Cell>
                     <Table.Cell>
-                      <span className={`rounded px-2 py-0.5 text-[10px] font-mono uppercase ${roleColor[u.role] ?? "bg-muted/20 text-muted"}`}>
+                      <span className={`rounded-md px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${roleColor[u.role] ?? "bg-default/60 text-muted"}`}>
                         {u.role}
                       </span>
                     </Table.Cell>
                     <Table.Cell>
-                      <span className="rounded px-2 py-0.5 text-[10px] uppercase text-foreground/60 ring-1 ring-border">
+                      <span className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase text-muted ring-1 ring-border">
                         {u.provider === "oidc" ? "OIDC" : u.provider === "pending" ? "Pending" : "Local"}
                       </span>
                     </Table.Cell>
@@ -315,7 +329,7 @@ export function UsersPage() {
                 </Table.Content>
               </Table.ScrollContainer>
             </Table.Root>
-            </Card>
+            </div>
           </Tabs.Panel>
 
           <Tabs.Panel id="roles">
@@ -458,6 +472,7 @@ function DeleteUserDialog({
           <Modal>
             <ModalDialog role="alertdialog" className="max-w-md">
               <ModalHeader>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger/10 text-danger"><Trash2 className="h-5 w-5" /></span>
                 <ModalHeading>Delete {user.username}?</ModalHeading>
               </ModalHeader>
               <ModalBody>
@@ -525,39 +540,46 @@ function RolesTab() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {roles.map((r) => (
-          <Card key={r.name} className="flex flex-col gap-2 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-sm">{r.name}</span>
-              {r.builtin && (
-                <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] uppercase text-foreground/70">
-                  built-in
-                </span>
+          <Card key={r.name} className="flex flex-col gap-3 border border-border p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><ShieldCheck className="h-[18px] w-[18px]" /></span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-mono text-sm font-medium">{r.name}</span>
+                  {r.builtin && (
+                    <span className="shrink-0 rounded-md bg-default/60 px-1.5 py-0.5 text-[10px] uppercase text-muted">
+                      built-in
+                    </span>
+                  )}
+                </div>
+                <p className="min-h-8 pt-1 text-xs text-muted">{r.description || "—"}</p>
+              </div>
+            </div>
+            <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+              <span className="rounded-full bg-default/60 px-2 py-0.5 text-[11px] text-muted">
+                {r.permissions.includes("*")
+                  ? "all permissions"
+                  : `${r.permissions.length} permission${r.permissions.length === 1 ? "" : "s"}`}
+              </span>
+              {canManage && (
+                <div className="flex gap-1">
+                  {r.name !== "admin" && (
+                    <Button variant="ghost" className="h-7 px-2 text-xs" onPress={() => setEditing(r)}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </Button>
+                  )}
+                  {!r.builtin && (
+                    <Button
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-danger"
+                      onPress={() => setDeleting(r)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
-            <p className="min-h-8 text-xs text-foreground/60">{r.description || "—"}</p>
-            <div className="text-[11px] text-foreground/60">
-              {r.permissions.includes("*")
-                ? "all permissions"
-                : `${r.permissions.length} permission${r.permissions.length === 1 ? "" : "s"}`}
-            </div>
-            {canManage && (
-              <div className="flex gap-2 pt-1">
-                {r.name !== "admin" && (
-                  <Button variant="ghost" className="h-7 px-2 text-xs" onPress={() => setEditing(r)}>
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </Button>
-                )}
-                {!r.builtin && (
-                  <Button
-                    variant="ghost"
-                    className="h-7 px-2 text-xs text-danger"
-                    onPress={() => setDeleting(r)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Delete
-                  </Button>
-                )}
-              </div>
-            )}
           </Card>
         ))}
       </div>
@@ -615,6 +637,7 @@ function DeleteRoleDialog({
           <Modal>
             <ModalDialog role="alertdialog" className="max-w-md">
               <ModalHeader>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger/10 text-danger"><Trash2 className="h-5 w-5" /></span>
                 <ModalHeading>Delete role {role.name}?</ModalHeading>
               </ModalHeader>
               <ModalBody>
@@ -829,17 +852,16 @@ function NamespaceGrantsForm({ userId, roles, standalone }: { userId: number; ro
 
 function IdpTab() {
   return (
-    <Card className="p-6 text-sm text-foreground/60">
-      OIDC identity providers configured in Helm values appear here. UI
-      configuration is tracked for v1.1.
+    <Card className="border border-border">
+      <EmptyState icon={<Fingerprint />} title="Identity providers" hint="OIDC identity providers configured in Helm values appear here. UI configuration is tracked for v1.1." />
     </Card>
   );
 }
 
 function ServiceAccountsTab() {
   return (
-    <Card className="p-6 text-sm text-foreground/60">
-      Service accounts (machine-to-machine API tokens) are tracked for v1.1.
+    <Card className="border border-border">
+      <EmptyState icon={<Bot />} title="Service accounts" hint="Service accounts (machine-to-machine API tokens) are tracked for v1.1." />
     </Card>
   );
 }

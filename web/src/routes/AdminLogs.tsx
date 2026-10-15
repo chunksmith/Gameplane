@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download } from "lucide-react";
-import { Select, Switch, ListBox, ListBoxItem, Tabs, Tab as TabComponent, Button, Card, CardContent } from "@heroui/react";
+import { AlertCircle, Cpu, Download, Loader2, Server, Terminal, type LucideIcon } from "lucide-react";
+import { Select, Switch, ListBox, ListBoxItem, Tabs, Tab as TabComponent, Button, Card } from "@heroui/react";
 import { APIError } from "@/lib/api";
 import { errorTextWithStatus } from "@/lib/errors";
 import { withCluster } from "@/lib/endpoints";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { ErrorCard } from "@/components/ui/ErrorCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useInstallation } from "@/lib/useInstallation";
+import { cn } from "@/lib/utils";
 
 type LogComponent = "api" | "operator";
 
-const COMPONENTS: Array<{ value: LogComponent; label: string }> = [
-  { value: "api", label: "API server" },
-  { value: "operator", label: "Operator" },
+const COMPONENTS: Array<{ value: LogComponent; label: string; icon: LucideIcon }> = [
+  { value: "api", label: "API server", icon: Server },
+  { value: "operator", label: "Operator", icon: Cpu },
 ];
 
 const TAIL_OPTIONS = [100, 500, 1000, 5000] as const;
@@ -82,12 +84,9 @@ export function AdminLogsPage() {
   const installation = useInstallation();
   if (installation.isPending) return <LoadingCard message="Loading installation…" />;
   if (installation.isError) return <ErrorCard message="Couldn't load installation capabilities." onRetry={() => void installation.refetch()} />;
-  if (installation.data.standalone) return <div className="space-y-4 p-6">
+  if (installation.data.standalone) return <div className="space-y-6 p-4 sm:p-6">
     <PageHeader title="System logs" description="Logs for this standalone panel." />
-    <Card><CardContent className="space-y-2 p-6">
-      <h2 className="font-medium">View logs through your container runtime</h2>
-      <p className="text-sm text-muted">For Docker Compose, run <code className="font-mono">docker compose logs --follow</code> from your panel installation directory. Operator logs are available on each workload cluster.</p>
-    </CardContent></Card>
+    <Card className="border border-border"><EmptyState icon={<Terminal />} title="View logs through your container runtime" hint={<>For Docker Compose, run <code className="font-mono">docker compose logs --follow</code> from your panel installation directory. Operator logs are available on each workload cluster.</>} /></Card>
   </div>;
   return <ClusterSystemLogs />;
 }
@@ -192,129 +191,135 @@ function ClusterSystemLogs() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4 p-6">
+    <div className="flex h-full flex-col gap-4 p-4 sm:p-6">
       <PageHeader
         title="System logs"
         description="Live logs from the Gameplane control-plane pods."
       />
 
       <Tabs selectedKey={component} onSelectionChange={(key) => setComponent(key as LogComponent)} variant="secondary" aria-label="Log source">
-        <Tabs.List className="w-fit">
+        <Tabs.List className="servers-status-filter w-fit">
           {COMPONENTS.map((c) => (
-            <TabComponent key={c.value} id={c.value}>{c.label}</TabComponent>
+            <TabComponent key={c.value} id={c.value}>
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <c.icon className="h-4 w-4" />
+                {c.label}
+              </span>
+            </TabComponent>
           ))}
         </Tabs.List>
       </Tabs>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-xs text-muted">
-          Tail
-          <Select
-            aria-label="Tail lines"
-            selectedKey={String(tail)}
-            onSelectionChange={(key) => setTail(Number(key))}
-          >
-            <Select.Trigger>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox aria-label="Tail lines">
-                {TAIL_OPTIONS.map((n) => (
-                  <ListBoxItem key={n} id={String(n)}>
-                    {n} lines
-                  </ListBoxItem>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+      <div className="flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-2.5">
+          <span className="inline-flex min-w-0 items-center gap-2" title="Pod currently streamed">
+            <span aria-hidden="true" className={cn("h-2 w-2 shrink-0 rounded-full", pod ? (follow ? "animate-pulse bg-success" : "bg-success") : "bg-default")} />
+            <span className="truncate font-mono text-xs text-foreground">{pod || "—"}</span>
+          </span>
+
+          <div className="ml-auto flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-xs text-muted">
+              Tail
+              <Select
+                aria-label="Tail lines"
+                selectedKey={String(tail)}
+                onSelectionChange={(key) => setTail(Number(key))}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox aria-label="Tail lines">
+                    {TAIL_OPTIONS.map((n) => (
+                      <ListBoxItem key={n} id={String(n)}>
+                        {n} lines
+                      </ListBoxItem>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted">
+              Follow
+              <Switch isSelected={follow} onChange={setFollow} aria-label="Follow">
+                <Switch.Content>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Content>
+              </Switch>
+            </div>
+
+            <Button size="sm" variant="outline" onPress={() => void downloadLogs()}>
+              <Download className="h-4 w-4" /> Download
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted">
-          Follow
-          <Switch isSelected={follow} onChange={setFollow} aria-label="Follow">
-            <Switch.Content>
-              <Switch.Control>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch.Content>
-          </Switch>
-        </div>
+        {error && <div role="alert" className="flex items-center gap-2 border-b border-danger/30 bg-danger/10 px-4 py-2 text-xs text-danger"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
 
-        <span
-          className="inline-flex h-6 items-center rounded bg-primary/10 px-2 font-mono text-xs text-primary"
-          title="Pod currently streamed"
+        <div
+          ref={scrollerRef}
+          onScroll={onScroll}
+          data-testid="log-scroller"
+          className="min-h-0 flex-1 overflow-auto bg-[#0b0b0d] py-2 font-mono text-xs text-zinc-300 scrollbar-thin"
         >
-          {pod || "—"}
-        </span>
+          {text ? (
+            <div>
+              {text.split("\n").map((line, idx) => {
+                if (!line) return null;
+                let timestamp = "";
+                let level = "";
+                let message = line;
+                let parsed: Record<string, unknown> = {};
 
-        <div className="ml-auto">
-          <Button variant="outline" onPress={() => void downloadLogs()}>
-            <Download className="h-4 w-4" /> Download
-          </Button>
-        </div>
-      </div>
+                try {
+                  parsed = JSON.parse(line);
+                  if (parsed.ts) timestamp = String(parsed.ts);
+                  else if (parsed.time) timestamp = String(parsed.time);
+                  if (parsed.level) level = String(parsed.level);
+                  if (parsed.msg) message = String(parsed.msg);
+                } catch {
+                  // Not JSON, use raw line
+                }
 
-      {error && <div className="text-xs text-danger">{error}</div>}
+                const lvl = String(level ?? "").toUpperCase();
+                const levelColor =
+                  lvl === "WARN" ? "text-[var(--warning)]" :
+                  lvl === "ERROR" ? "text-[var(--danger)]" :
+                  "";
 
-      <div
-        ref={scrollerRef}
-        onScroll={onScroll}
-        data-testid="log-scroller"
-        className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-[#0b0b0d] font-mono text-xs scrollbar-thin"
-      >
-        {text ? (
-          <div className="px-4 py-3">
-            {text.split("\n").map((line, idx) => {
-              if (!line) return null;
-              let timestamp = "";
-              let level = "";
-              let message = line;
-              let parsed: Record<string, unknown> = {};
+                // Collect structured fields (all keys except ts, time, level, msg)
+                const structuredFields = Object.entries(parsed).filter(
+                  ([key]) => !["ts", "time", "level", "msg"].includes(key),
+                );
 
-              try {
-                parsed = JSON.parse(line);
-                if (parsed.ts) timestamp = String(parsed.ts);
-                else if (parsed.time) timestamp = String(parsed.time);
-                if (parsed.level) level = String(parsed.level);
-                if (parsed.msg) message = String(parsed.msg);
-              } catch {
-                // Not JSON, use raw line
-              }
-
-              const lvl = String(level ?? "").toUpperCase();
-              const levelColor =
-                lvl === "WARN" ? "text-[var(--warning)]" :
-                lvl === "ERROR" ? "text-[var(--danger)]" :
-                "text-foreground";
-
-              // Collect structured fields (all keys except ts, time, level, msg)
-              const structuredFields = Object.entries(parsed).filter(
-                ([key]) => !["ts", "time", "level", "msg"].includes(key),
-              );
-
-              return (
-                <div key={idx} className="flex gap-3 leading-[18px]">
-                  {timestamp && (
-                    <span className="shrink-0 text-muted">{timestamp}</span>
-                  )}
-                  <span className={`break-words ${levelColor}`}>
-                    {message}
-                  </span>
-                  {structuredFields.length > 0 && (
-                    <span className="text-xs text-muted/60">
-                      {structuredFields.map(([key, val]) => `${key}=${val}`).join(" ")}
+                return (
+                  <div key={idx} className="flex w-max min-w-full gap-3 px-4 leading-[18px] hover:bg-white/5">
+                    {timestamp && (
+                      <span className="shrink-0 text-zinc-500">{timestamp}</span>
+                    )}
+                    <span className={`whitespace-pre ${levelColor}`}>
+                      {message}
                     </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted">
-            {error ? "No output." : "Waiting for output…"}
-          </div>
-        )}
+                    {structuredFields.length > 0 && (
+                      <span className="whitespace-pre text-zinc-500">
+                        {structuredFields.map(([key, val]) => `${key}=${val}`).join(" ")}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-muted">
+              {!error && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>{error ? "No output." : "Waiting for output…"}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
