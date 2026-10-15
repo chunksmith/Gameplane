@@ -82,6 +82,7 @@ jobs:
       charts: ${{ steps.combine.outputs.charts }}
       standalone: ${{ steps.combine.outputs.standalone }}
       e2e: ${{ steps.combine.outputs.e2e }}
+      telemetry: ${{ steps.combine.outputs.telemetry }}
       weblive: ${{ steps.combine.outputs.weblive }}
       images: ${{ steps.combine.outputs.images }}
       github: ${{ steps.combine.outputs.github }}
@@ -177,6 +178,24 @@ jobs:
             kindsmoke:
               - 'deploy/kind/**'
               - '.github/workflows/ci.yaml'
+            telemetry:
+              - 'api/cmd/**'
+              - 'api/internal/telemetry/**'
+              - 'api/internal/handlers/telemetry*'
+              - 'api/internal/db/telemetry*'
+              - 'api/internal/db/migrations/**'
+              - 'telemetry-receiver/**'
+              - 'telemetryschema/**'
+              - 'charts/gameplane/values.yaml'
+              - 'charts/gameplane/templates/_helpers.tpl'
+              - 'charts/gameplane/templates/api.yaml'
+              - 'charts/gameplane/templates/telemetry-receiver.yaml'
+              - 'deploy/kind/**'
+              - 'test/e2e/telemetry*'
+              - 'test/e2e/env.go'
+              - 'test/e2e/internal/**'
+              - 'test/e2e/go.mod'
+              - 'test/e2e/go.sum'
             gamecoverage:
               - 'modules'
               - 'modules/**'
@@ -309,6 +328,7 @@ jobs:
           CHARTS: ${{ steps.filter.outputs.charts }}
           STANDALONE: ${{ steps.filter.outputs.standalone }}
           E2ETREE: ${{ steps.filter.outputs.e2etree }}
+          TELEMETRY: ${{ steps.filter.outputs.telemetry }}
           GAMECOVERAGE: ${{ steps.filter.outputs.gamecoverage }}
           CI: ${{ steps.filter.outputs.ci == 'true' || steps.scope.outputs.all == 'true' }}
           CAPTURE: ${{ steps.filter.outputs.capture_overhead }}
@@ -324,6 +344,7 @@ jobs:
           chv=false;  { [ "$CHARTS" = true ] || [ "$CI" = true ]; } && chv=true
           standalonev=false; { [ "$STANDALONE" = true ] || [ "$CI" = true ]; } && standalonev=true
           e2ev=false; { [ "$GO" = true ] || [ "$CHARTS" = true ] || [ "$E2ETREE" = true ] || [ "$GAMECOVERAGE" = true ] || [ "$CI" = true ]; } && e2ev=true
+          telv=false; { [ "$TELEMETRY" = true ] || [ "$CI" = true ]; } && [ "$e2ev" = true ] && telv=true
           wlv=false;  { [ "$e2ev" = true ] || [ "$WEB" = true ] || [ "$CI" = true ]; } && wlv=true
           ghv=false;  { [ "$GITHUB" = true ] || [ "$CI" = true ]; } && ghv=true
           specsv=false; { [ "$SPECS" = true ] || [ "$CI" = true ]; } && specsv=true
@@ -340,6 +361,7 @@ jobs:
             echo "charts=$chv"
             echo "standalone=$standalonev"
             echo "e2e=$e2ev"
+            echo "telemetry=$telv"
             echo "weblive=$wlv"
             echo "images=$wlv"
             echo "github=$ghv"
@@ -1571,7 +1593,7 @@ jobs:
         # (operator does zero logins and is wait-dominated, so it runs
         # wide; the api buckets stay within the login limiter's budget).
         # The arm64 job below uses the same steps and per-bucket settings.
-        bucket: [operator, api-auth, api-roles, api-rbac, api-agent, api-mods, telemetry]
+        bucket: [operator, api-auth, api-roles, api-rbac, api-agent, api-mods]
         arch: [amd64]
         include:
           - bucket: operator
@@ -1599,10 +1621,6 @@ jobs:
             parallel: 2
             test_timeout: 15m
             job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: telemetry
-            parallel: 1
-            test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
-            job_timeout: 75 # Boots a kind cluster, installs the chart, runs the bucket's suite.
     env:
       CLUSTER: gameplane-e2e
       CTX: kind-gameplane-e2e
@@ -1666,7 +1684,7 @@ jobs:
         # (operator does zero logins and is wait-dominated, so it runs
         # wide; the api buckets stay within the login limiter's budget).
         # Mirrors e2e-go's steps and per-bucket settings.
-        bucket: [operator, api-auth, api-roles, api-rbac, api-agent, api-mods, telemetry]
+        bucket: [operator, api-auth, api-roles, api-rbac, api-agent, api-mods]
         arch: [arm64]
         include:
           - bucket: operator
@@ -1694,6 +1712,48 @@ jobs:
             parallel: 2
             test_timeout: 15m
             job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
+    env:
+      CLUSTER: gameplane-e2e
+      CTX: kind-gameplane-e2e
+    steps: *e2e-go-steps
+
+  e2e-telemetry:
+    name: e2e ${{ matrix.bucket }} / ${{ matrix.arch }} (kind)
+    needs: [changes, build-images]
+    if: needs.changes.outputs.e2e == 'true' && needs.changes.outputs.telemetry == 'true'
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ matrix.job_timeout }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        bucket: [telemetry]
+        arch: [amd64]
+        include:
+          - bucket: telemetry
+            parallel: 1
+            test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
+            job_timeout: 75 # Boots a kind cluster, installs the chart, runs the bucket's suite.
+    env:
+      CLUSTER: gameplane-e2e
+      CTX: kind-gameplane-e2e
+    steps: *e2e-go-steps
+
+  e2e-telemetry-arm64:
+    name: e2e ${{ matrix.bucket }} / ${{ matrix.arch }} (kind)
+    needs: [changes, build-images-arm64]
+    if: needs.changes.outputs.e2e == 'true' && needs.changes.outputs.telemetry == 'true'
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ matrix.job_timeout }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        bucket: [telemetry]
+        arch: [arm64]
+        include:
           - bucket: telemetry
             parallel: 1
             test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
@@ -2196,6 +2256,8 @@ jobs:
         e2e-buckets,
         e2e-go,
         e2e-go-arm64,
+        e2e-telemetry,
+        e2e-telemetry-arm64,
         e2e-multicluster,
         e2e-multicluster-arm64,
         e2e-upgrade,
@@ -2298,7 +2360,7 @@ jobs:
               'capture-sidecar-setcap-proof', 'docs', 'codegen-drift', 'submodule-freshness', 'dependency-review', 'vuln-go', 'lint', 'go',
               'web', 'web-e2e-mock', 'helm', 'chart-template', 'standalone-compose', 'workflow-lint', 'go-e2e-unit',
               'api-postgres',
-              'e2e-buckets', 'e2e-go', 'e2e-go-arm64', 'e2e-multicluster', 'e2e-multicluster-arm64', 'e2e-upgrade', 'e2e-upgrade-arm64',
+              'e2e-buckets', 'e2e-go', 'e2e-go-arm64', 'e2e-telemetry', 'e2e-telemetry-arm64', 'e2e-multicluster', 'e2e-multicluster-arm64', 'e2e-upgrade', 'e2e-upgrade-arm64',
               'e2e-web-live', 'e2e-web-live-arm64', 'e2e-game-bot', 'e2e-capture-overhead', 'e2e-kind-ingress-smoke',
             ];
 
@@ -2324,8 +2386,10 @@ jobs:
               'go-e2e-unit': (n) => n === 'go (test/e2e)',
               'api-postgres': (n) => n === 'api (postgres)',
               'e2e-buckets': (n) => n === 'e2e bucket coverage',
-              'e2e-go': (n) => /^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods|telemetry) \//.test(n) && n.includes('/ amd64 '),
-              'e2e-go-arm64': (n) => /^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods|telemetry) \//.test(n) && n.includes('/ arm64 '),
+              'e2e-go': (n) => /^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods) \//.test(n) && n.includes('/ amd64 '),
+              'e2e-go-arm64': (n) => /^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods) \//.test(n) && n.includes('/ arm64 '),
+              'e2e-telemetry': (n) => n.startsWith('e2e telemetry /') && n.includes('/ amd64 '),
+              'e2e-telemetry-arm64': (n) => n.startsWith('e2e telemetry /') && n.includes('/ arm64 '),
               'e2e-multicluster': (n) => n.startsWith('e2e multicluster /') && n.includes('/ amd64 '),
               'e2e-multicluster-arm64': (n) => n.startsWith('e2e multicluster /') && n.includes('/ arm64 '),
               'e2e-upgrade': (n) => n.startsWith('e2e upgrade /') && n.includes('/ amd64 '),
