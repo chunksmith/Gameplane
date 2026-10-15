@@ -2,7 +2,7 @@
 
 **Branch**: `claude/project-thread-6pzhf7` | **Date**: 2026-10-12 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification from `specs/024-docs-feature-list-refresh/spec.md`
+**Input**: Feature specification from `specs/done_024-docs-feature-list-refresh/spec.md`
 
 ## Summary
 
@@ -46,7 +46,7 @@ Write a root `FEATURES.md` that lists every Gameplane capability, one row per ca
 ### Documentation (this feature)
 
 ```text
-specs/024-docs-feature-list-refresh/
+specs/done_024-docs-feature-list-refresh/
 ├── spec.md
 ├── OPEN-DECISIONS.md
 ├── plan.md               # this file

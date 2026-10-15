@@ -31,11 +31,12 @@ features-sync: only in features.mdx: <area> / <capability>
 features-sync: <area> / <capability>: maturity "<repo>" vs "<website>"
 features-sync: <area> / <capability>: default "<repo>" vs "<website>"
 features-sync: <area> / <capability>: order differs
+features-sync: duplicate row in <FEATURES.md|features.mdx>: <area> / <capability>
 ```
 
 ## Fixture tests (FR-015, SC-005)
 
-`hack/testdata/check-features-sync/` holds one directory per case with a `FEATURES.md`, a `features.mdx` and, for failing cases, an `.expected` file containing the expected output lines.
+`hack/testdata/check-features-sync/` holds one directory per case with a `FEATURES.md`, a `features.mdx` and, for failing cases, an `expected.txt` file containing the expected output lines. Besides the messages above, the check reports an invalid default as `features-sync: <file>:<line>: invalid default "<value>"`.
 
 - `pass/in-sync`: matching files with differing Description and Docs cells (must pass).
 - `pass/code-fence`: a table-looking block inside a code fence is ignored.

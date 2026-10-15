@@ -34,6 +34,9 @@ on:
       - "LICENSE"
       - "specs/**/outreach.md"
       - "specs/**/coverage-gaps.md"
+      # Feature catalog and the website gitlink feed the features sync gate (spec 024).
+      - "FEATURES.md"
+      - "website"
 # Cancel superseded runs so rapid pushes to the same ref don't waste
 # runner minutes on stale commits.
 concurrency:
@@ -227,12 +230,16 @@ jobs:
               - 'mcp-server/README.md'
               - 'telemetry-receiver/README.md'
               - 'docs/comparison-sources.md'
+              - 'FEATURES.md'
               - 'hack/check-links.sh'
               - 'hack/check-doc-versions.sh'
               - 'hack/test-check-doc-versions.sh'
               - 'hack/testdata/check-doc-versions/**'
+              - 'hack/check-features-sync.sh'
+              - 'hack/test-check-features-sync.sh'
+              - 'hack/testdata/check-features-sync/**'
               # `docs/**` broadly: check-links resolves relative links from
-              # the 18 audited files against ANY file under docs/ (e.g.
+              # the 19 audited files against ANY file under docs/ (e.g.
               # docs/architecture.md -> docs/agent-architecture.md), not
               # just the other audited files, so renaming a non-audited doc
               # must still run the gate.
@@ -252,6 +259,8 @@ jobs:
               - 'signing/2026-07-24-cosign-legacy.pub'
               - 'signing/cosign.pub.legacy-sig'
               - 'specs/**/outreach.md'
+              # website/ features page is checked against FEATURES.md by check-features-sync.
+              - 'website'
       - id: combine
         # Fold the raw filters into single-token booleans so every downstream
         # `if:` is one expression (fewer chances to get wrong when the only way
@@ -302,6 +311,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: init website submodule
+        run: git submodule update --init website
       - name: verify lint gate configuration
         run: ./test/e2e/lint-gate-verify.sh verify
       - name: check documentation links
@@ -310,6 +321,10 @@ jobs:
         run: make check-doc-versions
       - name: test documentation version checker
         run: make test-doc-versions
+      - name: check features sync
+        run: make check-features-sync
+      - name: test features sync checker
+        run: make test-features-sync
       - name: check specs compliance
         run: make check-specs
       - name: check coverage gap record
