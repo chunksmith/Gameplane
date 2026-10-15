@@ -208,7 +208,6 @@ export function AppLayout() {
     : buildCrumbs(pathname);
   // Extract the last breadcrumb label as the mobile title
   const mobileTitle = crumbs.length > 0 ? crumbs[crumbs.length - 1].label : "";
-  const version = [installation.data?.version, import.meta.env.VITE_BUILD_DATE].filter(Boolean).join(" · ");
   const centralManagement = ["/users", "/admin", "/settings", ...(installation.data?.standalone === false ? ["/modules"] : [])].some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
   );
@@ -238,7 +237,8 @@ export function AppLayout() {
             onThemeChange={setTheme}
             onCustomizeTheme={openThemeSettings}
             isCustomColorsActive={isCustomColorsActive}
-            version={version}
+            version={installation.data?.version}
+            buildDate={import.meta.env.VITE_BUILD_DATE}
           />
         }
         topBar={
@@ -282,7 +282,8 @@ export function AppLayout() {
         onThemeChange={setTheme}
         onCustomizeTheme={openThemeSettings}
         isCustomColorsActive={isCustomColorsActive}
-        version={version}
+        version={installation.data?.version}
+        buildDate={import.meta.env.VITE_BUILD_DATE}
       />
     </>
   );
