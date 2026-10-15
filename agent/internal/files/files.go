@@ -291,8 +291,9 @@ func (h *handler) createZip(w http.ResponseWriter, req *http.Request) {
 		h.fail(w, err)
 		return
 	}
+	ctx := req.Context()
 	err = h.writeFile(dest, func(dst io.Writer) error {
-		return h.writeArchive(req.Context(), dst, targets)
+		return h.writeArchive(ctx, dst, targets)
 	})
 	if err != nil {
 		h.fail(w, err)
