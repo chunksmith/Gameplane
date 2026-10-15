@@ -135,13 +135,13 @@ describe("ServersPage", () => {
     expect(screen.queryByText("-2")).not.toBeInTheDocument();
   });
 
-  it("shows CPU and memory usage from the agent heartbeat", async () => {
+  it("shows CPU, memory and disk usage from the agent heartbeat", async () => {
     server.use(
       http.get("/servers", () =>
         HttpResponse.json({
           items: [
-            // Telemetry lives under status.agent (cgroup + statfs); the table
-            // shows it as a percent of the limit when a limit is reported.
+            // Telemetry lives under status.agent (cgroup + statfs); CPU is a
+            // percent of the limit, memory and disk are used / max.
             makeServer({
               metadata: { name: "metrics-on", namespace: "gameplane-games" },
               status: {
@@ -150,7 +150,9 @@ describe("ServersPage", () => {
                   cpuMillicores: 500,
                   cpuLimitMillicores: 2000, // 25%
                   memoryBytes: 536870912,
-                  memoryLimitBytes: 1073741824, // 50%
+                  memoryLimitBytes: 1073741824,
+                  diskUsedBytes: 1073741824,
+                  diskTotalBytes: 10737418240,
                 },
               },
             }),
@@ -161,7 +163,8 @@ describe("ServersPage", () => {
     renderWithQuery(<ServersPage />);
     await screen.findByText("metrics-on");
     expect(screen.getByText("25%")).toBeInTheDocument();
-    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
+    expect(screen.getByText("1.0 GB / 10 GB")).toBeInTheDocument();
   });
 
   it("shows CPU as percent of one core when there is no limit", async () => {
@@ -825,7 +828,7 @@ describe("ServersPage mobile layout", () => {
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText("3/10")).toBeInTheDocument();
-    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
     // CPU chip removed from mobile card
     expect(screen.queryByText("25%")).not.toBeInTheDocument();
     // Lifecycle action buttons removed from mobile card

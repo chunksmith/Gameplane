@@ -415,6 +415,7 @@ export function ServersPage() {
                     <Table.Column id="status">Status</Table.Column>
                     <Table.Column id="cpu">CPU</Table.Column>
                     <Table.Column id="memory">Memory</Table.Column>
+                    <Table.Column id="disk">Disk</Table.Column>
                     <Table.Column id="players">Players</Table.Column>
                     <Table.Column id="node">Node</Table.Column>
                     <Table.Column id="actions" className="text-right">Actions</Table.Column>
@@ -465,7 +466,13 @@ export function ServersPage() {
                     <Table.Cell>
                       {(() => {
                         const { memLabel } = serverRowData(gs);
-                        return <span className="font-mono">{memLabel}</span>;
+                        return <span className="whitespace-nowrap font-mono">{memLabel}</span>;
+                      })()}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {(() => {
+                        const { diskLabel } = serverRowData(gs);
+                        return <span className="whitespace-nowrap font-mono">{diskLabel}</span>;
                       })()}
                     </Table.Cell>
                     <Table.Cell>
@@ -536,15 +543,8 @@ function serverRowData(gs: GameServer) {
       : formatCpuPercent(cpuMilli / 1000)
     : "—";
 
-  const memKnown = typeof agent?.memoryBytes === "number";
-  const memUsed = memKnown ? (agent?.memoryBytes as number) : 0;
-  const memLimit =
-    typeof agent?.memoryLimitBytes === "number" ? (agent?.memoryLimitBytes as number) : 0;
-  const memLabel = memKnown
-    ? memLimit
-      ? `${((memUsed / memLimit) * 100).toFixed(0)}%`
-      : formatBytes(memUsed)
-    : "—";
+  const memLabel = usageLabel(agent?.memoryBytes, agent?.memoryLimitBytes);
+  const diskLabel = usageLabel(agent?.diskUsedBytes, agent?.diskTotalBytes);
 
   const playersLabel =
     typeof players === "number" && players >= 0
@@ -553,7 +553,12 @@ function serverRowData(gs: GameServer) {
         : `${players}`
       : "—";
 
-  return { phase, asleep, node, isSharedNonDefault, cpuLabel, memLabel, playersLabel };
+  return { phase, asleep, node, isSharedNonDefault, cpuLabel, memLabel, diskLabel, playersLabel };
+}
+
+function usageLabel(used?: number | null, max?: number | null): string {
+  if (typeof used !== "number") return "—";
+  return max ? `${formatBytes(used)} / ${formatBytes(max)}` : formatBytes(used);
 }
 
 // ServerLifecycleActions is the Start/Stop/Restart/menu cluster shared by
@@ -760,7 +765,7 @@ function ServerCard({
   gameCodes: Map<string, string>;
   footer?: ReactNode;
 }) {
-  const { phase, asleep, memLabel, playersLabel } = serverRowData(gs);
+  const { phase, asleep, memLabel, diskLabel, playersLabel } = serverRowData(gs);
 
   // Extract address from the first endpoint, if available
   const endpoint = gs.status?.endpoints?.[0];
@@ -804,6 +809,7 @@ function ServerCard({
       <div className="mt-3 flex flex-wrap gap-2">
         <StatChip icon={<UsersIcon className="h-3.5 w-3.5" />} value={playersLabel} />
         <StatChip icon={<Database className="h-3.5 w-3.5" />} value={memLabel} />
+        <StatChip icon={<HardDrive className="h-3.5 w-3.5" />} value={diskLabel} />
       </div>
 
       {footer && <div className="relative z-10 mt-3">{footer}</div>}
