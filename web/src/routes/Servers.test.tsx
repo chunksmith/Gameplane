@@ -164,7 +164,7 @@ describe("ServersPage", () => {
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
-  it("falls back to absolute cores when CPU has no limit", async () => {
+  it("shows CPU as percent of one core when there is no limit", async () => {
     server.use(
       http.get("/servers", () =>
         HttpResponse.json({
@@ -179,7 +179,7 @@ describe("ServersPage", () => {
     );
     renderWithQuery(<ServersPage />);
     await screen.findByText("no-limit");
-    expect(screen.getByText("1.50 cores")).toBeInTheDocument();
+    expect(screen.getByText("150%")).toBeInTheDocument();
   });
 
   it("renders dashes for CPU and memory when the heartbeat omits them", async () => {
