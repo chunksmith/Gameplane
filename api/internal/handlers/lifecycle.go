@@ -30,6 +30,8 @@ const restartRequestedAnnotation = "gameplane.local/restart-requested"
 // controller.IdleWakeRequestedAnnotation (duplicated for the same reason).
 const idleWakeRequestedAnnotation = "gameplane.local/idle-wake-requested"
 
+const priorityAnnotation = "gameplane.local/priority"
+
 // MountLifecycle wires start/stop/restart/wake/clone verbs on GameServers.
 //
 // start/stop are expressed as patches to spec.suspend (the operator
@@ -43,6 +45,42 @@ func MountLifecycle(r chi.Router, reg *kube.Registry) {
 	r.Post("/servers/{name}:wake", wakeHandler(reg))
 	r.Post("/servers/{name}:clone", cloneHandler(reg))
 	r.Post("/servers/{name}:wipe-data", wipeDataHandler(reg))
+	r.Put("/servers/{name}:priority", priorityHandler(reg))
+}
+
+type priorityReq struct {
+	Priority *int64 `json:"priority"`
+}
+
+func priorityHandler(reg *kube.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		k, ok := resolveCluster(w, req, reg)
+		if !ok {
+			return
+		}
+		name := chi.URLParam(req, "name")
+		ns, ok := resolveNS(w, req)
+		if !ok {
+			return
+		}
+		var body priorityReq
+		if err := json.NewDecoder(io.LimitReader(req.Body, 1<<10)).Decode(&body); err != nil || body.Priority == nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		obj, ok := authorizedServer(w, req, k, ns, name)
+		if !ok {
+			return
+		}
+		if !patchAuthorizedServer(w, req, k, obj, map[string]any{
+			"metadata": map[string]any{
+				"annotations": map[string]any{priorityAnnotation: strconv.FormatInt(*body.Priority, 10)},
+			},
+		}) {
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 type wipeDataReq struct {
