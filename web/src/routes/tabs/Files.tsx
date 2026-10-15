@@ -542,6 +542,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { e
               minimap: { enabled: false },
               fontFamily: "JetBrains Mono",
               readOnly: !canControl,
+              scrollBeyondLastLine: false,
             }}
           />
         )}
