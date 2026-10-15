@@ -41,6 +41,8 @@ type User struct {
 	// It is loaded from the user's role bindings at authentication time.
 	// Nil for Users built outside the session path (treated as holding nothing).
 	Perms map[string]map[string]map[string]struct{}
+
+	Networks []string
 }
 
 // SessionStore manages session lifecycle for authenticated users.
@@ -172,6 +174,11 @@ func (s *SessionStore) lookup(ctx context.Context, token string) (*User, string,
 		return nil, "", perr
 	}
 	u.Perms = perms
+	networks, nerr := s.LoadNetworks(ctx, u.ID)
+	if nerr != nil {
+		return nil, "", nerr
+	}
+	u.Networks = networks
 	exp, perr := time.Parse(time.RFC3339, expires)
 	if perr != nil {
 		// A corrupt expires_at row is indistinguishable from an expired

@@ -550,7 +550,7 @@ type authCfg struct {
 
 var validAuthKinds = map[string]bool{"local": true, "oidc": true, "google": true, "github": true}
 
-var validDefaultRoles = map[string]bool{"": true, "viewer": true, "operator": true, "admin": true, "deny": true}
+var validDefaultRoles = map[string]bool{"": true, "viewer": true, "member": true, "operator": true, "admin": true, "deny": true}
 
 // validateHelmRoleMapping checks the role mappings in helmOverride.roleMappings,
 // trimming whitespace from each group string in place. Reuses the same validation
@@ -608,7 +608,7 @@ func validateProviderMapping(i int, p *authProvider) error {
 		p.GroupsClaim = claim
 	}
 	if !validDefaultRoles[p.DefaultRole] {
-		return fmt.Errorf("providers[%d].defaultRole must be one of viewer|operator|admin|deny", i)
+		return fmt.Errorf("providers[%d].defaultRole must be one of viewer|member|operator|admin|deny", i)
 	}
 	if p.DefaultRole != "" && p.RoleMappings == nil {
 		return fmt.Errorf("providers[%d].defaultRole requires roleMappings", i)

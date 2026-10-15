@@ -53,7 +53,8 @@ func updateModTarget(ctx context.Context, target *modTarget, apply func(*unstruc
 			}
 			if !reflect.DeepEqual(fresh.Object["spec"], original.Object["spec"]) ||
 				fresh.GetAnnotations()[ownerIDAnnotation] != original.GetAnnotations()[ownerIDAnnotation] ||
-				fresh.GetAnnotations()[collaboratorsAnnotation] != original.GetAnnotations()[collaboratorsAnnotation] {
+				fresh.GetAnnotations()[collaboratorsAnnotation] != original.GetAnnotations()[collaboratorsAnnotation] ||
+				fresh.GetAnnotations()[networkAnnotation] != original.GetAnnotations()[networkAnnotation] {
 				return false, apierrors.NewConflict(kube.GVRs["servers"].GroupResource(), original.GetName(), errors.New("server configuration or ownership changed"))
 			}
 			current = fresh.DeepCopy()

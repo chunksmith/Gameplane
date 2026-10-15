@@ -44,6 +44,27 @@ func (s *SessionStore) LoadPerms(ctx context.Context, userID int64) (map[string]
 	return perms, nil
 }
 
+// LoadNetworks returns the names of the networks the user belongs to.
+func (s *SessionStore) LoadNetworks(ctx context.Context, userID int64) ([]string, error) {
+	rows, err := s.db.DB.QueryContext(ctx, `SELECT network_name FROM network_members WHERE user_id = ? ORDER BY network_name`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load networks for user %d: %w", userID, err)
+	}
+	defer func() { _ = rows.Close() }()
+	var networks []string
+	for rows.Next() {
+		var network string
+		if err := rows.Scan(&network); err != nil {
+			return nil, fmt.Errorf("scan network: %w", err)
+		}
+		networks = append(networks, network)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate networks: %w", err)
+	}
+	return networks, nil
+}
+
 // PermsToJSON flattens the in-memory three-level permission set into a
 // JSON-friendly namespace→permissions map. It merges permissions across
 // all clusters, so the frontend sees the union of what the user can do

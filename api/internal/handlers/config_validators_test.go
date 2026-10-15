@@ -74,6 +74,7 @@ func TestValidateAuth(t *testing.T) {
 		{"bad json", false, `{`, false, "invalid json"},
 		// Group→role mapping fields.
 		{"mapping happy path", false, `{"providers":[{"name":"corp","kind":"oidc","enabled":true,"issuer":"https://idp.example","clientID":"g","scopes":["groups"],"groupsClaim":"memberOf","roleMappings":{"admin":["gp-admins"],"operator":["gp-ops"],"viewer":["gp-view"]},"defaultRole":"deny"}]}`, true, ""},
+		{"member default role", false, `{"providers":[{"name":"corp","kind":"oidc","enabled":true,"issuer":"https://idp.example","clientID":"g","roleMappings":{"admin":["gp-admins"]},"defaultRole":"member"}]}`, true, ""},
 		{"mapping without defaultRole ok", false, `{"providers":[{"name":"corp","kind":"oidc","enabled":true,"issuer":"https://idp.example","clientID":"g","roleMappings":{"admin":["gp-admins"]}}]}`, true, ""},
 		{"scopes on local", false, `{"providers":[{"name":"local","kind":"local","enabled":true,"scopes":["groups"]}]}`, false, "not valid for the local provider"},
 		{"groupsClaim on local", false, `{"providers":[{"name":"local","kind":"local","enabled":true,"groupsClaim":"memberOf"}]}`, false, "not valid for the local provider"},

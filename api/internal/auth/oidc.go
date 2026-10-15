@@ -224,7 +224,7 @@ func computeRole(groups []string, pol *ProviderPolicy) (role string, deny bool) 
 	switch pol.DefaultRole {
 	case "deny":
 		return "", true
-	case "admin", "operator":
+	case "admin", "operator", "member":
 		return pol.DefaultRole, false
 	default: // "" and "viewer" (validateAuth admits nothing else)
 		return "viewer", false

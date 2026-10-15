@@ -47,6 +47,7 @@ import { RoleEditorModal } from "@/components/ui/RoleEditorModal";
 import { InviteUserDialog } from "@/components/ui/admin/InviteUserDialog";
 import { EditUserDialog } from "@/components/ui/admin/EditUserDialog";
 import { ResetPasswordDialog } from "@/components/ui/admin/ResetPasswordDialog";
+import { NetworksTab } from "@/routes/UsersNetworks";
 import { APIError } from "@/lib/api";
 import { useMe, can } from "@/lib/auth";
 import {
@@ -58,7 +59,7 @@ import {
 import { formatRelative } from "@/lib/utils";
 import type { ExtendedUser, Role, RoleBinding } from "@/types";
 
-type TabKey = "users" | "roles" | "service" | "idp";
+type TabKey = "users" | "roles" | "networks" | "service" | "idp";
 
 const roleColor: Record<string, string> = {
   admin: "bg-warning/15 text-warning",
@@ -184,6 +185,7 @@ export function UsersPage() {
                 <span className="text-xs text-foreground/60">({counts.roles})</span>
               </div>
             </TabComponent>
+            <TabComponent id="networks">Networks</TabComponent>
             <TabComponent id="service">Service accounts</TabComponent>
             <TabComponent id="idp">Identity providers</TabComponent>
           </Tabs.List>
@@ -320,6 +322,10 @@ export function UsersPage() {
             <RolesTab />
           </Tabs.Panel>
 
+          <Tabs.Panel id="networks">
+            <NetworksTab />
+          </Tabs.Panel>
+
           <Tabs.Panel id="service">
             <ServiceAccountsTab />
           </Tabs.Panel>
@@ -349,7 +355,7 @@ export function UsersPage() {
             displayName: displayName || undefined,
             email: email || undefined,
             password: password || undefined,
-            role: role ?? "viewer",
+            role: role ?? "member",
           });
         }}
       />
