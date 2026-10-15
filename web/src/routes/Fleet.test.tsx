@@ -107,7 +107,7 @@ describe("unified fleet pages", () => {
       http.put("/schedules/same-schedule", async ({ request }) => { requests.push(new URL(request.url)); return HttpResponse.json(await request.json()); }),
     );
     renderWithQuery(<BackupsPage />);
-    await userEvent.click(screen.getByRole("tab", { name: "Schedules" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Server schedules" }));
     await screen.findAllByText("same-schedule");
     const rows = screen.getAllByRole("row");
     const local = rows.find((row) => row.textContent?.includes("local / games"))!;

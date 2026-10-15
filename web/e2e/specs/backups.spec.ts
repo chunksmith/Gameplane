@@ -47,8 +47,8 @@ test.describe("backups page", () => {
     // HeroUI Tabs: the top-level tab strip is role="tab", not a native button
     // (T137, specs/done_014-heroui-web-rebuild — was a native <button> strip
     // pre-rebuild).
-    await page.getByRole("tab", { name: /^schedules$/i }).click();
-    await expect(page.getByText("alpha-daily")).toBeVisible();
+    await page.getByRole("tab", { name: "Server schedules", exact: true }).click();
+    await expect(page.getByRole("grid", { name: "Schedules", exact: true }).getByText("alpha-daily")).toBeVisible();
 
     await page.getByRole("tab", { name: /^restores$/i }).click();
     // Empty restores list shows a placeholder row.
