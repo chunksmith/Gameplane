@@ -20,7 +20,7 @@ export function ConsoleTab({ name, ns }: { name: string; ns?: string }) {
   const templateName = gs?.spec.templateRef.name;
   const { data: tmpl } = useQuery({
     queryKey: resourceKey(target, "template", templateName),
-    queryFn: ({ signal }) => client.withSignal(signal).Templates.get(templateName!),
+    queryFn: ({ signal }) => client.withSignal(signal).Templates.forServer(templateName!, name, ns),
     enabled: !!templateName,
   });
   const mode = resolveConsoleMode(tmpl);

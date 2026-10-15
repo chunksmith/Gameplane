@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithQuery } from "@/test/render";
 import { NetworksTab } from "./UsersNetworks";
@@ -15,7 +15,7 @@ vi.mock("@/lib/endpoints", () => ({
     list: () => list(),
     create: (name: string) => create(name),
     remove: (name: string) => remove(name),
-    addMember: (name: string, id: number) => addMember(name, id),
+    addMember: (name: string, id: number, permissions: string[]) => addMember(name, id, permissions),
     removeMember: (name: string, id: number) => removeMember(name, id),
   },
   Users: { list: () => usersList() },
@@ -34,7 +34,7 @@ describe("NetworksTab", () => {
     vi.clearAllMocks();
     useMeMock.mockReturnValue({ data: ADMIN });
     list.mockResolvedValue([
-      { name: "skyblock", members: [{ id: 2, username: "ayse" }] },
+      { name: "skyblock", members: [{ id: 2, username: "ayse", permissions: ["servers:console"] }] },
       { name: "smp", members: [] },
     ]);
     usersList.mockResolvedValue([
@@ -61,10 +61,11 @@ describe("NetworksTab", () => {
     expect(await screen.findByText("No networks yet.")).toBeInTheDocument();
   });
 
-  it("creates a network", async () => {
+  it("creates a network from the dialog", async () => {
     renderWithQuery(<NetworksTab />);
-    await userEvent.type(screen.getByLabelText("Network name"), "survival");
     await userEvent.click(screen.getByRole("button", { name: /New network/i }));
+    await userEvent.type(await screen.findByLabelText("Network name"), "survival");
+    await userEvent.click(screen.getByRole("button", { name: /^Create$/i }));
     await waitFor(() => expect(create).toHaveBeenCalledWith("survival"));
   });
 
@@ -73,7 +74,26 @@ describe("NetworksTab", () => {
     await screen.findByText("smp");
     await waitFor(() => expect(usersList).toHaveBeenCalled());
     await userEvent.type(screen.getByLabelText("Add member to smp"), "mert{Enter}");
-    await waitFor(() => expect(addMember).toHaveBeenCalledWith("smp", 3));
+    await waitFor(() => expect(addMember).toHaveBeenCalledWith("smp", 3, ["servers:console", "servers:write"]));
+  });
+
+  it("adds a view-only member", async () => {
+    renderWithQuery(<NetworksTab />);
+    await screen.findByText("smp");
+    await waitFor(() => expect(usersList).toHaveBeenCalled());
+    const picker = screen.getByRole("group", { name: "New member permissions in smp" });
+    await userEvent.click(within(picker).getByRole("checkbox", { name: "Console" }));
+    await userEvent.click(within(picker).getByRole("checkbox", { name: "Manage" }));
+    await userEvent.type(screen.getByLabelText("Add member to smp"), "mert{Enter}");
+    await waitFor(() => expect(addMember).toHaveBeenCalledWith("smp", 3, []));
+  });
+
+  it("changes a member's permissions", async () => {
+    renderWithQuery(<NetworksTab />);
+    const picker = await screen.findByRole("group", { name: "ayse permissions in skyblock" });
+    expect(within(picker).getByRole("checkbox", { name: "Console" })).toBeChecked();
+    await userEvent.click(within(picker).getByRole("checkbox", { name: "Manage" }));
+    await waitFor(() => expect(addMember).toHaveBeenCalledWith("skyblock", 2, ["servers:console", "servers:write"]));
   });
 
   it("reports an unknown username", async () => {
@@ -106,7 +126,8 @@ describe("NetworksTab", () => {
     useMeMock.mockReturnValue({ data: { id: 5, username: "reader", permissions: { "*": ["users:read"] } } });
     renderWithQuery(<NetworksTab />);
     await screen.findByText("skyblock");
-    expect(screen.queryByLabelText("Network name")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /New network/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Console")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Delete$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove ayse from skyblock" })).not.toBeInTheDocument();
   });
