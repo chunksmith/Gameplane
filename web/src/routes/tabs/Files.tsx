@@ -39,6 +39,9 @@ const ROOT = "/";
 const ROOT_ENTRY: FileEntry = { name: "", path: ROOT, size: 0, dir: true };
 const AUTOSAVE_DELAY_MS = 800;
 const ARCHIVE_PATTERN = /\.(zip|tar|gz|tgz|rar|7z|jar)$/i;
+const LIST_REFRESH_MS = 5_000;
+const MAX_UPLOAD_FILES = 64;
+const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
 
 interface ViewProps {
   resourceTarget: ResourceTarget;
@@ -101,12 +104,12 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
   const listing = useQuery({
     queryKey,
     queryFn: ({ signal }) => client.withSignal(signal).Files.list(name, path, ns),
+    refetchInterval: LIST_REFRESH_MS,
   });
   const [error, setError] = useState<Error | null>(null);
   const [prompt, setPrompt] = useState<"file" | "folder" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
   const [dragging, setDragging] = useState(false);
-  const uploadInput = useRef<HTMLInputElement | null>(null);
   const entries = listing.data && sortEntries(listing.data.entries);
   const total = listing.data?.total ?? 0;
 
@@ -132,14 +135,16 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
   });
 
   const upload = useMutation({
-    mutationFn: (files: FileList) => client.Files.upload(name, path, files, ns),
+    mutationFn: async (groups: Map<string, File[]>) => {
+      for (const [dir, files] of groups) {
+        const target = dir ? joinPath(path, dir) : path;
+        if (files.length === 0) await client.Files.mkdir(name, target, ns);
+        for (const batch of uploadBatches(files)) await client.Files.upload(name, target, batch, ns);
+      }
+    },
     onSuccess: refresh,
     onError: (err: Error) => setError(err),
   });
-
-  function uploadFiles(files: FileList | null) {
-    if (canControl && files && files.length > 0) upload.mutate(files);
-  }
 
   function onDragOver(event: DragEvent<HTMLDivElement>) {
     if (!canControl) return;
@@ -154,7 +159,13 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragging(false);
-    uploadFiles(event.dataTransfer.files);
+    if (!canControl) return;
+    void collectDropped(event.dataTransfer).then(
+      (groups) => {
+        if (groups.size > 0) upload.mutate(groups);
+      },
+      (err: unknown) => setError(err instanceof Error ? err : new Error(String(err))),
+    );
   }
 
   return (
@@ -168,20 +179,11 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
           <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("folder")}>
             <FolderPlus className="h-4 w-4" /> New folder
           </Button>
-          <Button variant="secondary" size="sm" isDisabled={!canControl || upload.isPending} onPress={() => uploadInput.current?.click()}>
-            {upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
-          </Button>
-          <input
-            ref={uploadInput}
-            type="file"
-            multiple
-            className="hidden"
-            data-testid="files-upload-input"
-            onChange={(event) => {
-              uploadFiles(event.target.files);
-              event.target.value = "";
-            }}
-          />
+          {upload.isPending && (
+            <span role="status" className="inline-flex items-center gap-1.5 text-xs text-muted">
+              <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+            </span>
+          )}
           <Button variant="primary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("file")}>
             <FilePlus className="h-4 w-4" /> New file
           </Button>
@@ -267,6 +269,11 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
           </div>
         )}
       </div>
+      {canControl && (
+        <p className="flex items-center gap-1.5 text-xs text-muted">
+          <Upload className="h-3.5 w-3.5" /> Drag files or folders onto the list to upload them here.
+        </p>
+      )}
 
       {confirmDelete && (
         <DeleteDialog
@@ -639,6 +646,51 @@ function parentOf(path: string): string {
 
 function joinPath(dir: string, name: string): string {
   return dir === ROOT ? `/${name}` : `${dir}/${name}`;
+}
+
+async function collectDropped(dataTransfer: DataTransfer): Promise<Map<string, File[]>> {
+  const groups = new Map<string, File[]>();
+  const items = Array.from((dataTransfer.items as DataTransferItemList | undefined) ?? []);
+  const entries = items.map((item) => item.webkitGetAsEntry()).filter((entry): entry is FileSystemEntry => entry !== null);
+  if (entries.length === 0) {
+    const files = Array.from(dataTransfer.files);
+    if (files.length > 0) groups.set("", files);
+    return groups;
+  }
+  await Promise.all(entries.map((entry) => collectEntry(entry, "", groups)));
+  return groups;
+}
+
+async function collectEntry(entry: FileSystemEntry, dir: string, groups: Map<string, File[]>): Promise<void> {
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject));
+    groups.set(dir, [...(groups.get(dir) ?? []), file]);
+    return;
+  }
+  const folder = dir ? `${dir}/${entry.name}` : entry.name;
+  if (!groups.has(folder)) groups.set(folder, []);
+  const reader = (entry as FileSystemDirectoryEntry).createReader();
+  let children: FileSystemEntry[];
+  do {
+    children = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+    await Promise.all(children.map((child) => collectEntry(child, folder, groups)));
+  } while (children.length > 0);
+}
+
+function uploadBatches(files: File[]): File[][] {
+  const batches: File[][] = [];
+  let bytes = 0;
+  for (const file of files) {
+    const current = batches.at(-1);
+    if (!current || current.length === MAX_UPLOAD_FILES || bytes + file.size > MAX_UPLOAD_BYTES) {
+      batches.push([file]);
+      bytes = file.size;
+    } else {
+      current.push(file);
+      bytes += file.size;
+    }
+  }
+  return batches;
 }
 
 function sortEntries(entries: FileEntry[]): FileEntry[] {

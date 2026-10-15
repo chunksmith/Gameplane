@@ -10,7 +10,8 @@ import { ServerActionsCard } from "@/components/server/ServerActionsCard";
 import { ServerStatusCard } from "@/components/server/ServerStatusCard";
 import { ServerSleepCard } from "@/components/server/ServerSleepCard";
 import { EventList } from "@/components/server/EventList";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, formatCores, parseQuantityToBytes } from "@/lib/utils";
+import { parseCpuQuantity } from "@/lib/quantity";
 import { mapServerEvent, type NormalizedServerEvent } from "@/lib/events";
 import { playerRows } from "@/lib/players";
 
@@ -90,6 +91,12 @@ export function OverviewTab({
     typeof agent?.networkRxBytes === "number" && typeof agent?.networkTxBytes === "number";
   const netRxTotal = netTotalKnown ? (agent?.networkRxBytes as number) : 0;
   const netTxTotal = netTotalKnown ? (agent?.networkTxBytes as number) : 0;
+
+  const resources = gs.spec.resources ?? tmpl?.spec.resources;
+  const cpuRequestCores = cpuCores(resources?.requests?.cpu);
+  const cpuLimitCores = cpuCores(resources?.limits?.cpu) ?? (cpuLimitMilli ? cpuLimitMilli / 1000 : undefined);
+  const memoryRequest = memoryBytes(resources?.requests?.memory);
+  const memoryLimit = memoryBytes(resources?.limits?.memory) ?? (memLimit || undefined);
 
   // Player count is shown in the Players card (sidebar). null/undefined
   // means "unknown" (RCON unavailable or a stale heartbeat the API
@@ -192,6 +199,27 @@ export function OverviewTab({
               }
               trend={netRateKnown ? netRxRate + netTxRate : undefined}
               accent="warning"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <AllocationCard
+              label="CPU allocation"
+              icon={<Cpu className="h-4 w-4" />}
+              used={cpuKnown ? cpuMilli / 1000 : undefined}
+              request={cpuRequestCores}
+              limit={cpuLimitCores}
+              format={(cores) => `${formatCores(cores)} cores`}
+              accent="bg-accent"
+            />
+            <AllocationCard
+              label="Memory allocation"
+              icon={<MemoryStick className="h-4 w-4" />}
+              used={memKnown ? memUsed : undefined}
+              request={memoryRequest}
+              limit={memoryLimit}
+              format={formatBytes}
+              accent="bg-violet"
             />
           </div>
 
@@ -389,6 +417,57 @@ function ResourceCard({
       {sub && <div className="space-y-0.5 text-xs text-muted">{sub}</div>}
     </Card>
   );
+}
+
+function AllocationCard({
+  label,
+  icon,
+  used,
+  request,
+  limit,
+  format,
+  accent,
+}: {
+  label: string;
+  icon: ReactNode;
+  used?: number;
+  request?: number;
+  limit?: number;
+  format: (value: number) => string;
+  accent: string;
+}) {
+  const scale = Math.max(used ?? 0, request ?? 0, limit ?? 0);
+  const width = (value: number) => `${scale ? Math.min(100, (value / scale) * 100) : 0}%`;
+  const share = (value?: number) => (used !== undefined && value ? ` · ${Math.round((used / value) * 100)}% used` : "");
+  return (
+    <Card className="flex flex-col gap-3 border border-border bg-card p-4">
+      <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.5px] text-muted">
+        <span>{label}</span>
+        <span>{icon}</span>
+      </div>
+      <div className="relative h-2 overflow-hidden rounded-full bg-[var(--default)]">
+        {request !== undefined && <div className="absolute inset-y-0 left-0 bg-foreground/15" style={{ width: width(request) }} />}
+        {used !== undefined && <div className={`absolute inset-y-0 left-0 rounded-full ${accent}`} style={{ width: width(used) }} />}
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        <dt className="text-muted">Request</dt>
+        <dd className="text-right font-mono text-foreground">{request === undefined ? "Not set" : `${format(request)}${share(request)}`}</dd>
+        <dt className="text-muted">Limit</dt>
+        <dd className="text-right font-mono text-foreground">{limit === undefined ? "None, can burst to node" : `${format(limit)}${share(limit)}`}</dd>
+      </dl>
+      <p className="text-[11px] text-muted">Request is reserved for the server; the limit is the most it may use.</p>
+    </Card>
+  );
+}
+
+function cpuCores(quantity?: string): number | undefined {
+  const amount = parseCpuQuantity(quantity);
+  if (!amount) return undefined;
+  return amount.unit === "m" ? amount.value / 1000 : amount.value;
+}
+
+function memoryBytes(quantity?: string): number | undefined {
+  return parseQuantityToBytes(quantity) || undefined;
 }
 
 // 8px address rows per design (assets/design-export/screenshots/EZFW0.png): compact

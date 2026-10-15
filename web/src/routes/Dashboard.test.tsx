@@ -182,7 +182,7 @@ describe("DashboardPage", () => {
     renderWithQuery(<DashboardPage />);
     await screen.findByText("Recent backups");
     expect(await screen.findByText("valheim-01")).toBeInTheDocument();
-    expect(screen.getByText("2.1 GiB")).toBeInTheDocument();
+    expect(screen.getByText("2.1 GB")).toBeInTheDocument();
   });
 
   it("humanizes audit events across action types", async () => {

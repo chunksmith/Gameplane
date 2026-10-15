@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { useResourceTarget, useResourceAccess, type ResourceTarget, type ServerAccess } from "@/lib/resourceTarget";
+import { cn } from "@/lib/utils";
 
 import { CloneServerDialog } from "./CloneServerDialog";
 import { DeleteServerDialog } from "./DeleteServerDialog";
@@ -28,9 +29,11 @@ interface Props {
   gs: GameServer;
   onDeleted?: () => void;
   onTransferred?: () => void;
+  size?: "sm" | "md";
+  className?: string;
 }
 
-export function ServerActionsMenu({ gs, onDeleted, onTransferred, target: explicitTarget, access: explicitAccess }: Props) {
+export function ServerActionsMenu({ gs, onDeleted, onTransferred, target: explicitTarget, access: explicitAccess, size, className }: Props) {
   const ns = gs.metadata.namespace;
   const target = useResourceTarget({ name: gs.metadata.name, namespace: ns }, explicitTarget);
   const access = useResourceAccess(explicitAccess);
@@ -47,7 +50,7 @@ export function ServerActionsMenu({ gs, onDeleted, onTransferred, target: explic
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className={buttonVariants({ isIconOnly: true, variant: "ghost" })}
+          className={cn(buttonVariants({ isIconOnly: true, variant: "ghost", size }), className)}
           aria-label="Server actions"
         >
           <MoreHorizontal className="h-4 w-4" />

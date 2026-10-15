@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -135,6 +136,8 @@ type clusterNode struct {
 type resourcePair struct {
 	Used     *float64 `json:"used,omitempty"`
 	Capacity int64    `json:"capacity"`
+	Requests *float64 `json:"requests,omitempty"`
+	Limits   *float64 `json:"limits,omitempty"`
 }
 
 type clusterView struct {
@@ -322,37 +325,16 @@ func (h *clusterHandler) countNodePods(ctx context.Context) map[string]int64 {
 		}
 	}
 
-	// Paginate: list 500 pods at a time.
 	counts := make(map[string]int64)
-	opts := metav1.ListOptions{
-		Limit:         500,
-		FieldSelector: "status.phase!=Succeeded,status.phase!=Failed",
-	}
-
-	for {
-		pods, err := h.k.Typed.CoreV1().Pods("").List(ctx, opts)
-		if err != nil {
-			slog.Debug("count node pods: list failed", "err", err)
-			return nil
+	err := h.eachScheduledPod(ctx, func(pod *corev1.Pod) {
+		switch pod.Status.Phase {
+		case corev1.PodPending, corev1.PodRunning:
+			counts[pod.Spec.NodeName]++
 		}
-
-		// Process this page: count Pending and Running pods.
-		for i := range pods.Items {
-			pod := &pods.Items[i]
-			if pod.Spec.NodeName == "" {
-				continue
-			}
-			switch pod.Status.Phase {
-			case corev1.PodPending, corev1.PodRunning:
-				counts[pod.Spec.NodeName]++
-			}
-		}
-
-		// Stop if no continue token.
-		if pods.Continue == "" {
-			break
-		}
-		opts.Continue = pods.Continue
+	})
+	if err != nil {
+		slog.Debug("count node pods: list failed", "err", err)
+		return nil
 	}
 
 	// Cache the result.
@@ -362,6 +344,51 @@ func (h *clusterHandler) countNodePods(ctx context.Context) map[string]int64 {
 		h.podCounts.mu.Unlock()
 	}
 	return counts
+}
+
+type nodeAllocation struct {
+	cpuRequests    float64
+	cpuLimits      float64
+	memoryRequests float64
+	memoryLimits   float64
+}
+
+func (h *clusterHandler) eachScheduledPod(ctx context.Context, visit func(*corev1.Pod)) error {
+	opts := metav1.ListOptions{Limit: 500, FieldSelector: "status.phase!=Succeeded,status.phase!=Failed"}
+	for {
+		pods, err := h.k.Typed.CoreV1().Pods("").List(ctx, opts)
+		if err != nil {
+			return fmt.Errorf("list pods: %w", err)
+		}
+		for i := range pods.Items {
+			if pods.Items[i].Spec.NodeName != "" {
+				visit(&pods.Items[i])
+			}
+		}
+		if pods.Continue == "" {
+			return nil
+		}
+		opts.Continue = pods.Continue
+	}
+}
+
+func (h *clusterHandler) fetchNodeAllocation(ctx context.Context) map[string]nodeAllocation {
+	allocation := make(map[string]nodeAllocation)
+	err := h.eachScheduledPod(ctx, func(pod *corev1.Pod) {
+		node := allocation[pod.Spec.NodeName]
+		for _, container := range pod.Spec.Containers {
+			node.cpuRequests += float64(container.Resources.Requests.Cpu().MilliValue()) / 1000
+			node.cpuLimits += float64(container.Resources.Limits.Cpu().MilliValue()) / 1000
+			node.memoryRequests += float64(container.Resources.Requests.Memory().Value())
+			node.memoryLimits += float64(container.Resources.Limits.Memory().Value())
+		}
+		allocation[pod.Spec.NodeName] = node
+	})
+	if err != nil {
+		slog.Debug("node allocation unavailable", "err", err)
+		return nil
+	}
+	return allocation
 }
 
 func (h *clusterHandler) info(w http.ResponseWriter, req *http.Request) {

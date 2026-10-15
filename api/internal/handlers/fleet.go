@@ -580,6 +580,7 @@ func (h fleetHandler) readInventory(ctx context.Context, c fleetCluster) (*fleet
 	metricsCtx, metricsCancel := context.WithTimeout(ctx, time.Second)
 	usage := selected.fetchNodeUsage(metricsCtx)
 	metricsCancel()
+	allocation := selected.fetchNodeAllocation(ctx)
 	name := c.name
 	if c.id == h.reg.DefaultID() {
 		if configured := selected.clusterName(ctx); configured != "" {
@@ -595,6 +596,15 @@ func (h fleetHandler) readInventory(ctx context.Context, c fleetCluster) (*fleet
 			}
 			if n.Memory != nil {
 				n.Memory.Used = &measured.memoryBytes
+			}
+		}
+		if allocation != nil {
+			reserved := allocation[n.Name]
+			if n.CPU != nil {
+				n.CPU.Requests, n.CPU.Limits = &reserved.cpuRequests, &reserved.cpuLimits
+			}
+			if n.Memory != nil {
+				n.Memory.Requests, n.Memory.Limits = &reserved.memoryRequests, &reserved.memoryLimits
 			}
 		}
 		if n.Status == "Ready" {

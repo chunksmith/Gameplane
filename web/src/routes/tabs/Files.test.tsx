@@ -274,7 +274,8 @@ describe("FilesTab", () => {
     await screen.findByText("server.properties");
     expect(screen.getByRole("button", { name: /New file/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /New folder/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Upload/ })).toBeDisabled();
+    fireEvent.dragOver(screen.getByTestId("files-dropzone"));
+    expect(screen.queryByText("Drop files to upload")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("server.properties"));
     fireEvent.change(await screen.findByTestId("monaco"), { target: { value: "edited" } });
     expect(screen.getByText("Read only")).toBeInTheDocument();
@@ -478,28 +479,39 @@ describe("FilesTab", () => {
     await waitFor(() => expect(screen.queryByPlaceholderText("config.yaml")).not.toBeInTheDocument());
   });
 
-  it("uploads picked files to the current folder and clears the input", async () => {
+  it("uploads a dropped folder into the matching sub-folder", async () => {
     mockServerProperties({
-      "POST /servers/mc-survival/files/upload?path=%2F": () => new Response(null, { status: 204 }),
+      "POST /servers/mc-survival/files/upload?path=%2Fplugins": () => new Response(null, { status: 204 }),
     });
     renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    const input = screen.getByTestId("files-upload-input") as HTMLInputElement;
-    fireEvent.change(input, { target: { files: { 0: new File(["test"], "file.txt"), length: 1 } as unknown as FileList } });
-    await waitFor(() => expect(requests()).toContain("POST /servers/mc-survival/files/upload?path=%2F"));
-    expect(input.value).toBe("");
+    const jar = new File(["jar"], "a.jar");
+    const fileEntry = { isFile: true, isDirectory: false, name: "a.jar", file: (resolve: (file: File) => void) => resolve(jar) };
+    let read = false;
+    const folderEntry = {
+      isFile: false,
+      isDirectory: true,
+      name: "plugins",
+      createReader: () => ({
+        readEntries: (resolve: (entries: unknown[]) => void) => {
+          resolve(read ? [] : [fileEntry]);
+          read = true;
+        },
+      }),
+    };
+    fireEvent.drop(screen.getByTestId("files-dropzone"), { dataTransfer: { files: [], items: [{ webkitGetAsEntry: () => folderEntry }] } });
+    await waitFor(() => expect(requests()).toContain("POST /servers/mc-survival/files/upload?path=%2Fplugins"));
   });
 
-  it("disables Upload while an upload is in flight", async () => {
+  it("shows upload progress while an upload is in flight", async () => {
     const pending = deferredResponse();
     mockServerProperties({
       "POST /servers/mc-survival/files/upload?path=%2F": () => pending.promise,
     });
     renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    const uploadButton = screen.getByRole("button", { name: /Upload/ });
-    fireEvent.change(screen.getByTestId("files-upload-input"), { target: { files: { 0: new File(["content"], "test.txt"), length: 1 } as unknown as FileList } });
-    await waitFor(() => expect(uploadButton).toBeDisabled());
+    fireEvent.drop(screen.getByTestId("files-dropzone"), { dataTransfer: { files: [new File(["content"], "test.txt")] } });
+    expect(await screen.findByText("Uploading…")).toBeInTheDocument();
     await act(async () => pending.resolve(new Response(null, { status: 204 })));
   });
 
@@ -509,7 +521,7 @@ describe("FilesTab", () => {
     });
     renderWithQuery(<Harness />);
     await screen.findByText("server.properties");
-    fireEvent.change(screen.getByTestId("files-upload-input"), { target: { files: { 0: new File(["content"], "test.txt"), length: 1 } as unknown as FileList } });
+    fireEvent.drop(screen.getByTestId("files-dropzone"), { dataTransfer: { files: [new File(["content"], "test.txt")] } });
     expect(await screen.findByText("disk full")).toBeInTheDocument();
   });
 
