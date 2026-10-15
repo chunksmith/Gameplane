@@ -77,6 +77,10 @@ export function parseQuantityToBytes(s?: string): number {
   return (factors[unit] ?? 0) * n;
 }
 
+export function formatSize(size?: string): string {
+  return size ? formatBytes(parseQuantityToBytes(size)) : "—";
+}
+
 // formatCores renders a CPU core quantity, trimming the floating-point
 // noise that shows up when summing metrics-server's sub-core readings
 // across nodes (e.g. 0.646 + 0.646 -> 1.2919999999999998).
