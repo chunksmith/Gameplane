@@ -699,6 +699,8 @@ function makeResourceEndpoints(request: RequestClient) {
       api<void>(withNS(`/servers/${name}`, ns), { method: "DELETE" }),
     lifecycle: (name: string, verb: LifecycleVerb, ns?: string, cluster?: string) =>
       api<void>(withNS(`/servers/${name}:${verb}`, ns), { method: "POST", cluster }),
+    setPriority: (name: string, priority: number, ns?: string, cluster?: string) =>
+      api<void>(withNS(`/servers/${name}:priority`, ns), { method: "PUT", body: { priority }, cluster }),
     clone: (name: string, newName: string, ns?: string) =>
       api<GameServer>(withNS(`/servers/${name}:clone`, ns), { method: "POST", body: { newName } }),
     // Suspends the server and asks the operator to wipe its data volume.

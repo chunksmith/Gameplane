@@ -9,6 +9,7 @@ import {
   Cpu,
   Database,
   Filter,
+  GripVertical,
   HardDrive,
   Layers,
   Minus,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { Button, Card, Input, Chip, ListBox, ListBoxItem, Select, Tabs, Tab, Table, buttonVariants } from "@heroui/react";
+import { DropIndicator, useDragAndDrop } from "react-aria-components";
 import { StatCard } from "@/components/ui/StatCard";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { FilterPopover } from "@/components/ui/FilterPopover";
@@ -36,11 +38,11 @@ import { describeStorageProvisioned, formatBytes, formatCpuPercent, cn } from "@
 import { useMediaQuery } from "@/lib/media";
 import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
 import { Networks, Servers, createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
-import { NETWORK_ANNOTATION } from "@/lib/annotations";
-import { countByState } from "@/lib/servers";
+import { NETWORK_ANNOTATION, PRIORITY_ANNOTATION } from "@/lib/annotations";
+import { byPriority, countByState, reorderPriorities } from "@/lib/servers";
 import { groupServers, type ServerGroup } from "@/lib/serverSets";
 import { resourceCan } from "@/lib/resourceTarget";
-import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServerSets, useFleetServers, type FleetTarget, type Located } from "@/lib/fleet";
+import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServerSets, useFleetServers, type FleetItem, type FleetResult, type FleetTarget, type Located } from "@/lib/fleet";
 import { FleetCoverage, FleetScopeFilter } from "@/components/FleetScope";
 
 type FilterKey = "all" | "running" | "stopped";
@@ -80,6 +82,24 @@ export function ServersPage() {
     mutationFn: (args: { target: FleetTarget; verb: LifecycleVerb }) =>
       Servers.lifecycle(args.target.name, args.verb, args.target.namespace, args.target.cluster),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet", "servers"] }),
+  });
+  const reorder = useMutation({
+    mutationFn: (changes: [Located<GameServer>, number][]) =>
+      Promise.all(changes.map(([gs, priority]) => Servers.setPriority(gs.metadata.name, priority, gs.fleetTarget.namespace, gs.fleetTarget.cluster))),
+    onMutate: async (changes) => {
+      await qc.cancelQueries({ queryKey: ["fleet", "servers"] });
+      const priorities = new Map(changes.map(([gs, priority]) => [targetKey(gs.fleetTarget), String(priority)]));
+      qc.setQueriesData<FleetResult<FleetItem<GameServer>>>({ queryKey: ["fleet", "servers"] }, (data) => data && {
+        ...data,
+        items: data.items.map((item) => {
+          const priority = priorities.get(targetKey(item.target));
+          if (priority === undefined) return item;
+          const { metadata } = item.resource;
+          return { ...item, resource: { ...item.resource, metadata: { ...metadata, annotations: { ...metadata.annotations, [PRIORITY_ANNOTATION]: priority } } } };
+        }),
+      });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["fleet", "servers"] }),
   });
 
   // Below `md`, a wide table doesn't fit — render stacked cards instead.
@@ -187,7 +207,18 @@ export function ServersPage() {
     (appliedGames.size === 0 || appliedGames.has(set.spec.template?.templateRef?.name ?? "")) &&
     (appliedNamespaces.size === 0 || appliedNamespaces.has(set.fleetTarget.namespace));
   const grouped = groupServers(servers, sets);
-  const standalone = grouped.standalone.filter(filterServer);
+  const standalone = grouped.standalone.filter(filterServer).sort(byPriority);
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ "text/plain": String(key) })),
+    onReorder: ({ keys, target }) => {
+      const [key] = keys;
+      const moved = standalone.find((gs) => targetKey(resourceTarget(gs)) === key);
+      const anchor = standalone.find((gs) => targetKey(resourceTarget(gs)) === target.key);
+      const changes = moved && anchor ? reorderPriorities(standalone, moved, anchor, target.dropPosition === "after") : [];
+      if (changes.length) reorder.mutate(changes);
+    },
+    renderDropIndicator: (target) => <DropIndicator target={target} className="data-[drop-target]:outline-2 data-[drop-target]:outline-accent" />,
+  });
   const groups = grouped.groups
     .map((group) => ({ group, shown: group.servers.filter(filterServer) }))
     .filter(({ group, shown }) => shown.length > 0 || (filter === "all" && !network && !!group.set && setMatches(group.set)));
@@ -230,6 +261,7 @@ export function ServersPage() {
       )}
 
       {act.error && <ErrorBanner err={act.error} onDismiss={() => act.reset()} />}
+      {reorder.error && <ErrorBanner err={reorder.error} onDismiss={() => reorder.reset()} />}
       <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={error} label="Server results" />
       <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={inventoryError} label="Inventory" />
 
@@ -408,8 +440,9 @@ export function ServersPage() {
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <Table.Root className="bg-transparent">
               <Table.ScrollContainer>
-                <Table.Content aria-label="Server list" keyboardNavigationBehavior="arrow">
+                <Table.Content aria-label="Server list" keyboardNavigationBehavior="arrow" dragAndDropHooks={dragAndDropHooks}>
                   <Table.Header>
+                    <Table.Column id="drag" className="w-10"><span className="sr-only">Reorder</span></Table.Column>
                     <Table.Column id="name" isRowHeader>Name</Table.Column>
                     <Table.Column id="game">Game</Table.Column>
                     <Table.Column id="status">Status</Table.Column>
@@ -428,7 +461,12 @@ export function ServersPage() {
                     )}
                   >
                 {standalone.map((gs) => (
-                  <Table.Row key={targetKey(resourceTarget(gs))}>
+                  <Table.Row key={targetKey(resourceTarget(gs))} id={targetKey(resourceTarget(gs))} textValue={gs.metadata.name}>
+                    <Table.Cell>
+                      <Button slot="drag" isIconOnly variant="ghost" size="sm" aria-label={`Reorder ${gs.metadata.name}`} className="cursor-grab text-foreground/40 hover:text-foreground">
+                        <GripVertical className="h-4 w-4" />
+                      </Button>
+                    </Table.Cell>
                     <Table.Cell>
                       <div className="group relative flex min-w-0 items-center gap-3">
                         <GameIcon

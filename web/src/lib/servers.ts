@@ -3,6 +3,7 @@
 // and reused, rather than living inside a route component.
 
 import type { GameServer, GameServerPhase } from "@/types";
+import { PRIORITY_ANNOTATION } from "@/lib/annotations";
 
 export interface ServerCounts {
   running: number;
@@ -63,4 +64,35 @@ export function phaseGroups(items: GameServer[]): PhaseGroups {
     if (p === "Failed" || (gs.status?.agent?.stale && !down)) g.attention.push(gs);
   }
   return g;
+}
+
+export function serverPriority(gs: GameServer): number {
+  const priority = Number(gs.metadata.annotations?.[PRIORITY_ANNOTATION] ?? NaN);
+  return Number.isSafeInteger(priority) ? priority : Date.parse(gs.metadata.creationTimestamp ?? "") || 0;
+}
+
+export function byPriority(left: GameServer, right: GameServer): number {
+  return serverPriority(left) - serverPriority(right) || left.metadata.name.localeCompare(right.metadata.name);
+}
+
+const PRIORITY_STEP = 1024;
+
+export function reorderPriorities<T extends GameServer>(servers: T[], moved: T, target: T, after: boolean): [T, number][] {
+  if (moved === target) return [];
+  const order = servers.filter((gs) => gs !== moved);
+  const index = order.indexOf(target) + (after ? 1 : 0);
+  order.splice(index, 0, moved);
+  const priorities = order.map(serverPriority);
+  const current = priorities[index];
+  const before = priorities[index - 1];
+  const next = priorities[index + 1];
+  if ((before === undefined || before < current) && (next === undefined || current < next)) return [];
+  if (before === undefined) priorities[index] = next - PRIORITY_STEP;
+  else if (next === undefined) priorities[index] = before + PRIORITY_STEP;
+  else if (next - before > 1) priorities[index] = Math.floor((before + next) / 2);
+  else {
+    priorities[index] = before + PRIORITY_STEP;
+    for (let i = index + 1; i < priorities.length && priorities[i] <= priorities[i - 1]; i++) priorities[i] = priorities[i - 1] + PRIORITY_STEP;
+  }
+  return order.flatMap((gs, i) => (priorities[i] === serverPriority(gs) ? [] : [[gs, priorities[i]] as [T, number]]));
 }
