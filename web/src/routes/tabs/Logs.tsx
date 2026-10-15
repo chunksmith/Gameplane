@@ -5,7 +5,7 @@ import { AlertTriangle, Box, Download, FileText, Loader2, Search } from "lucide-
 import { Button, Input, Tabs, Tab as TabComponent } from "@heroui/react";
 
 import { openWS } from "@/lib/ws";
-import { parseAnsi, type AnsiSegment } from "@/lib/ansi";
+import { ansiParser, type AnsiSegment } from "@/lib/ansi";
 import { capitalize, cn } from "@/lib/utils";
 import type { GameServerPhase } from "@/types";
 
@@ -44,12 +44,22 @@ interface LogRow {
   text: string;
   segments: AnsiSegment[];
   level: LogLevel | null;
+  continued: boolean;
 }
 
-function toRow(raw: string): LogRow {
-  const segments = parseAnsi(raw);
-  const text = segments.map((segment) => segment.text).join("");
-  return { text, segments, level: parseLogLevel(text) };
+const ENTRY_START = /^[[\d]/;
+
+function rowParser(): (raw: string) => LogRow {
+  const parse = ansiParser();
+  let previous: LogLevel | null = null;
+  return (raw) => {
+    const segments = parse(raw);
+    const text = segments.map((segment) => segment.text).join("");
+    const own = parseLogLevel(text);
+    const continued = !own && previous !== null && !ENTRY_START.test(text);
+    previous = continued ? previous : own;
+    return { text, segments, level: previous, continued };
+  };
 }
 
 // Log sources the tab streams from. "pod" follows the whole pod timeline —
@@ -97,6 +107,7 @@ export function LogsTab({
     setLines([]);
     setConnected(false);
     setStreamFailed(false);
+    const toRow = rowParser();
     const path =
       effectiveSource === "pod" ? Logs.podStreamPath(name, ns) : Logs.fileStreamPath(name, ns);
     const sock = openWS(path, {
@@ -127,7 +138,7 @@ export function LogsTab({
 
   const counts = useMemo(() => {
     const c: Record<LogLevel, number> = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0 };
-    for (const row of lines) if (row.level) c[row.level]++;
+    for (const row of lines) if (row.level && !row.continued) c[row.level]++;
     return c;
   }, [lines]);
   const needle = filter.toLowerCase();

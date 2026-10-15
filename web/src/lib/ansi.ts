@@ -53,18 +53,22 @@ function applySgr(state: AnsiState, params: string): AnsiState {
   return next;
 }
 
-export function parseAnsi(line: string): AnsiSegment[] {
-  const segments: AnsiSegment[] = [];
+export function ansiParser(): (line: string) => AnsiSegment[] {
   let state: AnsiState = {};
-  line.split(ESC).forEach((chunk, index) => {
-    let text = chunk;
-    const match = index > 0 ? CSI.exec(chunk) : null;
-    if (match) {
-      if (match[2] === "m") state = applySgr(state, match[1]);
-      text = chunk.slice(match[0].length);
-    }
-    if (!text) return;
-    segments.push(state.color || state.bold ? { text, style: { color: state.color, fontWeight: state.bold ? 600 : undefined } } : { text });
-  });
-  return segments;
+  return (line) => {
+    const segments: AnsiSegment[] = [];
+    line.split(ESC).forEach((chunk, index) => {
+      let text = chunk;
+      const match = index > 0 ? CSI.exec(chunk) : null;
+      if (match) {
+        if (match[2] === "m") state = applySgr(state, match[1]);
+        text = chunk.slice(match[0].length);
+      }
+      if (!text) return;
+      segments.push(state.color || state.bold ? { text, style: { color: state.color, fontWeight: state.bold ? 600 : undefined } } : { text });
+    });
+    return segments;
+  };
 }
+
+export const parseAnsi = (line: string): AnsiSegment[] => ansiParser()(line);
