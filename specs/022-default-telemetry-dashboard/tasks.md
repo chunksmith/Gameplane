@@ -23,7 +23,7 @@ description: "Task list for feature 022: default telemetry destination, extended
 - **Verification.** Locally, run only `go build ./...` (inside the module) and `cd web && npx tsc --noEmit`. Never run `go test`, `npm test`, `make test|lint|cover`, envtest or E2E locally (rule 8). CI is the verification authority.
 - **Delegation.** Implementation runs through `Workflow` scripts. Agents start at `haiku`, set `model:` on every `agent()`, and get reviewed one tier up. One scout writes a brief per phase with exact `file:line` and before/after code, and fixers edit blind from that brief (rules 13, 18).
 - **Design first.** Any task that changes `design.pen` or `telemetry-receiver/telemetry-dashboard.pen` uses Pencil MCP only, never generic file tools (rule 2). Ask the user to open the file and save in the Pencil UI, then run the `design-export` skill, and commit the export with the design (rule 1). The receiver file exports to `telemetry-receiver/design-export/{json,screenshots}/`.
-- **Commits.** Commit each logical unit signed (`git commit -s`) with conventional prefixes and the `Co-Authored-By` / `Claude-Session` trailers. Never amend pushed commits (rule 11).
+- **Commits.** Commit each logical unit signed (`git commit -s`) with conventional prefixes and no trailers. Never amend pushed commits (rule 11).
 - **Tests.** Don't delete or weaken a test. Tests whose behaviour this feature intentionally changes are listed in T002 and need sign-off first (system override 1).
 - **Merge gate.** OPEN-DECISIONS OD-1 was ruled (2026-10-07): the default domain is telemetry.gameplane.net, and the merge gate is satisfied (plan.md, Merge gate).
 
