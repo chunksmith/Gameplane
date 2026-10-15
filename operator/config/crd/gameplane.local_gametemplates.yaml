@@ -2142,6 +2142,8 @@ spec:
                     - kind
                     - name
                     type: object
+                  ephemeral:
+                    type: boolean
                   extra:
                     description: |-
                       Extra declares additional persistent volumes beyond the primary data

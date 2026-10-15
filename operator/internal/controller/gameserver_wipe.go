@@ -111,6 +111,10 @@ func (r *GameServerReconciler) reconcileWipe(
 		return nil
 	}
 
+	if isEphemeral(gs) {
+		return r.ackWipe(ctx, gs, req)
+	}
+
 	var job batchv1.Job
 	err := r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: gs.Namespace}, &job)
 	switch {

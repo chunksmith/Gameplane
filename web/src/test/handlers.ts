@@ -175,6 +175,7 @@ export const handlers = [
       ],
     }),
   ),
+  http.get("/serversets", () => HttpResponse.json({ items: [] })),
   // isColonAction falls through on ':' so this never swallows a `name:verb`
   // colon-action URL (e.g. `alpha:capture`) meant for one of the regex handlers
   // below — a dead/misordered colon-action handler should 404 as unhandled, not

@@ -5,13 +5,13 @@
 
 ## Purpose
 
-Optional, strictly **read-only** Model Context Protocol (MCP) server that exposes cluster state from a Gameplane deployment. Lets an AI assistant read 7 of Gameplane's 9 CRDs (not Cluster or NetworkCapture), Pods, Events, and pod logs, and receive suggested fixes as plain text (YAML and/or `kubectl` commands) for a human operator to review and apply. Speaks MCP (JSON-RPC 2.0) over stdio, not a network port.
+Optional, strictly **read-only** Model Context Protocol (MCP) server that exposes cluster state from a Gameplane deployment. Lets an AI assistant read 7 of Gameplane's 10 CRDs (not Cluster, GameServerSet or NetworkCapture), Pods, Events, and pod logs, and receive suggested fixes as plain text (YAML and/or `kubectl` commands) for a human operator to review and apply. Speaks MCP (JSON-RPC 2.0) over stdio, not a network port.
 
 ## Responsibilities
 
 1. **Expose read-only MCP tools** — 7 tools listed below, all List/Get-shaped or text-generating.
 2. **Guarantee read-only operation** — through three independent enforcement layers (see Key Invariants).
-3. **Index 7 of Gameplane's 9 CRDs** — GameServer, GameTemplate, Backup, BackupSchedule, Restore, Module, ModuleSource (not Cluster or NetworkCapture), by name and optional label selector.
+3. **Index 7 of Gameplane's 10 CRDs** — GameServer, GameTemplate, Backup, BackupSchedule, Restore, Module, ModuleSource (not Cluster, GameServerSet or NetworkCapture), by name and optional label selector.
 4. **Expose core Kubernetes resources** — Pods, Events, and pod logs, scoped to namespace (or all namespaces).
 5. **Generate fix suggestions** — the `propose_fix` tool matches symptoms against heuristic keyword rules and returns suggested diagnostics and remediation steps as plain text.
 6. **Support two subcommands** — `idle` (the default, long-lived Deployment process) and `serve` (per-client MCP session over stdio).
@@ -65,7 +65,7 @@ From `tools.go` `registeredToolNames`:
 Pod logs read the complete finite Kubernetes tail response while retaining only a 256 KiB rolling buffer. Long lines can make the requested tail exceed 4 MiB; the returned suffix still includes the actual final bytes. Request cancellation and stream read failures return errors instead of presenting partial output as the newest logs.
 
 **Artifact scope:**
-- **7 of Gameplane's 9 CRDs** (not Cluster or NetworkCapture): GameServer, GameTemplate, Backup, BackupSchedule, Restore, Module, ModuleSource (4 namespaced, 3 cluster-scoped; verified against `CRDKinds` in `internal/kube/client.go`).
+- **7 of Gameplane's 10 CRDs** (not Cluster, GameServerSet or NetworkCapture): GameServer, GameTemplate, Backup, BackupSchedule, Restore, Module, ModuleSource (4 namespaced, 3 cluster-scoped; verified against `CRDKinds` in `internal/kube/client.go`).
 - **Core resources**: `v1` Pods, Events, `pods/log` subresource.
 - **No write verbs**: no Create/Update/Patch/Delete/Apply anywhere.
 

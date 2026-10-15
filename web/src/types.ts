@@ -1,6 +1,14 @@
 // Minimal TypeScript surface mirroring the Gameplane CRDs. Kept lean —
 // we use `unknown` for nested structures the UI doesn't yet render.
 
+export interface OwnerReference {
+  apiVersion: string;
+  kind: string;
+  name: string;
+  uid: string;
+  controller?: boolean;
+}
+
 export interface ObjectMeta {
   name: string;
   uid?: string;
@@ -8,6 +16,7 @@ export interface ObjectMeta {
   creationTimestamp?: string;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
+  ownerReferences?: OwnerReference[];
 }
 
 // A single user-supplied input for a declared server action.
@@ -423,6 +432,7 @@ export interface GameServerStorage {
   size?: string;
   storageClassName?: string;
   mountPath?: string;
+  ephemeral?: boolean;
 }
 
 // Idle auto-sleep configuration (GameServer.spec.idle). Named rather than
@@ -623,6 +633,12 @@ export interface GameServer {
     // Observed state of the capture sidecar for this server.
     capture?: CaptureStatus;
   };
+}
+
+export interface GameServerSet {
+  metadata: ObjectMeta & { resourceVersion?: string };
+  spec: { replicas: number; nodes?: string[]; template: GameServer["spec"] };
+  status?: { replicas?: number; readyReplicas?: number; observedGeneration?: number };
 }
 
 // A Kubernetes Event about a server's pod/StatefulSet/GameServer, as

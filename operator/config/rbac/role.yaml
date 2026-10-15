@@ -93,6 +93,7 @@ rules:
   - backupschedules
   - clusters
   - gameservers
+  - gameserversets
   - modulesources
   - networkcaptures
   - restores

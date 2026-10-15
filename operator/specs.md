@@ -48,23 +48,24 @@ operator/
 │   CIDR allowlists), constructs manager and controller-runtime objects, starts reconcilers.
 │
 ├── api/v1alpha1/
-│   CRD type definitions (gameserver_types.go, gametemplate_types.go, backup_types.go,
+│   CRD type definitions (gameserver_types.go, gameserverset_types.go, gametemplate_types.go, backup_types.go,
 │   backupschedule_types.go, restore_types.go, module_types.go, modulesource_types.go,
 │   cluster_types.go, networkcapture_types.go) and generated deepcopy helpers (zz_generated.deepcopy.go).
 │   Edited manually; regenerate deepcopy + YAML after any type edit.
 │
 ├── config/
-│   ├── crd/              Generated CRD YAML (9 kinds). Do not hand-edit.
+│   ├── crd/              Generated CRD YAML (10 kinds). Do not hand-edit.
 │   ├── rbac/             Generated ServiceAccount, Role, RoleBinding, ClusterRole,
 │   │                     ClusterRoleBinding. Do not hand-edit.
 │   ├── manager/          Manager deployment, StatefulSet, and RBAC references.
 │   └── samples/          Sample GameServer, GameTemplate, Backup, etc. CRs for testing.
 │
 ├── internal/
-│   ├── controller/       Reconciler implementations (9 controllers + co-located envtest).
+│   ├── controller/       Reconciler implementations (10 controllers + co-located envtest).
 │   │   ├── gameserver_controller.go        Reconciles GameServer → StatefulSet+Service+PVC
 │   │   ├── gameserver_*.go                 Split concerns: config, modcreds, rcon, restart,
 │   │   │                                   wipe, version, stop_attach, node, status, extravolumes
+│   │   ├── gameserverset_controller.go     Reconciles GameServerSet → child GameServers <set>-<index>
 │   │   ├── gametemplate_controller.go      Maintains template.status.inUseCount
 │   │   ├── backup_controller.go            Drives Backup → restic Job + quiesce orchestration
 │   │   ├── backup_volumesnapshot.go        CSI snapshot tracking for backup strategy
@@ -104,7 +105,7 @@ operator/
 
 ## Custom Resource Definitions
 
-Nine CRD kinds under `gameplane.local/v1alpha1`:
+Ten CRD kinds under `gameplane.local/v1alpha1`:
 
 ### Cluster-scoped (4)
 
@@ -115,17 +116,18 @@ Nine CRD kinds under `gameplane.local/v1alpha1`:
 | **ModuleSource** | `modulesource_types.go` | Registry of module bundles (OCI, git, HTTP, or local). Declares source location, refresh interval, optional credentials Secret, and optional cosign verification policy. Status lists available modules. |
 | **Cluster** | `cluster_types.go` | Metadata for a remote Kubernetes cluster (displayName, kubeconfig Secret ref). Cluster-scoped so multiple control planes can discover each other. Status tracks health (Unknown/Healthy/Unhealthy), lastCheckTime, conditions. |
 
-### Namespaced (5)
+### Namespaced (6)
 
 | Kind | File | Purpose |
 |------|------|---------|
-| **GameServer** | `gameserver_types.go` | Instance of a game server (always a single StatefulSet replica; there is no replica-count field). References a GameTemplate for defaults via `spec.templateRef`, **immutable after creation** (a repointed template would leave the StatefulSet wedged instead of switching cleanly — delete and recreate the GameServer instead); Spec declares suspend flag, stop grace period, module customizations, backup trigger, **optional capture configuration**. Status tracks phase (Pending/Starting/Running/Stopping/Suspended/Failed — `derivePhase` never assigns `Stopped`, see the "Status phases" note under GameServerReconciler), pod readiness, agent heartbeat, **capture sidecar readiness and active capture**. |
+| **GameServer** | `gameserver_types.go` | Instance of a game server (always a single StatefulSet replica; there is no replica-count field). References a GameTemplate for defaults via `spec.templateRef`, **immutable after creation** (a repointed template would leave the StatefulSet wedged instead of switching cleanly — delete and recreate the GameServer instead); Spec declares suspend flag, stop grace period, module customizations, backup trigger, **optional capture configuration**. Status tracks phase (Pending/Starting/Running/Stopping/Suspended/Failed — `derivePhase` never assigns `Stopped`, see the "Status phases" note under GameServerReconciler), pod readiness, agent heartbeat, **capture sidecar readiness and active capture**. `spec.storage.ephemeral` backs the data volume with an `emptyDir` (no `<name>-data` PVC; immutable; not combinable with `backupPolicy` or `storage.dataSource`; wipe acks without a Job; backups and restores of it fail). |
+| **GameServerSet** | `gameserverset_types.go` | Group of identical GameServers (short name `gss`, scale subresource). `spec.replicas` (0–100), `spec.nodes` (optional node names), `spec.template` (GameServerSpec). Children are `<set>-<index>`. Status tracks `replicas`, `readyReplicas`, `observedGeneration`. Name at most 40 characters. |
 | **Backup** | `backup_types.go` | One-shot backup of a GameServer's data. Spec declares gameServer ref, optional quiesce preferences, strategy (restic or volume snapshot). Status tracks phase (Pending/Running/Succeeded/Failed), snapshot ID, restic output summary. |
 | **BackupSchedule** | `backupschedule_types.go` | Recurring backup schedule for a GameServer. Spec declares cron expression, retention rules (keep-daily, keep-weekly, keep-monthly, keep-yearly), optional suspend. Status reports next firing time, last fire time, retention condition. |
 | **Restore** | `restore_types.go` | One-shot restore of a Backup into a GameServer (typically a fresh copy). Spec refs the source Backup and target GameServer. `RestorePhase` declares Pending/Suspending/Running/Resuming/Succeeded/Failed, but the controller only ever assigns Pending/Suspending/Running/Succeeded/Failed — it clears the GameServer's suspend flag and sets Succeeded in the same pass, with no intermediate Resuming (`RestorePhaseResuming` is declared but never written; see F-260). Coordinates suspend → restic restore Job → resume. |
 | **NetworkCapture** | `networkcapture_types.go` | Opt-in packet-capture session for a GameServer. Spec declares gameServer ref, optional pcap filter, max duration, max file size, and optional TTL. Status tracks phase (Pending/Running/Completed/Failed/Expired), start/completion times, packet/byte counts, and error messages. Owned by its parent GameServer via ownerReferences. |
 
-**Verification:** CRD YAML in `config/crd/` generated from types via `make manifests`. All 9 kinds present and scopes correct (verified against `gameplane.local_*.yaml` files): 4 cluster-scoped (GameTemplate, Module, ModuleSource, Cluster) + 5 namespaced (GameServer, Backup, BackupSchedule, Restore, NetworkCapture).
+**Verification:** CRD YAML in `config/crd/` generated from types via `make manifests`. All 10 kinds present and scopes correct (verified against `gameplane.local_*.yaml` files): 4 cluster-scoped (GameTemplate, Module, ModuleSource, Cluster) + 6 namespaced (GameServer, GameServerSet, Backup, BackupSchedule, Restore, NetworkCapture).
 
 ## Reconcilers
 
@@ -206,6 +208,13 @@ Primary reconcilers register with the manager in `cmd/main.go` and handle CRD li
   - **Endpoint population:** `endpointsFromService()` populates `GameServerEndpoint.pool` only when a pool request was actually translated (outcome == Assigned and Manager supports it); never claims a pool for the ClusterIP address shown while assignment is pending, for an ignored request, or for a cluster without an address manager.
   - **status.startedAt:** while the server is Running, `status.startedAt` follows the start time of the running game container, matched by container name (`gameContainerStartedAt` in `gameserver_status.go`). Uptime therefore resets when the game container restarts inside the same pod. When that time is unavailable, `startedAt` is set once to the current time and kept. Test: `TestGameContainerStartedAt` (`gameserver_status_test.go`).
   - **TunnelReady condition:** Reports tunnel pod readiness when `spec.networking.tunnel.enabled=true` (absent when disabled). Computed in `computeTunnelConditions` (`gameserver_status.go`) each pass reconcileStatus runs, with reasons `InvalidConfig`, `DeploymentNotReady`, `PortNotMapped` (frp, unmapped advertised ports), `NoCredentials` (tailscale/playit missing `credentialsSecretRef`), `UnknownProvider`, and `Ready`. **Credential ownership:** `reconcileTunnel` refuses to mount a `credentialsSecretRef` Secret that has no `ownerReference` matching the GameServer's name and UID (including a stale reference from a deleted same-name GameServer) (`isServerOwnedSecret`) — supported credential paths are the dashboard, the `PUT /servers/{name}:tunnel-credentials` API (which sets the ownerReference), or a manually-created Secret with an explicit ownerReference. A refused Secret is never mounted: `reconcileTunnel` still writes the tunnel Deployment, with no credential volume and zero replicas, so a tunnel already running with that Secret stops. It also writes `TunnelReady=False/TunnelCredentialRefused` (naming the Secret, never its data) directly from `reconcileTunnel` before `Reconcile` returns its error — this bypasses the normal `reconcileStatus` pass since Reconcile returns early on that error — The condition carries its own current `observedGeneration`, but `status.observedGeneration` is not advanced on a refused pass (the rest of status is not recomputed). Once the credential becomes acceptable (or the tunnel is no longer wanted), `reconcileTunnel` removes the refusal condition itself (`clearTunnelCredentialRefused`) before returning, so it does not linger if a later step (NetworkPolicy, Service, StatefulSet) fails; reconcileStatus then writes the real TunnelReady. The refusal message points at the dashboard/API, except when the refused Secret is the canonical `<server>-tunnel-auth` name, where the API answers 409 and the message says to fix the ownerReference or delete the Secret first.
+
+### GameServerSetReconciler
+- **Responsibility:** Reconcile GameServerSet → child GameServers `<set>-<index>` for `index < spec.replicas`; deletes the highest indexes on scale-down. Feature spec: `specs/026-server-groups/`.
+- **Child ownership:** Children carry label `gameplane.local/server-set=<set>` and a controller ownerReference to the set (deleting the set garbage-collects them). At creation they copy the set's `gameplane.local/owner-id`, `gameplane.local/owner` and `gameplane.local/network` annotations, so the existing owner/collaborator fallback applies.
+- **Child spec:** the set's template, with `networking.address` and `networking.portOverrides[].nodePort` cleared (they would collide between replicas). When `spec.nodes` is set, a required node affinity on `metadata.name In spec.nodes`; always a preferred (weight 100) pod anti-affinity on the set label over `kubernetes.io/hostname`. The set label is added to the pod template labels only, never to the selector.
+- **Template hash:** Children carry `gameplane.local/server-set-hash`. The child spec is rewritten only when the hash changes; the child's own `spec.suspend` is preserved so per-replica Start/Stop/Restart keep working.
+- **Status:** `status.replicas` and `status.readyReplicas` (children in phase Running); `status.observedGeneration`.
 
 ### GameTemplateReconciler
 - **Responsibility:** Lightweight; only maintains status.inUseCount (how many GameServers ref this template).
@@ -420,7 +429,7 @@ make generate && make manifests
 
 Regenerates and commits atomically:
 - `operator/api/v1alpha1/zz_generated.deepcopy.go` — struct deepcopy methods (includes CaptureConfiguration, CaptureStatus, NetworkCapture, NetworkCaptureList, NetworkCaptureSpec, NetworkCaptureStatus deepcopy functions).
-- `operator/config/crd/gameplane.local_*.yaml` — 9 CRD manifests (includes gameplane.local_networkcaptures.yaml; gameplane.local_gameservers.yaml extended with capture spec/status schemas).
+- `operator/config/crd/gameplane.local_*.yaml` — 10 CRD manifests (includes gameplane.local_gameserversets.yaml, gameplane.local_networkcaptures.yaml; gameplane.local_gameservers.yaml extended with capture spec/status schemas).
 - `operator/config/rbac/*.yaml` — ServiceAccount, Roles, RoleBindings, ClusterRoles, ClusterRoleBindings (includes pods/ephemeralcontainers and networkcaptures CRUD permissions).
 - `charts/gameplane/crds/*.yaml` — copy of CRDs for Helm integration (Helm `crds/` directory + pre-upgrade hook for `kubectl apply --server-side`).
 
@@ -486,6 +495,7 @@ Forgetting codegen leaves the YAML out of sync with types — CI's `make manifes
 - CRD status fields (gameserver.status.phase, backup.status.snapshotID, etc.)
 - Created child objects:
   - StatefulSet, Service, PVC (GameServer)
+  - GameServer children of a GameServerSet (`<set>-<index>`, controller ownerReference, GC on set delete)
   - ConfigMap (game startup config)
   - Secret (game credentials, RCON password, agent certs)
   - Job (backup/restore restic Jobs)
@@ -505,7 +515,7 @@ Forgetting codegen leaves the YAML out of sync with types — CI's `make manifes
 
 4. **Agent RBAC:** Each GameServer gets a unique ServiceAccount + Role (verb:exec on that Pod only). Agent token is bound to that SA and verified by the operator before accepting quiesce/unquiesce calls.
 
-5. **Operator RBAC split:** The operator's permission model separates cluster-wide reads from namespace-scoped writes, enforcing least privilege and limiting blast radius if the operator token is compromised. The ClusterRole (`manager-role`, bound as `gameplane-operator-manager`) grants get/list/watch on Gameplane CRDs, Secrets, ConfigMaps, Services, PVCs, Pods, ServiceAccounts, Roles/RoleBindings, VolumeSnapshots and NetworkPolicies; writes are restricted to the cluster-scoped CRDs (GameTemplate CRUD, Module update/patch and finalizers), to CRD `/status` subresources, and to Events. A Role in each managed namespace (`gameplane-games` by default, and any user-defined namespace) grants the operator create/update/patch/delete on GameServers, Backups, BackupSchedules, Restores, NetworkCaptures, StatefulSets, Deployments, Jobs, Services, PVCs, ConfigMaps, Secrets, ServiceAccounts, Roles/RoleBindings, NetworkPolicies and VolumeSnapshots, `update` on the GameServer, Backup, BackupSchedule and Restore finalizers, plus `pods/attach create` and `pods/ephemeralcontainers` get/patch/update. The split confines writes to managed namespaces; cluster-wide reads, including Secrets, remain. **Agent authentication direction:** The operator creates per-GameServer ServiceAccount, Roles, and RoleBindings in the managed namespace. The agent pod runs as that ServiceAccount and uses its RBAC to heartbeat (patch) its GameServer's status. The operator calls the agent sidecar via mTLS at `<name>-agent.<namespace>.svc.cluster.local:8090`; the agent does not call the operator.
+5. **Operator RBAC split:** The operator's permission model separates cluster-wide reads from namespace-scoped writes, enforcing least privilege and limiting blast radius if the operator token is compromised. The ClusterRole (`manager-role`, bound as `gameplane-operator-manager`) grants get/list/watch on Gameplane CRDs, Secrets, ConfigMaps, Services, PVCs, Pods, ServiceAccounts, Roles/RoleBindings, VolumeSnapshots and NetworkPolicies; writes are restricted to the cluster-scoped CRDs (GameTemplate CRUD, Module update/patch and finalizers), to CRD `/status` subresources, and to Events. A Role in each managed namespace (`gameplane-games` by default, and any user-defined namespace) grants the operator create/update/patch/delete on GameServers, GameServerSets, Backups, BackupSchedules, Restores, NetworkCaptures, StatefulSets, Deployments, Jobs, Services, PVCs, ConfigMaps, Secrets, ServiceAccounts, Roles/RoleBindings, NetworkPolicies and VolumeSnapshots, `update` on the GameServer, GameServerSet, Backup, BackupSchedule and Restore finalizers, plus `pods/attach create` and `pods/ephemeralcontainers` get/patch/update. The split confines writes to managed namespaces; cluster-wide reads, including Secrets, remain. **Agent authentication direction:** The operator creates per-GameServer ServiceAccount, Roles, and RoleBindings in the managed namespace. The agent pod runs as that ServiceAccount and uses its RBAC to heartbeat (patch) its GameServer's status. The operator calls the agent sidecar via mTLS at `<name>-agent.<namespace>.svc.cluster.local:8090`; the agent does not call the operator.
 
 6. **Network policies:** Per-GameServer ingress NetworkPolicy admits only the advertised game ports from declared CIDR(s) (default 0.0.0.0/0, customizable via `--game-ingress-from-cidr`).
 

@@ -4,6 +4,7 @@
 
 import type {
   GameServer,
+  GameServerSet,
   GameTemplate,
   Backup,
   BackupSchedule,
@@ -89,6 +90,14 @@ export function makeServer(over: ServerOverride = {}): GameServer {
       startedAt: "2026-05-07T09:00:00Z",
       ...(over.status ?? {}),
     },
+  };
+}
+
+export function makeServerSet(over: { metadata?: Partial<GameServerSet["metadata"]>; spec?: Partial<GameServerSet["spec"]>; status?: GameServerSet["status"] } = {}): GameServerSet {
+  return {
+    metadata: { name: "lobby", namespace: "gameplane-games", uid: "lobby-uid", ...(over.metadata ?? {}) },
+    spec: { replicas: 2, template: { templateRef: { name: "minecraft-vanilla" } }, ...(over.spec ?? {}) },
+    status: { replicas: 2, readyReplicas: 1, ...(over.status ?? {}) },
   };
 }
 

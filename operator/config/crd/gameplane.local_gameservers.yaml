@@ -2191,6 +2191,8 @@ spec:
                     - kind
                     - name
                     type: object
+                  ephemeral:
+                    type: boolean
                   extra:
                     description: |-
                       Extra declares additional persistent volumes beyond the primary data
@@ -2339,6 +2341,13 @@ spec:
             required:
             - templateRef
             type: object
+            x-kubernetes-validations:
+            - message: ephemeral storage cannot be combined with backupPolicy or storage.dataSource
+              rule: '!has(self.storage) || !has(self.storage.ephemeral) || !self.storage.ephemeral
+                || (!has(self.backupPolicy) && !has(self.storage.dataSource))'
+            - message: storage.ephemeral is immutable
+              rule: (has(self.storage) && has(self.storage.ephemeral) && self.storage.ephemeral)
+                == (has(oldSelf.storage) && has(oldSelf.storage.ephemeral) && oldSelf.storage.ephemeral)
           status:
             description: GameServerStatus is the observed state of a GameServer.
             properties:

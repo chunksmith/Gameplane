@@ -41,7 +41,7 @@ were added and verified on **2026-09-26**.
 | `gameproto/` | Go | 0 (stdlib only) | Shared Minecraft/Terraria handshake classifier used by sentinel |
 | `telemetryschema/` | Go | 0 (stdlib only) | Shared telemetry report contract (types, strict decoder, official module catalog, report signing) used by the API reporter and the telemetry receiver |
 | `svcutil/` | Go | 0 (stdlib only) | Shared env-parsing + graceful-shutdown helpers (no active importers yet) |
-| `operator/` | Go | 19 | controller-runtime reconciler for the 8 CRDs; module OCI pull/verify, git/OCI fetch, restic-backup scheduling |
+| `operator/` | Go | 19 | controller-runtime reconciler for the 10 CRDs; module OCI pull/verify, git/OCI fetch, restic-backup scheduling |
 | `api/` | Go | 17 | chi REST + WebSocket gateway: auth (local + OIDC), RBAC, K8s client, SQLite/Postgres persistence, notifications |
 | `agent/` | Go | 6 | In-pod sidecar: RCON/WebRcon console, chi HTTP surface, heartbeat status patch, disk usage stats |
 | `audit-syslog-bridge/` | Go | 0 (stdlib only) | Standalone HTTP-JSON → syslog relay for the audit webhook sink |
@@ -263,7 +263,7 @@ diagnostics. Direct deps from `mcp-server/go.mod`:
 | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | `main.go`/`tools.go` — `mcp.NewServer`, `mcp.AddTool`, `mcp.StdioTransport` implement the MCP (JSON-RPC 2.0) protocol itself; every registered tool (`list_gameplane_resources`, `get_gameplane_resource`, `list_pods`, `get_pod`, `list_events`, `get_pod_logs`, `propose_fix`) is built against this SDK's types |
 | `k8s.io/client-go` | v0.37.0 | `internal/kube/client.go` — `kubernetes.NewForConfig`/`dynamic.NewForConfig` build the typed and dynamic clientsets, kept as unexported fields on `Client` so no exported method can reach a mutating verb | <!-- doc-versions: dependency -->
 | `k8s.io/api` | v0.37.0 | `internal/kube/client.go` — `corev1` types for the typed Pod/Event reads (`ListPods`, `GetPod`, `ListEvents`, `PodLogs`) | <!-- doc-versions: dependency -->
-| `k8s.io/apimachinery` | v0.37.0 | `internal/kube/client.go` — `unstructured.Unstructured(List)`, `runtime.Scheme`, `schema.GroupVersionResource` back the dynamic-client reads of 7 of Gameplane's 9 CRDs (not Cluster or NetworkCapture) (redeclared GVK/GVR locally rather than importing the operator module's generated types, to stay standalone) | <!-- doc-versions: dependency -->
+| `k8s.io/apimachinery` | v0.37.0 | `internal/kube/client.go` — `unstructured.Unstructured(List)`, `runtime.Scheme`, `schema.GroupVersionResource` back the dynamic-client reads of 7 of Gameplane's 10 CRDs (not Cluster, GameServerSet or NetworkCapture) (redeclared GVK/GVR locally rather than importing the operator module's generated types, to stay standalone) | <!-- doc-versions: dependency -->
 | `sigs.k8s.io/controller-runtime` | v0.25.1 | `main.go` — only `ctrl.GetConfig()`, to load the kubeconfig (in-cluster, falling back to `KUBECONFIG`/`~/.kube/config`) that builds the `kube.Client` above | <!-- doc-versions: dependency -->
 
 The read-only guarantee has two layers: the handler boundary (only

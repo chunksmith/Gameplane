@@ -140,6 +140,9 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if !gs.DeletionTimestamp.IsZero() {
 		return r.fail(ctx, &rs, "target server is being deleted")
 	}
+	if isEphemeral(&gs) {
+		return r.fail(ctx, &rs, "target server uses ephemeral storage")
+	}
 	changed, err := r.bindRestoreTarget(ctx, &rs, &gs)
 	if err != nil {
 		return ctrl.Result{}, err

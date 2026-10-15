@@ -1,6 +1,6 @@
 // Command mcp-server is a strictly read-only Model Context Protocol (MCP)
 // server for Gameplane clusters: it lets an AI assistant read cluster state
-// (7 of Gameplane's 9 CRDs — not Cluster or NetworkCapture — plus Pods,
+// (7 of Gameplane's 10 CRDs — not Cluster, GameServerSet or NetworkCapture — plus Pods,
 // Events, pod logs) and propose fixes as plain text — SUGGESTED YAML or
 // kubectl commands for a human operator to review
 // and run. It never creates, updates, patches, deletes, or applies anything.
@@ -133,7 +133,7 @@ func newMCPServer(c *kube.Client) *mcp.Server {
 		Version: Version,
 	}, &mcp.ServerOptions{
 		Instructions: "Strictly read-only access to a Gameplane cluster: list/get 7 of " +
-			"Gameplane's 9 CRDs (not Cluster or NetworkCapture), Pods, Events, and pod " +
+			"Gameplane's 10 CRDs (not Cluster, GameServerSet or NetworkCapture), Pods, Events, and pod " +
 			"logs, and get suggested fixes as text via propose_fix. No tool here ever " +
 			"creates, updates, patches, deletes, or applies anything.",
 	})

@@ -935,6 +935,9 @@ type GameStorageSpec struct {
 	// +kubebuilder:validation:MaxItems=4
 	// +optional
 	Extra []ExtraVolumeSpec `json:"extra,omitempty"`
+
+	// +optional
+	Ephemeral bool `json:"ephemeral,omitempty"`
 }
 
 // ExtraVolumeSpec declares one additional persistent volume beyond a

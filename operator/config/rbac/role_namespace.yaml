@@ -18,6 +18,7 @@ rules:
   - apiGroups: ["gameplane.local"]
     resources:
       - gameservers
+      - gameserversets
       - backups
       - backupschedules
       - restores
@@ -26,6 +27,7 @@ rules:
   - apiGroups: ["gameplane.local"]
     resources:
       - gameservers/status
+      - gameserversets/status
       - backups/status
       - backupschedules/status
       - restores/status
@@ -37,6 +39,7 @@ rules:
   - apiGroups: ["gameplane.local"]
     resources:
       - gameservers/finalizers
+      - gameserversets/finalizers
       - backups/finalizers
       - backupschedules/finalizers
       - restores/finalizers

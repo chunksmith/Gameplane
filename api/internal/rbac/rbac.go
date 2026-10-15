@@ -206,6 +206,7 @@ var rules = []rule{
 	{method: "GET", segment: "fleet", suffix: "/fleet/backups", perm: ""},
 	{method: "GET", segment: "fleet", suffix: "/fleet/schedules", perm: ""},
 	{method: "GET", segment: "fleet", suffix: "/fleet/restores", perm: ""},
+	{method: "GET", segment: "fleet", suffix: "/fleet/serversets", perm: ""},
 	{method: "GET", segment: "fleet", suffix: "/fleet/inventory", perm: ""},
 	{method: "GET", segment: "fleet", suffix: "/fleet/placements", perm: ""},
 	// Own profile: every authenticated user reads /users/me and their own
@@ -269,6 +270,8 @@ var rules = []rule{
 	// never fires for these because the explicit read rule matches first.
 	{method: "GET", segment: "servers", perm: "servers:read"},
 	{segment: "servers", perm: "servers:write"},
+	{method: "GET", segment: "serversets", perm: "servers:read"},
+	{segment: "serversets", perm: "servers:write"},
 	{method: "GET", segment: "templates", perm: "templates:read"},
 	{segment: "templates", perm: "templates:write"},
 	{method: "GET", segment: "backups", perm: "backups:read"},

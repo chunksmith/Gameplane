@@ -60,6 +60,7 @@ export const fleetHandlers = [
     const user = await userResponse.json() as User;
     const permissions = (namespace: string) => [...new Set([...(user.permissions?.["*"] ?? []), ...(user.permissions?.[namespace] ?? [])])];
     const has = (perms: string[], perm: string) => perms.includes("*") || perms.includes(perm);
+    if (kind === "serversets" && cookies.e2e_multicluster === "1") return HttpResponse.json({ items: [], partial: false, issues: [], totalReturned: 0 });
     if (cookies.e2e_multicluster === "1") {
       const longNodes = cookies.e2e_long_node_names === "1";
       const remoteSite = longNodes ? "remote-location-with-a-long-registered-cluster-identifier" : "remote-demo";
@@ -94,7 +95,7 @@ export const fleetHandlers = [
       if (!view.ok || !stats.ok) return HttpResponse.json({ items: [], partial: true, issues: [{ cluster, code: "unavailable", message: "Inventory unavailable." }], totalReturned: 0 });
       return HttpResponse.json({ items: [{ cluster, name: cluster, view: await view.json(), stats: await stats.json() }], partial: false, issues: [], totalReturned: 1 });
     }
-    if (!["servers", "backups", "schedules", "restores"].includes(kind)) return new HttpResponse(null, { status: 404 });
+    if (!["servers", "backups", "schedules", "restores", "serversets"].includes(kind)) return new HttpResponse(null, { status: 404 });
     const issues: FleetIssue[] = [];
     const items = new Map<string, FleetItem<Resource>>();
     let namespaces = [selectedNamespace || "gameplane-games"];

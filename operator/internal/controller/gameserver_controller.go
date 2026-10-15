@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/netip"
 	"path"
 	"sort"
@@ -520,9 +521,16 @@ func (r *GameServerReconciler) mapPodToGameServer(_ context.Context, obj client.
 
 // --- sub-reconcilers (skeletons) ---
 
+func isEphemeral(gs *gameplanev1alpha1.GameServer) bool {
+	return gs.Spec.Storage != nil && gs.Spec.Storage.Ephemeral
+}
+
 func (r *GameServerReconciler) reconcilePVC(
 	ctx context.Context, gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate,
 ) error {
+	if isEphemeral(gs) {
+		return nil
+	}
 	size := resource.MustParse("10Gi")
 	if gs.Spec.Storage != nil && !gs.Spec.Storage.Size.IsZero() {
 		size = gs.Spec.Storage.Size
@@ -1433,7 +1441,11 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 		ss.Spec.Replicas = &actualReplicas
 		ss.Spec.ServiceName = gs.Name
 		ss.Spec.Selector = &metav1.LabelSelector{MatchLabels: labels}
-		ss.Spec.Template.Labels = labels
+		podLabels := maps.Clone(labels)
+		if owner := metav1.GetControllerOf(gs); owner != nil && owner.Kind == "GameServerSet" && owner.Name == gs.Labels[serverSetLabel] {
+			podLabels[serverSetLabel] = owner.Name
+		}
+		ss.Spec.Template.Labels = podLabels
 		// Stamp (or clear) the config fingerprint without touching
 		// annotations other actors may have set on the pod template.
 		ann := ss.Spec.Template.Annotations
@@ -1451,14 +1463,18 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 			buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy),
 		}
 		ss.Spec.Template.Spec.ImagePullSecrets = r.ImagePullSecrets
+		dataVolume := corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: gs.Name + "-data",
+			},
+		}
+		if isEphemeral(gs) {
+			dataVolume = corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}
+		}
 		volumes := []corev1.Volume{
 			{
-				Name: "data",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: gs.Name + "-data",
-					},
-				},
+				Name:         "data",
+				VolumeSource: dataVolume,
 			},
 			{
 				// Per-GameServer Secret with tls.crt, tls.key, ca.crt.

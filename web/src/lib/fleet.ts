@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { Templates } from "@/lib/endpoints";
 import { assignGameCodesForTemplates } from "@/lib/gameIcon";
-import type { Backup, BackupSchedule, ClusterNode, ClusterStats, ClusterView, GameServer, GameTemplate, Restore } from "@/types";
+import type { Backup, BackupSchedule, ClusterNode, ClusterStats, ClusterView, GameServer, GameServerSet, GameTemplate, Restore } from "@/types";
 
 export interface FleetTarget {
   cluster: string;
@@ -85,6 +85,7 @@ function read<T>(kind: string, filter: FleetFilter = {}, signal?: AbortSignal) {
 export const Fleet = {
   placements: (filter?: FleetFilter, signal?: AbortSignal) => read<FleetPlacement>("placements", filter, signal),
   servers: (filter?: FleetFilter, signal?: AbortSignal) => read<FleetItem<GameServer>>("servers", filter, signal),
+  serverSets: (filter?: FleetFilter, signal?: AbortSignal) => read<FleetItem<GameServerSet>>("serversets", filter, signal),
   backups: (filter?: FleetFilter, signal?: AbortSignal) => read<FleetItem<Backup>>("backups", filter, signal),
   schedules: (filter?: FleetFilter, signal?: AbortSignal) => read<FleetItem<BackupSchedule>>("schedules", filter, signal),
   restores: (filter?: FleetFilter, signal?: AbortSignal) => read<FleetItem<Restore>>("restores", filter, signal),
@@ -94,6 +95,11 @@ export const Fleet = {
 export function useFleetServers(filter: FleetFilter = {}) {
   return useQuery({ queryKey: ["fleet", "servers", filter.cluster ?? "", filter.namespace ?? ""],
     queryFn: ({ signal }) => Fleet.servers(filter, signal), refetchInterval: 5_000 });
+}
+
+export function useFleetServerSets(cluster: string) {
+  return useQuery({ queryKey: ["fleet", "serversets", cluster],
+    queryFn: ({ signal }) => Fleet.serverSets({ cluster: cluster || undefined }, signal), refetchInterval: 5_000 });
 }
 
 export function useFleetServerSelection(cluster: string, namespaces: Set<string>) {

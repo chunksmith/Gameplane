@@ -147,6 +147,12 @@ func listHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Handl
 				cfgRules.redact(req.Context(), &list.Items[i])
 			}
 		}
+		if err == nil && list != nil && gvr.Resource == "gameserversets" {
+			cache := newConfigRuleCache(k)
+			for i := range list.Items {
+				redactServerSet(req.Context(), cache, &list.Items[i])
+			}
+		}
 		writeOrErr(w, req, list, err)
 	}
 }
@@ -182,6 +188,9 @@ func getHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Handle
 			gateStaleAgent(obj)
 			newConfigRuleCache(k).redact(req.Context(), obj)
 		}
+		if err == nil && obj != nil && gvr.Resource == "gameserversets" {
+			redactServerSet(req.Context(), newConfigRuleCache(k), obj)
+		}
 		writeOrErr(w, req, obj, err)
 	}
 }
@@ -212,6 +221,9 @@ func createHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Han
 				return
 			}
 			obj.SetNamespace(ns)
+			if gvr.Resource == "gameserversets" && !protectServerSetCreate(w, req, k, ns, obj) {
+				return
+			}
 			if gvr.Resource == "gameservers" {
 				cl := req.URL.Query().Get("cluster")
 				if cl == "" {
@@ -232,6 +244,10 @@ func createHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Han
 			created = created.DeepCopy()
 			newConfigRuleCache(k).redact(req.Context(), created)
 		}
+		if gvr.Resource == "gameserversets" {
+			created = created.DeepCopy()
+			redactServerSet(req.Context(), newConfigRuleCache(k), created)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(created)
@@ -251,6 +267,9 @@ func updateHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Han
 		}
 		name := chi.URLParam(req, "name")
 		obj.SetName(name)
+		if gvr.Resource == "gameserversets" && !protectServerSetUpdate(w, req, k, gvr, obj) {
+			return
+		}
 		if gvr.Resource == "gametemplates" {
 			if blocked, err := managedTemplateBlocked(req, k, name); err != nil {
 				httperr.Write(w, req, err)
@@ -311,6 +330,10 @@ func updateHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Han
 				pruneTunnelProviderOnSpecChange(req.Context(), k, ns, name, live, updated)
 				updated = updated.DeepCopy()
 				cfgRules.redact(req.Context(), updated)
+			}
+			if err == nil && gvr.Resource == "gameserversets" {
+				updated = updated.DeepCopy()
+				redactServerSet(req.Context(), newConfigRuleCache(k), updated)
 			}
 		}
 		writeOrErr(w, req, updated, err)
@@ -380,6 +403,11 @@ func deleteHandler(reg *kube.Registry, store *db.Store, gvr schema.GroupVersionR
 				return
 			}
 			options := metav1.DeleteOptions{}
+			if gvr.Resource == "gameserversets" {
+				if options, ok = serverSetDeleteOptions(w, req, k, gvr, ns, name); !ok {
+					return
+				}
+			}
 			if gvr == kube.GVRs["servers"] {
 				obj, ok := authorizedServer(w, req, k, ns, name)
 				if !ok {

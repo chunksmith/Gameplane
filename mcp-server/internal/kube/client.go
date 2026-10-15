@@ -39,8 +39,8 @@ var gameplaneGroupVersion = schema.GroupVersion{Group: "gameplane.local", Versio
 // outside the fixed set of Gameplane CRDs this server knows how to read.
 var errUnknownKind = errors.New("unknown Gameplane resource kind")
 
-// CRDKind describes one of the 7 Gameplane CRDs (of 9 total; Cluster and
-// NetworkCapture are not exposed) this server can list/get.
+// CRDKind describes one of the 7 Gameplane CRDs (of 10 total; Cluster,
+// GameServerSet and NetworkCapture are not exposed) this server can list/get.
 // Exported (along with CRDKinds below) so callers outside this package —
 // e.g. this module's own tests, which need to build a matching fake
 // dynamic client — can enumerate the registry without this package growing

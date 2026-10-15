@@ -40,7 +40,7 @@ const (
 func MountFleet(r chi.Router, reg *kube.Registry, store *db.Store) {
 	h := fleetHandler{reg: reg, store: store}
 	limit := auth.NewFleetReadLimiter().UserMiddleware
-	for _, kind := range []string{"servers", "backups", "schedules", "restores"} {
+	for _, kind := range []string{"servers", "serversets", "backups", "schedules", "restores"} {
 		r.With(limit).Get("/fleet/"+kind, h.resources(kind))
 	}
 	r.With(limit).Get("/fleet/inventory", h.inventory)
@@ -237,8 +237,11 @@ func (h fleetHandler) candidates(ctx context.Context, filter string) ([]fleetClu
 }
 
 func fleetReadPermission(kind string) string {
-	if kind == "restores" {
+	switch kind {
+	case "restores":
 		return "backups:read"
+	case "serversets":
+		return "servers:read"
 	}
 	return kind + ":read"
 }
@@ -432,6 +435,9 @@ func (h fleetHandler) readScope(ctx context.Context, u *auth.User, kind string, 
 				access = &permissions
 				gateStaleAgent(&obj)
 				cfgRules.redact(ctx, &obj)
+			}
+			if kind == "serversets" {
+				redactServerSet(ctx, cfgRules, &obj)
 			}
 			out.items = append(out.items, fleetResource{Target: fleetTarget{
 				Cluster: s.cluster.id, Namespace: s.namespace, Name: obj.GetName(), UID: string(obj.GetUID()),

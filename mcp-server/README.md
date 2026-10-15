@@ -2,7 +2,7 @@
 
 The **mcp-server** [optional] is a strictly **read-only** [Model Context Protocol](https://modelcontextprotocol.io/)
 (MCP) server for Gameplane clusters. It lets an AI assistant read cluster
-state — 7 of Gameplane's 9 CRDs (not Cluster or NetworkCapture), Pods, Events, and pod logs — and get a
+state — 7 of Gameplane's 10 CRDs (not Cluster, GameServerSet or NetworkCapture), Pods, Events, and pod logs — and get a
 suggested fix as plain text (YAML and/or `kubectl` commands) for a human
 operator to review and run.
 
@@ -95,7 +95,7 @@ or TCP port. It has two subcommands:
 Set `mcpServer.enabled=true`. The chart deploys a Deployment (no Service —
 there is no network port to expose), a dedicated ServiceAccount, and a
 cluster-scoped, read-only ClusterRole/ClusterRoleBinding (`get`/`list`/
-`watch` only, on 7 of Gameplane's 9 CRDs (not Cluster or NetworkCapture) plus core Pods/Events, and `get` on
+`watch` only, on 7 of Gameplane's 10 CRDs (not Cluster, GameServerSet or NetworkCapture) plus core Pods/Events, and `get` on
 the `pods/log` subresource).
 
 ```yaml

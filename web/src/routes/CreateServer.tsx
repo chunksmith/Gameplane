@@ -75,6 +75,11 @@ interface WizardState {
   playitTunnelName: string;
   addressPool: string;
   requestedAddress: string;
+  mode: "single" | "group";
+  replicas: string;
+  nodes: string[];
+  ephemeral: boolean;
+  image: string;
 }
 
 const initial: WizardState = {
@@ -95,6 +100,7 @@ const initial: WizardState = {
   playitTunnelName: "",
   addressPool: "",
   requestedAddress: "",
+  mode: "single", replicas: "3", nodes: [], ephemeral: false, image: "",
 };
 
 // Largest single-node capacity from the cluster view — the ceiling a pod
@@ -185,8 +191,9 @@ function buildCreateBody(state: WizardState): ServerCreate {
     description: state.description || undefined,
     templateRef: { name: state.template!.metadata.name },
     ...(state.version ? { version: state.version } : {}),
+    ...(state.image.trim() ? { image: state.image.trim() } : {}),
     config: state.config,
-    storage: { size: state.storageSize },
+    storage: state.ephemeral ? { ephemeral: true } : { size: state.storageSize },
     networking: {
       expose: state.expose,
       hostname: state.hostname || undefined,
@@ -214,7 +221,7 @@ function buildCreateBody(state: WizardState): ServerCreate {
       requests: { cpu: state.cpuLimit, memory: state.memoryLimit },
       limits: { cpu: state.cpuLimit, memory: state.memoryLimit },
     },
-    ...(nodeSelector ? { nodeSelector } : {}),
+    ...(nodeSelector && state.mode === "single" ? { nodeSelector } : {}),
   };
 }
 
@@ -244,7 +251,16 @@ function validateStep(
           : "Server name is required",
       };
     }
-    if (!isValidQuantity(state.storageSize)) {
+    if (state.mode === "group" && state.name.length > 40) {
+      return { ok: false, reason: "Group name must be at most 40 characters" };
+    }
+    if (state.mode === "group") {
+      const replicas = Number(state.replicas);
+      if (!Number.isInteger(replicas) || replicas < 1 || replicas > 100) {
+        return { ok: false, reason: "Replicas must be a whole number from 1 to 100" };
+      }
+    }
+    if (!state.ephemeral && !isValidQuantity(state.storageSize)) {
       return { ok: false, reason: "Storage must be a Kubernetes quantity (e.g. 50Gi)" };
     }
     if (!isValidQuantity(state.cpuLimit) || !isValidQuantity(state.memoryLimit)) {
@@ -265,6 +281,12 @@ function validateStep(
     return { ok: true };
   }
   if (key === "network") {
+    if (state.mode === "group" && state.tunnelEnabled) {
+      return { ok: false, reason: "Tunnels aren't supported for server groups" };
+    }
+    if (state.mode === "group" && state.requestedAddress.trim()) {
+      return { ok: false, reason: "A fixed address can't be shared by a server group" };
+    }
     if (state.tunnelEnabled) {
       // Tunnel requires either a credential value (new) or existing secret name (GitOps).
       if (!state.tunnelCredentialsValue.trim() && !state.tunnelCredentialsSecretName.trim()) {
@@ -312,7 +334,7 @@ function errorMessage(err: unknown, name: string): { title: string; body: string
     if (err.status === 403) {
       return {
         title: "Not permitted",
-        body: "Your role does not allow creating servers in this namespace.",
+        body: err.body.slice(0, 240) || "Your role does not allow creating servers in this namespace.",
       };
     }
     return {
@@ -347,7 +369,7 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
   const clusterId = placement.cluster;
   const namespace = placement.namespace;
   const client = useMemo(() => createResourceClient({ cluster: clusterId, namespace }), [clusterId, namespace]);
-  const { Servers } = client;
+  const { Servers, ServerSets } = client;
   const [stepIndex, setStepIndex] = useState(0);
   const [state, setState] = useState<WizardState>(initial);
   const nav = useNavigate();
@@ -380,6 +402,10 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
 
   const create = useMutation({
     mutationFn: async () => {
+      if (state.mode === "group") {
+        await ServerSets.create({ ...buildCreateBody(state), replicas: Number(state.replicas), ...(state.nodes.length ? { nodes: state.nodes } : {}) });
+        return null;
+      }
       const server = await Servers.create(buildCreateBody(state));
 
       // If tunnel is enabled and credential value was provided, save credentials after server creation.
@@ -408,6 +434,10 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
     },
     onSuccess: async (server) => {
       await qc.invalidateQueries({ queryKey: ["fleet"] });
+      if (!server) {
+        await nav({ to: "/servers" });
+        return;
+      }
       await nav(serverLink({ cluster: placement.cluster, namespace: server.metadata.namespace ?? placement.namespace, name: server.metadata.name }));
     },
   });
@@ -469,7 +499,7 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
           <fieldset disabled={create.isPending} className="min-w-0">
             {currentKey === "template" && <PickTemplate templates={placement.templates} state={state} setState={setState} gameCodes={gameCodes} byName={byName} />}
             {currentKey === "version" && <PickVersion state={state} setState={setState} />}
-            {currentKey === "configure" && <Configure caps={caps} state={state} setState={setState} />}
+            {currentKey === "configure" && <Configure caps={caps} nodeNames={(clusterView?.nodes ?? []).map((node) => node.name)} state={state} setState={setState} />}
             {currentKey === "network" && <Network state={state} setState={setState} />}
             {currentKey === "review" && (
               <Review
@@ -529,7 +559,7 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
                 {create.isPending ? (
                   <>Creating… <Loader2 className="h-4 w-4 animate-spin" /></>
                 ) : (
-                  <>Create server <Check className="h-4 w-4" /></>
+                  <>{state.mode === "group" ? "Create group" : "Create server"} <Check className="h-4 w-4" /></>
                 )}
               </Button>
             )}
@@ -723,7 +753,7 @@ function PickVersion({ state, setState }: { state: WizardState; setState: (s: Wi
   );
 }
 
-function Configure({ state, setState, caps }: { state: WizardState; setState: (s: WizardState) => void; caps: { maxCpu: number; maxMemGi: number } }) {
+function Configure({ state, setState, caps, nodeNames }: { state: WizardState; setState: (s: WizardState) => void; caps: { maxCpu: number; maxMemGi: number }; nodeNames: string[] }) {
   const fields = state.template?.spec.configSchema ?? [];
   // Cap CPU/memory at the largest single node's capacity — the scheduler
   // can never place a pod that requests more than one node provides, so
@@ -731,6 +761,29 @@ function Configure({ state, setState, caps }: { state: WizardState; setState: (s
   const { maxCpu, maxMemGi } = caps;
   return (
     <div className="space-y-4">
+      <div className="space-y-1.5">
+        <span className="block text-xs text-muted">Deployment</span>
+        <div className="inline-flex gap-1 rounded-md border border-border p-1" role="group" aria-label="Deployment">
+          {(["single", "group"] as const).map((mode) => (
+            <Button
+              key={mode}
+              size="sm"
+              variant={state.mode === mode ? "primary" : "ghost"}
+              aria-pressed={state.mode === mode}
+              onPress={() => {
+                if (mode !== state.mode) setState({ ...state, mode, ephemeral: mode === "group" });
+              }}
+            >
+              {mode === "single" ? "Single server" : "Server group"}
+            </Button>
+          ))}
+        </div>
+        <span className="block text-[11px] text-muted">
+          {state.mode === "single"
+            ? "One server with its own address."
+            : `Identical replicas named ${state.name || "<name>"}-0, ${state.name || "<name>"}-1, … each with its own address.`}
+        </span>
+      </div>
       <div className="space-y-1.5">
         <label className="block text-xs text-muted">Server name</label>
         <Input
@@ -751,6 +804,54 @@ function Configure({ state, setState, caps }: { state: WizardState; setState: (s
           onChange={(e) => setState({ ...state, description: e.target.value })}
           placeholder="Hardcore survival realm with curated mods. Invite only."
         />
+      </div>
+
+      {state.mode === "group" && (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label htmlFor="replicas" className="block text-xs text-muted">Replicas</label>
+            <Input
+              id="replicas"
+              type="number"
+              min={1}
+              max={100}
+              value={state.replicas}
+              onChange={(event) => setState({ ...state, replicas: event.target.value })}
+              className="w-32"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="block text-xs text-muted">Nodes</span>
+            {nodeNames.length === 0 ? (
+              <span className="block text-[11px] text-muted">Node list unavailable. The scheduler places the replicas.</span>
+            ) : (
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Nodes">
+                {nodeNames.map((node) => (
+                  <label key={node} className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={state.nodes.includes(node)}
+                      onChange={(event) => setState({ ...state, nodes: event.target.checked ? [...state.nodes, node] : state.nodes.filter((selected) => selected !== node) })}
+                    />
+                    <span className="font-mono">{node}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <span className="block text-[11px] text-muted">Replicas run only on the selected nodes and spread across them. None selected: any node.</span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <label htmlFor="image" className="block text-xs text-muted">Container image (optional)</label>
+        <Input
+          id="image"
+          value={state.image}
+          onChange={(event) => setState({ ...state, image: event.target.value })}
+          placeholder="registry.example.com/lobby:1.0"
+        />
+        <span className="text-[11px] text-muted">Overrides the template image. Requires admin.</span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -781,35 +882,49 @@ function Configure({ state, setState, caps }: { state: WizardState; setState: (s
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-xs text-muted">Persistent storage</label>
-        <Input
-          value={state.storageSize}
-          onChange={(e) => setState({ ...state, storageSize: e.target.value })}
-          placeholder="50Gi"
-        />
-        <span className="text-[11px] text-muted">Mounted at /data (RWO PVC).</span>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" checked={state.ephemeral} onChange={(event) => setState({ ...state, ephemeral: event.target.checked })} />
+          Ephemeral storage
+        </label>
+        <span className="block text-[11px] text-muted">
+          {state.ephemeral ? "No volume: data is wiped on every restart. Backups are unavailable." : "Data is kept on a persistent volume."}
+        </span>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="block text-xs text-muted">Node placement</label>
-        <div className="inline-flex gap-1 rounded-md border border-border p-1">
-          {(["auto", "pin", "gpu"] as const).map((p) => (
-            <Button
-              key={p}
-              size="sm"
-              variant={state.nodePlacement === p ? "primary" : "ghost"}
-              onPress={() => setState({ ...state, nodePlacement: p })}
-            >
-              {p === "auto" ? "Auto (scheduler)" : p === "pin" ? "Pin to node" : "GPU-enabled"}
-            </Button>
-          ))}
+      {!state.ephemeral && (
+        <div className="space-y-1.5">
+          <label className="block text-xs text-muted">Persistent storage</label>
+          <Input
+            value={state.storageSize}
+            onChange={(event) => setState({ ...state, storageSize: event.target.value })}
+            placeholder="50Gi"
+          />
+          <span className="text-[11px] text-muted">Mounted at /data (RWO PVC).</span>
         </div>
-        <div className="text-[11px] text-muted">
-          {state.nodePlacement === "auto" && "Picks node with most free memory, tolerations or no taints."}
-          {state.nodePlacement === "pin" && "Pins to a specific node (selectable after create)."}
-          {state.nodePlacement === "gpu" && "Requires node with a GPU-capable device plugin."}
+      )}
+
+      {state.mode === "single" && (
+        <div className="space-y-1.5">
+          <label className="block text-xs text-muted">Node placement</label>
+          <div className="inline-flex gap-1 rounded-md border border-border p-1">
+            {(["auto", "pin", "gpu"] as const).map((placement) => (
+              <Button
+                key={placement}
+                size="sm"
+                variant={state.nodePlacement === placement ? "primary" : "ghost"}
+                onPress={() => setState({ ...state, nodePlacement: placement })}
+              >
+                {placement === "auto" ? "Auto (scheduler)" : placement === "pin" ? "Pin to node" : "GPU-enabled"}
+              </Button>
+            ))}
+          </div>
+          <div className="text-[11px] text-muted">
+            {state.nodePlacement === "auto" && "Picks node with most free memory, tolerations or no taints."}
+            {state.nodePlacement === "pin" && "Pins to a specific node (selectable after create)."}
+            {state.nodePlacement === "gpu" && "Requires node with a GPU-capable device plugin."}
+          </div>
         </div>
-      </div>
+      )}
 
       {fields.length > 0 && (
         <div className="space-y-3 pt-3">
@@ -1175,8 +1290,11 @@ function Review({ state, onEdit, location }: { state: WizardState; onEdit: (key:
         ["Location", location],
         ["CPU", state.cpuLimit],
         ["Memory", state.memoryLimit],
-        ["Storage", state.storageSize],
-        ["Placement", state.nodePlacement],
+        ["Deployment", state.mode === "group" ? `Group of ${state.replicas}` : "Single server"],
+        ...(state.mode === "group" ? [["Nodes", state.nodes.length ? state.nodes.join(", ") : "Any"] as [string, string]] : []),
+        ["Image", state.image.trim() || "Template default"],
+        ["Storage", state.ephemeral ? "Ephemeral" : state.storageSize],
+        ...(state.mode === "single" ? [["Placement", state.nodePlacement] as [string, string]] : []),
       ] as Array<[string, string]>,
     },
     {
@@ -1273,18 +1391,19 @@ function Preview({
   byName: Map<string, GameTemplate>;
 }) {
   const name = state.template?.spec.displayName ?? "Pick a template";
+  const isGroup = state.mode === "group";
   const yaml = state.template
     ? `apiVersion: gameplane.local/v1alpha1
-kind: GameServer
+kind: ${isGroup ? "GameServerSet" : "GameServer"}
 metadata:
   name: ${state.name || "server-name"}
 spec:
-  templateRef:
+${isGroup ? `  replicas: ${state.replicas}\n` : ""}  templateRef:
     name: ${state.template.metadata.name}
 ${state.version ? `  version: ${state.version}\n` : ""}  resources:
     cpu: ${state.cpuLimit}
     memory: ${state.memoryLimit}
-    storage: ${state.storageSize}
+    storage: ${state.ephemeral ? "ephemeral" : state.storageSize}
 `
     : "# Pick a template to preview the YAML.";
   return (

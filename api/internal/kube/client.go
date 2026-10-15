@@ -39,11 +39,12 @@ func (c *Client) GetServer(ctx context.Context, ns, name string) (*unstructured.
 // GVRs exposed to the REST layer. Keyed by resource-path segment so
 // handlers can turn /servers into the right GVR without reflection.
 var GVRs = map[string]schema.GroupVersionResource{
-	"servers":   {Group: "gameplane.local", Version: "v1alpha1", Resource: "gameservers"},
-	"templates": {Group: "gameplane.local", Version: "v1alpha1", Resource: "gametemplates"},
-	"backups":   {Group: "gameplane.local", Version: "v1alpha1", Resource: "backups"},
-	"schedules": {Group: "gameplane.local", Version: "v1alpha1", Resource: "backupschedules"},
-	"restores":  {Group: "gameplane.local", Version: "v1alpha1", Resource: "restores"},
+	"servers":    {Group: "gameplane.local", Version: "v1alpha1", Resource: "gameservers"},
+	"serversets": {Group: "gameplane.local", Version: "v1alpha1", Resource: "gameserversets"},
+	"templates":  {Group: "gameplane.local", Version: "v1alpha1", Resource: "gametemplates"},
+	"backups":    {Group: "gameplane.local", Version: "v1alpha1", Resource: "backups"},
+	"schedules":  {Group: "gameplane.local", Version: "v1alpha1", Resource: "backupschedules"},
+	"restores":   {Group: "gameplane.local", Version: "v1alpha1", Resource: "restores"},
 }
 
 // ClusterGVRs lists the cluster-scoped CRDs the clusters handler manages.

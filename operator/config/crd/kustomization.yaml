@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - gameplane.local_gametemplates.yaml
   - gameplane.local_gameservers.yaml
+  - gameplane.local_gameserversets.yaml
   - gameplane.local_backups.yaml
   - gameplane.local_backupschedules.yaml
   - gameplane.local_restores.yaml

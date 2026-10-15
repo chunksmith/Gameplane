@@ -129,6 +129,10 @@ func eventsHandler(reg *kube.Registry) http.HandlerFunc {
 							// event must take effect immediately.
 							newConfigRuleCache(k).redact(ctx, u)
 						}
+						if path == "serversets" {
+							u = u.DeepCopy()
+							redactServerSet(ctx, newConfigRuleCache(k), u)
+						}
 						b, mErr := json.Marshal(map[string]any{
 							"kind":      path,
 							"eventType": ev.Type,
