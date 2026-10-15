@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "rCQaM",
-  "x": -15622,
-  "y": 26412,
+  "x": 756,
+  "y": 4461,
   "name": "Gameplane/Backups Filter Popover",
   "context": "Backups and Restores filter drafts: Location, Server, Phase. Schedules hides Phase. Apply commits; Clear resets drafts.",
   "theme": {},

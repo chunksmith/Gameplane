@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "zM0VF",
-  "x": 14760,
-  "y": 21915,
+  "x": 0,
+  "y": 89556,
   "name": "Screen/Admin Settings — About",
   "theme": {
     "semantic": "dark"
@@ -103,8 +103,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "WlxKs": {
                       "fill": "$surface/secondary"
+                    },
+                    "HsxmI": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "jY7mM": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },

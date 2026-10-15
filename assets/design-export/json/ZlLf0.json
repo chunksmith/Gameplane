@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "ZlLf0",
-  "x": -17357,
-  "y": 32032,
+  "x": 3280,
+  "y": 55687,
   "name": "Screen/Standalone — Modules (Permission denied)",
   "context": "PR #630. Selection is explicit and only registered remotes are listed. No implicit local target; no workload requests until installation and selected target are known.",
   "theme": {

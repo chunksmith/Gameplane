@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "D9QYZ",
-  "x": -17357,
-  "y": 33432,
+  "x": 1640,
+  "y": 81624,
   "name": "Screen/Standalone — Settings · Backup destinations",
   "context": "PR #630 standalone installation. No local Kubernetes metadata or local workload fallback. Master-key storage and offline rotation have no dashboard controls.",
   "theme": {
@@ -138,8 +138,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "fOAMd": {
                       "fill": "$surface/secondary"
+                    },
+                    "TWq2N": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "E3ECJ": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },
@@ -269,4 +281,3 @@
     }
   ]
 }
-

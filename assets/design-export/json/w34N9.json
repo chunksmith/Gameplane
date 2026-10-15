@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "w34N9",
-  "x": -17357,
-  "y": 36232,
+  "x": 8200,
+  "y": 12822,
   "name": "Screen/Standalone — Dashboard (No workload clusters)",
   "context": "PR #630; successful empty fleet responses. Central audit is still authorized independently of workload clusters. No local inventory or cluster-dependent create action is available.",
   "theme": {
@@ -161,244 +161,23 @@
               "gap": 24,
               "children": [
                 {
-                  "type": "frame",
-                  "id": "v5Iz4",
+                  "id": "h7k5L2",
+                  "type": "ref",
+                  "ref": "rYAg3",
                   "name": "Fleet Status Card",
                   "width": "fill_container",
-                  "height": 372,
-                  "fill": "$surface/surface",
-                  "cornerRadius": "$radius/3xl",
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "effect": {
-                    "type": "shadow",
-                    "shadowType": "outer",
-                    "color": "#0000000A",
-                    "offset": {
-                      "x": 0,
-                      "y": 2
+                  "descendants": {
+                    "L6pQb": {
+                      "content": "0 servers"
                     },
-                    "blur": 4
-                  },
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "vGIhs",
-                      "name": "Header",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "K0OUb",
-                          "name": "title",
-                          "fill": "$foreground/foreground",
-                          "content": "Fleet status",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "text",
-                          "id": "juhsa",
-                          "name": "link",
-                          "fill": "$muted",
-                          "content": "0 servers",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                    "VVCOn": {
+                      "width": 1,
+                      "enabled": false
                     },
-                    {
-                      "type": "frame",
-                      "id": "g74KcN",
-                      "name": "Content",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 16,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "p2hqGo",
-                          "name": "Health Bar",
-                          "clip": true,
-                          "width": "fill_container",
-                          "height": 8,
-                          "fill": "$default/default",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "id": "hk791",
-                              "x": 0,
-                              "y": 0,
-                              "name": "Running Segment",
-                              "enabled": false,
-                              "fill": "$success/success",
-                              "width": 1,
-                              "height": 8
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "dmVSG",
-                          "name": "Legend",
-                          "gap": 20,
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "SgRIo",
-                              "name": "legend-Running 1",
-                              "gap": 6,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "ellipse",
-                                  "id": "swU3B",
-                                  "name": "dot",
-                                  "fill": "$success/success",
-                                  "width": 8,
-                                  "height": 8
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "Lb2vq",
-                                  "name": "label",
-                                  "fill": "$muted",
-                                  "content": "Running 0",
-                                  "fontFamily": "$typography/font-sans",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "MjbJw",
-                              "name": "legend-Stopped 0",
-                              "gap": 6,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "ellipse",
-                                  "id": "y2RUy",
-                                  "name": "dot",
-                                  "fill": "$muted",
-                                  "width": 8,
-                                  "height": 8
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "l2BXOh",
-                                  "name": "label",
-                                  "fill": "$muted",
-                                  "content": "Stopped 0",
-                                  "fontFamily": "$typography/font-sans",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "s7xpZc",
-                              "name": "legend-Failed 0",
-                              "gap": 6,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "ellipse",
-                                  "id": "BVMtu",
-                                  "name": "dot",
-                                  "fill": "$danger/danger",
-                                  "width": 8,
-                                  "height": 8
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "UQrlo",
-                                  "name": "label",
-                                  "fill": "$muted",
-                                  "content": "Failed 0",
-                                  "fontFamily": "$typography/font-sans",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "W3zVRn",
-                          "name": "Attention Section",
-                          "width": "fill_container",
-                          "stroke": "$border/border",
-                          "strokeWidth": {
-                            "top": 1
-                          },
-                          "strokeAlignment": "inner",
-                          "layout": "vertical",
-                          "gap": 12,
-                          "padding": [
-                            16,
-                            0,
-                            0,
-                            0
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "YiJ4T",
-                              "name": "attnLabel",
-                              "fill": "$muted",
-                              "content": "NEEDS ATTENTION",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 10,
-                              "fontWeight": "500",
-                              "letterSpacing": 1
-                            },
-                            {
-                              "type": "frame",
-                              "id": "aifto",
-                              "name": "healthyRow",
-                              "gap": 8,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "icon",
-                                  "id": "DNys1",
-                                  "name": "check",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "circle-check",
-                                  "library": "lucide",
-                                  "fill": "$success/success"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "cZoEg",
-                                  "name": "healthyLabel",
-                                  "fill": "$muted",
-                                  "content": "Everything looks healthy.",
-                                  "fontFamily": "$typography/font-sans",
-                                  "fontSize": 14,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
+                    "SrmAX": {
+                      "content": "Running 0"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -630,7 +409,7 @@
                     },
                     {
                       "type": "frame",
-                      "id": "vaVan",
+                      "id": "Slx2x",
                       "name": "Recent Activity Card",
                       "width": "fill_container",
                       "fill": "$surface/surface",
@@ -654,7 +433,7 @@
                       "children": [
                         {
                           "type": "frame",
-                          "id": "RS9aM",
+                          "id": "s7Ykl",
                           "name": "Header",
                           "width": "fill_container",
                           "justifyContent": "space_between",
@@ -662,7 +441,7 @@
                           "children": [
                             {
                               "type": "text",
-                              "id": "pXAT5",
+                              "id": "C0i2M",
                               "name": "title",
                               "fill": "$foreground/foreground",
                               "content": "Recent activity",
@@ -672,7 +451,7 @@
                             },
                             {
                               "type": "text",
-                              "id": "NfMjL",
+                              "id": "LMwQN",
                               "name": "link",
                               "fill": "$accent/accent",
                               "content": "View all",
@@ -684,7 +463,7 @@
                         },
                         {
                           "type": "frame",
-                          "id": "I1LzJ",
+                          "id": "GGo5R",
                           "name": "Empty audit content",
                           "width": "fill_container",
                           "height": 290,
@@ -694,7 +473,7 @@
                           "children": [
                             {
                               "type": "text",
-                              "id": "MRJ7O",
+                              "id": "iPgCO",
                               "name": "No activity",
                               "fill": "$muted",
                               "content": "No recent activity.",
@@ -709,87 +488,11 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "d0DCd",
+                  "id": "GH6u5",
+                  "type": "ref",
+                  "ref": "Vl96v",
                   "name": "Recent Backups Card",
-                  "width": "fill_container",
-                  "height": 353,
-                  "fill": "$surface/surface",
-                  "cornerRadius": "$radius/3xl",
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "effect": {
-                    "type": "shadow",
-                    "shadowType": "outer",
-                    "color": "#0000000A",
-                    "offset": {
-                      "x": 0,
-                      "y": 2
-                    },
-                    "blur": 4
-                  },
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "dzlc5",
-                      "name": "Header",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "LaUmt",
-                          "name": "title",
-                          "fill": "$foreground/foreground",
-                          "content": "Recent backups",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "text",
-                          "id": "VNlOb",
-                          "name": "link",
-                          "fill": "$accent/accent",
-                          "content": "View all",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "utnZA",
-                      "name": "Content",
-                      "width": "fill_container",
-                      "height": "fill_container",
-                      "layout": "vertical",
-                      "padding": [
-                        40,
-                        24
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "XmWeX",
-                          "name": "empty",
-                          "fill": "$muted",
-                          "content": "No backups yet.",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
+                  "width": "fill_container"
                 }
               ]
             }
@@ -799,4 +502,3 @@
     }
   ]
 }
-

@@ -151,9 +151,10 @@ const (
 
 // activityRow is one stored activity record, as far as the checks need it.
 type activityRow struct {
-	KeyFP      string
-	LastSeen   string
-	LastSentAt string // RFC 3339 UTC
+	KeyFP       string
+	LastSeen    string
+	LastSentAt  string // RFC 3339 UTC
+	LastVersion string // the last reported version label
 }
 
 // rowQuerier is satisfied by *sql.DB and *sql.Tx.
@@ -165,8 +166,8 @@ type rowQuerier interface {
 func lookupActivity(ctx context.Context, q rowQuerier, idHMAC string) (activityRow, bool, error) {
 	var r activityRow
 	err := q.QueryRowContext(ctx,
-		`SELECT key_fp, last_seen, last_sent_at FROM activity WHERE id_hmac = ?`, idHMAC).
-		Scan(&r.KeyFP, &r.LastSeen, &r.LastSentAt)
+		`SELECT key_fp, last_seen, last_sent_at, last_version FROM activity WHERE id_hmac = ?`, idHMAC).
+		Scan(&r.KeyFP, &r.LastSeen, &r.LastSentAt, &r.LastVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return activityRow{}, false, nil
 	}
@@ -182,6 +183,7 @@ func lookupActivity(ctx context.Context, q rowQuerier, idHMAC string) (activityR
 // errIDClaimed or errReplay.
 func (s *store) recordExtended(ctx context.Context, r extRecord) (extOutcome, error) {
 	outcome := extNew
+	prevVersion := ""
 	err := s.writeTx(ctx, func(tx *sql.Tx) error {
 		keyFP := telemetryschema.KeyFingerprint(r.Ext.Key)
 		// Full precision: a report sent at a fractional second must not look
@@ -221,6 +223,7 @@ func (s *store) recordExtended(ctx context.Context, r extRecord) (extOutcome, er
 				return nil
 			}
 			outcome = extReturning
+			prevVersion = row.LastVersion
 			if _, err := tx.ExecContext(ctx,
 				`UPDATE activity SET last_seen = ?, last_sent_at = ?, last_version = ? WHERE id_hmac = ?`,
 				r.Day, sentAt, r.Version, r.IDHMAC); err != nil {
@@ -230,7 +233,10 @@ func (s *store) recordExtended(ctx context.Context, r extRecord) (extOutcome, er
 		if err := writeBasic(ctx, tx, r.Day, r.Version, r.Servers, r.Templates); err != nil {
 			return err
 		}
-		return writeExtendedAggregates(ctx, tx, r, outcome == extNew)
+		if err := writeExtendedAggregates(ctx, tx, r, outcome == extNew); err != nil {
+			return err
+		}
+		return writeVersionTrend(ctx, tx, r.Day, prevVersion, r.Version, outcome == extNew)
 	})
 	return outcome, err
 }
@@ -295,6 +301,33 @@ func writeExtendedAggregates(ctx context.Context, tx *sql.Tx, r extRecord, isNew
 			r.Day, module, min(n, maxSummedCount)); err != nil {
 			return fmt.Errorf("record daily_game %s: %w", module, err)
 		}
+	}
+	return nil
+}
+
+// writeVersionTrend records one non-duplicate extended report in the version
+// trend tables (FR-042): the install counts on its version for the day, and a
+// version change against its previous report is counted by kind. A new
+// install is never a change. Nothing is linked to the install ID.
+func writeVersionTrend(ctx context.Context, tx *sql.Tx, day, prev, next string, isNew bool) error {
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO daily_install_version (day, version, installs) VALUES (?, ?, 1)
+		 ON CONFLICT (day, version) DO UPDATE SET installs = installs + 1`,
+		day, next); err != nil {
+		return fmt.Errorf("record daily_install_version: %w", err)
+	}
+	if isNew {
+		return nil
+	}
+	kind, changed := classifyChange(prev, next)
+	if !changed {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO daily_version_change (day, kind, installs) VALUES (?, ?, 1)
+		 ON CONFLICT (day, kind) DO UPDATE SET installs = installs + 1`,
+		day, kind); err != nil {
+		return fmt.Errorf("record daily_version_change: %w", err)
 	}
 	return nil
 }

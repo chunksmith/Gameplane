@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "iLm38",
-  "x": 33720,
-  "y": 10375,
+  "x": 1640,
+  "y": 44567,
   "name": "Screen/Server Detail — Settings · Environment",
   "theme": {
     "semantic": "dark"
@@ -182,6 +182,9 @@
                                   "descendants": {
                                     "X3iEI": {
                                       "icon": "plus"
+                                    },
+                                    "i3zB62/zMNkR": {
+                                      "content": "Add variable"
                                     }
                                   }
                                 },
@@ -192,6 +195,9 @@
                                   "descendants": {
                                     "X3iEI": {
                                       "icon": "lock"
+                                    },
+                                    "i3zB62/zMNkR": {
+                                      "content": "Add from secret"
                                     }
                                   }
                                 }

@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "e9lV4",
-  "x": 1640,
-  "y": 19515,
+  "x": 0,
+  "y": 67569,
   "name": "Screen/Users & RBAC — Roles",
   "theme": {
     "semantic": "dark"
@@ -91,7 +91,16 @@
                       "id": "kbXKj",
                       "type": "ref",
                       "ref": "rNhll",
-                      "name": "Audit Log Button"
+                      "name": "Audit Log Button",
+                      "descendants": {
+                        "wDXFJ/K8d1zg": {
+                          "enabled": true,
+                          "icon": "scroll-text"
+                        },
+                        "wDXFJ/zMNkR": {
+                          "content": "Audit log"
+                        }
+                      }
                     },
                     {
                       "id": "AshJq",

@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "M2sA4u",
-  "x": 13120,
-  "y": 21915,
+  "x": 0,
+  "y": 88256,
   "name": "Screen/Admin Settings — Updates",
   "theme": {
     "semantic": "dark"
@@ -103,8 +103,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "bwo3a": {
                       "fill": "$surface/secondary"
+                    },
+                    "KzGJD": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "Y1aPw": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },

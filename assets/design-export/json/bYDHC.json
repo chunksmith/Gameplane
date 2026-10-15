@@ -2,7 +2,7 @@
   "type": "frame",
   "id": "bYDHC",
   "x": 0,
-  "y": 19515,
+  "y": 66269,
   "name": "Screen/Users & RBAC",
   "theme": {
     "semantic": "dark"
@@ -91,7 +91,16 @@
                       "id": "e2td4t",
                       "type": "ref",
                       "ref": "rNhll",
-                      "name": "Audit Log Button"
+                      "name": "Audit Log Button",
+                      "descendants": {
+                        "wDXFJ/K8d1zg": {
+                          "enabled": true,
+                          "icon": "scroll-text"
+                        },
+                        "wDXFJ/zMNkR": {
+                          "content": "Audit log"
+                        }
+                      }
                     },
                     {
                       "id": "B3LHZf",

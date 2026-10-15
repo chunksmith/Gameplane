@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "g5mEpx",
-  "x": 6560,
-  "y": 21915,
+  "x": 0,
+  "y": 82924,
   "name": "Screen/Admin Settings — Module sources",
   "theme": {
     "semantic": "dark"
@@ -103,8 +103,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "OUh8J": {
                       "fill": "$surface/secondary"
+                    },
+                    "yQ8n2": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "BbpO8": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },
@@ -166,39 +178,20 @@
                           ]
                         },
                         {
-                          "type": "frame",
-                          "id": "LVC6G",
+                          "id": "y8VV3",
+                          "type": "ref",
+                          "ref": "j9c5W",
                           "name": "btnAddSource",
-                          "height": 32,
-                          "fill": "$accent/accent",
-                          "cornerRadius": 6,
-                          "gap": 8,
-                          "padding": [
-                            0,
-                            12
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "jrknY",
-                              "width": 14,
-                              "height": 14,
+                          "descendants": {
+                            "n8Hmwk": {
+                              "enabled": true,
                               "icon": "plus",
-                              "library": "lucide",
-                              "fill": "$accent/foreground"
+                              "library": "lucide"
                             },
-                            {
-                              "type": "text",
-                              "id": "K951O",
-                              "fill": "$accent/foreground",
-                              "content": "Add source",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "500"
+                            "U1xvSo": {
+                              "content": "Add source"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -264,27 +257,17 @@
                                       "fontWeight": "500"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "GpH8P",
+                                      "id": "WHfjW",
+                                      "type": "ref",
+                                      "ref": "KmZnF",
                                       "name": "typeBadge",
-                                      "fill": "$surface/surface",
-                                      "cornerRadius": 4,
-                                      "padding": [
-                                        2,
-                                        6
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "kVjk1",
-                                          "fill": "$muted",
+                                      "descendants": {
+                                        "xZ9ah": {
                                           "content": "GIT",
                                           "fontFamily": "$typography/font-mono",
-                                          "fontSize": 10,
-                                          "fontWeight": "normal"
+                                          "fill": "$muted"
                                         }
-                                      ]
+                                      }
                                     }
                                   ]
                                 },
@@ -440,27 +423,17 @@
                                       "fontWeight": "500"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "W226o",
+                                      "id": "yRShV",
+                                      "type": "ref",
+                                      "ref": "KmZnF",
                                       "name": "typeBadge",
-                                      "fill": "$surface/surface",
-                                      "cornerRadius": 4,
-                                      "padding": [
-                                        2,
-                                        6
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "I4B7h7",
-                                          "fill": "$muted",
+                                      "descendants": {
+                                        "xZ9ah": {
                                           "content": "UPLOAD",
                                           "fontFamily": "$typography/font-mono",
-                                          "fontSize": 10,
-                                          "fontWeight": "normal"
+                                          "fill": "$muted"
                                         }
-                                      ]
+                                      }
                                     }
                                   ]
                                 },

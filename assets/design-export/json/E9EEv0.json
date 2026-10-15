@@ -4,8 +4,8 @@
   "reusable": true,
   "ref": "x3beP",
   "name": "Gameplane/Dialog/Restore Backup",
-  "x": -16525,
-  "y": 28535,
+  "x": 3288,
+  "y": 5341,
   "effect": {
     "type": "shadow",
     "shadowType": "outer",

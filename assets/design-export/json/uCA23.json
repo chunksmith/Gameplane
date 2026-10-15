@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "uCA23",
-  "x": 30440,
-  "y": 10375,
+  "x": 1640,
+  "y": 38007,
   "name": "Screen/Server Detail — Settings · General",
   "theme": {
     "semantic": "dark"
@@ -565,6 +565,9 @@
                                           "descendants": {
                                             "X3iEI": {
                                               "opacity": 0
+                                            },
+                                            "i3zB62/zMNkR": {
+                                              "content": "Add"
                                             }
                                           }
                                         }

@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "SUG76",
-  "x": -14757,
-  "y": 28240,
+  "x": 160,
+  "y": 3906,
   "name": "Gameplane/Address Status Row/Assigned",
   "reusable": true,
   "width": 644,

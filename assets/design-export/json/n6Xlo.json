@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "n6Xlo",
-  "x": 9840,
-  "y": 21915,
+  "x": 0,
+  "y": 85524,
   "name": "Screen/Admin Settings — Notifications",
   "theme": {
     "semantic": "dark"
@@ -103,8 +103,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "KSTX4": {
                       "fill": "$surface/secondary"
+                    },
+                    "EdwLK": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "IT8Ch": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },
@@ -234,70 +246,34 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "frame",
-                                      "id": "wPhSZ",
-                                      "fill": "$surface/secondary",
-                                      "cornerRadius": 999,
-                                      "padding": [
-                                        2,
-                                        8
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "gZ3dk",
-                                          "fill": "$muted",
-                                          "content": "server.unhealthy",
-                                          "fontFamily": "$typography/font-sans",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
+                                      "id": "UG8hk",
+                                      "type": "ref",
+                                      "ref": "KmZnF",
+                                      "descendants": {
+                                        "xZ9ah": {
+                                          "content": "server.unhealthy"
                                         }
-                                      ]
+                                      }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "npetX",
-                                      "fill": "$surface/secondary",
-                                      "cornerRadius": 999,
-                                      "padding": [
-                                        2,
-                                        8
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "GEAd9",
-                                          "fill": "$muted",
-                                          "content": "backup.failed",
-                                          "fontFamily": "$typography/font-sans",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
+                                      "id": "dx658",
+                                      "type": "ref",
+                                      "ref": "KmZnF",
+                                      "descendants": {
+                                        "xZ9ah": {
+                                          "content": "backup.failed"
                                         }
-                                      ]
+                                      }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "b1wR64",
-                                      "fill": "$surface/secondary",
-                                      "cornerRadius": 999,
-                                      "padding": [
-                                        2,
-                                        8
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "p8WB3f",
-                                          "fill": "$muted",
-                                          "content": "+2",
-                                          "fontFamily": "$typography/font-sans",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
+                                      "id": "PGEku",
+                                      "type": "ref",
+                                      "ref": "KmZnF",
+                                      "descendants": {
+                                        "xZ9ah": {
+                                          "content": "+2"
                                         }
-                                      ]
+                                      }
                                     }
                                   ]
                                 },
@@ -399,28 +375,15 @@
                                   ]
                                 },
                                 {
-                                  "type": "frame",
-                                  "id": "gRUeD",
+                                  "id": "K0F9P",
+                                  "type": "ref",
+                                  "ref": "eg3vM",
                                   "name": "needsSecret",
-                                  "fill": "$warning/soft",
-                                  "cornerRadius": 999,
-                                  "padding": [
-                                    2,
-                                    8
-                                  ],
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "BKLGz",
-                                      "fill": "$warning/soft-foreground",
-                                      "content": "Needs secret",
-                                      "fontFamily": "$typography/font-sans",
-                                      "fontSize": 11,
-                                      "fontWeight": "500"
+                                  "descendants": {
+                                    "S2JwD": {
+                                      "content": "Needs secret"
                                     }
-                                  ]
+                                  }
                                 },
                                 {
                                   "id": "g8MPu",

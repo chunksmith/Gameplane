@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "kPmoo",
-  "x": 3280,
-  "y": 9175,
+  "x": 0,
+  "y": 28907,
   "name": "Screen/Server Detail — Logs",
   "theme": {
     "semantic": "dark"
@@ -226,123 +226,59 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "zNalg",
+                          "id": "Ie13R",
+                          "type": "ref",
+                          "ref": "eJFRe",
                           "name": "Chip — All",
-                          "fill": "$accent/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            4,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "dGwJK",
-                              "fill": "$accent/accent",
-                              "content": "All",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 11,
-                              "fontWeight": "500"
+                          "descendants": {
+                            "Ul7IG": {
+                              "content": "All"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "mmkri",
+                          "id": "MyjG0",
+                          "type": "ref",
+                          "ref": "X3uvsU",
                           "name": "Chip — Info",
-                          "cornerRadius": 4,
-                          "stroke": "$border/border",
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            4,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "eDcJJ",
-                              "fill": "$muted",
-                              "content": "Info 39",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 11,
-                              "fontWeight": "500"
+                          "descendants": {
+                            "k9y4e": {
+                              "content": "Info 39"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "cmcis",
+                          "id": "HZ67h",
+                          "type": "ref",
+                          "ref": "X3uvsU",
                           "name": "Chip — Warn",
-                          "cornerRadius": 4,
-                          "stroke": "$border/border",
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            4,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "JQ3ot",
-                              "fill": "$muted",
-                              "content": "Warn 0",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 11,
-                              "fontWeight": "500"
+                          "descendants": {
+                            "k9y4e": {
+                              "content": "Warn 0"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "NIYwF",
+                          "id": "urzLc",
+                          "type": "ref",
+                          "ref": "X3uvsU",
                           "name": "Chip — Error",
-                          "cornerRadius": 4,
-                          "stroke": "$border/border",
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            4,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "JpPeR",
-                              "fill": "$muted",
-                              "content": "Error 0",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 11,
-                              "fontWeight": "500"
+                          "descendants": {
+                            "k9y4e": {
+                              "content": "Error 0"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "q9EYg",
+                          "id": "yhCf4",
+                          "type": "ref",
+                          "ref": "X3uvsU",
                           "name": "Chip — Debug",
-                          "cornerRadius": 4,
-                          "stroke": "$border/border",
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            4,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "HFP6N",
-                              "fill": "$muted",
-                              "content": "Debug 0",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 11,
-                              "fontWeight": "500"
+                          "descendants": {
+                            "k9y4e": {
+                              "content": "Debug 0"
                             }
-                          ]
+                          }
                         }
                       ]
                     }

@@ -1653,7 +1653,7 @@
                       "id": "HlgPb",
                       "name": "Title",
                       "fill": "$foreground/foreground",
-                      "content": "Versions",
+                      "content": "Reports by version",
                       "fontFamily": "$typography/font-sans",
                       "fontSize": 15,
                       "fontWeight": "600"
@@ -5945,6 +5945,3687 @@
                           "content": "4%"
                         }
                       }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "b16UiL",
+          "name": "Versions by install",
+          "width": "fill_container",
+          "fill": "$surface/surface",
+          "cornerRadius": "$radius/3xl",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 16,
+          "padding": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "dIS0A",
+              "name": "Titles",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BU9Qu",
+                  "name": "Title",
+                  "fill": "$foreground/foreground",
+                  "content": "Versions by install",
+                  "fontFamily": "$typography/font-sans",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "dC3fK",
+                  "name": "Sub",
+                  "fill": "$foreground/muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Installs by their last reported version, over the last 30 days (the shorter of the range and the activity-record expiry).",
+                  "fontFamily": "$typography/font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Vsl3S",
+              "name": "Bars",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "id": "VJfJc",
+                  "type": "ref",
+                  "ref": "wPbIp",
+                  "name": "Version v0.3.0",
+                  "width": "fill_container",
+                  "descendants": {
+                    "j1J75": {
+                      "content": "v0.3.0",
+                      "fill": "$foreground/foreground"
+                    },
+                    "dMFUm": {
+                      "width": 1120
+                    },
+                    "uTqdm": {
+                      "content": "742"
+                    }
+                  }
+                },
+                {
+                  "id": "IVOoc",
+                  "type": "ref",
+                  "ref": "wPbIp",
+                  "name": "Version v0.3.0-rc.1",
+                  "width": "fill_container",
+                  "descendants": {
+                    "j1J75": {
+                      "content": "v0.3.0-rc.1",
+                      "fill": "$foreground/foreground"
+                    },
+                    "dMFUm": {
+                      "width": 287
+                    },
+                    "uTqdm": {
+                      "content": "190"
+                    }
+                  }
+                },
+                {
+                  "id": "R5PkMF",
+                  "type": "ref",
+                  "ref": "wPbIp",
+                  "name": "Version v0.2.0-beta.8",
+                  "width": "fill_container",
+                  "descendants": {
+                    "j1J75": {
+                      "content": "v0.2.0-beta.8",
+                      "fill": "$foreground/foreground"
+                    },
+                    "dMFUm": {
+                      "width": 192
+                    },
+                    "uTqdm": {
+                      "content": "127"
+                    }
+                  }
+                },
+                {
+                  "id": "UsWyW",
+                  "type": "ref",
+                  "ref": "wPbIp",
+                  "name": "Version dev",
+                  "width": "fill_container",
+                  "descendants": {
+                    "j1J75": {
+                      "content": "dev",
+                      "fill": "$foreground/foreground"
+                    },
+                    "dMFUm": {
+                      "width": 71
+                    },
+                    "uTqdm": {
+                      "content": "47"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "K18Ey8",
+          "name": "Version trend",
+          "width": "fill_container",
+          "fill": "$surface/surface",
+          "cornerRadius": "$radius/3xl",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "nr3i1",
+              "name": "Header",
+              "width": "fill_container",
+              "gap": 24,
+              "justifyContent": "space_between",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "B2YFT",
+                  "name": "Titles",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gU4tu",
+                      "name": "Title",
+                      "fill": "$foreground/foreground",
+                      "content": "Version trend",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "gZulB",
+                      "name": "Sub",
+                      "fill": "$foreground/muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Installs per day that upgraded, downgraded, changed between versions that can't be ordered, or stayed behind the newest version seen in the range (v0.3.0). Extended reports only.",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "GTNXc",
+                  "name": "Table link",
+                  "fill": "$accent/accent",
+                  "content": "View as table",
+                  "fontFamily": "$typography/font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "rmaL9",
+              "name": "Changes",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ELzYp",
+                  "name": "Upgraded",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Cq4K9",
+                      "name": "Head",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 2,
+                          "id": "tfV74",
+                          "name": "Swatch",
+                          "fill": "$chart/series-1",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "text",
+                          "id": "B6pPa",
+                          "name": "Label",
+                          "fill": "$foreground/foreground",
+                          "content": "Upgraded",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NlVZd",
+                      "name": "Plot row",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "y6tbG",
+                          "name": "Y axis",
+                          "width": 28,
+                          "height": 128,
+                          "layout": "vertical",
+                          "justifyContent": "space_between",
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ZbVKl",
+                              "name": "Tick 150",
+                              "fill": "$foreground/muted",
+                              "content": "150",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "u2PHwV",
+                              "name": "Tick 100",
+                              "fill": "$foreground/muted",
+                              "content": "100",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "wFD97",
+                              "name": "Tick 50",
+                              "fill": "$foreground/muted",
+                              "content": "50",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "haDMS",
+                              "name": "Tick 0",
+                              "fill": "$foreground/muted",
+                              "content": "0",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "dB5EX",
+                          "name": "Plot",
+                          "width": 388,
+                          "height": 128,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "id": "n6J62",
+                              "x": 0,
+                              "y": 4,
+                              "name": "Grid 0",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "lavKy",
+                              "x": 0,
+                              "y": 44,
+                              "name": "Grid 1",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "tje1x",
+                              "x": 0,
+                              "y": 84,
+                              "name": "Grid 2",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "Y9xvk",
+                              "x": 0,
+                              "y": 124,
+                              "name": "Baseline",
+                              "fill": "$chart/baseline",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "yk1hC",
+                              "x": 0,
+                              "y": -16,
+                              "name": "Columns",
+                              "width": 388,
+                              "height": 140,
+                              "alignItems": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "HTnR7",
+                                  "name": "Day 1",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "xCE8I",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "hBh55",
+                                  "name": "Day 2",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "pzTFj",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "LhknV",
+                                  "name": "Day 3",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "ZVqI9",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sKPVf",
+                                  "name": "Day 4",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "vWXgC",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 3.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "WAcpp",
+                                  "name": "Day 5",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "fD8Iv",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 4.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "das14",
+                                  "name": "Day 6",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "rZcBI",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "oprnB",
+                                  "name": "Day 7",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "Vu3Se",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Xqv6e",
+                                  "name": "Day 8",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "HMl8I",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 3.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Lx78S",
+                                  "name": "Day 9",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "tngSn",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "QPRRZ",
+                                  "name": "Day 10",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "jlgp5",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "s0oVw",
+                                  "name": "Day 11",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "wUfSW",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fpRy3",
+                                  "name": "Day 12",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "D48uky",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 3.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "SgcyV",
+                                  "name": "Day 13",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "s8N64X",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 112
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "UsmVb",
+                                  "name": "Day 14",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "ME9iY",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 88
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "J9CAu",
+                                  "name": "Day 15",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "V9gRc",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 68
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "UQhED",
+                                  "name": "Day 16",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "kMMnD",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 48
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "lxZ7Z",
+                                  "name": "Day 17",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "zVfid",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 36
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sbCDK",
+                                  "name": "Day 18",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "wDMdi",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 28
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fQKP6",
+                                  "name": "Day 19",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "YaDCk",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 22.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "vYGmu",
+                                  "name": "Day 20",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "kYje5",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 17.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "b3DO6k",
+                                  "name": "Day 21",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "d2yjH",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 14.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "FOdUm",
+                                  "name": "Day 22",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "Ebaav",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 11.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "AKkMP",
+                                  "name": "Day 23",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "vzqKc",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 8.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "wY7Bu",
+                                  "name": "Day 24",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "FHOAX",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 7.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "JnVwu",
+                                  "name": "Day 25",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "eHMLy",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 5.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "nKn94",
+                                  "name": "Day 26",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "A2dr9D",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 4.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tMtBM",
+                                  "name": "Day 27",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "mTe3p",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "UlTkV",
+                                  "name": "Day 28",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "OOPja",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 3.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "I6DoXB",
+                                  "name": "Day 29",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "ktsaJ",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 3.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "zxNlR",
+                                  "name": "Day 30",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "XZOjw",
+                                      "name": "Value label",
+                                      "fill": "$foreground/foreground",
+                                      "content": "3",
+                                      "fontFamily": "$typography/font-sans",
+                                      "fontSize": 11,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "JYRgR",
+                                      "name": "Column",
+                                      "fill": "$chart/series-1",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "F45op",
+                      "name": "X axis",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        36
+                      ],
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "KuXoM",
+                          "name": "X Sep 7",
+                          "fill": "$foreground/muted",
+                          "content": "Sep 7",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "XZGjV",
+                          "name": "X Sep 21",
+                          "fill": "$foreground/muted",
+                          "content": "Sep 21",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "oJBIL",
+                          "name": "X Oct 6",
+                          "fill": "$foreground/muted",
+                          "content": "Oct 6",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fzhb8",
+                  "name": "Downgraded",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "NUG3r",
+                      "name": "Head",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 2,
+                          "id": "KfqeM",
+                          "name": "Swatch",
+                          "fill": "$chart/series-2",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "text",
+                          "id": "nvAYO",
+                          "name": "Label",
+                          "fill": "$foreground/foreground",
+                          "content": "Downgraded",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "KYFg1",
+                      "name": "Plot row",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "laDDK",
+                          "name": "Y axis",
+                          "width": 28,
+                          "height": 128,
+                          "layout": "vertical",
+                          "justifyContent": "space_between",
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "dig0X",
+                              "name": "Tick 150",
+                              "fill": "$foreground/muted",
+                              "content": "150",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "gCG5q",
+                              "name": "Tick 100",
+                              "fill": "$foreground/muted",
+                              "content": "100",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "p7n7w",
+                              "name": "Tick 50",
+                              "fill": "$foreground/muted",
+                              "content": "50",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Lcbj3",
+                              "name": "Tick 0",
+                              "fill": "$foreground/muted",
+                              "content": "0",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "m2wqAG",
+                          "name": "Plot",
+                          "width": 388,
+                          "height": 128,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "id": "HF5mK",
+                              "x": 0,
+                              "y": 4,
+                              "name": "Grid 0",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "JkeZa",
+                              "x": 0,
+                              "y": 44,
+                              "name": "Grid 1",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "qeEV1",
+                              "x": 0,
+                              "y": 84,
+                              "name": "Grid 2",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "UW0wh",
+                              "x": 0,
+                              "y": 124,
+                              "name": "Baseline",
+                              "fill": "$chart/baseline",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FujbX",
+                              "x": 0,
+                              "y": -16,
+                              "name": "Columns",
+                              "width": 388,
+                              "height": 140,
+                              "alignItems": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "RzLf2",
+                                  "name": "Day 1",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "ME184",
+                                  "name": "Day 2",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "bWoTZ",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "kz1qv",
+                                  "name": "Day 3",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "v1IhD",
+                                  "name": "Day 4",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "gyrX7",
+                                  "name": "Day 5",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "sd7Ns",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "b42pn",
+                                  "name": "Day 6",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "b2lkn",
+                                  "name": "Day 7",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "K6iVT",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "bAzDG",
+                                  "name": "Day 8",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "shHoY",
+                                  "name": "Day 9",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "X8q3S",
+                                  "name": "Day 10",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "oWcso",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "ZbH0e",
+                                  "name": "Day 11",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "kow0R",
+                                  "name": "Day 12",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "uzz7x",
+                                  "name": "Day 13",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "egbpW",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 3.2
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fxSmL",
+                                  "name": "Day 14",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "DMrql",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 4.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "m6IcBY",
+                                  "name": "Day 15",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "VNotj",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "PRKIe",
+                                  "name": "Day 16",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "dwcbC",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "d5NFE0",
+                                  "name": "Day 17",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "yXmCn",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "JR5f5",
+                                  "name": "Day 18",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "dWaYp",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "EUY4s",
+                                  "name": "Day 19",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "BySie",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sGTEb",
+                                  "name": "Day 20",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Uwb7s",
+                                  "name": "Day 21",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "rmynW",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "PGBlq",
+                                  "name": "Day 22",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "jZOB8",
+                                  "name": "Day 23",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "EZEyz",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "W8tQdj",
+                                  "name": "Day 24",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "ey9aF",
+                                  "name": "Day 25",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "AKROS",
+                                  "name": "Day 26",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "tTstQ",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "mqZUD",
+                                  "name": "Day 27",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "VG0LK",
+                                  "name": "Day 28",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "dLsBP",
+                                  "name": "Day 29",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "Durcq",
+                                      "name": "Column",
+                                      "fill": "$chart/series-2",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "GoNxq",
+                                  "name": "Day 30",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "dAanU",
+                                      "name": "Value label",
+                                      "fill": "$foreground/foreground",
+                                      "content": "0",
+                                      "fontFamily": "$typography/font-sans",
+                                      "fontSize": 11,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZKb4P",
+                      "name": "X axis",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        36
+                      ],
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Kwtaq",
+                          "name": "X Sep 7",
+                          "fill": "$foreground/muted",
+                          "content": "Sep 7",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Pw9Sq",
+                          "name": "X Sep 21",
+                          "fill": "$foreground/muted",
+                          "content": "Sep 21",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "IquG4",
+                          "name": "X Oct 6",
+                          "fill": "$foreground/muted",
+                          "content": "Oct 6",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "N7eLI",
+                  "name": "Changed (unordered)",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Sh7nr",
+                      "name": "Head",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 2,
+                          "id": "vvhtZ",
+                          "name": "Swatch",
+                          "fill": "$chart/series-3",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "text",
+                          "id": "h3Gqs7",
+                          "name": "Label",
+                          "fill": "$foreground/foreground",
+                          "content": "Changed (unordered)",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "vNDB2",
+                      "name": "Plot row",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "G5fbSV",
+                          "name": "Y axis",
+                          "width": 28,
+                          "height": 128,
+                          "layout": "vertical",
+                          "justifyContent": "space_between",
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "H9wcw",
+                              "name": "Tick 150",
+                              "fill": "$foreground/muted",
+                              "content": "150",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "shkNo",
+                              "name": "Tick 100",
+                              "fill": "$foreground/muted",
+                              "content": "100",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "My0M7",
+                              "name": "Tick 50",
+                              "fill": "$foreground/muted",
+                              "content": "50",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "YZLJO",
+                              "name": "Tick 0",
+                              "fill": "$foreground/muted",
+                              "content": "0",
+                              "fontFamily": "$typography/font-sans",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vSdPZ",
+                          "name": "Plot",
+                          "width": 388,
+                          "height": 128,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "id": "grraJ",
+                              "x": 0,
+                              "y": 4,
+                              "name": "Grid 0",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "y2pSvr",
+                              "x": 0,
+                              "y": 44,
+                              "name": "Grid 1",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "BgtLr",
+                              "x": 0,
+                              "y": 84,
+                              "name": "Grid 2",
+                              "fill": "$chart/grid",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "groSs",
+                              "x": 0,
+                              "y": 124,
+                              "name": "Baseline",
+                              "fill": "$chart/baseline",
+                              "width": 388,
+                              "height": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "aXIug",
+                              "x": 0,
+                              "y": -16,
+                              "name": "Columns",
+                              "width": 388,
+                              "height": 140,
+                              "alignItems": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "EdYKn",
+                                  "name": "Day 1",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "e1H3AX",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "lcmOK",
+                                  "name": "Day 2",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "uITno",
+                                  "name": "Day 3",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "RTPxi",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "O18bk",
+                                  "name": "Day 4",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "CbBps",
+                                  "name": "Day 5",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "IjyuJ",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fxQaa",
+                                  "name": "Day 6",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "RyKAR",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "I3RZJ",
+                                  "name": "Day 7",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "lV8a3",
+                                  "name": "Day 8",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "ddBsI",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Sn54C",
+                                  "name": "Day 9",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "bMGvQ",
+                                  "name": "Day 10",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "M3NVtI",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KIWxa",
+                                  "name": "Day 11",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "Baa1L",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "yVhAT",
+                                  "name": "Day 12",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "rZALJ",
+                                  "name": "Day 13",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "Y38GDV",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "xoiWu",
+                                  "name": "Day 14",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "a4FjL",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RRVpA",
+                                  "name": "Day 15",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "B0DcNk",
+                                  "name": "Day 16",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "hUwuW",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 2.4
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "DjWKr",
+                                  "name": "Day 17",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "urHjt",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "A4WbN",
+                                  "name": "Day 18",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "kIBFx",
+                                  "name": "Day 19",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "qZ5W7",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "FjwD1",
+                                  "name": "Day 20",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "S5uCA8",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "XpFu0",
+                                  "name": "Day 21",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "qkf4P",
+                                  "name": "Day 22",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "QQQFd",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "HAvCs",
+                                  "name": "Day 23",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "yzyOV",
+                                  "name": "Day 24",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "V4SYM",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 1.6
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "qAeEF",
+                                  "name": "Day 25",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "z03I6",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "CbBXV",
+                                  "name": "Day 26",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "POEPi",
+                                  "name": "Day 27",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "zx6z5",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "dMdLt",
+                                  "name": "Day 28",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "BAriA",
+                                  "name": "Day 29",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "TL6Hh",
+                                  "name": "Day 30",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "mKOiO",
+                                      "name": "Value label",
+                                      "fill": "$foreground/foreground",
+                                      "content": "1",
+                                      "fontFamily": "$typography/font-sans",
+                                      "fontSize": 11,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": [
+                                        3,
+                                        3,
+                                        0,
+                                        0
+                                      ],
+                                      "id": "J07QU",
+                                      "name": "Column",
+                                      "fill": "$chart/series-3",
+                                      "width": 8,
+                                      "height": 0.8
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "d9PxZ",
+                      "name": "X axis",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        36
+                      ],
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "kYyh7",
+                          "name": "X Sep 7",
+                          "fill": "$foreground/muted",
+                          "content": "Sep 7",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "LyPow",
+                          "name": "X Sep 21",
+                          "fill": "$foreground/muted",
+                          "content": "Sep 21",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "yu6C9",
+                          "name": "X Oct 6",
+                          "fill": "$foreground/muted",
+                          "content": "Oct 6",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KbzhY",
+              "name": "Stale",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "d0z86K",
+                  "name": "Head",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "xxcvA",
+                      "name": "Swatch",
+                      "fill": "$chart/series-4",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "text",
+                      "id": "QXb5c",
+                      "name": "Label",
+                      "fill": "$foreground/foreground",
+                      "content": "Stale",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "mpKjk",
+                      "name": "Note",
+                      "fill": "$foreground/muted",
+                      "content": "Behind v0.3.0, on its own scale",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "nfiOH",
+                  "name": "Plot row",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "WLEZk",
+                      "name": "Y axis",
+                      "width": 44,
+                      "height": 128,
+                      "layout": "vertical",
+                      "justifyContent": "space_between",
+                      "alignItems": "end",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "x1SNK",
+                          "name": "Tick 1,500",
+                          "fill": "$foreground/muted",
+                          "content": "1,500",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "COyLX",
+                          "name": "Tick 1,000",
+                          "fill": "$foreground/muted",
+                          "content": "1,000",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "jv7hO",
+                          "name": "Tick 500",
+                          "fill": "$foreground/muted",
+                          "content": "500",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Uf4GL",
+                          "name": "Tick 0",
+                          "fill": "$foreground/muted",
+                          "content": "0",
+                          "fontFamily": "$typography/font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DbcDm",
+                      "name": "Plot",
+                      "width": 1268,
+                      "height": 128,
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "yMiYk",
+                          "x": 0,
+                          "y": 4,
+                          "name": "Grid 0",
+                          "fill": "$chart/grid",
+                          "width": 1268,
+                          "height": 1
+                        },
+                        {
+                          "type": "rectangle",
+                          "id": "ir0G6",
+                          "x": 0,
+                          "y": 44,
+                          "name": "Grid 1",
+                          "fill": "$chart/grid",
+                          "width": 1268,
+                          "height": 1
+                        },
+                        {
+                          "type": "rectangle",
+                          "id": "JTljN",
+                          "x": 0,
+                          "y": 84,
+                          "name": "Grid 2",
+                          "fill": "$chart/grid",
+                          "width": 1268,
+                          "height": 1
+                        },
+                        {
+                          "type": "rectangle",
+                          "id": "WIEkV",
+                          "x": 0,
+                          "y": 124,
+                          "name": "Baseline",
+                          "fill": "$chart/baseline",
+                          "width": 1268,
+                          "height": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "O4XMk",
+                          "x": 0,
+                          "y": -16,
+                          "name": "Columns",
+                          "width": 1268,
+                          "height": 140,
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "rSTD0",
+                              "name": "Day 1",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "rCO82",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 69.8
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Z6qsSi",
+                              "name": "Day 2",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "xeP4U",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 69.4
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "S56oWA",
+                              "name": "Day 3",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "kKf9Z",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 70.4
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "m2r4uL",
+                              "name": "Day 4",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "IIZMd",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 70.1
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Tzna9",
+                              "name": "Day 5",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "oJL6i",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 68.9
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dsSJN",
+                              "name": "Day 6",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "TI1Xw",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 68.6
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "J6CUZ",
+                              "name": "Day 7",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "dqzCQ",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 69.9
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Sa5Z8",
+                              "name": "Day 8",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "KDoYh",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 70.3
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "VjWZP",
+                              "name": "Day 9",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "lgFqz",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 69.3
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "mWVdz",
+                              "name": "Day 10",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "bYLAg",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 69.6
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Uyi7M",
+                              "name": "Day 11",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "gxoq5",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 70.2
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "a1np2b",
+                              "name": "Day 12",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "MS1bL",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 69.5
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "EleiB",
+                              "name": "Day 13",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "xK1xV",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 58.5
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "imI1W",
+                              "name": "Day 14",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "wDf7B",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 49.9
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "pNPpd",
+                              "name": "Day 15",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "q0gaq",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 43.3
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "h3riTO",
+                              "name": "Day 16",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "I0Lmn",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 38.9
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "y4kv7R",
+                              "name": "Day 17",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "vwEgx",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 35.5
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "oguPB",
+                              "name": "Day 18",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "Ib22f",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 33
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "n420l",
+                              "name": "Day 19",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "p6jmu",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 30.9
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "W2u56",
+                              "name": "Day 20",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "W1Ftf",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 29.4
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "d5eDGp",
+                              "name": "Day 21",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "BEK72",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 27.9
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "slr5j",
+                              "name": "Day 22",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "xBcuW",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 26.6
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "iAaCE",
+                              "name": "Day 23",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "RSV67",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 25.4
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "W2Psqk",
+                              "name": "Day 24",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "tf16J",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 24.2
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "DO3hs",
+                              "name": "Day 25",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "GixmU",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 23
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "QOFfd",
+                              "name": "Day 26",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "x6sVVV",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 22.1
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "cPVYd",
+                              "name": "Day 27",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "jzILw",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 21.2
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "S3sKz",
+                              "name": "Day 28",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "V6OTz",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 20.6
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ezKJ2",
+                              "name": "Day 29",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "QZGhX",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 19.8
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fCIEw",
+                              "name": "Day 30",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "f8kOx",
+                                  "name": "Value label",
+                                  "fill": "$foreground/foreground",
+                                  "content": "241",
+                                  "fontFamily": "$typography/font-sans",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": [
+                                    3,
+                                    3,
+                                    0,
+                                    0
+                                  ],
+                                  "id": "l5xbFr",
+                                  "name": "Column",
+                                  "fill": "$chart/series-4",
+                                  "width": 26,
+                                  "height": 19.3
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "MSdq4",
+                  "name": "X axis",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    0,
+                    0,
+                    52
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UxpII",
+                      "name": "X Sep 7",
+                      "fill": "$foreground/muted",
+                      "content": "Sep 7",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "K8J5yP",
+                      "name": "X Sep 21",
+                      "fill": "$foreground/muted",
+                      "content": "Sep 21",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "H5LSeA",
+                      "name": "X Oct 6",
+                      "fill": "$foreground/muted",
+                      "content": "Oct 6",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 }

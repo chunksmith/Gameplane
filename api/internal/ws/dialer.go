@@ -74,6 +74,7 @@ func MountWithPlayerNames(r chi.Router, reg *kube.Registry, caBundle, clientCert
 		r.Get("/download", p.agentHTTP("/files/download"))
 		r.Get("/archive", p.agentHTTP("/files/archive"))
 		r.Post("/write", p.agentHTTP("/files/write"))
+		r.Post("/create", p.agentHTTP("/files/create"))
 		r.Post("/upload", p.agentHTTP("/files/upload"))
 		r.Post("/mkdir", p.agentHTTP("/files/mkdir"))
 		r.Post("/zip", p.agentHTTP("/files/zip"))

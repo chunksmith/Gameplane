@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "lWvcv",
-  "x": 40120,
-  "y": -7988,
+  "x": 0,
+  "y": 75369,
   "name": "Screen/Theme Settings",
   "theme": {
     "semantic": "dark"
@@ -206,8 +206,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "vbQ98": {
                       "fill": "$surface/secondary"
+                    },
+                    "dY0be": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "qeqG6": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },

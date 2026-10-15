@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "gu5WY",
-  "x": -16881,
-  "y": 25039,
+  "x": 468,
+  "y": 250,
   "name": "Gameplane/Top Bar",
   "context": "Shared shell: no global location selector. Infrastructure selection belongs in Clusters; server pages bind location from the route.",
   "reusable": true,

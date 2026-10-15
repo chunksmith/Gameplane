@@ -2,7 +2,7 @@
   "type": "frame",
   "id": "Bq2Yg",
   "x": 0,
-  "y": 21915,
+  "y": 72769,
   "name": "Screen/Admin — System Logs",
   "theme": {
     "semantic": "dark"
@@ -249,29 +249,17 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "ecz2M",
+                  "id": "vT0KB",
+                  "type": "ref",
+                  "ref": "A0msT5",
                   "name": "Pod Pill",
-                  "height": 24,
-                  "fill": "$accent/soft",
-                  "cornerRadius": 4,
-                  "padding": [
-                    0,
-                    8
-                  ],
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "TgW0H",
-                      "fill": "$accent/accent",
+                  "descendants": {
+                    "mlfxU": {
                       "content": "gameplane-api-77bc7b6957-vg7n2",
                       "fontFamily": "$typography/font-mono",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                      "fill": "$accent/accent"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",

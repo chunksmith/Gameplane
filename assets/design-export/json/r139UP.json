@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "r139UP",
-  "x": -10957,
-  "y": 33432,
+  "x": 1640,
+  "y": 72769,
   "name": "Screen/Standalone — System logs",
   "context": "PR #630 standalone installation. No local Kubernetes metadata or local workload fallback. Master-key storage and offline rotation have no dashboard controls.",
   "theme": {

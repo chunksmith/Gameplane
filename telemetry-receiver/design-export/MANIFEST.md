@@ -47,3 +47,28 @@ This is a snapshot of `telemetry-receiver/telemetry-dashboard.pen` for review in
 | `y49Ie` | `sDDfo` Stat tile sample: "Reports, today", "2026-10-06 (UTC, in progress)" |
 
 Method: 15 `Update` calls in one `execute`. The JSON files were produced by applying the same edits to the previous export, then checked equal to Pencil (`JSON.stringify(Get(id, {depth: 40, includePathGeometry: true}))` length and FNV-1a hash per frame: `i0xK1E` 69071, `Z079vK` 4684, `y49Ie` 1854). PNGs: `Export(ids, "png", …, {scale: 2})`, same sizes as before. Content check: "today in progress" → `i0xK1E`; "accepts a report" → `Z079vK`.
+
+## Incremental export (2026-10-15): version trend (spec 022 T114, FR-042, OD-7 to OD-10)
+
+| Node | Change |
+|---|---|
+| `i0xK1E` | Basic card `Waady`: title `HlgPb` renamed "Reports by version" (OD-9), caption unchanged. New full-width extended card `b16UiL` "Versions by install" (sample rows v0.3.0, v0.3.0-rc.1, v0.2.0-beta.8, dev), which the template already rendered. New card `K18Ey8` "Version trend" directly under it: Upgraded, Downgraded and Changed (unordered) panels on one shared scale, then a full-width Stale chart on its own scale. The caption names the newest release (v0.3.0), and the card has a "View as table" link. |
+| `variables.json` | New tokens `chart/series-3` (green `#008300` light and dark) and `chart/series-4` (amber `#eda100` light, `#c98500` dark). |
+
+Chart choices:
+
+- **Form.** Small multiples. Stale counts installs behind the newest release, often hundreds a day. The other three count installs that changed version that day, usually tens. Stale therefore gets its own chart and scale, and the three change panels share one (user decision, 2026-10-14).
+- **Colours.** Upgraded uses `chart/series-1` (pink), Downgraded `chart/series-2` (blue), Changed (unordered) `chart/series-3` (green) and Stale `chart/series-4` (amber).
+  - The four pass the dataviz validator all-pairs, as small multiples require, against the file's surfaces in both modes.
+  - Light (`#FFF7FB`): worst CVD ΔE 10.7 (green and pink), normal vision 29.0.
+  - Dark (`#1C1A20`): worst CVD ΔE 6.9 (green and amber). That is in the 6 to 8 floor band, which is allowed here because each panel has a swatch label and the card has a table view. Normal vision 23.2.
+  - Amber is 2.06:1 on the light surface, so it relies on the same labels and table view.
+  - Rejected: aqua against pink fails dark CVD (ΔE 5.4), and violet against blue fails normal vision (ΔE 10.5).
+- **Rules kept.** Columns start from zero, each chart has one y-axis, only the latest value is labelled, and "View as table" gives the table alternative.
+
+Method:
+
+- **Edits.** `execute` calls on the Gameplane checkout's file, followed by a layout-problem check (`ctx.problems`) and a screenshot review.
+- **JSON.** `JSON.stringify(Get("i0xK1E", {depth: 40, includePathGeometry: true}))` was checked equal to the written file: 111,299 UTF-16 code units, FNV-1a 710213898. The file has no `"..."` elisions.
+- **PNG.** `Export(["i0xK1E"], "png", …, {scale: 2})` gives 2880×7091. The frame height is 3545.0000000000005, so the export rounds it up by one pixel.
+- **Content checks.** Each string matched only `i0xK1E.json`: "Behind v0.3.0, on its own scale", "Installs by their last reported version" and "Reports by version".

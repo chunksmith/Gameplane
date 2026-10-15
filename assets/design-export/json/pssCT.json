@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "pssCT",
-  "x": 19680,
-  "y": 9175,
+  "x": 0,
+  "y": 35407,
   "name": "Screen/Server Detail — Backups",
   "theme": {
     "semantic": "dark"

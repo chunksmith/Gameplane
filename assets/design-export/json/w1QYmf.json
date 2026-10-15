@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "w1QYmf",
-  "x": 24238,
-  "y": 11375,
+  "x": 11480,
+  "y": 36707,
   "name": "States/Remote Capture — Access and capability",
   "context": "Actual CaptureWidget states from 8e08a60f. Resolve user access separately from selected-site capability. Existing files remain readable when only new captures are disabled.",
   "theme": {

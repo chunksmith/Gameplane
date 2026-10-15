@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "RC3Kf",
-  "x": 4920,
-  "y": 21915,
+  "x": 0,
+  "y": 81624,
   "name": "Screen/Admin Settings — Backup destinations",
   "theme": {
     "semantic": "dark"
@@ -103,8 +103,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "fOAMd": {
                       "fill": "$surface/secondary"
+                    },
+                    "TWq2N": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "E3ECJ": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },

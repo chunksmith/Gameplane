@@ -16,6 +16,8 @@ type extCharts struct {
 	Games           barChart
 	Features        barChart
 	VersionsInstall barChart
+	VersionsWide    barChart // VersionsInstall laid out for wide screens
+	Trend           trendChart
 	WindowDays      int
 }
 
@@ -92,10 +94,86 @@ func buildExtendedCharts(v Views, table bool) *extCharts {
 		labels[i], counts[i] = r.Label, r.Installs
 	}
 	c.VersionsInstall = newBarChart("Versions by install", "Version", "Installs", false, countBars(labels, counts))
+	c.Trend = buildTrendChart(e.VersionTrend, table)
 	for _, bc := range []*barChart{&c.K8s, &c.Distro, &c.Arch, &c.Nodes, &c.Games, &c.Features, &c.VersionsInstall} {
 		bc.Table = table
 	}
 	c.New.Table, c.Lapsed.Table = table, table
+	c.VersionsWide = widenBars(c.VersionsInstall)
+	return c
+}
+
+// trendChart is the version trend (FR-042) as designed in T114: the three
+// change panels share one scale, and stale installs get a chart of their own.
+// When Table is true the template renders Rows as one table instead.
+type trendChart struct {
+	Table  bool
+	Newest string
+	Panels []trendPanel
+	Stale  trendPanel
+	Rows   []trendRow
+}
+
+// trendPanel is one series of the version trend; Class colours its swatch.
+type trendPanel struct {
+	Label  string
+	Class  string
+	Note   string
+	Chart  columnChart
+	Narrow columnChart // set for the stale panel: its layout for narrow screens
+}
+
+// trendRow is one day of the version trend's table view.
+type trendRow struct {
+	Day        string
+	Upgraded   string
+	Downgraded string
+	Unordered  string
+	Stale      string
+}
+
+// Version trend layouts (T114): a change panel takes a third of the card and
+// the stale chart all of it, so their text renders near 11px at full width.
+var (
+	trendPanelCols = colLayout{W: 424, H: 168, PlotLeft: 36, PlotRight: 392, PlotTop: 16, PlotBottom: 140}
+	trendStaleCols = colLayout{W: 1320, H: 168, PlotLeft: 52, PlotRight: 1316, PlotTop: 16, PlotBottom: 140}
+)
+
+// buildTrendChart lays out the version trend. Upgraded, downgraded and
+// unordered changes share one scale; stale installs, a count of installs
+// rather than of changes, get their own.
+func buildTrendChart(t VersionTrend, table bool) trendChart {
+	n := len(t.Days)
+	up, down, unordered, stale := make([]point, n), make([]point, n), make([]point, n), make([]point, n)
+	c := trendChart{Table: table, Newest: t.NewestRelease, Rows: make([]trendRow, n)}
+	var maxChange int64
+	for i, d := range t.Days {
+		up[i] = point{Label: d.Day, Value: d.Upgraded}
+		down[i] = point{Label: d.Day, Value: d.Downgraded}
+		unordered[i] = point{Label: d.Day, Value: d.Unordered}
+		stale[i] = point{Label: d.Day, Value: d.Stale}
+		maxChange = max(maxChange, d.Upgraded, d.Downgraded, d.Unordered)
+		c.Rows[i] = trendRow{
+			Day: d.Day, Upgraded: groupInt(d.Upgraded), Downgraded: groupInt(d.Downgraded),
+			Unordered: groupInt(d.Unordered), Stale: groupInt(d.Stale),
+		}
+	}
+	every := max(1, (n-1)/2) // three labels, from the first day to about the last
+	c.Panels = []trendPanel{
+		{Label: "Upgraded", Class: seriesPink,
+			Chart: layoutColumns(trendPanelCols, "Upgraded installs per day", seriesPink, "Day", "Installs", up, every, maxChange)},
+		{Label: "Downgraded", Class: seriesBlue,
+			Chart: layoutColumns(trendPanelCols, "Downgraded installs per day", seriesBlue, "Day", "Installs", down, every, maxChange)},
+		{Label: "Changed (unordered)", Class: seriesGreen,
+			Chart: layoutColumns(trendPanelCols, "Unordered version changes per day", seriesGreen, "Day", "Installs", unordered, every, maxChange)},
+	}
+	note := "On its own scale"
+	if t.NewestRelease != "" {
+		note = "Behind " + t.NewestRelease + ", on its own scale"
+	}
+	c.Stale = trendPanel{Label: "Stale", Class: seriesAmber, Note: note,
+		Chart:  layoutColumns(trendStaleCols, "Stale installs per day", seriesAmber, "Day", "Installs", stale, dayLabelEvery(n), 0),
+		Narrow: layoutColumns(trendPanelCols, "Stale installs per day", seriesAmber, "Day", "Installs", stale, every, 0)}
 	return c
 }
 

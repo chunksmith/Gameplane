@@ -1,9 +1,9 @@
 {
   "type": "frame",
   "id": "Dpb9f",
-  "x": 4920,
-  "y": 19515,
-  "name": "Screen/Users & RBAC \u2014 Identity providers",
+  "x": 0,
+  "y": 70169,
+  "name": "Screen/Users & RBAC — Identity providers",
   "theme": {
     "semantic": "dark"
   },
@@ -91,7 +91,16 @@
                       "id": "hgScu",
                       "type": "ref",
                       "ref": "rNhll",
-                      "name": "Audit Log Button"
+                      "name": "Audit Log Button",
+                      "descendants": {
+                        "wDXFJ/K8d1zg": {
+                          "enabled": true,
+                          "icon": "scroll-text"
+                        },
+                        "wDXFJ/zMNkR": {
+                          "content": "Audit log"
+                        }
+                      }
                     },
                     {
                       "id": "k4Ecpc",
@@ -137,7 +146,7 @@
                   "fill": "$muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Identity providers are configured in Admin Settings \u2192 Authentication.",
+                  "content": "Identity providers are configured in Admin Settings → Authentication.",
                   "lineHeight": 1.5,
                   "fontFamily": "$typography/font-sans",
                   "fontSize": 14,

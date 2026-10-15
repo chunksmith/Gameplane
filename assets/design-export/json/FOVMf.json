@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "FOVMf",
-  "x": -12557,
-  "y": 33432,
+  "x": 1640,
+  "y": 89556,
   "name": "Screen/Standalone — Settings · About",
   "context": "Panel build version comes from authenticated installation metadata; standalone About does not fetch local Kubernetes metadata.",
   "theme": {
@@ -138,8 +138,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "WlxKs": {
                       "fill": "$surface/secondary"
+                    },
+                    "HsxmI": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "jY7mM": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },

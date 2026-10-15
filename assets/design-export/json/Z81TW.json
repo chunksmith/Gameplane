@@ -3,8 +3,8 @@
   "type": "ref",
   "reusable": true,
   "ref": "x3beP",
-  "x": -15757,
-  "y": 30632,
+  "x": 1584,
+  "y": 6880,
   "name": "Gameplane/Dialog/Register workload cluster",
   "theme": {
     "semantic": "dark"

@@ -2,7 +2,7 @@
   "type": "frame",
   "id": "DxKOh",
   "x": 0,
-  "y": 20715,
+  "y": 71469,
   "name": "Screen/Audit Log",
   "theme": {
     "semantic": "dark"
@@ -1259,31 +1259,18 @@
                       "fontWeight": "normal"
                     },
                     {
-                      "type": "frame",
-                      "id": "HFLEM",
+                      "id": "BI9op",
+                      "type": "ref",
+                      "ref": "i6gfu",
                       "name": "btnLoadMore",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "padding": [
-                        0,
-                        16
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "b7KUIo",
-                          "fill": "$foreground/foreground",
-                          "content": "Load more",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "500"
+                      "descendants": {
+                        "FCYQ9": {
+                          "enabled": false
+                        },
+                        "GqVun": {
+                          "content": "Load more"
                         }
-                      ]
+                      }
                     }
                   ]
                 }

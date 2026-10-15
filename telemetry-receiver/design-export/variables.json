@@ -39,6 +39,14 @@
     "dark": "#3987e5",
     "light": "#2a78d6"
   },
+  "chart/series-3": {
+    "dark": "#008300",
+    "light": "#008300"
+  },
+  "chart/series-4": {
+    "dark": "#c98500",
+    "light": "#eda100"
+  },
   "chart/track": {
     "dark": "#EC48992E",
     "light": "#DB27771F"

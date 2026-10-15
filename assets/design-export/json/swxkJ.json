@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "swxkJ",
-  "x": 1640,
-  "y": 10375,
+  "x": 0,
+  "y": 39307,
   "name": "Screen/Server Detail — Settings · Version",
   "theme": {
     "semantic": "dark"
@@ -428,29 +428,15 @@
                                               "fontWeight": "500"
                                             },
                                             {
-                                              "type": "frame",
-                                              "id": "o5lAGm",
+                                              "id": "mmtrb",
+                                              "type": "ref",
+                                              "ref": "kGH2O",
                                               "name": "badgeDefault",
-                                              "fill": "$accent/soft",
-                                              "cornerRadius": 4,
-                                              "padding": [
-                                                2,
-                                                8
-                                              ],
-                                              "justifyContent": "center",
-                                              "alignItems": "center",
-                                              "children": [
-                                                {
-                                                  "type": "text",
-                                                  "id": "Lw6aa",
-                                                  "name": "t",
-                                                  "fill": "$accent/accent",
-                                                  "content": "Default",
-                                                  "fontFamily": "$typography/font-sans",
-                                                  "fontSize": 11,
-                                                  "fontWeight": "500"
+                                              "descendants": {
+                                                "O1PqF5": {
+                                                  "content": "Default"
                                                 }
-                                              ]
+                                              }
                                             }
                                           ]
                                         },

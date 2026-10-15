@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "tTSdi",
-  "x": 3280,
-  "y": 16865,
+  "x": 0,
+  "y": 62369,
   "name": "Screen/Backups — Restores",
   "theme": {
     "semantic": "dark"

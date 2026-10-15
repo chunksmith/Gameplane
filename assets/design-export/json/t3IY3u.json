@@ -4,8 +4,8 @@
   "reusable": true,
   "ref": "x3beP",
   "name": "Gameplane/Dialog/Edit User",
-  "x": -16505,
-  "y": 29203,
+  "x": 160,
+  "y": 6274,
   "effect": {
     "type": "shadow",
     "shadowType": "outer",

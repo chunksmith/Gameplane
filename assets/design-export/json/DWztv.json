@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "DWztv",
-  "x": 1188,
-  "y": 23115,
+  "x": 5510,
+  "y": 14602,
   "name": "Screen/Mobile — Servers (Light)",
   "context": "Unified mobile server list. Location and namespace identify every card; location selection is inside the Filter popover. Below-fold cards remain scrollable in the app.",
   "theme": {
@@ -189,30 +189,15 @@
                       ]
                     },
                     {
-                      "type": "frame",
-                      "id": "Q0KUgq",
+                      "id": "ccAMx",
+                      "type": "ref",
+                      "ref": "UOoQW",
                       "name": "statusPill",
-                      "height": 24,
-                      "fill": "$success/soft",
-                      "cornerRadius": "$radius/2xl",
-                      "gap": 2,
-                      "padding": [
-                        2,
-                        4
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "d0ZSI5",
-                          "name": "Label",
-                          "fill": "$success/soft-foreground",
-                          "content": "Running",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "500"
+                      "descendants": {
+                        "YXoPG": {
+                          "content": "Running"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
@@ -242,80 +227,36 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "CFhOc",
+                      "id": "Febh1",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "players chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "vZPiG",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "group",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "SaaAN",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "0/20",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "0/20"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "azXbq",
+                      "id": "pciaN",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "memory chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "QL971",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "database",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "pkQV8",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "38%",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "38%"
                         }
-                      ]
+                      }
                     }
                   ]
                 }
@@ -420,30 +361,15 @@
                       ]
                     },
                     {
-                      "type": "frame",
-                      "id": "VilnW",
+                      "id": "fcq4V",
+                      "type": "ref",
+                      "ref": "Yeemi",
                       "name": "statusPill",
-                      "height": 24,
-                      "fill": "$danger/soft",
-                      "cornerRadius": "$radius/2xl",
-                      "gap": 2,
-                      "padding": [
-                        2,
-                        4
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "CqZ7E",
-                          "name": "Label",
-                          "fill": "$danger/soft-foreground",
-                          "content": "Failed",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "500"
+                      "descendants": {
+                        "fRdhX": {
+                          "content": "Failed"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
@@ -473,80 +399,36 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "EXUyf",
+                      "id": "N3CZac",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "players chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "g6X0tf",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "group",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "IzBck",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "—",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "—"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "mn02M",
+                      "id": "O3qk0",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "memory chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "nyWKu",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "database",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "bTW2P",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "0%",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "0%"
                         }
-                      ]
+                      }
                     }
                   ]
                 }
@@ -651,30 +533,17 @@
                       ]
                     },
                     {
-                      "type": "frame",
-                      "id": "r3Dt0",
-                      "name": "statusPill",
-                      "height": 24,
+                      "id": "x8Zg2j",
+                      "type": "ref",
+                      "ref": "KmZnF",
                       "fill": "$focus/soft",
-                      "cornerRadius": "$radius/2xl",
-                      "gap": 2,
-                      "padding": [
-                        2,
-                        4
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "YAzi0",
-                          "name": "Label",
-                          "fill": "$focus/soft-foreground",
+                      "name": "statusPill",
+                      "descendants": {
+                        "xZ9ah": {
                           "content": "Asleep",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "500"
+                          "fill": "$focus/soft-foreground"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
@@ -704,80 +573,36 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "K8Rik",
+                      "id": "eZzz6",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "players chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "ItkZr",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "group",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "YCfed",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "—",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "—"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "JT5ZT",
+                      "id": "L7AZu",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "memory chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "FS8NB",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "database",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "fZXNg",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "—",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "—"
                         }
-                      ]
+                      }
                     }
                   ]
                 }
@@ -880,30 +705,15 @@
                       ]
                     },
                     {
-                      "type": "frame",
-                      "id": "JeDuq",
+                      "id": "YMfZU",
+                      "type": "ref",
+                      "ref": "UOoQW",
                       "name": "statusPill",
-                      "height": 24,
-                      "fill": "$success/soft",
-                      "cornerRadius": "$radius/2xl",
-                      "gap": 2,
-                      "padding": [
-                        2,
-                        4
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "cxVew",
-                          "name": "Label",
-                          "fill": "$success/soft-foreground",
-                          "content": "Running",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "500"
+                      "descendants": {
+                        "YXoPG": {
+                          "content": "Running"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
@@ -933,80 +743,36 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "ONkHk",
+                      "id": "x4tG6",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "players chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "i2YxV3",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "group",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "KTvHZ",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "4/20",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "4/20"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "S4RPDt",
+                      "id": "xudaj",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "memory chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "o7m8b",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "database",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "PLDIK",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "78%",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "78%"
                         }
-                      ]
+                      }
                     }
                   ]
                 }
@@ -1111,30 +877,15 @@
                       ]
                     },
                     {
-                      "type": "frame",
-                      "id": "D3iriY",
+                      "id": "X2Q1bA",
+                      "type": "ref",
+                      "ref": "UOoQW",
                       "name": "statusPill",
-                      "height": 24,
-                      "fill": "$success/soft",
-                      "cornerRadius": "$radius/2xl",
-                      "gap": 2,
-                      "padding": [
-                        2,
-                        4
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "W7XhC",
-                          "name": "Label",
-                          "fill": "$success/soft-foreground",
-                          "content": "Running",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "500"
+                      "descendants": {
+                        "YXoPG": {
+                          "content": "Running"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
@@ -1164,80 +915,36 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "YIn4r",
+                      "id": "qVlBD",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "players chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "V7FKfC",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "group",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "clmpM",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "0/20",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "0/20"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "scRWr",
+                      "id": "R40qca",
+                      "type": "ref",
+                      "ref": "WbZKI",
                       "name": "memory chip",
-                      "cornerRadius": 9999,
-                      "stroke": "$border/border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 8,
-                      "padding": [
-                        7,
-                        14
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "TjCz5",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "ypl0v": {
+                          "enabled": true,
                           "icon": "database",
-                          "library": "Material Symbols Sharp",
-                          "weight": 400,
-                          "fill": "$muted"
+                          "library": "Material Symbols Sharp"
                         },
-                        {
-                          "type": "text",
-                          "id": "lgNXm",
-                          "name": "label",
-                          "fill": "$muted",
-                          "content": "38%",
-                          "lineHeight": 1.5,
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                        "l0aed": {
+                          "content": "38%"
                         }
-                      ]
+                      }
                     }
                   ]
                 }

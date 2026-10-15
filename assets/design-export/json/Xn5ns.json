@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "Xn5ns",
-  "x": 1640,
-  "y": 9175,
+  "x": 0,
+  "y": 27607,
   "name": "Screen/Server Detail — Console",
   "theme": {
     "semantic": "dark"
@@ -102,103 +102,11 @@
           "layout": "vertical",
           "children": [
             {
-              "type": "frame",
-              "id": "zCH9a",
+              "id": "cx9wt",
+              "type": "ref",
+              "ref": "qYOZe",
               "name": "Console Toolbar",
-              "width": "fill_container",
-              "stroke": "$border/border",
-              "strokeWidth": {
-                "bottom": 1
-              },
-              "strokeAlignment": "inner",
-              "strokeLinejoin": "round",
-              "padding": [
-                8,
-                16
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "pkSg1",
-                  "name": "Live Indicator",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "ellipse",
-                      "id": "Cb63H",
-                      "name": "Live Dot",
-                      "fill": "$success/success",
-                      "width": 8,
-                      "height": 8
-                    },
-                    {
-                      "type": "text",
-                      "id": "Dkyh5",
-                      "name": "Live Label",
-                      "fill": "$foreground/foreground",
-                      "content": "LIVE",
-                      "fontFamily": "$typography/font-mono",
-                      "fontSize": 12,
-                      "fontWeight": "700",
-                      "letterSpacing": 1
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "LfoOE",
-                  "name": "Console Actions",
-                  "gap": 4,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "cRdEK",
-                      "type": "ref",
-                      "ref": "J09iP",
-                      "name": "Btn Clear",
-                      "descendants": {
-                        "eWkIT/WtPjS": {
-                          "icon": "eraser"
-                        },
-                        "eWkIT/r4VbAi": {
-                          "content": "Clear"
-                        }
-                      }
-                    },
-                    {
-                      "id": "wmCmM",
-                      "type": "ref",
-                      "ref": "J09iP",
-                      "name": "Btn Download",
-                      "descendants": {
-                        "eWkIT/WtPjS": {
-                          "icon": "download"
-                        },
-                        "eWkIT/r4VbAi": {
-                          "content": "Download"
-                        }
-                      }
-                    },
-                    {
-                      "id": "wqN9A",
-                      "type": "ref",
-                      "ref": "J09iP",
-                      "name": "Btn Fullscreen",
-                      "descendants": {
-                        "eWkIT/WtPjS": {
-                          "icon": "maximize-2"
-                        },
-                        "eWkIT/r4VbAi": {
-                          "content": "Fullscreen"
-                        }
-                      }
-                    }
-                  ]
-                }
-              ]
+              "width": "fill_container"
             },
             {
               "type": "frame",

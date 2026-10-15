@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "tY6RD",
-  "x": 16400,
-  "y": 9175,
+  "x": 0,
+  "y": 32807,
   "name": "Screen/Server Detail — Modpacks",
   "theme": {
     "semantic": "dark"
@@ -192,152 +192,70 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "frame",
-                  "id": "mgSl2",
+                  "id": "l0Nia",
+                  "type": "ref",
+                  "ref": "YAWC6",
                   "name": "chipAll",
-                  "fill": "$accent/accent",
-                  "cornerRadius": 9999,
-                  "padding": [
-                    2,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "k8f19w",
-                      "fill": "$accent/foreground",
-                      "content": "All",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 11,
-                      "fontWeight": "500"
+                  "descendants": {
+                    "HP3d4": {
+                      "content": "All"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "Kukgb",
+                  "id": "wpLcr",
+                  "type": "ref",
+                  "ref": "Xjvn1",
                   "name": "chipAdventure",
-                  "cornerRadius": 9999,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "padding": [
-                    2,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "QpdvQ",
-                      "fill": "$muted",
-                      "content": "Adventure",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                  "descendants": {
+                    "goLBy": {
+                      "content": "Adventure"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "eP3Qu",
+                  "id": "x2Im6",
+                  "type": "ref",
+                  "ref": "Xjvn1",
                   "name": "chipTech",
-                  "cornerRadius": 9999,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "padding": [
-                    2,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "lL8CZ",
-                      "fill": "$muted",
-                      "content": "Tech",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                  "descendants": {
+                    "goLBy": {
+                      "content": "Tech"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "WqYWk",
+                  "id": "ZNuPc",
+                  "type": "ref",
+                  "ref": "Xjvn1",
                   "name": "chipMagic",
-                  "cornerRadius": 9999,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "padding": [
-                    2,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "S0LIP",
-                      "fill": "$muted",
-                      "content": "Magic",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                  "descendants": {
+                    "goLBy": {
+                      "content": "Magic"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "MG8OE",
+                  "id": "n2P3kn",
+                  "type": "ref",
+                  "ref": "Xjvn1",
                   "name": "chipOptimized",
-                  "cornerRadius": 9999,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "padding": [
-                    2,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "awOPQ",
-                      "fill": "$muted",
-                      "content": "Optimized",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                  "descendants": {
+                    "goLBy": {
+                      "content": "Optimized"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "k9JnY",
+                  "id": "qg5BV",
+                  "type": "ref",
+                  "ref": "Xjvn1",
                   "name": "chipMultiplayer",
-                  "cornerRadius": 9999,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "padding": [
-                    2,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "U1ZSi",
-                      "fill": "$muted",
-                      "content": "Multiplayer",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                  "descendants": {
+                    "goLBy": {
+                      "content": "Multiplayer"
                     }
-                  ]
+                  }
                 }
               ]
             },

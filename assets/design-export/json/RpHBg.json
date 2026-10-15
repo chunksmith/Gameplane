@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "RpHBg",
-  "x": -15757,
-  "y": 32032,
+  "x": 6560,
+  "y": 63669,
   "name": "Screen/Standalone — Register cluster",
   "context": "PR #630. Modal actions use central cluster-management permission. Dismissing is disabled during submission.",
   "theme": {

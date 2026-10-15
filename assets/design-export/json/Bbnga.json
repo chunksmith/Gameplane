@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "Bbnga",
-  "x": 19680,
-  "y": 10375,
+  "x": 0,
+  "y": 36707,
   "name": "Screen/Server Detail — Capture (Not enabled)",
   "theme": {
     "semantic": "dark"

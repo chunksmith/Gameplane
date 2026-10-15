@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "opmcF",
-  "x": -13350.0544367535,
-  "y": 26352.997924316056,
+  "x": 160,
+  "y": 1886,
   "name": "Gameplane/Wizard Modal Header",
   "reusable": true,
   "width": 760,

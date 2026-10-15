@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "XL5ZU",
-  "x": -16899,
-  "y": 26399,
+  "x": 4300,
+  "y": 3906,
   "name": "Gameplane/Removable Group Chip/Orange",
   "reusable": true,
   "fill": "$warning/soft",

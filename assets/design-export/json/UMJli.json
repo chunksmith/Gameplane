@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "UMJli",
-  "x": 6560,
-  "y": 13295,
+  "x": 0,
+  "y": 22782,
   "name": "Screen/Create Server — Step 5 Review",
   "theme": {
     "semantic": "dark"
@@ -991,137 +991,11 @@
                       ],
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "wRwBv",
+                          "id": "kB0Nl",
+                          "type": "ref",
+                          "ref": "yJovP",
                           "name": "wrYaml",
-                          "width": "fill_container",
-                          "fill": "$background/background",
-                          "cornerRadius": 6,
-                          "layout": "vertical",
-                          "padding": 12,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "tefET",
-                              "name": "Line",
-                              "fill": "#7bb4f5",
-                              "content": "apiVersion: gameplane.local/v1alpha1",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "GjA0F",
-                              "name": "Line",
-                              "fill": "#7bb4f5",
-                              "content": "kind: GameServer",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "V6O6pZ",
-                              "name": "Line",
-                              "fill": "#d4d4d4",
-                              "content": "metadata:",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "nCnZQ",
-                              "name": "Line",
-                              "fill": "#a7e39a",
-                              "content": "  name: mc-survival",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "OGkM4",
-                              "name": "Line",
-                              "fill": "#d4d4d4",
-                              "content": "spec:",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "e2KaM",
-                              "name": "Line",
-                              "fill": "#a7e39a",
-                              "content": "  template: minecraft-java",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "s2pPfQ",
-                              "name": "Line",
-                              "fill": "#a7e39a",
-                              "content": "  version: fabric-1.21.4",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "CsKzA",
-                              "name": "Line",
-                              "fill": "#d4d4d4",
-                              "content": "  resources:",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "uo2xY",
-                              "name": "Line",
-                              "fill": "#ffb86c",
-                              "content": "    cpu: 2000m",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "N3xfdI",
-                              "name": "Line",
-                              "fill": "#ffb86c",
-                              "content": "    memory: 6Gi",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "text",
-                              "id": "lWrhs",
-                              "name": "Line",
-                              "fill": "#ffb86c",
-                              "content": "  storage: 50Gi",
-                              "lineHeight": 1.6,
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                          "width": "fill_container"
                         }
                       ]
                     },

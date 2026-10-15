@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "tkoqz",
-  "x": -13350.0544367535,
-  "y": 27174.997924316056,
+  "x": 2560,
+  "y": 3428,
   "name": "Gameplane/RBAC Filter Row",
   "reusable": true,
   "width": 1152,

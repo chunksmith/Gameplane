@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "Uzzje",
-  "x": -14157,
-  "y": 33432,
+  "x": 1640,
+  "y": 88256,
   "name": "Screen/Standalone — Settings · Updates",
   "context": "PR #630 standalone installation. No local Kubernetes metadata or local workload fallback. Master-key storage and offline rotation have no dashboard controls.",
   "theme": {
@@ -138,8 +138,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "bwo3a": {
                       "fill": "$surface/secondary"
+                    },
+                    "KzGJD": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "Y1aPw": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },
@@ -246,4 +258,3 @@
     }
   ]
 }
-

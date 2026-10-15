@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "OC804",
-  "x": 41600,
-  "y": 10375,
+  "x": 0,
+  "y": 40607,
   "name": "Screen/Server Detail — Settings · Game configuration",
   "theme": {
     "semantic": "dark"

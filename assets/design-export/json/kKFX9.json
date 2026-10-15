@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "kKFX9",
-  "x": -17185,
-  "y": 25039,
+  "x": 160,
+  "y": 250,
   "name": "Gameplane/App Sidebar",
   "reusable": true,
   "width": 260,

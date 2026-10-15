@@ -2628,3 +2628,76 @@ re-exported with full Get JSON plus 2x PNGs to assets/design-export. No reusable
 component was changed. Modules keeps upstream spacing, filter width, grid
 alignment and outline Create action alongside explicit target permissions and
 retained-draft error handling.
+
+## Canvas regroup 2026-10-15 — component boards and one row per page
+
+The canvas was reorganised so that every reusable component sits on a board at the top and every screen sits in one row per page, in dashboard navigation order, with its variants to the right. The rules are in `.claude/skills/pen-canvas-layout/SKILL.md`, and `check-layout.js` next to it verifies them. No node's content, size, style or component changed; only positions moved and, for components, the parent.
+
+- **Component band (y = 0).** `HeroUI: Design System Components` (`LtgNm`) moved to (0, 0). A new board, `Gameplane: App Components` (`i7OTip`, 4668×9022) at (3516, 0), holds all 105 Gameplane reusable components in nine labelled sections: Shell & navigation; Login & public pages; Buttons & form controls; Cards, rows & stats; Status rows, badges & chips; Banners; Menus, popovers & panels; Modals & dialogs; Page blocks. That count includes the 19 added by the component reuse pass below. The board's fill is transparent (`#00000000`) so the components show against the canvas. The `Shared Components Band` note (`ZThbo`) sits above it. The first screen row starts at y = 10222.
+- **Screen rows.** 161 root nodes sit in 57 rows, each labelled by a `Row NN · …` note at x = −1400. Row order: Login → App loading → Dashboard → Servers → Create server steps → Server detail tabs → Server settings sections → Modules → Backups → Clusters → Cluster settings → Users & RBAC → Audit log → System logs → Admin settings sections → Share link → Not found. Standalone, Mobile, Light and dialog-state variants moved into the row of the page they vary. Screens start at x = 0 with 200 px gaps, and rows are 400 px apart.
+- **Notes.** `m8wjom` and `I96cW` sit under `uMiwd`, `R6iab` under `QgW58`, `x71Cb` under `zqzr4`, and `zfi3t` under `x7MJI`.
+- **`o6u1PG`.** This unnamed, empty instance of the HeroUI `Modal` (`b9PGwR`) belonged to no page. At the maintainer's request it moved onto the HeroUI board at (2367, 3533), below `Modal Example`, as a Modal usage example. `LtgNm` grew from 3588 to 3853 px tall to fit it.
+
+**Export method & validation:**
+
+- **JSON files whose node only moved** changed only their top-level `"x"`/`"y"`; components are now positioned relative to `i7OTip`. These are the files not re-exported by the component reuse pass below. The new positions came from a `Get(id, {depth: 0})` dump read straight from the agent transcript and checked against a checksum line. Each file was rewritten in place without re-serialising, keeping its line endings (36 files use CRLF), then re-parsed to confirm that only `x` and `y` changed (0 skipped).
+- `LtgNm.json` also gained the `o6u1PG` child and the new height, and `LtgNm.png` was re-exported (`Export(["LtgNm"], "png", …, {scale: 2})`, 6232×7706). No other screenshot was re-exported, because moving a node does not change its pixels.
+- `i7OTip`, a container whose components are exported individually, and the 57 row-label notes are not exported, like `ZThbo` and the other notes.
+- `check-layout.js` reports NO ISSUES: no loose components at the root, no overlapping root nodes, and every root node in a row.
+
+## Component reuse pass 2026-10-15 — screens use instances instead of copies
+
+Screens that rebuilt an existing component by hand now use instances of it, and UI repeated across screens became components. The procedure and its tools (`audit.js`, `promote.js`) are in `.claude/skills/pen-componentize/SKILL.md`.
+
+**New components (19), all on `i7OTip`:**
+
+| Id | Name | Replaced |
+| --- | --- | --- |
+| `vp8BJ` | `loginCardSso` | SSO-only login card in `ljdA5` |
+| `WbZKI` | `Gameplane/Metric Pill` | hand-built icon + value pills |
+| `Xjvn1` | `Gameplane/Tag` | hand-built outline tags |
+| `eJFRe` | `Gameplane/Filter Pill/Selected` | selected filter pills |
+| `X3uvsU` | `Gameplane/Filter Pill/Default` | unselected filter pills |
+| `rYAg3` | `Gameplane/Fleet Status Card` | 6 of 6 copies |
+| `Y96CaE` | `Gameplane/Cluster Resources Card` | 5 of 5 |
+| `DlNh6` | `Gameplane/Central Audit Activity Card` | 5 of 5 |
+| `Vl96v` | `Gameplane/Recent Backups Card` | 6 of 15 (the others are different cards with the same layout) |
+| `P9THP` | `Gameplane/Quick Actions Card` | 2 of 3 |
+| `nyU5X` | `Gameplane/Game Status Card` | 2 of 3 |
+| `qYOZe` | `Gameplane/Console Toolbar` | 3 of 3 |
+| `E9qpx` | `Gameplane/Create Server Preview` | 6 of 6 |
+| `BHT29` | `Gameplane/Port Overrides` | 6 of 6 |
+| `P6el1o` | `Gameplane/Expose Setting` | 6 of 6 |
+| `AqY5l` | `Gameplane/Modules Filter Bar` | 3 of 3 |
+| `Mv1XP` | `Gameplane/Module Card/Installed` | 15 of 15 |
+| `MRJ8b` | `Gameplane/Module Card/Available` | 9 of 9 |
+| `yJovP` | `Gameplane/YAML Block` | 3 of 3 |
+
+Each promoted occurrence was replaced only when the resolved instance matched the original frame exactly; otherwise the original was kept. `w34N9`'s "Recent activity" card had matched the Recent Backups Card's layout and was restored as its own frame.
+
+**Other changes:**
+
+- Hand-built navigation and header copies now use the shell components: Server Settings Sub Nav (`EV8mp`) on `hLB9Z` and `dQV9N`, Admin Settings Nav (`Mp7Ep`) on `nNGDX`, `QgW58` and `zqzr4`, Server Detail Header (`S4k0x`) on `FtdkI`, and the `loginCardSso` instance in `ljdA5`.
+- 176 hand-built buttons, chips, inputs and pills on 23 screens became HeroUI or Gameplane component instances. Their labels, icons and monospace fonts were kept as overrides. The control's shape follows the component.
+- `Gameplane/Error Banner` (`igj2U`) gained the red `circle-alert` icon that `web/src/components/ui/ErrorBanner.tsx` renders. Its instances on `Bbnga`, `QgW58` and `akr4I` show it.
+- Admin Settings Nav instances on 23 screens now give the active item bright text and the General item muted text. Before, only the background moved.
+- 12 button instances that still read "Button" now carry the app's labels: Download kubeconfig, Audit log, Add, Add variable, Add from secret, Save role mappings. The 12 role-mapping inputs that read "Placeholder" now read "Add IdP group name…".
+
+**Intended visual differences** (everything else was compared before and after and matches):
+
+- Button and chip shapes follow their components (radius, padding, label weight).
+- `hLB9Z` and `dQV9N` show the server-settings sub nav like the other 29 server-settings screens and the app (centred labels, no icons).
+- The admin nav on `nNGDX`, `QgW58` and `zqzr4` includes Theme.
+- Provenance badges on `nNGDX` and `QgW58` use the Provenance Badge components, as `ProvenanceBadge.tsx` does.
+
+**Export method & validation:**
+
+- **93 JSON files** re-exported in full: 74 updated and 19 new. Source: `JSON.stringify(Get(id, {depth: 60, includePathGeometry: true}))`, printed in 20,000-character chunks and stitched from the agent transcripts. Each file is checked to parse, to have a matching root id, and to contain no `"..."` elision, and it keeps its previous indentation and line endings.
+- **95 PNGs** re-exported with `Export(ids, "png", …, {scale: 2})`: the 93 nodes plus `Bbnga` and `akr4I`.
+- Every other exported node's top-level `x`/`y` was re-patched after the board repack and row shift. A second dump shows 0 remaining differences across all 427 previously exported ids. `m1hP1j` has no position.
+- `check-layout.js` reports NO ISSUES (226 root nodes, 282 components on boards, 57 rows, 161 screens).
+- `audit.js` still lists the following. They are left for a design decision:
+  - the Game Status and Quick Actions blocks on four Overview variants (`EZFW0`, `o4LH8W`, `Hy9r0`, `sSISK`), built differently from the new components;
+  - `vUqMl`'s code block next to YAML Block;
+  - hand-built controls in the Build Module dialog (`IdbiB`, `O5kaV`), `Y5cmvI` and the Overview variants;
+  - 23 repeated structures (Metrics Row, Modal container, Build Module stepper and others).

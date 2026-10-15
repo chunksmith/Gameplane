@@ -2,7 +2,7 @@
   "type": "frame",
   "id": "dxdEi",
   "x": 1640,
-  "y": 18315,
+  "y": 64969,
   "name": "Screen/Cluster Settings — Default storage class",
   "theme": {
     "semantic": "dark"
@@ -103,7 +103,16 @@
                           "id": "kwrNY",
                           "type": "ref",
                           "ref": "rNhll",
-                          "name": "Download kubeconfig"
+                          "name": "Download kubeconfig",
+                          "descendants": {
+                            "wDXFJ/K8d1zg": {
+                              "enabled": true,
+                              "icon": "download"
+                            },
+                            "wDXFJ/zMNkR": {
+                              "content": "Download kubeconfig"
+                            }
+                          }
                         },
                         {
                           "id": "b6ekQ",

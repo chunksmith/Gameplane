@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "zqzr4",
-  "x": 19280,
-  "y": 21915,
+  "x": 4920,
+  "y": 77915,
   "name": "Screen/Admin Settings — Authentication (Admin mapping warning)",
   "theme": {
     "semantic": "dark"
@@ -93,334 +93,31 @@
               "gap": 24,
               "children": [
                 {
-                  "type": "frame",
-                  "id": "sfDJI",
+                  "id": "XI1ro",
+                  "type": "ref",
+                  "ref": "Mp7Ep",
                   "name": "Settings Nav",
                   "width": 220,
-                  "layout": "vertical",
-                  "gap": 2,
-                  "padding": [
-                    8,
-                    0
-                  ],
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "ClnQe",
-                      "name": "snGeneral",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "y6QUJp",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "cog",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "ziJyr",
-                          "fill": "$muted",
-                          "content": "General",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                  "descendants": {
+                    "eIjoV": {
+                      "fill": "#00000000"
                     },
-                    {
-                      "type": "frame",
-                      "id": "t7F1W",
-                      "name": "snAuth",
-                      "width": "fill_container",
-                      "height": 36,
-                      "fill": "$surface/secondary",
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "JwWCS",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "shield-check",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$foreground/foreground"
-                        },
-                        {
-                          "type": "text",
-                          "id": "FsGGn",
-                          "fill": "$foreground/foreground",
-                          "content": "Authentication",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                    "XuGUZ": {
+                      "fill": "$muted"
                     },
-                    {
-                      "type": "frame",
-                      "id": "X0OlD6",
-                      "name": "snBackups",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "saieg",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "archive",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "T0fqf",
-                          "fill": "$muted",
-                          "content": "Backup destinations",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                    "DpMnt": {
+                      "fill": "$muted"
                     },
-                    {
-                      "type": "frame",
-                      "id": "FxW3a",
-                      "name": "snModules",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "EkLGl",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "boxes",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "IWzwc",
-                          "fill": "$muted",
-                          "content": "Module sources",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                    "XEjdq": {
+                      "fill": "$surface/secondary"
                     },
-                    {
-                      "type": "frame",
-                      "id": "DUl2F",
-                      "name": "snModRegistries",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "pGBuW",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "key",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "nFWuL",
-                          "fill": "$muted",
-                          "content": "Mod registries",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                    "i7B23P": {
+                      "fill": "$foreground/foreground"
                     },
-                    {
-                      "type": "frame",
-                      "id": "m0aTEf",
-                      "name": "snNotifications",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "NEQfu",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "bell",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "XPDtC",
-                          "fill": "$muted",
-                          "content": "Notifications",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "Mojjc",
-                      "name": "snTelemetry",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "eFBdm",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "activity",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "WRCOi",
-                          "fill": "$muted",
-                          "content": "Telemetry",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "HPI1Z",
-                      "name": "snUpdates",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "COFD2",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "refresh-ccw",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "Sdkji",
-                          "fill": "$muted",
-                          "content": "Updates",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "OKgQO",
-                      "name": "snAbout",
-                      "width": "fill_container",
-                      "height": 36,
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        8,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "aqCEt",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "info",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$muted"
-                        },
-                        {
-                          "type": "text",
-                          "id": "bN9Ue",
-                          "fill": "$muted",
-                          "content": "About",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 14,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                    "BW5lA": {
+                      "fill": "$foreground/foreground"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -568,28 +265,16 @@
                                       ]
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "ewGiL",
+                                      "id": "YB7Z9",
+                                      "type": "ref",
+                                      "ref": "UOoQW",
                                       "name": "enabledPill",
-                                      "fill": "#21C45D26",
-                                      "cornerRadius": 4,
-                                      "padding": [
-                                        2,
-                                        8
-                                      ],
-                                      "justifyContent": "center",
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "R4x0M",
-                                          "fill": "#21C45D",
+                                      "descendants": {
+                                        "YXoPG": {
                                           "content": "ENABLED",
-                                          "fontFamily": "$typography/font-mono",
-                                          "fontSize": 10,
-                                          "fontWeight": "normal"
+                                          "fontFamily": "$typography/font-mono"
                                         }
-                                      ]
+                                      }
                                     }
                                   ]
                                 }
@@ -1383,28 +1068,16 @@
                                   "fontWeight": "normal"
                                 },
                                 {
-                                  "type": "frame",
-                                  "id": "zrRTb",
+                                  "id": "AvCwJ",
+                                  "type": "ref",
+                                  "ref": "WIvfi",
                                   "name": "defaultRolePill",
-                                  "fill": "$default/default",
-                                  "cornerRadius": 9999,
-                                  "gap": 4,
-                                  "padding": 8,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "ENbG6",
-                                      "name": "Text",
-                                      "fill": "$foreground/foreground",
+                                  "descendants": {
+                                    "aklYV": {
                                       "content": "viewer",
-                                      "lineHeight": 1.1428571428571428,
-                                      "fontFamily": "$typography/font-mono",
-                                      "fontSize": 14,
-                                      "fontWeight": "normal"
+                                      "fontFamily": "$typography/font-mono"
                                     }
-                                  ]
+                                  }
                                 }
                               ]
                             },
@@ -1454,28 +1127,16 @@
                                       "alignItems": "center",
                                       "children": [
                                         {
-                                          "type": "frame",
-                                          "id": "IMU55",
+                                          "id": "E85gD",
+                                          "type": "ref",
+                                          "ref": "Qou47",
                                           "name": "chip_admin_gameplane-admins",
-                                          "fill": "$warning/soft",
-                                          "cornerRadius": 9999,
-                                          "gap": 4,
-                                          "padding": 8,
-                                          "justifyContent": "center",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "GgFF1",
-                                              "name": "Text",
-                                              "fill": "$warning/soft-foreground",
+                                          "descendants": {
+                                            "z0QlNZ": {
                                               "content": "gameplane-admins",
-                                              "lineHeight": 1.1428571428571428,
-                                              "fontFamily": "$typography/font-mono",
-                                              "fontSize": 14,
-                                              "fontWeight": "normal"
+                                              "fontFamily": "$typography/font-mono"
                                             }
-                                          ]
+                                          }
                                         }
                                       ]
                                     }
@@ -1509,28 +1170,17 @@
                                       "alignItems": "center",
                                       "children": [
                                         {
-                                          "type": "frame",
-                                          "id": "EeVyS",
+                                          "id": "o3CpZ",
+                                          "type": "ref",
+                                          "ref": "WIvfi",
                                           "name": "chip_operator_gameplane-ops",
-                                          "fill": "$default/default",
-                                          "cornerRadius": 9999,
-                                          "gap": 4,
-                                          "padding": 8,
-                                          "justifyContent": "center",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "zHih6",
-                                              "name": "Text",
-                                              "fill": "$foreground/link",
+                                          "descendants": {
+                                            "aklYV": {
                                               "content": "gameplane-ops",
-                                              "lineHeight": 1.1428571428571428,
-                                              "fontFamily": "$typography/font-mono",
-                                              "fontSize": 14,
-                                              "fontWeight": "normal"
+                                              "fill": "$foreground/link",
+                                              "fontFamily": "$typography/font-mono"
                                             }
-                                          ]
+                                          }
                                         }
                                       ]
                                     }
@@ -1564,28 +1214,16 @@
                                       "alignItems": "center",
                                       "children": [
                                         {
-                                          "type": "frame",
-                                          "id": "g7fza7",
+                                          "id": "a0ZgjK",
+                                          "type": "ref",
+                                          "ref": "WIvfi",
                                           "name": "chip_viewer_gameplane-members",
-                                          "fill": "$default/default",
-                                          "cornerRadius": 9999,
-                                          "gap": 4,
-                                          "padding": 8,
-                                          "justifyContent": "center",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "l0Rk7b",
-                                              "name": "Text",
-                                              "fill": "$foreground/foreground",
+                                          "descendants": {
+                                            "aklYV": {
                                               "content": "gameplane-members",
-                                              "lineHeight": 1.1428571428571428,
-                                              "fontFamily": "$typography/font-mono",
-                                              "fontSize": 14,
-                                              "fontWeight": "normal"
+                                              "fontFamily": "$typography/font-mono"
                                             }
-                                          ]
+                                          }
                                         }
                                       ]
                                     }
@@ -1877,7 +1515,12 @@
                                       "id": "xGsEM",
                                       "type": "ref",
                                       "ref": "qvQPg",
-                                      "name": "inputAddGroup_admin"
+                                      "name": "inputAddGroup_admin",
+                                      "descendants": {
+                                        "tK3VZ": {
+                                          "content": "Add IdP group name…"
+                                        }
+                                      }
                                     },
                                     {
                                       "id": "GYFgR",
@@ -1999,7 +1642,12 @@
                                       "id": "cJqeu",
                                       "type": "ref",
                                       "ref": "qvQPg",
-                                      "name": "inputAddGroup_operator"
+                                      "name": "inputAddGroup_operator",
+                                      "descendants": {
+                                        "tK3VZ": {
+                                          "content": "Add IdP group name…"
+                                        }
+                                      }
                                     },
                                     {
                                       "id": "qBYNp",
@@ -2143,7 +1791,12 @@
                                       "id": "v1Yph1",
                                       "type": "ref",
                                       "ref": "qvQPg",
-                                      "name": "inputAddGroup_viewer"
+                                      "name": "inputAddGroup_viewer",
+                                      "descendants": {
+                                        "tK3VZ": {
+                                          "content": "Add IdP group name…"
+                                        }
+                                      }
                                     },
                                     {
                                       "id": "ulIjo",

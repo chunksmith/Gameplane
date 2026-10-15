@@ -1,14 +1,14 @@
 {
   "type": "frame",
   "id": "LtgNm",
-  "x": 416,
-  "y": -7988,
+  "x": 0,
+  "y": 0,
   "name": "HeroUI: Design System Components",
   "theme": {
     "semantic": "light"
   },
   "width": 3116,
-  "height": 3588,
+  "height": 3853,
   "fill": "$background/background",
   "layout": "none",
   "children": [
@@ -10187,6 +10187,13 @@
           ]
         }
       ]
+    },
+    {
+      "id": "o6u1PG",
+      "type": "ref",
+      "ref": "b9PGwR",
+      "x": 2367,
+      "y": 3533
     }
   ]
 }

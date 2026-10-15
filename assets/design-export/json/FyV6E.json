@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "FyV6E",
-  "x": -15622,
-  "y": 25707,
+  "x": 428,
+  "y": 4461,
   "name": "Gameplane/Filter Popover",
   "context": "Servers Filter: Location and Namespace are draft values. Apply commits; Clear resets drafts; dismissal discards changes.",
   "theme": {},

@@ -74,6 +74,15 @@ logs in at `/login` and gets a 12-hour session cookie; scripts can send
 the Bearer token. An unauthenticated request never sees a figure: the HTML
 redirects to `/login` and the JSON answers `401 {"error":"unauthorized"}`.
 
+Versions appear twice. "Reports by version" counts basic reports, so one
+install that reports daily adds one per day. "Versions by install" counts each
+extended-reporting install once, on its last version. Under it, "Version
+trend" shows per day how many installs upgraded, downgraded, changed between
+versions that have no semver order (such as `pr617` or `dev`), or ran a semver
+version lower than the newest one seen in the range. The trend is stored as
+daily counts only (`daily_install_version`, `daily_version_change`), never per
+install.
+
 ### Metrics
 
 On the dashboard listener, Bearer token required:

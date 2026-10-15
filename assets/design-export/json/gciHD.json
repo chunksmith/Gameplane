@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "gciHD",
-  "x": -13350.0544367535,
-  "y": 27724.997924316056,
+  "x": 160,
+  "y": 3428,
   "name": "Gameplane/Servers Controls Row",
   "reusable": true,
   "width": 1152,

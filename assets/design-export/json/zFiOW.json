@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "zFiOW",
-  "x": 4920,
-  "y": 5700,
+  "x": 1640,
+  "y": 14602,
   "name": "Screen/Servers (Light)",
   "theme": {
     "semantic": "light"
@@ -438,28 +438,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "Ivl0r",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "Gx4cF",
-                              "fill": "$success/soft-foreground",
+                          "id": "FZ5nU",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -749,28 +736,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "jXblU",
-                          "height": 20,
-                          "fill": "$danger/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "Z3sjsW",
-                              "fill": "$danger/soft-foreground",
+                          "id": "RyfRW",
+                          "type": "ref",
+                          "ref": "aRSiy",
+                          "descendants": {
+                            "bJYeQ": {
                               "content": "Failed",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -1059,28 +1033,17 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "suGdm",
-                          "height": 20,
+                          "id": "aeVyL",
+                          "type": "ref",
+                          "ref": "WIvfi",
                           "fill": "$color-sleep",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "Atus3",
-                              "fill": "$color-sleep-foreground",
+                          "descendants": {
+                            "aklYV": {
                               "content": "Asleep",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fill": "$color-sleep-foreground",
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -1371,28 +1334,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "M13H9",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "YvLqg",
-                              "fill": "$success/soft-foreground",
+                          "id": "rBwyz",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -1682,28 +1632,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "uiE84",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "BnGBo",
-                              "fill": "$success/soft-foreground",
+                          "id": "uuQ4s",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -1993,28 +1930,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "LaCzW",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "lcfTh",
-                              "fill": "$success/soft-foreground",
+                          "id": "SHPAQ",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -2306,28 +2230,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "b72wCd",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "PKCG1",
-                              "fill": "$success/soft-foreground",
+                          "id": "K3q2vg",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -2617,28 +2528,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "xxuKy",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "iwhDb",
-                              "fill": "$success/soft-foreground",
+                          "id": "MWGz4",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -2928,28 +2826,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "iPUfb",
-                          "height": 20,
-                          "fill": "$danger/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "bc7Et",
-                              "fill": "$danger/soft-foreground",
+                          "id": "y7lP7J",
+                          "type": "ref",
+                          "ref": "aRSiy",
+                          "descendants": {
+                            "bJYeQ": {
                               "content": "Failed",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -3238,28 +3123,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "J82ilg",
-                          "height": 20,
-                          "fill": "$success/soft",
-                          "cornerRadius": 4,
-                          "padding": [
-                            0,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "wgYwW",
-                              "fill": "$success/soft-foreground",
+                          "id": "G8Mej",
+                          "type": "ref",
+                          "ref": "NUn6y",
+                          "descendants": {
+                            "kAxyK": {
                               "content": "Running",
-                              "fontFamily": "JetBrains Mono",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                              "fontFamily": "JetBrains Mono"
                             }
-                          ]
+                          }
                         }
                       ]
                     },

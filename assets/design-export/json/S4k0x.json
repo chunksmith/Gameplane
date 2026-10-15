@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "S4k0x",
-  "x": -15672,
-  "y": 25149,
+  "x": 160,
+  "y": 1198,
   "name": "Gameplane/Server Detail Header",
   "context": "Server-scoped identity. Actions follow this server location; never fall back to a local namesake. Mobile actions wrap into rows.",
   "reusable": true,

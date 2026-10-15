@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "I9kvlZ",
-  "x": -16881,
-  "y": 25187,
+  "x": 1304,
+  "y": 1198,
   "name": "Gameplane/Server Detail Tabs",
   "context": "On narrow screens only this tab strip scrolls horizontally. Selecting Capture keeps it visible; page width stays within viewport.",
   "reusable": true,

@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "uMiwd",
-  "x": 3280,
-  "y": 21915,
+  "x": 0,
+  "y": 77915,
   "name": "Screen/Admin Settings — Authentication",
   "theme": {
     "semantic": "dark"
@@ -461,8 +461,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "XEjdq": {
                       "fill": "$surface/secondary"
+                    },
+                    "i7B23P": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "BW5lA": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },
@@ -1135,7 +1147,12 @@
                                       "id": "OjWGm",
                                       "type": "ref",
                                       "ref": "qvQPg",
-                                      "name": "inputAddGroup_admin"
+                                      "name": "inputAddGroup_admin",
+                                      "descendants": {
+                                        "tK3VZ": {
+                                          "content": "Add IdP group name…"
+                                        }
+                                      }
                                     },
                                     {
                                       "id": "nWhfz",
@@ -1260,7 +1277,12 @@
                                       "id": "i6SXVx",
                                       "type": "ref",
                                       "ref": "qvQPg",
-                                      "name": "inputAddGroup_operator"
+                                      "name": "inputAddGroup_operator",
+                                      "descendants": {
+                                        "tK3VZ": {
+                                          "content": "Add IdP group name…"
+                                        }
+                                      }
                                     },
                                     {
                                       "id": "Q3y5d",
@@ -1398,7 +1420,12 @@
                                       "id": "G40RR1",
                                       "type": "ref",
                                       "ref": "qvQPg",
-                                      "name": "inputAddGroup_viewer"
+                                      "name": "inputAddGroup_viewer",
+                                      "descendants": {
+                                        "tK3VZ": {
+                                          "content": "Add IdP group name…"
+                                        }
+                                      }
                                     },
                                     {
                                       "id": "uPsmR",
@@ -1450,7 +1477,15 @@
                               "id": "kFILh",
                               "type": "ref",
                               "ref": "rNhll",
-                              "name": "Btn Save Role Mappings"
+                              "name": "Btn Save Role Mappings",
+                              "descendants": {
+                                "wDXFJ/K8d1zg": {
+                                  "enabled": false
+                                },
+                                "wDXFJ/zMNkR": {
+                                  "content": "Save role mappings"
+                                }
+                              }
                             }
                           ]
                         }

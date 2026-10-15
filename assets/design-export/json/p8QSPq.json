@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "p8QSPq",
-  "x": -17357,
-  "y": 34832,
+  "x": 6560,
+  "y": 55687,
   "name": "Screen/Standalone — Modules (Manage sources)",
   "context": "Background refetch failures display an inline retry banner and retain existing data plus open install/upload/builder/source drafts. Only an initial failure replaces loading content. Explicit target changes discard drafts.",
   "theme": {
@@ -296,39 +296,20 @@
                       ]
                     },
                     {
-                      "type": "frame",
-                      "id": "RxHiA",
+                      "id": "P49bb",
+                      "type": "ref",
+                      "ref": "j9c5W",
                       "name": "btnAddSource",
-                      "height": 32,
-                      "fill": "$accent/accent",
-                      "cornerRadius": 6,
-                      "gap": 8,
-                      "padding": [
-                        0,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "tuDoD",
-                          "width": 14,
-                          "height": 14,
+                      "descendants": {
+                        "n8Hmwk": {
+                          "enabled": true,
                           "icon": "plus",
-                          "library": "lucide",
-                          "fill": "$accent/foreground"
+                          "library": "lucide"
                         },
-                        {
-                          "type": "text",
-                          "id": "T1mVdr",
-                          "fill": "$accent/foreground",
-                          "content": "Add source",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "500"
+                        "U1xvSo": {
+                          "content": "Add source"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
@@ -394,27 +375,17 @@
                                   "fontWeight": "500"
                                 },
                                 {
-                                  "type": "frame",
-                                  "id": "D8xlhC",
+                                  "id": "TZSTy",
+                                  "type": "ref",
+                                  "ref": "KmZnF",
                                   "name": "typeBadge",
-                                  "fill": "$surface/surface",
-                                  "cornerRadius": 4,
-                                  "padding": [
-                                    2,
-                                    6
-                                  ],
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "sEpu8",
-                                      "fill": "$muted",
+                                  "descendants": {
+                                    "xZ9ah": {
                                       "content": "GIT",
                                       "fontFamily": "$typography/font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal"
+                                      "fill": "$muted"
                                     }
-                                  ]
+                                  }
                                 }
                               ]
                             },
@@ -570,27 +541,17 @@
                                   "fontWeight": "500"
                                 },
                                 {
-                                  "type": "frame",
-                                  "id": "S8r64q",
+                                  "id": "DkMwa",
+                                  "type": "ref",
+                                  "ref": "KmZnF",
                                   "name": "typeBadge",
-                                  "fill": "$surface/surface",
-                                  "cornerRadius": 4,
-                                  "padding": [
-                                    2,
-                                    6
-                                  ],
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "f6DG2j",
-                                      "fill": "$muted",
+                                  "descendants": {
+                                    "xZ9ah": {
                                       "content": "UPLOAD",
                                       "fontFamily": "$typography/font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal"
+                                      "fill": "$muted"
                                     }
-                                  ]
+                                  }
                                 }
                               ]
                             },
@@ -707,462 +668,11 @@
               ]
             },
             {
-              "type": "frame",
-              "id": "u8Ae4",
+              "id": "gQowM",
+              "type": "ref",
+              "ref": "AqY5l",
               "name": "Filters",
-              "width": "fill_container",
-              "gap": 12,
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "soXvQ",
-                  "name": "srcGroup",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 6,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "gap": 4,
-                  "padding": 4,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "kilzZ",
-                      "name": "srcAll",
-                      "fill": "$accent/soft",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "a6vN1",
-                          "fill": "$accent/accent",
-                          "content": "All sources",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "QGtwU",
-                      "name": "srcDefault",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "f4olUt",
-                          "fill": "$muted",
-                          "content": "default",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "mGEYc",
-                      "name": "srcCommunity",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "aSClZ",
-                          "fill": "$muted",
-                          "content": "community",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "zto8x",
-                  "name": "catGroup",
-                  "clip": true,
-                  "width": 440,
-                  "height": 36,
-                  "fill": "$surface/surface",
-                  "cornerRadius": 6,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "gap": 4,
-                  "padding": 4,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "CjVw6",
-                      "name": "catAllcategories",
-                      "fill": "#00000000",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "V2Hgz",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "All categories",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "UPWC1",
-                      "name": "catAdventure",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "PTgAB",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Adventure",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "TxAhs",
-                      "name": "catBuilding",
-                      "fill": "$accent/soft",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "j40Io",
-                          "name": "Label",
-                          "fill": "$accent/accent",
-                          "content": "Building",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "cQ08T",
-                      "name": "catCoop",
-                      "fill": "$accent/soft",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "WfIdC",
-                          "name": "Label",
-                          "fill": "$accent/accent",
-                          "content": "Co-op",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "iJoF9",
-                      "name": "catCreative",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "g0ypA",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Creative",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "mVLhg",
-                      "name": "catHorror",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "x9ePWy",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Horror",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "Mxl9i",
-                      "name": "catModded",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "cZhAZ",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Modded",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "rROw4",
-                      "name": "catPvP",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "Hz4BX",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "PvP",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "P2WuYs",
-                      "name": "catSandbox",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "zHCrO",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Sandbox",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "eF4q6",
-                      "name": "catShooter",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "qj6a4",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Shooter",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "topRr",
-                      "name": "catSimulation",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "au1oN",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Simulation",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "TzW0o",
-                      "name": "catSurvival",
-                      "cornerRadius": 4,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "Nwe92",
-                          "name": "Label",
-                          "fill": "$muted",
-                          "content": "Survival",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "rectangle",
-                      "cornerRadius": [
-                        0,
-                        6,
-                        6,
-                        0
-                      ],
-                      "id": "KCgvL",
-                      "layoutPosition": "absolute",
-                      "x": 384,
-                      "y": 0,
-                      "name": "Fade Right",
-                      "fill": {
-                        "type": "gradient",
-                        "gradientType": "linear",
-                        "enabled": true,
-                        "rotation": 270,
-                        "size": {
-                          "height": 1
-                        },
-                        "colors": [
-                          {
-                            "color": "#1A1A1A00",
-                            "position": 0
-                          },
-                          {
-                            "color": "$surface/surface",
-                            "position": 1
-                          }
-                        ]
-                      },
-                      "width": 56,
-                      "height": 36
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "tSaLJ",
-                  "name": "spacer",
-                  "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "id": "DMhCM",
-                  "type": "ref",
-                  "ref": "Lmaf1",
-                  "name": "Search",
-                  "width": 256,
-                  "descendants": {
-                    "EJMtX": {
-                      "content": "Search modules…"
-                    }
-                  }
-                }
-              ]
+              "width": "fill_container"
             },
             {
               "type": "frame",
@@ -1472,675 +982,141 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "bKZtT",
+                  "id": "JxvDs",
+                  "type": "ref",
+                  "ref": "Mv1XP",
                   "name": "mc2",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "LQZCB",
-                      "name": "mc2h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "hCC9R",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "$success/soft",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "NkmDB",
-                              "fill": "$success/soft-foreground",
-                              "content": "MI",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "KEk3N",
-                          "type": "ref",
-                          "ref": "UOoQW",
-                          "name": "Badge",
-                          "descendants": {
-                            "YXoPG": {
-                              "content": "INSTALLED",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$success/soft-foreground"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "svhbh",
-                      "name": "mc2Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "zB1vf",
-                          "fill": "$foreground/foreground",
-                          "content": "Minecraft (Bedrock)",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "xx6Te",
-                          "fill": "$muted",
-                          "content": "v1.21.5 installed",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "s8JV5D",
-                          "name": "mc2Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "mELJs",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "lKLfS",
-                              "fill": "$muted",
-                              "content": "sha256:5f0ab913…c47d",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "bA5ER",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "HhSiK",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Sandbox",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Sandbox"
-                            }
-                          }
-                        },
-                        {
-                          "id": "x3nz4N",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Survival",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Survival"
-                            }
-                          }
-                        },
-                        {
-                          "id": "lTCyy",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Creative",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Creative"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "XCnNa",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Cross-platform edition for mobile, console and Windows clients. Allow-list and permissions managed from the wizard.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "tLq9Z",
-                      "name": "mc2f",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "R9pBOh",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "xc52L",
-                          "name": "mc2Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "iQoM4",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnDeploy",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "icon": "external-link"
-                                },
-                                "zMNkR": {
-                                  "content": "Deploy to east"
-                                }
-                              }
-                            },
-                            {
-                              "id": "ZOIiU",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnUninstall",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "enabled": false
-                                },
-                                "zMNkR": {
-                                  "content": "Uninstall"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                  "descendants": {
+                    "y9Kgf/zMNkR": {
+                      "content": "Deploy to east"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "tYqjs",
+                  "id": "m42W8",
+                  "type": "ref",
+                  "ref": "Mv1XP",
                   "name": "mc3",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "CleEB",
-                      "name": "mc3h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "Q8ONbV",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "$warning/soft",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "AA2fN",
-                              "fill": "$warning/soft-foreground",
-                              "content": "VA",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "RSvQp",
-                          "type": "ref",
-                          "ref": "UOoQW",
-                          "name": "Badge",
-                          "descendants": {
-                            "YXoPG": {
-                              "content": "INSTALLED",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$success/soft-foreground"
-                            }
-                          }
-                        }
-                      ]
+                  "descendants": {
+                    "A0y5H": {
+                      "name": "mc3h"
                     },
-                    {
-                      "type": "frame",
-                      "id": "lVWIo",
-                      "name": "mc3Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "zQ8nz",
-                          "fill": "$foreground/foreground",
-                          "content": "Valheim (Dedicated)",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "lnC9o",
-                          "fill": "$muted",
-                          "content": "v2.3.0 installed",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "Aeiig",
-                          "name": "mc3Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "YTxBw",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "G5qbs",
-                              "fill": "$muted",
-                              "content": "sha256:9c14e07b…3ba8",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
+                    "vvjTn": {
+                      "fill": "$warning/soft"
                     },
-                    {
-                      "type": "frame",
-                      "id": "j91LWH",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "vQck4",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Survival",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Survival"
-                            }
-                          }
-                        },
-                        {
-                          "id": "TsaRJ",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Co-op",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Co-op"
-                            }
-                          }
-                        },
-                        {
-                          "id": "LkpEw",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Building",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Building"
-                            }
-                          }
-                        }
-                      ]
+                    "GzbES": {
+                      "fill": "$warning/soft-foreground",
+                      "content": "VA"
                     },
-                    {
-                      "type": "text",
-                      "id": "vXbJa",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Valheim dedicated server (lloesche/valheim-server) with a stable/public-test channel picker, a BepInEx mod volume, and in-app Thunderstore browse. Crossplay-friendly.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                    "uUDV0": {
+                      "name": "mc3Info"
                     },
-                    {
-                      "type": "frame",
-                      "id": "k8ytP",
-                      "name": "mc3f",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "cNCQT",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "mPtJ5",
-                          "name": "mc3Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "AernV",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnDeploy",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "icon": "external-link"
-                                },
-                                "zMNkR": {
-                                  "content": "Deploy to east"
-                                }
-                              }
-                            },
-                            {
-                              "id": "RxFCR",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnUninstall",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "enabled": false
-                                },
-                                "zMNkR": {
-                                  "content": "Uninstall"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                    "RTBO7": {
+                      "content": "Valheim (Dedicated)"
+                    },
+                    "qQash": {
+                      "content": "v2.3.0 installed"
+                    },
+                    "YT4c1": {
+                      "name": "mc3Digest"
+                    },
+                    "rLvlr": {
+                      "content": "sha256:9c14e07b…3ba8"
+                    },
+                    "g6Ar57": {
+                      "name": "cat Survival"
+                    },
+                    "g6Ar57/r4GQ9": {
+                      "content": "Survival"
+                    },
+                    "GvHHj": {
+                      "name": "cat Co-op"
+                    },
+                    "GvHHj/r4GQ9": {
+                      "content": "Co-op"
+                    },
+                    "OHHGY": {
+                      "name": "cat Building"
+                    },
+                    "OHHGY/r4GQ9": {
+                      "content": "Building"
+                    },
+                    "L5szt": {
+                      "content": "Valheim dedicated server (lloesche/valheim-server) with a stable/public-test channel picker, a BepInEx mod volume, and in-app Thunderstore browse. Crossplay-friendly."
+                    },
+                    "dEGvL": {
+                      "name": "mc3f"
+                    },
+                    "pId4b": {
+                      "name": "mc3Btns"
+                    },
+                    "y9Kgf/zMNkR": {
+                      "content": "Deploy to east"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "ebRfJ",
+                  "id": "BhmNX",
+                  "type": "ref",
+                  "ref": "MRJ8b",
                   "name": "mc4",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "JedWd",
-                      "name": "mc4h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "ZLHOt",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "$accent/soft",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "bwjDn",
-                              "fill": "$accent/accent",
-                              "content": "FA",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "yMufO",
-                          "type": "ref",
-                          "ref": "KmZnF",
-                          "name": "Badge",
-                          "descendants": {
-                            "xZ9ah": {
-                              "content": "AVAILABLE",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$muted"
-                            }
-                          }
-                        }
-                      ]
+                  "descendants": {
+                    "sSDDQ": {
+                      "name": "mc4h"
                     },
-                    {
-                      "type": "frame",
-                      "id": "Z8AjI",
-                      "name": "mc4Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "dUUYa",
-                          "fill": "$foreground/foreground",
-                          "content": "Factorio (Headless)",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "l5q9e",
-                          "fill": "$muted",
-                          "content": "v1.1.0",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "fbuay",
-                          "name": "mc4Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "mWApO",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "xSozj",
-                              "fill": "$muted",
-                              "content": "sha256:7d32e46a…1161",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
+                    "l8ASm": {
+                      "fill": "$accent/soft"
                     },
-                    {
-                      "type": "frame",
-                      "id": "VTf1l",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "leIyw",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Simulation",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Simulation"
-                            }
-                          }
-                        },
-                        {
-                          "id": "E64arz",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Building",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Building"
-                            }
-                          }
-                        },
-                        {
-                          "id": "IaSJ2",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Sandbox",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Sandbox"
-                            }
-                          }
-                        }
-                      ]
+                    "LHOlo": {
+                      "fill": "$accent/accent",
+                      "content": "FA"
                     },
-                    {
-                      "type": "text",
-                      "id": "uRWC2",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Factorio headless server (factoriotools/factorio) with a stable/latest/pinned channel picker, server-settings managed from the wizard, and a mods volume with in-app Factorio mod portal browse.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                    "WjGKI": {
+                      "name": "mc4Info"
                     },
-                    {
-                      "type": "frame",
-                      "id": "IxGHt",
-                      "name": "mc4f",
-                      "width": "fill_container",
-                      "gap": 8,
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "dvai6",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "sKCUO",
-                          "name": "mc4Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "MEgRI",
-                              "type": "ref",
-                              "ref": "j9c5W",
-                              "name": "btnInstall",
-                              "descendants": {
-                                "n8Hmwk": {
-                                  "icon": "download"
-                                },
-                                "U1xvSo": {
-                                  "content": "Install"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                    "L8ofN": {
+                      "content": "Factorio (Headless)"
+                    },
+                    "p53PbQ": {
+                      "content": "v1.1.0"
+                    },
+                    "BZLBw": {
+                      "name": "mc4Digest"
+                    },
+                    "gYALo": {
+                      "content": "sha256:7d32e46a…1161"
+                    },
+                    "ykW9g": {
+                      "name": "cat Simulation"
+                    },
+                    "ykW9g/r4GQ9": {
+                      "content": "Simulation"
+                    },
+                    "v0HPpT": {
+                      "name": "cat Building"
+                    },
+                    "v0HPpT/r4GQ9": {
+                      "content": "Building"
+                    },
+                    "RQBDz": {
+                      "name": "cat Sandbox"
+                    },
+                    "RQBDz/r4GQ9": {
+                      "content": "Sandbox"
+                    },
+                    "TkG6j": {
+                      "content": "Factorio headless server (factoriotools/factorio) with a stable/latest/pinned channel picker, server-settings managed from the wizard, and a mods volume with in-app Factorio mod portal browse."
+                    },
+                    "P9jQJJ": {
+                      "name": "mc4f"
+                    },
+                    "MUiOw": {
+                      "name": "mc4Btns"
                     }
-                  ]
+                  }
                 }
               ]
             },
@@ -2156,675 +1132,123 @@
               "gap": 16,
               "children": [
                 {
-                  "type": "frame",
-                  "id": "fygEK",
+                  "id": "NQegZ",
+                  "type": "ref",
+                  "ref": "Mv1XP",
                   "name": "mc5",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "NeZoF",
-                      "name": "mc5h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "lKnxf",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "#895AF633",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "Pk8TQ",
-                              "fill": "#895AF6",
-                              "content": "PA",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "jPeZ7",
-                          "type": "ref",
-                          "ref": "UOoQW",
-                          "name": "Badge",
-                          "descendants": {
-                            "YXoPG": {
-                              "content": "INSTALLED",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$success/soft-foreground"
-                            }
-                          }
-                        }
-                      ]
+                  "descendants": {
+                    "A0y5H": {
+                      "name": "mc5h"
                     },
-                    {
-                      "type": "frame",
-                      "id": "R82R9r",
-                      "name": "mc5Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "f0U3O",
-                          "fill": "$foreground/foreground",
-                          "content": "Palworld (Dedicated)",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "cH13y",
-                          "fill": "$muted",
-                          "content": "v1.1.0 installed",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "wuFv6",
-                          "name": "mc5Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "h6TAP",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "bmVsk",
-                              "fill": "$muted",
-                              "content": "sha256:2e91fa04…8d17",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
+                    "vvjTn": {
+                      "fill": "#895AF633"
                     },
-                    {
-                      "type": "frame",
-                      "id": "Vhyjs",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "z0TyDF",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Survival",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Survival"
-                            }
-                          }
-                        },
-                        {
-                          "id": "oiRRk",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Co-op",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Co-op"
-                            }
-                          }
-                        },
-                        {
-                          "id": "LCdcS",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Modded",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Modded"
-                            }
-                          }
-                        }
-                      ]
+                    "GzbES": {
+                      "fill": "#895AF6",
+                      "content": "PA"
                     },
-                    {
-                      "type": "text",
-                      "id": "r9S2W",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Palworld dedicated server (thijsvanloef/palworld-server-docker) with RCON console, save-aware graceful stop, and a .pak mod volume with archive install.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                    "uUDV0": {
+                      "name": "mc5Info"
                     },
-                    {
-                      "type": "frame",
-                      "id": "j2upP",
-                      "name": "mc5f",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "pMiIe",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "jQ0AO",
-                          "name": "mc5Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "mOdgq",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnDeploy",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "icon": "external-link"
-                                },
-                                "zMNkR": {
-                                  "content": "Deploy to east"
-                                }
-                              }
-                            },
-                            {
-                              "id": "iUWAR",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnUninstall",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "enabled": false
-                                },
-                                "zMNkR": {
-                                  "content": "Uninstall"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                    "RTBO7": {
+                      "content": "Palworld (Dedicated)"
+                    },
+                    "qQash": {
+                      "content": "v1.1.0 installed"
+                    },
+                    "YT4c1": {
+                      "name": "mc5Digest"
+                    },
+                    "rLvlr": {
+                      "content": "sha256:2e91fa04…8d17"
+                    },
+                    "g6Ar57": {
+                      "name": "cat Survival"
+                    },
+                    "g6Ar57/r4GQ9": {
+                      "content": "Survival"
+                    },
+                    "GvHHj": {
+                      "name": "cat Co-op"
+                    },
+                    "GvHHj/r4GQ9": {
+                      "content": "Co-op"
+                    },
+                    "OHHGY": {
+                      "name": "cat Modded"
+                    },
+                    "OHHGY/r4GQ9": {
+                      "content": "Modded"
+                    },
+                    "L5szt": {
+                      "content": "Palworld dedicated server (thijsvanloef/palworld-server-docker) with RCON console, save-aware graceful stop, and a .pak mod volume with archive install."
+                    },
+                    "dEGvL": {
+                      "name": "mc5f"
+                    },
+                    "pId4b": {
+                      "name": "mc5Btns"
+                    },
+                    "y9Kgf/zMNkR": {
+                      "content": "Deploy to east"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "ZXGJc",
+                  "id": "YXrGy",
+                  "type": "ref",
+                  "ref": "MRJ8b",
                   "name": "mc6",
-                  "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "n7t59",
-                      "name": "mc6h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "DiDY0",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "$danger/soft",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "pS0jk",
-                              "fill": "$danger/soft-foreground",
-                              "content": "AR",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "Z6oyo",
-                          "type": "ref",
-                          "ref": "KmZnF",
-                          "name": "Badge",
-                          "descendants": {
-                            "xZ9ah": {
-                              "content": "AVAILABLE",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$muted"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "XwZbc",
-                      "name": "mc6Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "cCYEd",
-                          "fill": "$foreground/foreground",
-                          "content": "ARK: Survival Evolved",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "dfWh4",
-                          "fill": "$muted",
-                          "content": "v0.9.2",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "nGV9x",
-                          "name": "mc6Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "eAwzD",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "JuN3U",
-                              "fill": "$muted",
-                              "content": "sha256:b7440ce1…05af",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "jis3O",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "YXrSG",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Survival",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Survival"
-                            }
-                          }
-                        },
-                        {
-                          "id": "Fjn4y",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Modded",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Modded"
-                            }
-                          }
-                        },
-                        {
-                          "id": "Pz6cy",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat PvP",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "PvP"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "XHmii",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Dinosaur survival on the Unreal engine. Mod install via the Steam workshop; schedule onto a GPU node for acceptable tick rates.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "ndlqp",
-                      "name": "mc6f",
-                      "width": "fill_container",
-                      "gap": 8,
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "x8peT",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "MJCDK",
-                          "name": "mc6Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "MVzKP",
-                              "type": "ref",
-                              "ref": "j9c5W",
-                              "name": "btnInstall",
-                              "descendants": {
-                                "n8Hmwk": {
-                                  "icon": "download"
-                                },
-                                "U1xvSo": {
-                                  "content": "Install"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
+                  "width": "fill_container"
                 },
                 {
-                  "type": "frame",
-                  "id": "WamPF",
+                  "id": "Pxj0i",
+                  "type": "ref",
+                  "ref": "Mv1XP",
                   "name": "mc7",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "tJKeT",
-                      "name": "mc7h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "qOirq",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "$success/soft",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "F0hOT",
-                              "fill": "$success/soft-foreground",
-                              "content": "TE",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "QyR5D",
-                          "type": "ref",
-                          "ref": "UOoQW",
-                          "name": "Badge",
-                          "descendants": {
-                            "YXoPG": {
-                              "content": "INSTALLED",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$success/soft-foreground"
-                            }
-                          }
-                        }
-                      ]
+                  "descendants": {
+                    "A0y5H": {
+                      "name": "mc7h"
                     },
-                    {
-                      "type": "frame",
-                      "id": "A3sspS",
-                      "name": "mc7Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "KXJuU",
-                          "fill": "$foreground/foreground",
-                          "content": "Terraria",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "QKgoR",
-                          "fill": "$muted",
-                          "content": "v2.1.0 installed",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "asFjn",
-                          "name": "mc7Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "mdmwx",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "Krpj9",
-                              "fill": "$muted",
-                              "content": "sha256:c805d7f2…46e9",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
+                    "GzbES": {
+                      "content": "TE"
                     },
-                    {
-                      "type": "frame",
-                      "id": "Bb4Tn",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "ZRMPP",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Sandbox",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Sandbox"
-                            }
-                          }
-                        },
-                        {
-                          "id": "slB2u",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Survival",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Survival"
-                            }
-                          }
-                        },
-                        {
-                          "id": "Ry6I9",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Adventure",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Adventure"
-                            }
-                          }
-                        }
-                      ]
+                    "uUDV0": {
+                      "name": "mc7Info"
                     },
-                    {
-                      "type": "text",
-                      "id": "RRWKb",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Terraria + tModLoader dedicated server (passivelemon/terraria-docker) with a vanilla/tModLoader version picker and a tModLoader ModPacks volume. Console via container stdin.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                    "RTBO7": {
+                      "content": "Terraria"
                     },
-                    {
-                      "type": "frame",
-                      "id": "XdW5u",
-                      "name": "mc7f",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "BrXvJ",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "GbpER",
-                          "name": "mc7Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "CxB0Y",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnDeploy",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "icon": "external-link"
-                                },
-                                "zMNkR": {
-                                  "content": "Deploy to east"
-                                }
-                              }
-                            },
-                            {
-                              "id": "zkOJa",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnUninstall",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "enabled": false
-                                },
-                                "zMNkR": {
-                                  "content": "Uninstall"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                    "qQash": {
+                      "content": "v2.1.0 installed"
+                    },
+                    "YT4c1": {
+                      "name": "mc7Digest"
+                    },
+                    "rLvlr": {
+                      "content": "sha256:c805d7f2…46e9"
+                    },
+                    "OHHGY": {
+                      "name": "cat Adventure"
+                    },
+                    "OHHGY/r4GQ9": {
+                      "content": "Adventure"
+                    },
+                    "L5szt": {
+                      "content": "Terraria + tModLoader dedicated server (passivelemon/terraria-docker) with a vanilla/tModLoader version picker and a tModLoader ModPacks volume. Console via container stdin."
+                    },
+                    "dEGvL": {
+                      "name": "mc7f"
+                    },
+                    "pId4b": {
+                      "name": "mc7Btns"
+                    },
+                    "y9Kgf/zMNkR": {
+                      "content": "Deploy to east"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -3304,447 +1728,126 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "V1ZI1I",
+                  "id": "nCMeO",
+                  "type": "ref",
+                  "ref": "MRJ8b",
                   "name": "mc10",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "R0vvsr",
-                      "name": "mc10h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "CpEVl",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "#9494944D",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "J2XKZ2",
-                              "fill": "$muted",
-                              "content": "7-",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "EbCy6",
-                          "type": "ref",
-                          "ref": "KmZnF",
-                          "name": "Badge",
-                          "descendants": {
-                            "xZ9ah": {
-                              "content": "AVAILABLE",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$muted"
-                            }
-                          }
-                        }
-                      ]
+                  "descendants": {
+                    "sSDDQ": {
+                      "name": "mc10h"
                     },
-                    {
-                      "type": "frame",
-                      "id": "nV7q0",
-                      "name": "mc10Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "SzaPV",
-                          "fill": "$foreground/foreground",
-                          "content": "7 Days to Die",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "lGiWo",
-                          "fill": "$muted",
-                          "content": "v0.5.0",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "o6F6Q",
-                          "name": "mc10Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "NTdlH",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "nEZCx",
-                              "fill": "$muted",
-                              "content": "sha256:e2c93b58…7a0d",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
+                    "l8ASm": {
+                      "fill": "#9494944D"
                     },
-                    {
-                      "type": "frame",
-                      "id": "H4BCKr",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "tJ6b2",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Survival",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Survival"
-                            }
-                          }
-                        },
-                        {
-                          "id": "tPBQT",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Horror",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Horror"
-                            }
-                          }
-                        },
-                        {
-                          "id": "LPhof",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Building",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Building"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "r7qr7",
+                    "LHOlo": {
                       "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Zombie survival crafting in a destructible voxel world. Blood-moon horde nights are CPU-spiky — give it headroom.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                      "content": "7-"
                     },
-                    {
-                      "type": "frame",
-                      "id": "h5V6fW",
-                      "name": "mc10f",
-                      "width": "fill_container",
-                      "gap": 8,
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "Od5rd",
-                          "fill": "$muted",
-                          "content": "community (oci)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "D6YZj",
-                          "name": "mc10Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "z7Ywcw",
-                              "type": "ref",
-                              "ref": "j9c5W",
-                              "name": "btnInstall",
-                              "descendants": {
-                                "n8Hmwk": {
-                                  "icon": "download"
-                                },
-                                "U1xvSo": {
-                                  "content": "Install"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                    "WjGKI": {
+                      "name": "mc10Info"
+                    },
+                    "L8ofN": {
+                      "content": "7 Days to Die"
+                    },
+                    "p53PbQ": {
+                      "content": "v0.5.0"
+                    },
+                    "BZLBw": {
+                      "name": "mc10Digest"
+                    },
+                    "gYALo": {
+                      "content": "sha256:e2c93b58…7a0d"
+                    },
+                    "v0HPpT": {
+                      "name": "cat Horror"
+                    },
+                    "v0HPpT/r4GQ9": {
+                      "content": "Horror"
+                    },
+                    "RQBDz": {
+                      "name": "cat Building"
+                    },
+                    "RQBDz/r4GQ9": {
+                      "content": "Building"
+                    },
+                    "TkG6j": {
+                      "content": "Zombie survival crafting in a destructible voxel world. Blood-moon horde nights are CPU-spiky — give it headroom."
+                    },
+                    "P9jQJJ": {
+                      "name": "mc10f"
+                    },
+                    "Jrklw": {
+                      "content": "community (oci)"
+                    },
+                    "MUiOw": {
+                      "name": "mc10Btns"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "XuDAZ",
+                  "id": "Gln6T",
+                  "type": "ref",
+                  "ref": "Mv1XP",
                   "name": "mc11",
                   "width": "fill_container",
-                  "fill": "$surface/surface",
-                  "cornerRadius": 10,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "padding": 16,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "n5ZozJ",
-                      "name": "mc11h",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "r8s2R4",
-                          "name": "tile",
-                          "width": 36,
-                          "height": 36,
-                          "fill": "$accent/soft",
-                          "cornerRadius": 6,
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "mDQZ9",
-                              "fill": "$accent/accent",
-                              "content": "SA",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 14,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "id": "rHKzb",
-                          "type": "ref",
-                          "ref": "UOoQW",
-                          "name": "Badge",
-                          "descendants": {
-                            "YXoPG": {
-                              "content": "INSTALLED",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal",
-                              "fill": "$success/soft-foreground"
-                            }
-                          }
-                        }
-                      ]
+                  "descendants": {
+                    "A0y5H": {
+                      "name": "mc11h"
                     },
-                    {
-                      "type": "frame",
-                      "id": "Bmq8H",
-                      "name": "mc11Info",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "SERSW",
-                          "fill": "$foreground/foreground",
-                          "content": "Satisfactory (Dedicated)",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 16,
-                          "fontWeight": "500"
-                        },
-                        {
-                          "type": "text",
-                          "id": "nNQib",
-                          "fill": "$muted",
-                          "content": "v1.0.0 installed",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "T9fUSf",
-                          "name": "mc11Digest",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "F435la",
-                              "width": 12,
-                              "height": 12,
-                              "icon": "fingerprint",
-                              "library": "lucide",
-                              "fill": "$muted"
-                            },
-                            {
-                              "type": "text",
-                              "id": "dDRIP",
-                              "fill": "$muted",
-                              "content": "sha256:4b7ecf19…d3e6",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 10,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        }
-                      ]
+                    "vvjTn": {
+                      "fill": "$accent/soft"
                     },
-                    {
-                      "type": "frame",
-                      "id": "N9m6e",
-                      "name": "Categories",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "id": "s6rHyX",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Simulation",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Simulation"
-                            }
-                          }
-                        },
-                        {
-                          "id": "PHNkq",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Building",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Building"
-                            }
-                          }
-                        },
-                        {
-                          "id": "kWbw2",
-                          "type": "ref",
-                          "ref": "Y43SFn",
-                          "name": "cat Sandbox",
-                          "descendants": {
-                            "r4GQ9": {
-                              "content": "Sandbox"
-                            }
-                          }
-                        }
-                      ]
+                    "GzbES": {
+                      "fill": "$accent/accent",
+                      "content": "SA"
                     },
-                    {
-                      "type": "text",
-                      "id": "C9af8t",
-                      "fill": "$muted",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Satisfactory dedicated server (wolveix/satisfactory-server) with a stable/experimental branch picker. Env-configured; installs via steamcmd on first boot.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                    "uUDV0": {
+                      "name": "mc11Info"
                     },
-                    {
-                      "type": "frame",
-                      "id": "M4IPNC",
-                      "name": "mc11f",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "Hk6v6",
-                          "fill": "$muted",
-                          "content": "default (git)",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "mXitr",
-                          "name": "mc11Btns",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "id": "Ez1K6",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnDeploy",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "icon": "external-link"
-                                },
-                                "zMNkR": {
-                                  "content": "Deploy to east"
-                                }
-                              }
-                            },
-                            {
-                              "id": "OcY4I",
-                              "type": "ref",
-                              "ref": "FIB65",
-                              "name": "btnUninstall",
-                              "descendants": {
-                                "K8d1zg": {
-                                  "enabled": false
-                                },
-                                "zMNkR": {
-                                  "content": "Uninstall"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      ]
+                    "RTBO7": {
+                      "content": "Satisfactory (Dedicated)"
+                    },
+                    "qQash": {
+                      "content": "v1.0.0 installed"
+                    },
+                    "YT4c1": {
+                      "name": "mc11Digest"
+                    },
+                    "rLvlr": {
+                      "content": "sha256:4b7ecf19…d3e6"
+                    },
+                    "g6Ar57": {
+                      "name": "cat Simulation"
+                    },
+                    "g6Ar57/r4GQ9": {
+                      "content": "Simulation"
+                    },
+                    "GvHHj": {
+                      "name": "cat Building"
+                    },
+                    "GvHHj/r4GQ9": {
+                      "content": "Building"
+                    },
+                    "OHHGY": {
+                      "name": "cat Sandbox"
+                    },
+                    "OHHGY/r4GQ9": {
+                      "content": "Sandbox"
+                    },
+                    "L5szt": {
+                      "content": "Satisfactory dedicated server (wolveix/satisfactory-server) with a stable/experimental branch picker. Env-configured; installs via steamcmd on first boot."
+                    },
+                    "dEGvL": {
+                      "name": "mc11f"
+                    },
+                    "pId4b": {
+                      "name": "mc11Btns"
+                    },
+                    "y9Kgf/zMNkR": {
+                      "content": "Deploy to east"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",

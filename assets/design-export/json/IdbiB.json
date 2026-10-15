@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "IdbiB",
-  "x": -15225,
-  "y": 29490,
+  "x": 0,
+  "y": 58137,
   "name": "Screen/Dialog/Build Module — Step 1 (Preset & Metadata)",
   "theme": {
     "semantic": "dark"
@@ -426,7 +426,7 @@
               "fill": "$muted",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "These fields come from the SteamCMD Dedicated archetype's config schema — they change automatically when you pick a different preset.",
+              "content": "These fields come from the SteamCMD Dedicated archetype’s config schema — they change automatically when you pick a different preset.",
               "fontFamily": "$typography/font-sans",
               "fontSize": 12,
               "fontWeight": "normal"
@@ -726,245 +726,114 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "sorV6",
+                          "id": "r8z3Qb",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Shooter",
-                          "fill": "#00000000",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "haa3W",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Shooter",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Shooter"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "Uo0jI",
+                          "id": "cosnZ",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Sandbox",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "XrKvW",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Sandbox",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Sandbox"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "F4Z2X",
+                          "id": "dEwLO",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Survival",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "MjB0H",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Survival",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Survival"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "ZBefp",
+                          "id": "OcbNA",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Simulation",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "i5SIk",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Simulation",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Simulation"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "HnoiW",
+                          "id": "UypEU",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Building",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "s0vsy",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Building",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Building"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "o8QG62",
+                          "id": "X8C1BR",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Adventure",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "uWnas",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Adventure",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Adventure"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "U14tB",
+                          "id": "MxPzW",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Horror",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "pJoj1",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Horror",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Horror"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "oEPHz",
+                          "id": "N5SSIS",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Coop_Unselected",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "toBFi",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Co-op",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Co-op"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "x3x9Tb",
+                          "id": "RuF9t",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_PvP",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "vfHDC",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "PvP",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "PvP"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "o8E2Qw",
+                          "id": "lp3k0",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Modded",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "GLS1d",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Modded",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Modded"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -976,28 +845,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "s9pOVh",
+                          "id": "Otz7j",
+                          "type": "ref",
+                          "ref": "Xjvn1",
                           "name": "Chip_Creative",
-                          "cornerRadius": 999,
-                          "stroke": "$border/border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "f7SKHN",
-                              "name": "Txt",
-                              "fill": "$muted",
-                              "content": "Creative",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "goLBy": {
+                              "content": "Creative"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -1063,27 +919,15 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "JlOl9",
+                          "id": "qJqTu",
+                          "type": "ref",
+                          "ref": "YAWC6",
                           "name": "Chip_Custom_Selected",
-                          "fill": "$accent/accent",
-                          "cornerRadius": 999,
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "whqb5",
-                              "name": "Txt",
-                              "fill": "#ffffff",
-                              "content": "speedrun ×",
-                              "fontFamily": "$typography/font-sans",
-                              "fontSize": 12,
-                              "fontWeight": "normal"
+                          "descendants": {
+                            "HP3d4": {
+                              "content": "speedrun ×"
                             }
-                          ]
+                          }
                         }
                       ]
                     }
@@ -1129,63 +973,32 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "frame",
-              "id": "IjlZv",
+              "id": "g3fbG",
+              "type": "ref",
+              "ref": "FIB65",
               "name": "CancelButton",
-              "cornerRadius": 6,
-              "stroke": "$border/border",
-              "strokeWidth": 1,
-              "padding": [
-                8,
-                16
-              ],
-              "children": [
-                {
-                  "type": "text",
-                  "id": "jNuWh",
-                  "name": "Label",
-                  "fill": "$foreground/foreground",
-                  "content": "Cancel",
-                  "fontFamily": "$typography/font-sans",
-                  "fontSize": 13,
-                  "fontWeight": "normal"
+              "descendants": {
+                "K8d1zg": {
+                  "enabled": false
+                },
+                "zMNkR": {
+                  "content": "Cancel"
                 }
-              ]
+              }
             },
             {
-              "type": "frame",
-              "id": "ufdT9",
+              "id": "NoPoH",
+              "type": "ref",
+              "ref": "cb4rt",
               "name": "NextButton",
-              "fill": "$accent/accent",
-              "cornerRadius": 6,
-              "gap": 6,
-              "padding": [
-                8,
-                18
-              ],
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "text",
-                  "id": "ORw54",
-                  "name": "Label",
-                  "fill": "#ffffff",
-                  "content": "Continue to Container & Ports",
-                  "fontFamily": "$typography/font-sans",
-                  "fontSize": 13,
-                  "fontWeight": "500"
+              "descendants": {
+                "Xpn7K": {
+                  "enabled": false
                 },
-                {
-                  "type": "icon",
-                  "id": "LP5EA",
-                  "name": "ChevronRightIcon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "chevron-right",
-                  "library": "lucide",
-                  "fill": "$muted"
+                "U6q13B": {
+                  "content": "Continue to Container & Ports →"
                 }
-              ]
+              }
             }
           ]
         }

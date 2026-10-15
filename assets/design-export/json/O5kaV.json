@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "O5kaV",
-  "x": -14325,
-  "y": 29490,
+  "x": 1000,
+  "y": 58137,
   "name": "Screen/Dialog/Build Module — Step 2 (Container & Ports)",
   "theme": {
     "semantic": "dark"
@@ -25,7 +25,10 @@
       "strokeWidth": {
         "bottom": 1
       },
-      "padding": [20, 28],
+      "padding": [
+        20,
+        28
+      ],
       "justifyContent": "space_between",
       "alignItems": "center",
       "children": [
@@ -80,7 +83,10 @@
         "bottom": 1
       },
       "gap": 12,
-      "padding": [12, 28],
+      "padding": [
+        12,
+        28
+      ],
       "alignItems": "center",
       "children": [
         {
@@ -241,7 +247,10 @@
       "width": "fill_container",
       "layout": "vertical",
       "gap": 20,
-      "padding": [24, 28],
+      "padding": [
+        24,
+        28
+      ],
       "children": [
         {
           "type": "frame",
@@ -290,7 +299,10 @@
               "cornerRadius": 6,
               "stroke": "$border/border",
               "strokeWidth": 1,
-              "padding": [0, 12],
+              "padding": [
+                0,
+                12
+              ],
               "justifyContent": "center",
               "children": [
                 {
@@ -334,27 +346,19 @@
                   "fontWeight": "500"
                 },
                 {
-                  "type": "frame",
-                  "id": "xxybP",
+                  "id": "v4gqr",
+                  "type": "ref",
+                  "ref": "FIB65",
                   "name": "AddPortButton",
-                  "cornerRadius": 6,
-                  "stroke": "$border/border",
-                  "strokeWidth": 1,
-                  "gap": 4,
-                  "padding": [4, 10],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "AM7la",
-                      "name": "Txt",
-                      "fill": "$foreground/foreground",
-                      "content": "+ Add Port",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
+                  "descendants": {
+                    "K8d1zg": {
+                      "enabled": true,
+                      "icon": "plus"
+                    },
+                    "zMNkR": {
+                      "content": "Add Port"
                     }
-                  ]
+                  }
                 }
               ]
             },
@@ -383,7 +387,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "center",
                       "children": [
                         {
@@ -407,7 +414,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "center",
                       "children": [
                         {
@@ -431,7 +441,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -534,7 +547,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "center",
                       "children": [
                         {
@@ -558,7 +574,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "center",
                       "children": [
                         {
@@ -582,7 +601,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -724,7 +746,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "center",
                       "children": [
                         {
@@ -768,7 +793,10 @@
                       "cornerRadius": 6,
                       "stroke": "$border/border",
                       "strokeWidth": 1,
-                      "padding": [0, 10],
+                      "padding": [
+                        0,
+                        10
+                      ],
                       "justifyContent": "center",
                       "children": [
                         {
@@ -800,30 +828,26 @@
       "strokeWidth": {
         "top": 1
       },
-      "padding": [16, 28],
+      "padding": [
+        16,
+        28
+      ],
       "justifyContent": "space_between",
       "alignItems": "center",
       "children": [
         {
-          "type": "frame",
-          "id": "v6asi",
+          "id": "nTQrt",
+          "type": "ref",
+          "ref": "FIB65",
           "name": "BackButton",
-          "cornerRadius": 6,
-          "stroke": "$border/border",
-          "strokeWidth": 1,
-          "padding": [8, 16],
-          "children": [
-            {
-              "type": "text",
-              "id": "tSPJV",
-              "name": "Label",
-              "fill": "$foreground/foreground",
-              "content": "← Back",
-              "fontFamily": "$typography/font-sans",
-              "fontSize": 13,
-              "fontWeight": "normal"
+          "descendants": {
+            "K8d1zg": {
+              "enabled": false
+            },
+            "zMNkR": {
+              "content": "← Back"
             }
-          ]
+          }
         },
         {
           "type": "frame",
@@ -833,47 +857,32 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "frame",
-              "id": "SR9tw",
+              "id": "Uqnwy",
+              "type": "ref",
+              "ref": "FIB65",
               "name": "CancelButton",
-              "cornerRadius": 6,
-              "stroke": "$border/border",
-              "strokeWidth": 1,
-              "padding": [8, 16],
-              "children": [
-                {
-                  "type": "text",
-                  "id": "qfpEo",
-                  "name": "Label",
-                  "fill": "$foreground/foreground",
-                  "content": "Cancel",
-                  "fontFamily": "$typography/font-sans",
-                  "fontSize": 13,
-                  "fontWeight": "normal"
+              "descendants": {
+                "K8d1zg": {
+                  "enabled": false
+                },
+                "zMNkR": {
+                  "content": "Cancel"
                 }
-              ]
+              }
             },
             {
-              "type": "frame",
-              "id": "LpIdI",
+              "id": "ni4Ru",
+              "type": "ref",
+              "ref": "cb4rt",
               "name": "NextButton",
-              "fill": "$accent/accent",
-              "cornerRadius": 6,
-              "gap": 6,
-              "padding": [8, 18],
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "text",
-                  "id": "Z7AgjD",
-                  "name": "Label",
-                  "fill": "#ffffff",
-                  "content": "Continue to Review & Export →",
-                  "fontFamily": "$typography/font-sans",
-                  "fontSize": 13,
-                  "fontWeight": "500"
+              "descendants": {
+                "Xpn7K": {
+                  "enabled": false
+                },
+                "U6q13B": {
+                  "content": "Continue to Review & Export →"
                 }
-              ]
+              }
             }
           ]
         }

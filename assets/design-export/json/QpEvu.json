@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "QpEvu",
-  "x": 35360,
-  "y": 10375,
+  "x": 1640,
+  "y": 51787,
   "name": "Screen/Server Detail — Settings · Access",
   "theme": {
     "semantic": "dark"
@@ -279,7 +279,15 @@
                                     {
                                       "id": "hrSpe",
                                       "type": "ref",
-                                      "ref": "tpKRk"
+                                      "ref": "tpKRk",
+                                      "descendants": {
+                                        "q58In/Xpn7K": {
+                                          "enabled": false
+                                        },
+                                        "q58In/U6q13B": {
+                                          "content": "Add"
+                                        }
+                                      }
                                     }
                                   ]
                                 }

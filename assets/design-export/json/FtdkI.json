@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "FtdkI",
-  "x": 4920,
-  "y": 9175,
+  "x": 1640,
+  "y": 28907,
   "name": "Screen/Server Detail — Logs (Failed)",
   "theme": {
     "semantic": "dark"
@@ -61,148 +61,79 @@
           }
         },
         {
-          "type": "frame",
-          "id": "UODG1",
+          "id": "rtf5z",
+          "type": "ref",
+          "ref": "S4k0x",
           "name": "Detail Header",
           "width": "fill_container",
-          "padding": [
-            16,
-            32
-          ],
-          "justifyContent": "space_between",
-          "alignItems": "center",
-          "children": [
-            {
+          "descendants": {
+            "N3nc2n": {
+              "id": "mTsdK",
+              "type": "ref",
+              "ref": "Yeemi",
+              "name": "statusBadge",
+              "descendants": {
+                "fRdhX": {
+                  "content": "Failed"
+                }
+              }
+            },
+            "UpnRk": {
               "type": "frame",
-              "id": "ei22m",
-              "name": "srvLeft",
-              "gap": 16,
-              "alignItems": "center",
+              "id": "ij6N6",
+              "name": "srvMeta",
+              "layout": "vertical",
+              "gap": 6,
               "children": [
                 {
                   "type": "frame",
-                  "id": "q0bC5",
-                  "name": "gameIcon",
-                  "width": 48,
-                  "height": 48,
-                  "fill": "#5b9a3e33",
-                  "cornerRadius": 6,
-                  "justifyContent": "center",
+                  "id": "MTJmq",
+                  "name": "errorLine",
+                  "gap": 6,
                   "alignItems": "center",
                   "children": [
                     {
+                      "type": "icon",
+                      "id": "h0eC5L",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "triangle-alert",
+                      "library": "lucide",
+                      "weight": 400,
+                      "fill": "$danger/soft-foreground"
+                    },
+                    {
                       "type": "text",
-                      "id": "x2kBS2",
-                      "name": "gameIconLabel",
-                      "fill": "#5b9a3e",
-                      "content": "MI",
-                      "fontFamily": "$typography/font-mono",
-                      "fontSize": 16,
-                      "fontWeight": "700"
+                      "id": "f3knq",
+                      "fill": "$danger/soft-foreground",
+                      "content": "Back-off pulling image \"itzg/minecraft-server:bad-tag\"",
+                      "fontFamily": "$typography/font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "500"
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "j3LFR",
-                  "name": "srvTitle",
-                  "layout": "vertical",
-                  "gap": 6,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "I8MTn",
-                      "name": "srvNameRow",
-                      "gap": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "X36gMg",
-                          "name": "srvName",
-                          "fill": "$foreground/foreground",
-                          "content": "mc-survival",
-                          "fontFamily": "$typography/font-mono",
-                          "fontSize": 24,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "lPHN5",
-                          "name": "Status Badge",
-                          "height": 20,
-                          "fill": "$danger/soft",
-                          "cornerRadius": 6,
-                          "padding": [
-                            2,
-                            8
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "KdwUW",
-                              "fill": "$danger/soft-foreground",
-                              "content": "Failed",
-                              "fontFamily": "$typography/font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "sFGfr",
-                      "name": "errorLine",
-                      "gap": 6,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "OG5tZ",
-                          "width": 14,
-                          "height": 14,
-                          "icon": "triangle-alert",
-                          "library": "lucide",
-                          "weight": 400,
-                          "fill": "$danger/soft-foreground"
-                        },
-                        {
-                          "type": "text",
-                          "id": "i9MOY",
-                          "fill": "$danger/soft-foreground",
-                          "content": "Back-off pulling image \"itzg/minecraft-server:bad-tag\"",
-                          "fontFamily": "$typography/font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "500"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "pFX51",
-                      "name": "srvSubtitle",
-                      "fill": "$muted",
-                      "content": "minecraft-java · 1.21.4-fabric · ns: gameplane-games",
-                      "fontFamily": "$typography/font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
+                  "type": "text",
+                  "id": "BFfZU",
+                  "name": "srvSubtitle",
+                  "fill": "$muted",
+                  "content": "minecraft-java · 1.21.4-fabric · ns: gameplane-games",
+                  "fontFamily": "$typography/font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 }
               ]
             },
-            {
+            "Gdnjm": {
               "type": "frame",
-              "id": "a96JlL",
+              "id": "AdGvP",
               "name": "srvActions",
               "gap": 8,
               "alignItems": "center",
               "children": [
                 {
-                  "id": "EWh5Y",
+                  "id": "hJkbE",
                   "type": "ref",
                   "ref": "tpKRk",
                   "name": "Btn Start",
@@ -216,7 +147,7 @@
                   }
                 },
                 {
-                  "id": "uwAjv",
+                  "id": "Cf6Gd",
                   "type": "ref",
                   "ref": "rNhll",
                   "name": "Btn Restart",
@@ -231,7 +162,7 @@
                   }
                 },
                 {
-                  "id": "w89Z1G",
+                  "id": "dOBfe",
                   "type": "ref",
                   "ref": "rNhll",
                   "name": "Btn Stop",
@@ -246,7 +177,7 @@
                   }
                 },
                 {
-                  "id": "OPI0g",
+                  "id": "CaKHq",
                   "type": "ref",
                   "ref": "J3iWV8",
                   "name": "Btn More",
@@ -264,7 +195,7 @@
                 }
               ]
             }
-          ]
+          }
         },
         {
           "id": "EL832",

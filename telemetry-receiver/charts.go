@@ -31,8 +31,10 @@ const (
 
 // Series classes; style.css maps them to the chart tokens.
 const (
-	seriesPink = "s1"
-	seriesBlue = "s2"
+	seriesPink  = "s1"
+	seriesBlue  = "s2"
+	seriesGreen = "s3"
+	seriesAmber = "s4"
 )
 
 // pageFuncs are the template functions of the dashboard pages.
@@ -131,25 +133,44 @@ func percentString(share float64) string {
 	return strconv.Itoa(int(math.Round(share*100))) + "%"
 }
 
+// colLayout is the geometry of a column chart in SVG user units.
+type colLayout struct {
+	W, H                float64
+	PlotLeft, PlotRight float64
+	PlotTop, PlotBottom float64
+}
+
+// dailyCols is the layout of the daily and fleet charts.
+var dailyCols = colLayout{
+	W: colChartW, H: colChartH, PlotLeft: colPlotLeft, PlotRight: colPlotRight,
+	PlotTop: colPlotTop, PlotBottom: colPlotBottom,
+}
+
 // newColumnChart lays out pts as columns. labelEvery spaces the x labels
 // (every n-th point, always including the first). valueHead is the header of
 // the table view's value column.
 func newColumnChart(name, class, labelHead, valueHead string, pts []point, labelEvery int) columnChart {
+	return layoutColumns(dailyCols, name, class, labelHead, valueHead, pts, labelEvery, 0)
+}
+
+// layoutColumns lays out pts as columns in g. The axis covers at least
+// scaleMax, so charts given the same scaleMax share one scale.
+func layoutColumns(g colLayout, name, class, labelHead, valueHead string, pts []point, labelEvery int, scaleMax int64) columnChart {
 	c := columnChart{
 		Name: name, Class: class, Head1: labelHead, Head2: valueHead,
-		W: colChartW, H: colChartH, PlotLeft: colPlotLeft, PlotRight: colPlotRight,
-		LabelX: colPlotLeft - 8, BaseY: colPlotBottom, AxisY: colChartH - 4,
+		W: g.W, H: g.H, PlotLeft: g.PlotLeft, PlotRight: g.PlotRight,
+		LabelX: g.PlotLeft - 8, BaseY: g.PlotBottom, AxisY: g.H - 4,
 	}
-	var maxV int64
+	maxV := scaleMax
 	for _, p := range pts {
 		maxV = max(maxV, p.Value)
 		c.Rows = append(c.Rows, tableRow{Label: p.Label, Value: groupInt(p.Value)})
 	}
 	step, top := niceScale(maxV)
-	plotH := colPlotBottom - colPlotTop
+	plotH := g.PlotBottom - g.PlotTop
 	for k := int64(0); k <= colTickCount; k++ {
 		c.Ticks = append(c.Ticks, tick{
-			Y:     round1(colPlotBottom - float64(k*step)/float64(top)*plotH),
+			Y:     round1(g.PlotBottom - float64(k*step)/float64(top)*plotH),
 			Label: groupInt(k * step),
 		})
 	}
@@ -159,13 +180,13 @@ func newColumnChart(name, class, labelHead, valueHead string, pts []point, label
 	if labelEvery < 1 {
 		labelEvery = 1
 	}
-	slot := (colPlotRight - colPlotLeft) / float64(len(pts))
+	slot := (g.PlotRight - g.PlotLeft) / float64(len(pts))
 	w := slot * colSlotFill
 	for i, p := range pts {
 		h := float64(p.Value) / float64(top) * plotH
-		x := colPlotLeft + slot*float64(i) + (slot-w)/2
+		x := g.PlotLeft + slot*float64(i) + (slot-w)/2
 		c.Cols = append(c.Cols, column{
-			X: round1(x), Y: round1(colPlotBottom - h), W: round1(w), H: round1(h),
+			X: round1(x), Y: round1(g.PlotBottom - h), W: round1(w), H: round1(h),
 			Title: p.Label + ": " + groupInt(p.Value),
 		})
 		if i%labelEvery == 0 {
@@ -234,6 +255,28 @@ func newBarChart(name, labelHead, valueHead string, track bool, items []barItem)
 		c.Rows = append(c.Rows, tableRow{Label: it.Label, Value: it.Value})
 	}
 	return c
+}
+
+// Wide bar layout for a bar card that spans the page (Versions by install),
+// so its text renders near 13px at full width.
+const (
+	wideBarChartW = 1320.0
+	wideBarLabelW = 200.0
+	wideBarMaxW   = 1020.0
+	wideBarValueX = 1312.0
+)
+
+// widenBars returns c laid out for a full-width card. Bar lengths keep their
+// share of the track.
+func widenBars(c barChart) barChart {
+	w := c
+	w.W, w.BarX, w.TrackW, w.ValueX = wideBarChartW, wideBarLabelW, wideBarMaxW, wideBarValueX
+	w.Bars = make([]barRow, len(c.Bars))
+	for i, b := range c.Bars {
+		b.Bar = round1(b.Bar / barMaxW * wideBarMaxW)
+		w.Bars[i] = b
+	}
+	return w
 }
 
 // countBars builds bar items from counts, scaled to the largest count.
@@ -347,7 +390,7 @@ func newOverviewPage(v Views, table bool, total int64, since string) overviewPag
 	for i, r := range b.Versions {
 		labels[i], counts[i] = r.Label, r.Reports
 	}
-	p.VersionsChart = newBarChart("Versions", "Version", "Reports", false, countBars(labels, counts))
+	p.VersionsChart = newBarChart("Reports by version", "Version", "Reports", false, countBars(labels, counts))
 	p.VersionsChart.Table = table
 	p.ServersChart = fleetChart("Servers per install", "Game servers", b.Fleet.Servers, table)
 	p.TemplatesChart = fleetChart("Templates per install", "Templates", b.Fleet.Templates, table)

@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "TBvTC",
-  "x": 3280,
-  "y": 19515,
+  "x": 0,
+  "y": 68869,
   "name": "Screen/Users & RBAC — Service accounts",
   "theme": {
     "semantic": "dark"
@@ -91,7 +91,16 @@
                       "id": "WkOAM",
                       "type": "ref",
                       "ref": "rNhll",
-                      "name": "Audit Log Button"
+                      "name": "Audit Log Button",
+                      "descendants": {
+                        "wDXFJ/K8d1zg": {
+                          "enabled": true,
+                          "icon": "scroll-text"
+                        },
+                        "wDXFJ/zMNkR": {
+                          "content": "Audit log"
+                        }
+                      }
                     },
                     {
                       "id": "I0RHe",

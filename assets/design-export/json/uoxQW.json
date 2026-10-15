@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "uoxQW",
-  "x": 11480,
-  "y": 21915,
+  "x": 0,
+  "y": 86824,
   "name": "Screen/Admin Settings — Telemetry",
   "theme": {
     "semantic": "dark"
@@ -103,8 +103,20 @@
                     "eIjoV": {
                       "fill": "#00000000"
                     },
+                    "XuGUZ": {
+                      "fill": "$muted"
+                    },
+                    "DpMnt": {
+                      "fill": "$muted"
+                    },
                     "ZPLSA": {
                       "fill": "$surface/secondary"
+                    },
+                    "w6pwjZ": {
+                      "fill": "$foreground/foreground"
+                    },
+                    "gAe7m": {
+                      "fill": "$foreground/foreground"
                     }
                   }
                 },

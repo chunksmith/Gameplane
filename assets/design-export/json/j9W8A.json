@@ -2,7 +2,7 @@
   "type": "frame",
   "id": "j9W8A",
   "x": 0,
-  "y": 18315,
+  "y": 64969,
   "name": "Screen/Cluster Settings",
   "theme": {
     "semantic": "dark"
@@ -103,7 +103,16 @@
                           "id": "FUV3M",
                           "type": "ref",
                           "ref": "rNhll",
-                          "name": "Download kubeconfig"
+                          "name": "Download kubeconfig",
+                          "descendants": {
+                            "wDXFJ/K8d1zg": {
+                              "enabled": true,
+                              "icon": "download"
+                            },
+                            "wDXFJ/zMNkR": {
+                              "content": "Download kubeconfig"
+                            }
+                          }
                         },
                         {
                           "id": "WdBTy",

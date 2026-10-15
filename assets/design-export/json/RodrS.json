@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "RodrS",
-  "x": 28800,
-  "y": 10155,
+  "x": 0,
+  "y": 49187,
   "name": "Screen/Server Detail — Settings · Network capture",
   "theme": {
     "semantic": "dark"

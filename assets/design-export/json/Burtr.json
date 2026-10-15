@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "Burtr",
-  "x": 6560,
-  "y": 9175,
+  "x": 0,
+  "y": 30207,
   "name": "Screen/Server Detail — Files",
   "theme": {
     "semantic": "dark"

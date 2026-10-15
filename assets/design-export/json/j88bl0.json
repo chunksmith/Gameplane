@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "j88bl0",
-  "x": 22720,
-  "y": 9175,
+  "x": 3280,
+  "y": 27607,
   "name": "Screen/Server Detail — Console (not running – Pod failure)",
   "theme": {
     "semantic": "dark"
@@ -121,103 +121,20 @@
           "layout": "vertical",
           "children": [
             {
-              "type": "frame",
-              "id": "YB5tu",
+              "id": "yoY9K",
+              "type": "ref",
+              "ref": "qYOZe",
               "name": "Console Toolbar",
               "width": "fill_container",
-              "stroke": "$border/border",
-              "strokeWidth": {
-                "bottom": 1
-              },
-              "strokeAlignment": "inner",
-              "strokeLinejoin": "round",
-              "padding": [
-                8,
-                16
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "M5cVW8",
-                  "name": "Live Indicator",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "ellipse",
-                      "id": "gUTe1",
-                      "name": "Live Dot",
-                      "fill": "$danger/danger",
-                      "width": 8,
-                      "height": 8
-                    },
-                    {
-                      "type": "text",
-                      "id": "F9T8U",
-                      "name": "Live Label",
-                      "fill": "$danger/danger",
-                      "content": "FAILED",
-                      "fontFamily": "$typography/font-mono",
-                      "fontSize": 12,
-                      "fontWeight": "700",
-                      "letterSpacing": 1
-                    }
-                  ]
+              "descendants": {
+                "ztP8w": {
+                  "fill": "$danger/danger"
                 },
-                {
-                  "type": "frame",
-                  "id": "tHXpM",
-                  "name": "Console Actions",
-                  "gap": 4,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "ZqAjC",
-                      "type": "ref",
-                      "ref": "J09iP",
-                      "name": "Btn Clear",
-                      "descendants": {
-                        "eWkIT/WtPjS": {
-                          "icon": "eraser"
-                        },
-                        "eWkIT/r4VbAi": {
-                          "content": "Clear"
-                        }
-                      }
-                    },
-                    {
-                      "id": "qhpfb",
-                      "type": "ref",
-                      "ref": "J09iP",
-                      "name": "Btn Download",
-                      "descendants": {
-                        "eWkIT/WtPjS": {
-                          "icon": "download"
-                        },
-                        "eWkIT/r4VbAi": {
-                          "content": "Download"
-                        }
-                      }
-                    },
-                    {
-                      "id": "w6Hf8R",
-                      "type": "ref",
-                      "ref": "J09iP",
-                      "name": "Btn Fullscreen",
-                      "descendants": {
-                        "eWkIT/WtPjS": {
-                          "icon": "maximize-2"
-                        },
-                        "eWkIT/r4VbAi": {
-                          "content": "Fullscreen"
-                        }
-                      }
-                    }
-                  ]
+                "IJEZB": {
+                  "fill": "$danger/danger",
+                  "content": "FAILED"
                 }
-              ]
+              }
             },
             {
               "type": "frame",

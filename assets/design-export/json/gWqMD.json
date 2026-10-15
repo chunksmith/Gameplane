@@ -1,9 +1,9 @@
 {
   "type": "frame",
   "id": "gWqMD",
-  "x": 40080,
-  "y": 10375,
-  "name": "Screen/Server Detail \u2014 Settings \u00b7 Access (Read-only)",
+  "x": 3280,
+  "y": 51787,
+  "name": "Screen/Server Detail — Settings · Access (Read-only)",
   "theme": {
     "semantic": "dark"
   },
@@ -274,7 +274,7 @@
                                       "width": "fill_container",
                                       "descendants": {
                                         "PJERm": {
-                                          "content": "Add collaborator by username\u2026",
+                                          "content": "Add collaborator by username…",
                                           "fill": "$field/placeholder"
                                         }
                                       }
@@ -282,7 +282,15 @@
                                     {
                                       "id": "Wzlnw",
                                       "type": "ref",
-                                      "ref": "tpKRk"
+                                      "ref": "tpKRk",
+                                      "descendants": {
+                                        "q58In/Xpn7K": {
+                                          "enabled": false
+                                        },
+                                        "q58In/U6q13B": {
+                                          "content": "Add"
+                                        }
+                                      }
                                     }
                                   ]
                                 },

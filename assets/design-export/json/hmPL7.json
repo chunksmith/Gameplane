@@ -1,8 +1,8 @@
 {
   "type": "frame",
   "id": "hmPL7",
-  "x": -13425,
-  "y": 29490,
+  "x": 2000,
+  "y": 58137,
   "name": "Screen/Dialog/Build Module — Step 3 (Review & Export)",
   "theme": {
     "semantic": "dark"
@@ -350,138 +350,95 @@
               ]
             },
             {
-              "type": "frame",
-              "id": "eLx7f",
+              "id": "DIF1Z",
+              "type": "ref",
+              "ref": "yJovP",
               "name": "CodeContentBox",
               "width": "fill_container",
-              "height": 320,
               "fill": "$surface/surface",
-              "layout": "vertical",
-              "gap": 4,
+              "cornerRadius": 0,
               "padding": 14,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "HLfjL",
+              "height": 320,
+              "gap": 4,
+              "descendants": {
+                "HCtbV": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "apiVersion: gameplane.local/module/v1",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "DbxcS",
+                "MNBib": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "name: cs2-competitive",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "juhSw",
+                "YHnrh": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "displayName: Counter-Strike 2",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "fZ7Jn",
+                "e8A3vV": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "version: 1.0.0",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "O6gJMg",
+                "y32Oj": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "game: Counter-Strike 2",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "qCsMO",
+                "xNjpK": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "summary: High performance dedicated server",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "O0ew9",
+                "hTXlv": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "categories:",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "SJJjw",
+                "Lmzfg": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "  - Shooter",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "ZWFQG",
+                "a46V31": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "  - Co-op",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "LL5Bm",
+                "xcCUz": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "template: template.yaml",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 },
-                {
-                  "type": "text",
-                  "id": "kDFVv",
+                "mMBEA": {
                   "name": "CodeLine",
                   "fill": "$foreground/foreground",
                   "content": "icon: icon.png",
                   "lineHeight": 1.5,
-                  "fontFamily": "Roboto Mono",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
+                  "fontFamily": "Roboto Mono"
                 }
-              ]
+              }
             }
           ]
         },
@@ -782,28 +739,18 @@
       "alignItems": "center",
       "children": [
         {
-          "type": "frame",
-          "id": "d4Gfa",
+          "id": "pdmED",
+          "type": "ref",
+          "ref": "FIB65",
           "name": "BackButton",
-          "cornerRadius": 6,
-          "stroke": "$border/border",
-          "strokeWidth": 1,
-          "padding": [
-            8,
-            16
-          ],
-          "children": [
-            {
-              "type": "text",
-              "id": "uMGi4",
-              "name": "Label",
-              "fill": "$foreground/foreground",
-              "content": "← Back",
-              "fontFamily": "$typography/font-sans",
-              "fontSize": 13,
-              "fontWeight": "normal"
+          "descendants": {
+            "K8d1zg": {
+              "enabled": false
+            },
+            "zMNkR": {
+              "content": "← Back"
             }
-          ]
+          }
         },
         {
           "type": "frame",
@@ -813,75 +760,36 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "frame",
-              "id": "mPOfz",
+              "id": "e8iLpK",
+              "type": "ref",
+              "ref": "FIB65",
               "name": "DownloadBundleButton",
-              "cornerRadius": 6,
-              "stroke": "$border/border",
-              "strokeWidth": 1,
-              "gap": 6,
-              "padding": [
-                8,
-                16
-              ],
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon",
-                  "id": "Y84r7",
-                  "name": "DownIcon",
-                  "width": 14,
-                  "height": 14,
+              "descendants": {
+                "K8d1zg": {
+                  "enabled": true,
                   "icon": "download",
-                  "library": "lucide",
-                  "fill": "$foreground/foreground"
+                  "library": "lucide"
                 },
-                {
-                  "type": "text",
-                  "id": "TXKqr",
-                  "name": "Label",
-                  "fill": "$foreground/foreground",
-                  "content": "Download .tar.gz",
-                  "fontFamily": "$typography/font-sans",
-                  "fontSize": 13,
-                  "fontWeight": "normal"
+                "zMNkR": {
+                  "content": "Download .tar.gz"
                 }
-              ]
+              }
             },
             {
-              "type": "frame",
-              "id": "RUPoh",
+              "id": "oSgnA",
+              "type": "ref",
+              "ref": "cb4rt",
               "name": "InstallClusterButton",
-              "fill": "$accent/accent",
-              "cornerRadius": 6,
-              "gap": 6,
-              "padding": [
-                8,
-                18
-              ],
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon",
-                  "id": "KbBLD",
-                  "name": "UpIcon",
-                  "width": 14,
-                  "height": 14,
+              "descendants": {
+                "Xpn7K": {
+                  "enabled": true,
                   "icon": "upload",
-                  "library": "lucide",
-                  "fill": "#ffffff"
+                  "library": "lucide"
                 },
-                {
-                  "type": "text",
-                  "id": "x33tCz",
-                  "name": "Label",
-                  "fill": "#ffffff",
-                  "content": "Install to Cluster",
-                  "fontFamily": "$typography/font-sans",
-                  "fontSize": 13,
-                  "fontWeight": "500"
+                "U6q13B": {
+                  "content": "Install to Cluster"
                 }
-              ]
+              }
             }
           ]
         }

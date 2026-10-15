@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/GameplanePanel/gameplane/telemetryschema v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.25.0
+	golang.org/x/mod v0.41.0
 	modernc.org/sqlite v1.60.1
 )
 

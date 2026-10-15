@@ -4,8 +4,8 @@
   "reusable": true,
   "ref": "TzRet",
   "name": "Gameplane/Dialog/Wipe World",
-  "x": -15825,
-  "y": 29821,
+  "x": 1136,
+  "y": 6880,
   "theme": {},
   "descendants": {
     "ocSbw": {
