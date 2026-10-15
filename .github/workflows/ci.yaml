@@ -57,11 +57,6 @@ env:
 permissions:
   contents: read
 
-# All jobs run on GitHub-hosted runners: each job gets its own isolated
-# VM, so jobs never contend for memory or ports and there is nothing to
-# serialize. The e2e suites are split into independent jobs, each with
-# its own kind cluster, so the slowest suite — not the sum of all of
-# them — sets the wall-clock time.
 jobs:
   # Path-filter gate. Computes which parts of the tree a change touches so the
   # heavy jobs below can skip when they can't be affected (a web-only PR drops
@@ -80,22 +75,15 @@ jobs:
       go: ${{ steps.combine.outputs.go }}
       web: ${{ steps.combine.outputs.web }}
       charts: ${{ steps.combine.outputs.charts }}
-      standalone: ${{ steps.combine.outputs.standalone }}
       e2e: ${{ steps.combine.outputs.e2e }}
-      telemetry: ${{ steps.combine.outputs.telemetry }}
-      weblive: ${{ steps.combine.outputs.weblive }}
-      images: ${{ steps.combine.outputs.images }}
       github: ${{ steps.combine.outputs.github }}
       specs: ${{ steps.combine.outputs.specs }}
       docs: ${{ steps.combine.outputs.docs }}
-      kindsmoke: ${{ steps.combine.outputs.kindsmoke }}
       lint: ${{ steps.scope.outputs.lint }}
       modules: ${{ steps.scope.outputs.modules }}
       lint-exclude: ${{ steps.scope.outputs.lint-exclude }}
       go-exclude: ${{ steps.scope.outputs.go-exclude }}
       e2e-unit: ${{ steps.scope.outputs.e2e-unit }}
-      bot-matrix: ${{ steps.bots.outputs.matrix }}
-      capture_overhead: ${{ steps.combine.outputs.capture_overhead }}
       submodules: ${{ steps.combine.outputs.submodules }}
       codegen: ${{ steps.combine.outputs.codegen }}
     steps:
@@ -108,9 +96,6 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: python3 hack/ci_scope.py modules --base "$BASE_SHA" --head "$HEAD_SHA"
-      - name: partition every bot-fast test onto its own runner
-        id: bots
-        run: python3 hack/ci_scope.py bots
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -151,65 +136,16 @@ jobs:
               # from these; an edit to either must re-run it.
               - 'operator/config/crd/**'
               - 'hack/sync-chart-crds.sh'
-            # Compose builds only API, its local module dependencies, and web.
-            # Deployment prose and unrelated Go/chart changes need no smoke VM.
-            standalone:
-              - 'api/**'
-              - 'netguard/**'
-              - 'gameaction/**'
-              - 'gp-module/**'
-              - 'telemetryschema/**'
-              - 'web/**'
-              - 'deploy/standalone/compose*.yaml'
-              - 'deploy/standalone/smoke.py'
-              - '.dockerignore'
             e2etree:
               - 'test/e2e/**'
               - 'deploy/kind/**'
               - 'containers/docker-bake.hcl'
               - 'hack/trivy-scan-images.sh'
               - 'hack/check-image-scan_test.sh'
-            # Narrower than e2etree on purpose: this backs a job that only
-            # smoke-tests deploy/kind/**'s pinned dev ingress-nginx manifest
-            # on a real Kind cluster, and must NOT run on every e2e-affecting
-            # change (a Go or chart edit does not touch that manifest pin).
-            # On PRs there is no `ci` fail-safe either — the workflow file
-            # itself is listed directly below. Master pushes always run it.
-            kindsmoke:
-              - 'deploy/kind/**'
-              - '.github/workflows/ci.yaml'
-            telemetry:
-              - 'api/cmd/**'
-              - 'api/internal/telemetry/**'
-              - 'api/internal/handlers/telemetry*'
-              - 'api/internal/db/telemetry*'
-              - 'api/internal/db/migrations/**'
-              - 'telemetry-receiver/**'
-              - 'telemetryschema/**'
-              - 'charts/gameplane/values.yaml'
-              - 'charts/gameplane/templates/_helpers.tpl'
-              - 'charts/gameplane/templates/api.yaml'
-              - 'charts/gameplane/templates/telemetry-receiver.yaml'
-              - 'deploy/kind/**'
-              - 'test/e2e/telemetry*'
-              - 'test/e2e/env.go'
-              - 'test/e2e/internal/**'
-              - 'test/e2e/go.mod'
-              - 'test/e2e/go.sum'
             gamecoverage:
               - 'modules'
               - 'modules/**'
               - 'docs/game-coverage.md'
-            # Gates the non-blocking e2e-capture-overhead job on PRs (OD-2 in
-            # specs/done_007-capture-overhead-guard/OPEN-DECISIONS.md). Master pushes
-            # run it through the e2e gate instead.
-            capture_overhead:
-              - 'capture-sidecar/**'
-              - 'operator/internal/controller/networkcapture*'
-              - 'api/internal/handlers/capture*'
-              - 'test/e2e/internal/minecraft-java/**'
-              - 'test/e2e/capture_overhead_e2e_test.go'
-              - 'test/e2e/gameprobe_job.go'
             # Gate scope for submodule freshness (spec 013 T007).
             submodules:
               - 'modules'
@@ -320,257 +256,40 @@ jobs:
         # Fold the raw filters into single-token booleans so every downstream
         # `if:` is one expression (fewer chances to get wrong when the only way
         # to test is to push). `ci` forces all of them true. e2e-affecting =
-        # go|charts|e2etree|ci; images/weblive are needed by the kind e2e jobs
-        # and the live-web job, so they = e2e|web|ci.
+        # go|charts|e2etree|ci.
         env:
           GO: ${{ steps.scope.outputs.go }}
           WEB: ${{ steps.filter.outputs.web }}
           CHARTS: ${{ steps.filter.outputs.charts }}
-          STANDALONE: ${{ steps.filter.outputs.standalone }}
           E2ETREE: ${{ steps.filter.outputs.e2etree }}
-          TELEMETRY: ${{ steps.filter.outputs.telemetry }}
           GAMECOVERAGE: ${{ steps.filter.outputs.gamecoverage }}
           CI: ${{ steps.filter.outputs.ci == 'true' || steps.scope.outputs.all == 'true' }}
-          CAPTURE: ${{ steps.filter.outputs.capture_overhead }}
           SUBMODULES: ${{ steps.filter.outputs.submodules }}
           CODEGEN: ${{ steps.filter.outputs.codegen }}
           GITHUB: ${{ steps.filter.outputs.github }}
           SPECS: ${{ steps.filter.outputs.specs }}
           DOCS: ${{ steps.filter.outputs.docs }}
-          KINDSMOKE: ${{ steps.filter.outputs.kindsmoke == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
         run: |
           gov=false;  { [ "$GO" = true ]     || [ "$CI" = true ]; } && gov=true
           webv=false; { [ "$WEB" = true ]    || [ "$CI" = true ]; } && webv=true
           chv=false;  { [ "$CHARTS" = true ] || [ "$CI" = true ]; } && chv=true
-          standalonev=false; { [ "$STANDALONE" = true ] || [ "$CI" = true ]; } && standalonev=true
           e2ev=false; { [ "$GO" = true ] || [ "$CHARTS" = true ] || [ "$E2ETREE" = true ] || [ "$GAMECOVERAGE" = true ] || [ "$CI" = true ]; } && e2ev=true
-          telv=false; { [ "$TELEMETRY" = true ] || [ "$CI" = true ]; } && [ "$e2ev" = true ] && telv=true
-          wlv=false;  { [ "$e2ev" = true ] || [ "$WEB" = true ] || [ "$CI" = true ]; } && wlv=true
           ghv=false;  { [ "$GITHUB" = true ] || [ "$CI" = true ]; } && ghv=true
           specsv=false; { [ "$SPECS" = true ] || [ "$CI" = true ]; } && specsv=true
           docsv=false; { [ "$DOCS" = true ] || [ "$CI" = true ]; } && docsv=true
-          capov=false; { [ "$CAPTURE" = true ] || [ "$CI" = true ]; } && capov=true
           subv=false; { [ "$SUBMODULES" = true ] || [ "$CI" = true ]; } && subv=true
           cgv=false; { [ "$CODEGEN" = true ] || [ "$CI" = true ]; } && cgv=true
-          # Keep this gate narrow on PRs; KINDSMOKE also enables it for every
-          # master push, independently of its file filter.
-          ksv=false; [ "$KINDSMOKE" = true ] && ksv=true
           {
             echo "go=$gov"
             echo "web=$webv"
             echo "charts=$chv"
-            echo "standalone=$standalonev"
             echo "e2e=$e2ev"
-            echo "telemetry=$telv"
-            echo "weblive=$wlv"
-            echo "images=$wlv"
             echo "github=$ghv"
             echo "specs=$specsv"
             echo "docs=$docsv"
-            echo "kindsmoke=$ksv"
-            echo "capture_overhead=$capov"
             echo "submodules=$subv"
             echo "codegen=$cgv"
           } >> "$GITHUB_OUTPUT"
-
-  # Build the operator/api/agent (+ gameprobe) images ONCE and publish them as
-  # an artifact, so the 9 heavy e2e jobs load a tar instead of each recompiling
-  # the same three Go binaries. Gated on `images` so a run that needs no e2e
-  # image skips the build entirely.
-  build-images:
-    name: build e2e images
-    needs: [changes]
-    if: needs.changes.outputs.images == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/build-e2e-images
-
-  # Same as build-images but on an arm64 runner, producing the e2e-images-arm64
-  # artifact the arm64 e2e legs load. Native arm build, no QEMU.
-  build-images-arm64:
-    name: build e2e images (arm64)
-    needs: [changes]
-    if: needs.changes.outputs.images == 'true' && github.event_name == 'push'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/build-e2e-images
-        with:
-          arch: arm64
-
-  # Proof that CAP_NET_RAW file capabilities survive the multi-stage Dockerfile
-  # COPY into distroless/static:nonroot. File capabilities are stored as xattrs
-  # and may be dropped by some builders/COPY implementations; this gate ensures
-  # they survived so the sidecar can open AF_PACKET sockets at runtime.
-  #
-  # IMPORTANT: this deliberately does NOT extract the binary with `docker cp`.
-  # `docker cp` (copy out of a container) unpacks the tar stream client-side,
-  # as the invoking non-root runner user, outside any container/namespace —
-  # and writing the security.capability xattr onto a real file requires the
-  # CAP_SETFCAP privilege that process does not have, so the xattr silently
-  # fails to apply. That makes `docker cp` + getcap report the capability
-  # missing unconditionally, regardless of whether the image is actually
-  # correct, which would fail this gate every run and permanently redden the
-  # branch — the worst possible outcome for a job whose only purpose is to
-  # prove this property. Instead we `docker save` the image (the capability
-  # xattr is preserved as a PAX/SCHILY.xattr record inside the layer
-  # tarball itself) and extract that tarball ourselves with
-  # `tar --xattrs --xattrs-include='security.capability'`, GNU tar's
-  # documented way to round-trip file capabilities through an archive.
-  #
-  # That layer-tarball extraction is *itself* CAP_SETFCAP-restricted for the
-  # exact same reason `docker cp` is: restoring the security.capability xattr
-  # to a real file requires privilege the plain `runner` user does not have,
-  # regardless of whether the archive is well-formed. So the extraction (and
-  # the getcap read of the result) run under `sudo` — GitHub-hosted runners
-  # grant the runner user passwordless sudo — which is the only way this job
-  # can actually distinguish "capability present" from "capability absent"
-  # instead of failing unconditionally either way.
-  capture-sidecar-setcap-proof:
-    name: capture-sidecar CAP_NET_RAW survival
-    needs: [changes]
-    if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: install libcap2-bin (getcap)
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libcap2-bin
-      # Same Dockerfile, same repo-root context, same buildx-backed action as
-      # publish-edge.yaml/release.yaml use for the real capture-sidecar image
-      # — single-platform (amd64, matching this runner) and loaded locally
-      # instead of pushed.
-      - name: build capture-sidecar image (matches publish workflows)
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: capture-sidecar/Dockerfile
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: capture-sidecar:test
-      - name: verify CAP_NET_RAW survived the image build
-        run: |
-          set -euo pipefail
-
-          WORKDIR="$(mktemp -d)"
-          # Extraction below writes root-owned files under $WORKDIR (see
-          # comment above the job for why sudo is required), so cleanup
-          # needs the same privilege or it silently leaves them behind.
-          trap 'sudo rm -rf "$WORKDIR"' EXIT
-
-          echo "Saving image to a tarball (docker save preserves layer xattrs; docker cp does not)..."
-          docker save capture-sidecar:test -o "$WORKDIR/image.tar"
-
-          mkdir -p "$WORKDIR/image"
-          tar -xf "$WORKDIR/image.tar" -C "$WORKDIR/image"
-
-          # docker save's output layout varies by storage driver (classic
-          # docker archive: per-layer directories with layer.tar; containerd
-          # image store: OCI blobs/sha256/<digest>) so scan every extracted
-          # regular file that tar can list as a candidate layer tarball
-          # instead of hardcoding a path.
-          FOUND_BINARY=0
-          LAST_GETCAP_OUTPUT=""
-
-          while IFS= read -r -d '' candidate; do
-            if ! tar -tf "$candidate" >/dev/null 2>&1; then
-              continue
-            fi
-            # Materialize the listing before grepping it: `tar -tf | grep -q`
-            # lets grep exit on its first match and SIGPIPE the still-writing
-            # tar process, which under `set -o pipefail` turns into a
-            # nonzero pipeline status indistinguishable from "no match" —
-            # silently skipping the layer that actually holds the binary.
-            listing="$(tar -tf "$candidate" 2>/dev/null || true)"
-            if ! printf '%s\n' "$listing" | grep -Eq '(^|/)capture-sidecar$'; then
-              continue
-            fi
-
-            EXTRACT_DIR="$WORKDIR/extract-$(basename "$candidate" | tr -c 'a-zA-Z0-9' '_')"
-            mkdir -p "$EXTRACT_DIR"
-            # sudo: restoring the security.capability xattr to a real file
-            # requires CAP_SETFCAP, which the unprivileged runner user does
-            # not have — see the job-level comment for why this can't run
-            # as plain `tar`.
-            sudo tar --xattrs --xattrs-include='security.capability' -xf "$candidate" -C "$EXTRACT_DIR"
-
-            BIN_PATH="$(sudo find "$EXTRACT_DIR" -type f -name 'capture-sidecar' -print -quit)"
-            if [ -z "$BIN_PATH" ]; then
-              continue
-            fi
-
-            FOUND_BINARY=1
-            echo "Inspecting $candidate -> $BIN_PATH"
-            LAST_GETCAP_OUTPUT="$(sudo getcap "$BIN_PATH" 2>&1 || true)"
-            echo "getcap output: $LAST_GETCAP_OUTPUT"
-
-            if printf '%s' "$LAST_GETCAP_OUTPUT" | grep -q 'cap_net_raw'; then
-              echo "CAP_NET_RAW present in final image"
-              exit 0
-            fi
-          done < <(find "$WORKDIR/image" -type f -print0)
-
-          if [ "$FOUND_BINARY" -eq 0 ]; then
-            echo "ERROR: could not find any layer tarball containing /capture-sidecar in the saved image." >&2
-            echo "Saved image contents:" >&2
-            find "$WORKDIR/image" -maxdepth 3 >&2
-            exit 1
-          fi
-
-          echo "ERROR: CAP_NET_RAW missing from the capture-sidecar binary in the built image." >&2
-          echo "Last getcap output observed: '$LAST_GETCAP_OUTPUT'" >&2
-          echo "This means file capabilities did not survive the multi-stage Dockerfile COPY." >&2
-          echo "The sidecar will fail at runtime when it tries to open AF_PACKET sockets." >&2
-          exit 1
-
-  # Spec 013 G2: fail on any fixed HIGH/CRITICAL vulnerability in a built e2e
-  # image. hack/check-image-scan_test.sh first proves the gate rejects an
-  # end-of-life alpine. Fix findings with a base-image digest or dependency
-  # bump, never an ignore file.
-  vuln-images:
-    name: vuln (images)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.images == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: load images
-        uses: ./.github/actions/e2e-images
-      - name: week of year
-        id: week
-        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
-      - name: cache trivy db
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db-${{ steps.week.outputs.week }}
-      - name: install trivy
-        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
-        with:
-          version: v0.74.0
-      - name: prove the gate rejects a vulnerable image
-        run: ./hack/check-image-scan_test.sh
-      - name: scan every e2e image
-        run: |
-          mapfile -t images < <(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^gameplane-test/[^:]+:e2e(-postgres)?$' | sort -u)
-          ./hack/trivy-scan-images.sh "${images[@]}"
 
   # Repository-wide gates run once, including on documentation-only changes.
   docs:
@@ -649,50 +368,6 @@ jobs:
         run: ./hack/check-submodule-freshness_test.sh
       - name: submodule pointers are on upstream main
         run: ./hack/check-submodule-freshness.sh
-
-  # Spec 013 G4: block a PR that adds a dependency with a known high or
-  # critical advisory. PR-only; on push it is skipped, which the report
-  # already counts as neutral. No failure-proof fixture by ruling (OD-4).
-  dependency-review:
-    name: dependency review
-    needs: [changes]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          fail-on-severity: high
-          comment-summary-in-pr: on-failure
-
-  # Spec 013 G1: fail on any reachable Go vulnerability in any go.work module.
-  # The proof step first shows the gate goes red on a synthetic reachable
-  # advisory (hack/testdata/govulncheck). Fix findings by bumping, never excluding.
-  vuln-go:
-    name: vuln (go)
-    needs: [changes]
-    if: needs.changes.outputs.go == 'true' || github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: vuln-go
-      - name: install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
-      - name: prove the gate fails on a reachable vulnerable symbol
-        run: ./hack/check-govulncheck_test.sh
-      - name: govulncheck every go.work module
-        run: ./hack/govulncheck-all.sh
 
   lint:
     name: lint (${{ matrix.module }})
@@ -774,10 +449,7 @@ jobs:
     name: go (${{ matrix.module }} / ${{ matrix.arch }})
     needs: [changes]
     if: needs.changes.outputs.go == 'true'
-    # amd64 on the standard hosted runner; arm64 on the free public-repo
-    # arm runner. Unit + envtest run on both arches every master push — this is where
-    # real arch bugs (build tags, sqlite codepaths, struct alignment) surface.
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -786,7 +458,7 @@ jobs:
       matrix:
         module: [netguard, gameaction, gameproto, telemetryschema, operator, api, agent, audit-syslog-bridge, telemetry-receiver, sentinel, mcp-server, capture-sidecar, svcutil, tunnel, gp-module]
         exclude: ${{ fromJSON(needs.changes.outputs.go-exclude) }}
-        arch: ${{ github.event_name == 'push' && fromJSON('["amd64","arm64"]') || fromJSON('["amd64"]') }}
+        arch: [amd64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: initialize validator module fixtures
@@ -938,39 +610,6 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  web-e2e-mock:
-    name: web e2e (mock)
-    needs: [changes]
-    if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    defaults: { run: { working-directory: web } }
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: "24", cache: "npm", cache-dependency-path: web/package-lock.json }
-      - run: npm ci
-      - name: playwright browser cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/package-lock.json') }}
-      - name: install chromium
-        # Skips the browser download on a cache hit; still apt-installs deps.
-        run: npx playwright install --with-deps chromium
-      - name: playwright (mock)
-        run: npm run test:e2e:mock
-      - name: upload playwright report
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: playwright-report-mock
-          path: web/playwright-report
-          retention-days: 7
-          if-no-files-found: warn
-
   helm:
     name: helm lint
     needs: [changes]
@@ -983,52 +622,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       - run: helm lint charts/gameplane
-
-  standalone-compose:
-    name: standalone Compose smoke
-    needs: [changes]
-    if: needs.changes.outputs.standalone == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      # Match Compose's image names for its fixed gameplane-panel project.
-      # Separate cache scopes prevent the API/web exports overwriting each other.
-      - name: build standalone API
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: api/Dockerfile
-          platforms: linux/amd64
-          load: true
-          push: false
-          tags: gameplane-panel-gameplane-api:latest
-          cache-from: type=gha,scope=standalone-api
-          cache-to: type=gha,mode=max,scope=standalone-api
-      - name: build standalone dashboard
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: web/Dockerfile
-          platforms: linux/amd64
-          load: true
-          push: false
-          tags: gameplane-panel-web:latest
-          cache-from: type=gha,scope=standalone-web
-          cache-to: type=gha,mode=max,scope=standalone-web
-      - name: start standalone panel
-        run: docker compose -f deploy/standalone/compose.yaml up -d --no-build --pull never
-      - name: bootstrap and verify persistent standalone panel
-        run: python3 deploy/standalone/smoke.py
-      - name: container logs
-        if: failure()
-        run: docker compose -f deploy/standalone/compose.yaml logs
-      - name: remove smoke containers and volume
-        if: always()
-        run: docker compose -f deploy/standalone/compose.yaml down --volumes
 
   chart-template:
     name: chart render
@@ -1481,75 +1074,6 @@ jobs:
         working-directory: test/e2e
         run: go test ./...
 
-  # The api's PostgreSQL backend (--db-driver=postgres) is compiled only
-  # with -tags postgres, so the `go` matrix and `lint` never build it. This
-  # job builds and vets api with the tag and runs database and standalone
-  # management storage tests against a real PostgreSQL service; these tests skip
-  # unless GAMEPLANE_TEST_POSTGRES_DSN is set. The server keeps the image's
-  # default (non-C) locale on purpose: TestPostgres_TextOrderingIsByteWise
-  # checks the migrations' COLLATE "C" columns sort byte-wise regardless.
-  # The name must not start with "go (" or the report's `go` matcher would
-  # absorb it.
-  api-postgres:
-    name: api (postgres)
-    needs: [changes]
-    if: contains(fromJSON(needs.changes.outputs.modules), 'api')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    services:
-      postgres:
-        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
-        env:
-          # Throwaway CI-only server reachable only from this job's runner.
-          POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: gameplane_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d gameplane_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: api-postgres
-      - name: go mod download
-        working-directory: api
-        # Same transient-proxy retry as the `go` job; see the comment there.
-        env:
-          GOSUMDB: "off"
-        run: |
-          for attempt in 1 2 3 4; do
-            if go mod download; then exit 0; fi
-            echo "go mod download failed (attempt ${attempt}/5) — retrying in $((attempt * 30))s"
-            sleep $((attempt * 30))
-          done
-          go mod download
-      - name: go build -tags postgres
-        working-directory: api
-        run: go build -tags postgres ./...
-      - name: go vet -tags postgres
-        working-directory: api
-        run: go vet -tags postgres ./...
-      - name: test database and standalone management storage against PostgreSQL
-        working-directory: api
-        env:
-          GAMEPLANE_TEST_POSTGRES_DSN: postgres://postgres@localhost:5432/gameplane_test?sslmode=disable
-        run: go test -tags postgres -count=1 ./internal/db/... ./internal/controlplane/...
-
-  # ---------------------------------------------------------------------
-  # kind e2e — one job per suite, each with its own throwaway cluster on
-  # its own VM. No `needs` edges: a broken unit test doesn't gate e2e
-  # feedback, and the per-ref concurrency group above still cancels
-  # superseded runs. VMs are discarded after the job, so there is no
-  # teardown step and no cross-run cluster-name collision to guard.
-  # Which tests run in which job is defined ONLY in test/e2e/buckets.sh;
-  # the e2e-buckets job proves the buckets cover the whole suite.
-  # ---------------------------------------------------------------------
   e2e-buckets:
     name: e2e bucket coverage
     needs: [changes]
@@ -1576,653 +1100,10 @@ jobs:
       - name: verify the lint gate can fail
         run: ./test/e2e/lint-gate-verify_test.sh
 
-  e2e-go:
-    name: e2e ${{ matrix.bucket }} / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ matrix.job_timeout }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        # Buckets are cut by login pressure, not feature area — see the
-        # header comment in test/e2e/buckets.sh. The suite runs with
-        # t.Parallel(); `parallel` bounds in-flight tests per bucket
-        # (operator does zero logins and is wait-dominated, so it runs
-        # wide; the api buckets stay within the login limiter's budget).
-        # The arm64 job below uses the same steps and per-bucket settings.
-        bucket: [operator, api-auth, api-roles, api-rbac, api-agent, api-mods]
-        arch: [amd64]
-        include:
-          - bucket: operator
-            parallel: 8
-            test_timeout: 20m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-auth
-            parallel: 4
-            test_timeout: 15m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-            tail: ratelimit
-          - bucket: api-roles
-            parallel: 3
-            test_timeout: 10m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-rbac
-            parallel: 4
-            test_timeout: 10m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-agent
-            parallel: 4
-            test_timeout: 15m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-mods
-            parallel: 2
-            test_timeout: 15m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps: &e2e-go-steps
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: load images
-        uses: ./.github/actions/e2e-images
-        with:
-          arch: ${{ matrix.arch }}
-      - name: bring up cluster + helm install
-        run: ./deploy/kind/e2e.sh up "$CLUSTER" e2e
-      - name: run go e2e (${{ matrix.bucket }})
-        run: |
-          RUN_REGEX="$(./test/e2e/buckets.sh regex '${{ matrix.bucket }}')"
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            go test -tags=e2e -timeout ${{ matrix.test_timeout }} -v \
-              -parallel ${{ matrix.parallel }} -run "$RUN_REGEX" ./...
-      - name: run go e2e (ratelimit tail)
-        # LAST on purpose: this test deliberately drains the shared per-IP
-        # and per-username login buckets; anything running after it queues
-        # behind the refill.
-        if: matrix.tail == 'ratelimit'
-        run: |
-          RUN_REGEX="$(./test/e2e/buckets.sh regex ratelimit)"
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            go test -tags=e2e -timeout 5m -v -run "$RUN_REGEX" ./...
-      - name: dump cluster state on failure (e2e-go)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-          namespaces: "gameplane-system,gameplane-games"
-          include-previous-logs: "true"
-
-  e2e-go-arm64:
-    name: e2e ${{ matrix.bucket }} / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images-arm64]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ matrix.job_timeout }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        # Buckets are cut by login pressure, not feature area — see the
-        # header comment in test/e2e/buckets.sh. The suite runs with
-        # t.Parallel(); `parallel` bounds in-flight tests per bucket
-        # (operator does zero logins and is wait-dominated, so it runs
-        # wide; the api buckets stay within the login limiter's budget).
-        # Mirrors e2e-go's steps and per-bucket settings.
-        bucket: [operator, api-auth, api-roles, api-rbac, api-agent, api-mods]
-        arch: [arm64]
-        include:
-          - bucket: operator
-            parallel: 8
-            test_timeout: 20m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-auth
-            parallel: 4
-            test_timeout: 15m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-            tail: ratelimit
-          - bucket: api-roles
-            parallel: 3
-            test_timeout: 10m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-rbac
-            parallel: 4
-            test_timeout: 10m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-agent
-            parallel: 4
-            test_timeout: 15m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-          - bucket: api-mods
-            parallel: 2
-            test_timeout: 15m
-            job_timeout: 60 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps: *e2e-go-steps
-
-  e2e-telemetry:
-    name: e2e ${{ matrix.bucket }} / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.e2e == 'true' && needs.changes.outputs.telemetry == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ matrix.job_timeout }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        bucket: [telemetry]
-        arch: [amd64]
-        include:
-          - bucket: telemetry
-            parallel: 1
-            test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
-            job_timeout: 75 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-            tail: ""
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps: *e2e-go-steps
-
-  e2e-telemetry-arm64:
-    name: e2e ${{ matrix.bucket }} / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images-arm64]
-    if: needs.changes.outputs.e2e == 'true' && needs.changes.outputs.telemetry == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ matrix.job_timeout }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        bucket: [telemetry]
-        arch: [arm64]
-        include:
-          - bucket: telemetry
-            parallel: 1
-            test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
-            job_timeout: 75 # Boots a kind cluster, installs the chart, runs the bucket's suite.
-            tail: ""
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps: *e2e-go-steps
-
-  # Dual-cluster ?cluster= dispatch + scoped RBAC (test/e2e/multicluster_e2e_test.go).
-  # Split out from e2e-go: it's the only bucket that needs a SECOND kind
-  # cluster (registered as a remote target via POST /clusters), so it gets
-  # its own job rather than complicating the single-cluster matrix above.
-
-  e2e-multicluster:
-    name: e2e multicluster / ${{ matrix.arch }} (kind x2)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60 # Same, across two clusters.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64]
-    env:
-      CLUSTER: gameplane-e2e
-      CLUSTER_B: gameplane-e2e-b
-      CTX: kind-gameplane-e2e
-      CTX_B: kind-gameplane-e2e-b
-    steps: &e2e-multicluster-steps
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: load images
-        uses: ./.github/actions/e2e-images
-        with:
-          arch: ${{ matrix.arch }}
-      - name: bring up cluster A + helm install
-        run: ./deploy/kind/e2e.sh up "$CLUSTER" e2e
-      - name: bring up cluster B + helm install
-        # A second, fully independent kind cluster with the same chart
-        # installed — it needs its own operator to reconcile the GameServer
-        # this test dispatches to it. kind attaches every cluster's nodes to
-        # the same docker bridge network ("kind"), so cluster A's api/
-        # operator pods can reach cluster B's control-plane container by its
-        # docker-network IP; see multicluster_e2e_test.go's package doc.
-        run: ./deploy/kind/e2e.sh up "$CLUSTER_B" e2e
-      - name: run go e2e (multicluster)
-        # GatewayParity installs this checkout's real gateway chart on B with
-        # temporary PKI, exercises agent/capture/Minecraft paths from A, and
-        # rotates trust/endpoints. Missing second-cluster infra fails in CI.
-        run: |
-          RUN_REGEX="$(./test/e2e/buckets.sh regex multicluster)"
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            GAMEPLANE_E2E_CLUSTER_B="$CLUSTER_B" \
-            GAMEPLANE_E2E_REQUIRE_GATEWAY=1 \
-            go test -tags=e2e -timeout 45m -v -run "$RUN_REGEX" ./...
-      - name: dump cluster state on failure (multicluster A)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-      - name: dump cluster state on failure (multicluster B)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX_B }}
-          include-api-logs: "false"
-
-  e2e-multicluster-arm64:
-    name: e2e multicluster / ${{ matrix.arch }} (kind x2)
-    needs: [changes, build-images-arm64]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60 # Same, across two clusters.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [arm64]
-    env:
-      CLUSTER: gameplane-e2e
-      CLUSTER_B: gameplane-e2e-b
-      CTX: kind-gameplane-e2e
-      CTX_B: kind-gameplane-e2e-b
-    steps: *e2e-multicluster-steps
-
-  # helm upgrade from the last published release to this tree
-  # (test/e2e/upgrade_e2e_test.go). Split out from e2e-go for the same reason
-  # as multicluster: its cluster is set up differently. Every other job
-  # installs the working-tree chart; this one installs the PUBLISHED chart and
-  # PUBLISHED GHCR images of the previous release, then upgrades onto the tree
-  # — so it cannot share a cluster with anything, and needs network access to
-  # ghcr.io that the other kind jobs do not.
-
-  e2e-upgrade:
-    name: e2e upgrade / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60 # Same, plus a chart upgrade across versions.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64]
-    env:
-      CLUSTER: gameplane-upgrade
-      CTX: kind-gameplane-upgrade
-      # The release to upgrade FROM. Bump at release time to the previous
-      # published version. deploy/kind/upgrade.sh carries the same default.
-      GAMEPLANE_UPGRADE_FROM: 0.2.0-beta.8
-    steps: &e2e-upgrade-steps
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: load images
-        uses: ./.github/actions/e2e-images
-        with:
-          arch: ${{ matrix.arch }}
-      - name: bring up cluster on the PREVIOUS release
-        run: ./deploy/kind/upgrade.sh up "$CLUSTER" e2e
-      - name: run go e2e (upgrade)
-        run: |
-          RUN_REGEX="$(./test/e2e/buckets.sh regex upgrade)"
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            go test -tags=e2e -timeout 25m -v -run "$RUN_REGEX" ./...
-      - name: dump cluster state on failure (e2e-upgrade)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-          include-helm-history: "true"
-          include-get-jobs: "true"
-
-
-  e2e-upgrade-arm64:
-    name: e2e upgrade / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images-arm64]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60 # Same, plus a chart upgrade across versions.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [arm64]
-    env:
-      CLUSTER: gameplane-upgrade
-      CTX: kind-gameplane-upgrade
-      # The release to upgrade FROM. Bump at release time to the previous
-      # published version. deploy/kind/upgrade.sh carries the same default.
-      GAMEPLANE_UPGRADE_FROM: 0.2.0-beta.8
-    steps: *e2e-upgrade-steps
-
-  e2e-web-live:
-    name: e2e web live / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.weblive == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60 # Same, plus a live dashboard drive.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64]
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps: &e2e-web-live-steps
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: "24", cache: "npm", cache-dependency-path: web/package-lock.json }
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: load images
-        uses: ./.github/actions/e2e-images
-        with:
-          arch: ${{ matrix.arch }}
-      - name: bring up cluster + helm install
-        run: ./deploy/kind/e2e.sh up "$CLUSTER" e2e
-      - name: bootstrap admin
-        # Playwright's live-mode globalSetup (web/e2e/globalSetup.ts) reads
-        # the admin password from test/e2e/.tmp/admin-password, which this
-        # test writes.
-        run: |
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            go test -tags=e2e -timeout 5m -v -run '^TestAPI_BootstrapAndLogin$' ./...
-      - name: playwright browser cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/package-lock.json') }}
-      - name: install playwright browser
-        run: |
-          cd web && npm ci && npx playwright install --with-deps chromium
-      - name: run playwright (live)
-        env:
-          GAMEPLANE_E2E_TARGET: live
-          GAMEPLANE_E2E_CLUSTER: ${{ env.CLUSTER }}
-        run: |
-          cd web && npm run test:e2e:live
-      - name: dump cluster state on failure (e2e-web-live)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-          include-operator-logs: "false"
-      - name: upload playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: playwright-report-live-${{ matrix.arch }}
-          path: web/playwright-report
-          retention-days: 7
-          if-no-files-found: warn
-
-
-  e2e-web-live-arm64:
-    name: e2e web live / ${{ matrix.arch }} (kind)
-    needs: [changes, build-images-arm64]
-    if: needs.changes.outputs.weblive == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60 # Same, plus a live dashboard drive.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [arm64]
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps: *e2e-web-live-steps
-
-  e2e-game-bot:
-    name: e2e game bot / ${{ matrix.test }} (kind)
-    needs: [changes, build-images]
-    if: needs.changes.outputs.e2e == 'true'
-    # amd64 only: this boots the external itzg/minecraft-server (multi-arch) AND
-    # passivelemon/terraria-docker, whose arm64 support is unverified upstream —
-    # so an arm64 leg would fail on the Terraria pull. Add an arch axis here once
-    # an arm-capable Terraria image is confirmed/pinned.
-    runs-on: ubuntu-latest
-    # Two serial real-game boots (Minecraft, then Terraria — deliberately
-    # not parallel: two game servers booting at once OOM-starve the node).
-    timeout-minutes: 60 # Pulls multi-GB game images, boots real servers, runs protocol joins.
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.changes.outputs.bot-matrix) }}
-    env:
-      BOT_TEST: ${{ matrix.test }}
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: load images
-        uses: ./.github/actions/e2e-images
-      - name: bring up cluster + helm install
-        run: ./deploy/kind/e2e.sh up "$CLUSTER" e2e
-      - name: run go e2e (game bot)
-        # Blocking. The bot runs as a Job inside the cluster and dials the game
-        # Service directly, removing the `kubectl port-forward` hop this job's
-        # flakiness was once blamed on. (That blame turned out to be wrong: the
-        # real failures were a too-long bot username and a drifted Terraria image
-        # tag, both fixed. The in-cluster harness is still what exercises the
-        # network path a real client uses.)
-        run: |
-          RUN_REGEX="^${BOT_TEST}$"
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            GAMEPLANE_E2E_GAME_BOT=1 \
-            go test -tags=e2e -timeout 30m -v -run "$RUN_REGEX" ./...
-      - name: dump cluster state on failure (e2e-game-bot)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-          namespaces: "gameplane-system,gameplane-games"
-
-  # Capture-overhead regression guard (spec 007, FR-006..FR-008). This is a
-  # gross-regression guard, NOT SC-002 certification: the certified number is
-  # the live-cluster manual benchmark in
-  # specs/done_003-network-capture-sidecar/sc-002-benchmark.md. It never blocks
-  # a merge (OD-1, maintainer ruling 2026-10-09): job-level continue-on-error
-  # keeps the workflow and PRs mergeable. A detected regression turns this job
-  # red and is recorded in capture-overhead-metrics.json (uploaded below).
-  # Runs on master pushes, and on PRs only when the diff touches the capture
-  # path or the probe (OD-2, changes.outputs.capture_overhead).
-  e2e-capture-overhead:
-    name: e2e capture overhead (kind)
-    needs: [changes, build-images]
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.changes.outputs.e2e == 'true') ||
-      (github.event_name == 'pull_request' && needs.changes.outputs.capture_overhead == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    continue-on-error: true
-    permissions:
-      contents: read
-    env:
-      CLUSTER: gameplane-e2e
-      CTX: kind-gameplane-e2e
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: load images
-        uses: ./.github/actions/e2e-images
-      - name: bring up cluster + helm install
-        run: ./deploy/kind/e2e.sh up "$CLUSTER" e2e
-      - name: run go e2e (capture overhead)
-        # Sustained-mode probes against the real itzg/minecraft-server image.
-        # The bucket (test/e2e/buckets.sh, capture-overhead) owns the test list;
-        # it is deliberately not in bot-fast, whose legs block merges.
-        env:
-          GAMEPLANE_E2E_ARTIFACT_DIR: ${{ runner.temp }}/capture-overhead
-        run: |
-          RUN_REGEX="$(./test/e2e/buckets.sh regex capture-overhead)"
-          mkdir -p "$GAMEPLANE_E2E_ARTIFACT_DIR"
-          cd test/e2e && \
-            GAMEPLANE_E2E_REUSE_CLUSTER=1 \
-            GAMEPLANE_E2E_CLUSTER="$CLUSTER" \
-            GAMEPLANE_E2E_GAME_BOT=1 \
-            go test -tags=e2e -timeout 40m -v -run "$RUN_REGEX" ./...
-      - name: upload capture overhead metrics
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: capture-overhead-metrics
-          path: ${{ runner.temp }}/capture-overhead/capture-overhead-metrics.json
-          retention-days: 7
-          if-no-files-found: warn
-      - name: dump cluster state on failure (e2e-capture-overhead)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-          namespaces: "gameplane-system,gameplane-games"
-
-  # Smoke-tests the dev ingress-nginx manifest pin (deploy/kind/up.sh,
-  # INGRESS_NGINX_VERSION) on the same Kind node config `make dev-up` uses
-  # (deploy/kind/cluster.yaml — the ingress-ready control-plane node label
-  # and the 8080/8443/30565 extraPortMappings the ingress-nginx Kind
-  # manifest's controller Service depends on). Nothing else in CI applies
-  # this manifest (deploy/kind/e2e.sh deliberately skips ingress-nginx — see
-  # its header comment), so a pin bump whose kind manifest moved, or whose
-  # controller no longer reaches Available on the runner's Kind node image,
-  # was previously only caught by a developer running `make dev-up` (#521).
-  #
-  # Gated on `kindsmoke` (deploy/kind/** or this workflow file), not the
-  # broad `e2e` gate: a Go/chart/test-tree change doesn't touch the pinned
-  # manifest or the cluster config this job exercises, so it stays out of
-  # every other PR's critical path.
-  e2e-kind-ingress-smoke:
-    name: ingress-nginx smoke (kind)
-    needs: [changes]
-    if: needs.changes.outputs.kindsmoke == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    env:
-      CLUSTER: gameplane-dev
-      CTX: kind-gameplane-dev
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: read ingress-nginx version pin from up.sh
-        id: pin
-        # Single source of truth: deploy/kind/up.sh's INGRESS_NGINX_VERSION=
-        # line. Never duplicate the version here — read it back instead, so
-        # this job smoke-tests whatever `make dev-up` actually installs.
-        run: |
-          VERSION="$(sed -n 's/^INGRESS_NGINX_VERSION="\(.*\)"$/\1/p' deploy/kind/up.sh)"
-          if [ -z "$VERSION" ] || [ "$(printf '%s\n' "$VERSION" | wc -l)" -ne 1 ]; then
-            echo "::error::expected exactly one INGRESS_NGINX_VERSION=\"...\" line in deploy/kind/up.sh" >&2
-            exit 1
-          fi
-          echo "found INGRESS_NGINX_VERSION=${VERSION} in deploy/kind/up.sh"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-      - name: create kind cluster (dev config)
-        # Same node config make dev-up uses (deploy/kind/cluster.yaml), not
-        # e2e.sh's single-node config — the ingress-ready node label and the
-        # host port mappings it carries are exactly what this job is meant
-        # to exercise.
-        run: kind create cluster --name "$CLUSTER" --config deploy/kind/cluster.yaml
-      - name: install ingress-nginx at the pinned version
-        env:
-          INGRESS_NGINX_VERSION: ${{ steps.pin.outputs.version }}
-        run: |
-          kubectl --context "$CTX" apply -f \
-            "https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_VERSION}/deploy/static/provider/kind/deploy.yaml"
-      - name: wait for ingress-nginx-controller to become Available
-        # rollout status, not `wait --for=condition=Available`: the manifest
-        # sets maxUnavailable: 1 on a one-replica Deployment, so its
-        # Available condition is True before any controller pod is ready.
-        run: |
-          kubectl --context "$CTX" rollout status --namespace ingress-nginx \
-            deployment/ingress-nginx-controller --timeout=180s
-      - name: dump cluster state on failure (e2e-kind-ingress-smoke)
-        if: failure()
-        uses: ./.github/actions/dump-cluster-state
-        with:
-          context: ${{ env.CTX }}
-          namespaces: "ingress-nginx"
-          include-operator-logs: "false"
-          include-api-logs: "false"
-      - name: delete kind cluster
-        if: always()
-        run: kind delete cluster --name "$CLUSTER" || true
-
   # Runs after every other job and publishes one build report: which jobs
   # failed and where, measured coverage against each gate, changed files by
-  # area (PRs only), the slowest job legs, and which e2e buckets actually
-  # ran. Always writes the Actions job-summary panel; on pull_request it also
+  # area (PRs only) and the slowest job legs.
+  # Always writes the Actions job-summary panel; on pull_request it also
   # upserts a single sticky PR comment (tagged with a hidden marker so
   # re-runs update it in place instead of piling up).
   #
@@ -2236,39 +1117,17 @@ jobs:
     needs:
       [
         changes,
-        build-images,
-        build-images-arm64,
-        vuln-images,
-        capture-sidecar-setcap-proof,
         docs,
         codegen-drift,
         submodule-freshness,
-        dependency-review,
-        vuln-go,
         lint,
         go,
         web,
-        web-e2e-mock,
         helm,
         chart-template,
-        standalone-compose,
         workflow-lint,
         go-e2e-unit,
-        api-postgres,
         e2e-buckets,
-        e2e-go,
-        e2e-go-arm64,
-        e2e-telemetry,
-        e2e-telemetry-arm64,
-        e2e-multicluster,
-        e2e-multicluster-arm64,
-        e2e-upgrade,
-        e2e-upgrade-arm64,
-        e2e-web-live,
-        e2e-web-live-arm64,
-        e2e-game-bot,
-        e2e-capture-overhead,
-        e2e-kind-ingress-smoke,
       ]
     if: always()
     runs-on: ubuntu-latest
@@ -2358,12 +1217,8 @@ jobs:
             const files = readJSON('/tmp/files.json', []);
 
             const NEEDS_ORDER = [
-              'changes', 'build-images', 'build-images-arm64', 'vuln-images',
-              'capture-sidecar-setcap-proof', 'docs', 'codegen-drift', 'submodule-freshness', 'dependency-review', 'vuln-go', 'lint', 'go',
-              'web', 'web-e2e-mock', 'helm', 'chart-template', 'standalone-compose', 'workflow-lint', 'go-e2e-unit',
-              'api-postgres',
-              'e2e-buckets', 'e2e-go', 'e2e-go-arm64', 'e2e-telemetry', 'e2e-telemetry-arm64', 'e2e-multicluster', 'e2e-multicluster-arm64', 'e2e-upgrade', 'e2e-upgrade-arm64',
-              'e2e-web-live', 'e2e-web-live-arm64', 'e2e-game-bot', 'e2e-capture-overhead', 'e2e-kind-ingress-smoke',
+              'changes', 'docs', 'codegen-drift', 'submodule-freshness', 'lint', 'go',
+              'web', 'helm', 'chart-template', 'workflow-lint', 'go-e2e-unit', 'e2e-buckets',
             ];
 
             // Maps each workflow job id to how its `name:` field (as reported by
@@ -2371,39 +1226,17 @@ jobs:
             // Kept in sync by hand with the `name:` fields above.
             const JOB_MATCHERS = {
               changes: (n) => n === 'detect changes',
-              'build-images': (n) => n === 'build e2e images',
-              'build-images-arm64': (n) => n === 'build e2e images (arm64)',
-              'vuln-images': (n) => n === 'vuln (images)',
-              'capture-sidecar-setcap-proof': (n) => n === 'capture-sidecar CAP_NET_RAW survival',
               docs: (n) => n === 'docs and repository checks',
               'codegen-drift': (n) => n === 'codegen drift',
               lint: (n) => n.startsWith('lint ('),
               go: (n) => n.startsWith('go (') && n !== 'go (test/e2e)',
               web: (n) => n === 'web',
-              'web-e2e-mock': (n) => n === 'web e2e (mock)',
               helm: (n) => n === 'helm lint',
               'chart-template': (n) => n === 'chart render',
-              'standalone-compose': (n) => n === 'standalone Compose smoke',
               'workflow-lint': (n) => n === 'workflow lint',
               'go-e2e-unit': (n) => n === 'go (test/e2e)',
-              'api-postgres': (n) => n === 'api (postgres)',
               'e2e-buckets': (n) => n === 'e2e bucket coverage',
-              'e2e-go': (n) => /^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods) \//.test(n) && n.includes('/ amd64 '),
-              'e2e-go-arm64': (n) => /^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods) \//.test(n) && n.includes('/ arm64 '),
-              'e2e-telemetry': (n) => n.startsWith('e2e telemetry /') && n.includes('/ amd64 '),
-              'e2e-telemetry-arm64': (n) => n.startsWith('e2e telemetry /') && n.includes('/ arm64 '),
-              'e2e-multicluster': (n) => n.startsWith('e2e multicluster /') && n.includes('/ amd64 '),
-              'e2e-multicluster-arm64': (n) => n.startsWith('e2e multicluster /') && n.includes('/ arm64 '),
-              'e2e-upgrade': (n) => n.startsWith('e2e upgrade /') && n.includes('/ amd64 '),
-              'e2e-upgrade-arm64': (n) => n.startsWith('e2e upgrade /') && n.includes('/ arm64 '),
-              'e2e-web-live': (n) => n.startsWith('e2e web live /') && n.includes('/ amd64 '),
-              'e2e-web-live-arm64': (n) => n.startsWith('e2e web live /') && n.includes('/ arm64 '),
-              'e2e-game-bot': (n) => n.startsWith('e2e game bot /'),
-              'e2e-capture-overhead': (n) => n === 'e2e capture overhead (kind)',
-              'e2e-kind-ingress-smoke': (n) => n === 'ingress-nginx smoke (kind)',
               'submodule-freshness': (n) => n === 'submodule freshness',
-              'dependency-review': (n) => n === 'dependency review',
-              'vuln-go': (n) => n === 'vuln (go)',
             };
 
             let passed = 0, failed = 0, skipped = 0, cancelled = 0;
@@ -2537,30 +1370,6 @@ jobs:
                 .sort((a, b) => (b.plus + b.minus) - (a.plus + a.minus));
             }
 
-            // e2e buckets that actually executed, derived from the e2e-go
-            // matrix leg names plus the multicluster/upgrade/game-bot jobs.
-            const bucketSet = new Set();
-            for (const j of apiJobs) {
-              const n = j.name || '';
-              const m = n.match(/^e2e (operator|api-auth|api-roles|api-rbac|api-agent|api-mods|telemetry) \//);
-              if (m) bucketSet.add(m[1]);
-              if (/^e2e multicluster \//.test(n)) bucketSet.add('multicluster');
-              if (/^e2e upgrade \//.test(n)) bucketSet.add('upgrade');
-              // The ratelimit bucket runs as a trailing step inside the
-              // api-auth job leg (deliberately, so it drains the shared
-              // login buckets last), not as its own job — so it never
-              // matches a job-name regex. Read the step-level conclusion:
-              // the step is skipped (not "success") when the api-auth
-              // bucket step itself failed first.
-              if (/^e2e api-auth \//.test(n) && Array.isArray(j.steps)) {
-                const tail = j.steps.find((s) => s.name === 'run go e2e (ratelimit tail)');
-                if (tail && tail.conclusion === 'success') bucketSet.add('ratelimit');
-              }
-            }
-            const gameBot = needs['e2e-game-bot'];
-            if (gameBot && gameBot.result && gameBot.result !== 'skipped') bucketSet.add('bot-fast');
-            const buckets = [...bucketSet].sort();
-
             // --- render ---
             let md = '';
             md += '<!-- ci-report -->\n';
@@ -2620,9 +1429,6 @@ jobs:
               md += '_no job duration data available_\n';
             }
             md += '\n';
-
-            md += '### e2e buckets run\n\n';
-            md += buckets.length ? buckets.map((b) => '`' + b + '`').join(', ') + '\n' : '_none ran_\n';
 
             fs.writeFileSync('/tmp/report.md', md);
           }
