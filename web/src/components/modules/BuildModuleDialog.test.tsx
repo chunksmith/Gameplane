@@ -454,17 +454,15 @@ describe("BuildModuleDialog", () => {
 
     // Change to unpinned image
     await user.clear(imageInput);
-    await user.type(imageInput, "ghcr.io/valgul/game:latest");
+    await user.paste("ghcr.io/valgul/game:latest");
     await screen.findByText(/⚠ Unpinned image/i);
     expect(screen.getByText(/recommend @sha256/i)).toBeInTheDocument();
 
     // Change back to pinned
     await user.clear(imageInput);
-    await user.type(
-      imageInput,
-      "ghcr.io/valgul/game:v1@sha256:" + "a".repeat(64)
-    );
-    await screen.findByText(/✓ Pinned by digest/i);
+    await user.paste("ghcr.io/valgul/game:v1@sha256:" + "a".repeat(64));
+    expect(await screen.findByText(/✓ Pinned by digest/i)).toBeInTheDocument();
+    expect(imageInput).toHaveValue("ghcr.io/valgul/game:v1@sha256:" + "a".repeat(64));
   });
 
   it("edits storage size and mount path in step 2", async () => {
