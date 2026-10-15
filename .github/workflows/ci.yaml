@@ -1735,6 +1735,7 @@ jobs:
             parallel: 1
             test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
             job_timeout: 75 # Boots a kind cluster, installs the chart, runs the bucket's suite.
+            tail: ""
     env:
       CLUSTER: gameplane-e2e
       CTX: kind-gameplane-e2e
@@ -1758,6 +1759,7 @@ jobs:
             parallel: 1
             test_timeout: 45m # the lifecycle test waits on 1m report intervals for every subtest
             job_timeout: 75 # Boots a kind cluster, installs the chart, runs the bucket's suite.
+            tail: ""
     env:
       CLUSTER: gameplane-e2e
       CTX: kind-gameplane-e2e
