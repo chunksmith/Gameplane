@@ -65,7 +65,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
         : undefined;
 
   const serverBackups = backups?.items.filter((b) => b.spec.serverRef.name === name) ?? [];
-  const serverSchedules = schedules?.items.filter((s) => s.spec.serverRef.name === name) ?? [];
+  const serverSchedules = schedules?.items.filter((s) => s.spec.serverRef?.name === name) ?? [];
   const serverRestores = restores?.items.filter((r) => r.spec.serverRef.name === name) ?? [];
 
   // Summary tiles, derived from the same lists the table renders.

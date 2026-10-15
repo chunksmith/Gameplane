@@ -7,9 +7,22 @@ import (
 
 // BackupScheduleSpec defines a recurring backup policy for a GameServer.
 // +kubebuilder:validation:XValidation:rule="self.strategy == 'volume-snapshot' || has(self.repoRef)",message="repoRef is required for the restic-snapshot strategy"
+// +kubebuilder:validation:XValidation:rule="has(self.serverRef) != (has(self.groups) && size(self.groups) > 0)",message="exactly one of serverRef or groups is required"
 type BackupScheduleSpec struct {
 	// ServerRef is the GameServer to back up on this schedule.
-	ServerRef LocalObjectRef `json:"serverRef"`
+	// +optional
+	ServerRef LocalObjectRef `json:"serverRef,omitzero"`
+
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:items:MaxLength=63
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Groups []string `json:"groups,omitempty"`
+
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Concurrency int32 `json:"concurrency,omitempty"`
 
 	// Schedule is a standard cron expression in the cluster's timezone.
 	// Five-field form (no seconds). The Pattern is a structural guard

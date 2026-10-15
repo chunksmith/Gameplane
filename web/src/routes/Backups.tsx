@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { CalendarClock, CheckCircle2, Layers, Loader2, Plus } from "lucide-react";
 import { createResourceClient } from "@/lib/endpoints";
 import { useFleetLocation, Fleet, located, targetKey, targetLabel, type Located } from "@/lib/fleet";
 import { FleetCoverage } from "@/components/FleetScope";
@@ -34,22 +34,27 @@ import { BackupDetailDrawer } from "@/components/backups/BackupDetailDrawer";
 import { BackupRow } from "@/components/backups/BackupRow";
 import { BackupFilters } from "@/components/backups/BackupFilters";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { StatCard } from "@/components/ui/StatCard";
+import { ActiveBackups, isActiveBackup } from "@/components/backups/ActiveBackups";
+import { BackupGroupsPanel, groupMembers } from "@/components/backups/BackupGroupsPanel";
 import type { Backup, BackupSchedule } from "@/types";
 
-type TabKey = "backups" | "schedules" | "restores";
+type TabKey = "backups" | "groups" | "schedules" | "restores";
 const TABS: { id: TabKey; label: string }[] = [
   { id: "backups", label: "Backups" },
-  { id: "schedules", label: "Schedules" },
+  { id: "groups", label: "Groups" },
+  { id: "schedules", label: "Server schedules" },
   { id: "restores", label: "Restores" },
 ];
 
-const BACKUP_PHASES = ["Pending", "Running", "Succeeded", "Failed"];
+const BACKUP_PHASES = ["Queued", "Pending", "Running", "Succeeded", "Failed"];
+const DAY = 24 * 60 * 60 * 1000;
 const RESTORE_PHASES = ["Pending", "Suspending", "Running", "Resuming", "Succeeded", "Failed"];
 
 export function BackupsPage() {
   const search = useLocation().search;
   const navigate = useNavigate();
-  const tab: TabKey = search.tab === "schedules" || search.tab === "restores" ? search.tab : "backups";
+  const tab: TabKey = search.tab === "groups" || search.tab === "schedules" || search.tab === "restores" ? search.tab : "backups";
   const setTab = (next: TabKey) => {
     void navigate({ to: "/backups", replace: true, search: (previous) => ({ ...previous, tab: next === "backups" ? undefined : next }) });
   };
@@ -60,12 +65,34 @@ export function BackupsPage() {
     queryKey: ["fleet", kind, ""], queryFn: ({ signal }: { signal: AbortSignal }) => Fleet[kind]({}, signal),
   })) });
   const locations = [...(serverScopes?.scopes ?? []).map((scope) => scope.cluster), ...(serverScopes?.items ?? []).map((item) => item.target.cluster), ...backupScopes.flatMap((query) => [...(query.data?.scopes ?? []).map((scope) => scope.cluster), ...(query.data?.items ?? []).map((item) => item.target.cluster)])];
+  const [selected, setSelected] = useState<Located<Backup> | null>(null);
+  const [restoring, setRestoring] = useState<Located<Backup> | null>(null);
+  const { data: liveBackups, dataUpdatedAt } = useQuery({
+    queryKey: ["fleet", "backups", ""],
+    queryFn: ({ signal }) => Fleet.backups({}, signal),
+    refetchInterval: 5000,
+  });
+  const allBackups = useMemo(() => (liveBackups?.items ?? []).map(located), [liveBackups]);
+  const { data: liveSchedules } = useQuery({
+    queryKey: ["fleet", "schedules", ""],
+    queryFn: ({ signal }) => Fleet.schedules({}, signal),
+    refetchInterval: 10000,
+  });
+  const allSchedules = useMemo(() => (liveSchedules?.items ?? []).map(located), [liveSchedules]);
+  const allServers = useMemo(() => (serverScopes?.items ?? []).map(located), [serverScopes]);
+  const active = allBackups.filter(isActiveBackup);
+  const recent = allBackups.filter((b) => b.status?.completionTime && dataUpdatedAt - Date.parse(b.status.completionTime) < DAY);
+  const groupSchedules = allSchedules.filter((s) => (s.spec.groups?.length ?? 0) > 0);
+  const covered = new Set(groupSchedules.filter((s) => !s.spec.suspend).flatMap((s) => groupMembers(s, allServers).map((server) => targetKey(server.fleetTarget))));
+  const nextRun = allSchedules
+    .filter((s) => !s.spec.suspend && s.status?.nextScheduleTime)
+    .sort((a, b) => Date.parse(a.status!.nextScheduleTime!) - Date.parse(b.status!.nextScheduleTime!))[0];
 
   return (
     <div className="space-y-5 p-6">
       <PageHeader
         title="Backups"
-        subtitle="Snapshots, schedules, and restores across your authorized locations."
+        subtitle="Snapshots, group schedules, and restores across your authorized locations."
         actions={
           <Button onPress={() => setBackupNow(true)}>
             <Plus className="h-4 w-4" /> Back up now
@@ -73,6 +100,46 @@ export function BackupsPage() {
         }
       />
       {backupNow && <BackupNowDialog onClose={() => setBackupNow(false)} />}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Running"
+          value={active.filter((b) => b.status?.phase === "Running").length}
+          sub={`${active.filter((b) => b.status?.phase === "Queued").length} queued`}
+          icon={<Loader2 className={active.some((b) => b.status?.phase === "Running") ? "animate-spin" : ""} />}
+        />
+        <StatCard
+          label="Last 24h"
+          value={recent.filter((b) => b.status?.phase === "Succeeded").length}
+          sub={`${recent.filter((b) => b.status?.phase === "Failed").length} failed`}
+          icon={<CheckCircle2 />}
+          accent={recent.some((b) => b.status?.phase === "Failed") ? "danger" : "success"}
+        />
+        <StatCard
+          label="Group coverage"
+          value={`${covered.size}/${allServers.length}`}
+          sub={`${groupSchedules.length} group ${groupSchedules.length === 1 ? "schedule" : "schedules"}`}
+          icon={<Layers />}
+          accent={covered.size < allServers.length ? "warning" : "violet"}
+        />
+        <StatCard
+          label="Next run"
+          value={nextRun ? formatRelativeFuture(nextRun.status?.nextScheduleTime) : "—"}
+          sub={nextRun?.metadata.name ?? "No active schedules"}
+          icon={<CalendarClock />}
+        />
+      </div>
+      <ActiveBackups backups={active} onSelect={setSelected} />
+      <BackupDetailDrawer
+        name={selected?.metadata.name ?? null}
+        target={selected?.fleetTarget}
+        permissions={selected?.fleetPermissions}
+        onClose={() => setSelected(null)}
+        onRestore={(b) => {
+          if (selected) setRestoring({ ...b, fleetTarget: selected.fleetTarget, fleetPermissions: selected.fleetPermissions });
+          setSelected(null);
+        }}
+      />
+      <RestoreDialog backup={restoring} target={restoring?.fleetTarget} permissions={restoring?.fleetPermissions} onClose={() => setRestoring(null)} />
       <Tabs selectedKey={tab} onSelectionChange={(key) => setTab(key as TabKey)}>
         <Tabs.List>
           {TABS.map((t) => (
@@ -83,6 +150,7 @@ export function BackupsPage() {
         </Tabs.List>
       </Tabs>
       {tab === "backups" && <BackupsTabPanel location={location} onLocationChange={setLocation} locations={locations} />}
+      {tab === "groups" && <BackupGroupsPanel schedules={allSchedules} servers={allServers} />}
       {tab === "schedules" && <SchedulesTabPanel location={location} onLocationChange={setLocation} locations={locations} />}
       {tab === "restores" && <RestoresTabPanel location={location} onLocationChange={setLocation} locations={locations} />}
     </div>
@@ -355,11 +423,11 @@ function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFi
   });
   const serversList = { items: (serversFleet?.items ?? []).map(located) };
 
-  const items = schedules?.items ?? [];
+  const items = (schedules?.items ?? []).filter((item) => !item.spec.groups?.length);
   const filtered = items.filter((item) => {
     if (server && !matchesServer(item, server, serversList.items)) return false;
     const q = search.trim().toLowerCase();
-    return !q || `${item.metadata.name} ${item.spec.serverRef.name}`.toLowerCase().includes(q);
+    return !q || `${item.metadata.name} ${item.spec.serverRef?.name ?? ""}`.toLowerCase().includes(q);
   });
   const selectedServer = serversList.items.find((item) => targetKey(item.fleetTarget) === creatingFor);
 
@@ -448,7 +516,7 @@ function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFi
                     <Table.Cell>
                       <span className="font-mono text-xs">{s.metadata.name}</span><div className="text-xs text-muted">{targetLabel(s.fleetTarget)}</div>
                     </Table.Cell>
-                    <Table.Cell>{s.spec.serverRef.name}</Table.Cell>
+                    <Table.Cell>{s.spec.serverRef?.name}</Table.Cell>
                     <Table.Cell>
                       <span className="font-mono text-xs">{s.spec.schedule}</span>
                     </Table.Cell>
@@ -626,5 +694,5 @@ function hasPermission(permissions: string[] | undefined, permission: string): b
 
 function matchesServer(resource: Located<Backup> | Located<BackupSchedule> | Located<import("@/types").Restore>, key: string, servers: Located<import("@/types").GameServer>[]): boolean {
   const server = servers.find((item) => targetKey(item.fleetTarget) === key);
-  return !!server && resource.fleetTarget.cluster === server.fleetTarget.cluster && resource.fleetTarget.namespace === server.fleetTarget.namespace && resource.spec.serverRef.name === server.metadata.name;
+  return !!server && resource.fleetTarget.cluster === server.fleetTarget.cluster && resource.fleetTarget.namespace === server.fleetTarget.namespace && resource.spec.serverRef?.name === server.metadata.name;
 }

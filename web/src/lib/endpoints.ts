@@ -155,7 +155,10 @@ export interface BackupCreate {
 
 
 export interface ScheduleCreate {
-  serverRef: { name: string };
+  serverRef?: { name: string };
+  groups?: string[];
+  concurrency?: number;
+  quiesce?: boolean;
   schedule: string;
   // Required for restic-snapshot; omitted for volume-snapshot.
   repoRef?: { name: string; key: string };
@@ -856,7 +859,7 @@ function makeResourceEndpoints(request: RequestClient) {
     list: (ns?: string) => api<List<BackupSchedule>>(withNS("/schedules", ns)),
     create: (opts: ScheduleCreate, ns?: string) => {
       const { name, generateName, ...spec } = opts;
-      const ident = name ? { name } : { generateName: generateName ?? `${spec.serverRef.name}-sched-` };
+      const ident = name ? { name } : { generateName: generateName ?? `${spec.serverRef?.name ?? "group"}-sched-` };
       return api<BackupSchedule>(withNS("/schedules", ns), {
         method: "POST",
         body: envelope("BackupSchedule", ident, spec),

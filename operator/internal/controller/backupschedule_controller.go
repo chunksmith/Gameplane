@@ -2,7 +2,9 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -114,14 +116,8 @@ func (r *BackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	sched.Status.Active = activeBackupRefs(active)
 
 	if !next.After(now) {
-		fire, err := r.shouldFire(ctx, &sched, now, next, active)
-		if err != nil {
+		if err := r.fireTargets(ctx, &sched, now, next, active); err != nil {
 			return ctrl.Result{}, err
-		}
-		if fire {
-			if err := r.fire(ctx, &sched, now); err != nil {
-				return ctrl.Result{}, err
-			}
 		}
 		sched.Status.LastScheduleTime = &metav1.Time{Time: now}
 		next = expr.Next(now)
@@ -168,17 +164,99 @@ func (r *BackupScheduleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *BackupScheduleReconciler) fireTargets(
+	ctx context.Context, sched *gameplanev1alpha1.BackupSchedule,
+	now, scheduled time.Time, active []gameplanev1alpha1.Backup,
+) error {
+	servers, err := r.scheduleTargets(ctx, sched)
+	if err != nil {
+		return err
+	}
+	for _, server := range servers {
+		fire, err := r.shouldFire(ctx, sched, now, scheduled, activeFor(active, server))
+		if err != nil {
+			return err
+		}
+		if !fire {
+			continue
+		}
+		if err := r.fire(ctx, sched, server, now); err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *BackupScheduleReconciler) scheduleTargets(
+	ctx context.Context, sched *gameplanev1alpha1.BackupSchedule,
+) ([]string, error) {
+	if len(sched.Spec.Groups) == 0 {
+		return []string{sched.Spec.ServerRef.Name}, nil
+	}
+	var list gameplanev1alpha1.GameServerList
+	if err := r.List(ctx, &list, client.InNamespace(sched.Namespace)); err != nil {
+		return nil, err
+	}
+	var names []string
+	for i := range list.Items {
+		gs := &list.Items[i]
+		if gs.DeletionTimestamp.IsZero() && inBackupGroups(gs.Labels, sched.Spec.Groups) {
+			names = append(names, gs.Name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func inBackupGroups(labels map[string]string, groups []string) bool {
+	labelled := false
+	for key, value := range labels {
+		group, ok := strings.CutPrefix(key, gameplanev1alpha1.BackupGroupLabelPrefix)
+		if !ok || value != gameplanev1alpha1.BackupGroupEnabled {
+			continue
+		}
+		if slices.Contains(groups, group) {
+			return true
+		}
+		labelled = true
+	}
+	return !labelled && slices.Contains(groups, gameplanev1alpha1.BackupGroupDefault)
+}
+
+func activeFor(active []gameplanev1alpha1.Backup, server string) []gameplanev1alpha1.Backup {
+	var out []gameplanev1alpha1.Backup
+	for i := range active {
+		if active[i].Spec.ServerRef.Name == server {
+			out = append(out, active[i])
+		}
+	}
+	return out
+}
+
+func scheduledBackupName(sched *gameplanev1alpha1.BackupSchedule, server string, at time.Time) string {
+	name := sched.Name
+	if len(sched.Spec.Groups) > 0 {
+		name += "-" + server
+	}
+	name += "-" + at.UTC().Format("20060102-150405")
+	if len(name) <= 63 {
+		return name
+	}
+	sum := sha256.Sum256([]byte(name))
+	return fmt.Sprintf("%s-%x", strings.TrimRight(name[:52], "-"), sum[:5])
+}
+
 func (r *BackupScheduleReconciler) fire(
-	ctx context.Context, sched *gameplanev1alpha1.BackupSchedule, at time.Time,
+	ctx context.Context, sched *gameplanev1alpha1.BackupSchedule, server string, at time.Time,
 ) error {
 	b := &gameplanev1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", sched.Name, at.UTC().Format("20060102-150405")),
+			Name:      scheduledBackupName(sched, server, at),
 			Namespace: sched.Namespace,
-			Labels:    map[string]string{"gameplane.local/backup-schedule": sched.Name},
+			Labels:    map[string]string{gameplanev1alpha1.BackupScheduleLabel: sched.Name},
 		},
 		Spec: gameplanev1alpha1.BackupSpec{
-			ServerRef: sched.Spec.ServerRef,
+			ServerRef: gameplanev1alpha1.LocalObjectRef{Name: server},
 			RepoRef:   sched.Spec.RepoRef,
 			Strategy:  sched.Spec.Strategy,
 			Quiesce:   sched.Spec.Quiesce,
@@ -187,15 +265,13 @@ func (r *BackupScheduleReconciler) fire(
 	return r.Create(ctx, b)
 }
 
-// inFlightBackups returns the non-terminal (Pending/Running/unstarted) Backups
-// this schedule owns, identified by the schedule label fire() stamps.
 func (r *BackupScheduleReconciler) inFlightBackups(
 	ctx context.Context, sched *gameplanev1alpha1.BackupSchedule,
 ) ([]gameplanev1alpha1.Backup, error) {
 	var list gameplanev1alpha1.BackupList
 	if err := r.List(ctx, &list,
 		client.InNamespace(sched.Namespace),
-		client.MatchingLabels{"gameplane.local/backup-schedule": sched.Name}); err != nil {
+		client.MatchingLabels{gameplanev1alpha1.BackupScheduleLabel: sched.Name}); err != nil {
 		return nil, err
 	}
 	active := make([]gameplanev1alpha1.Backup, 0, len(list.Items))
@@ -222,7 +298,7 @@ func (r *BackupScheduleReconciler) updateLastSuccessfulTime(
 	var list gameplanev1alpha1.BackupList
 	if err := r.List(ctx, &list,
 		client.InNamespace(sched.Namespace),
-		client.MatchingLabels{"gameplane.local/backup-schedule": sched.Name}); err != nil {
+		client.MatchingLabels{gameplanev1alpha1.BackupScheduleLabel: sched.Name}); err != nil {
 		return err
 	}
 	var newest *metav1.Time

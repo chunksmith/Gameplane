@@ -61,6 +61,10 @@ spec:
             description: BackupScheduleSpec defines a recurring backup policy for
               a GameServer.
             properties:
+              concurrency:
+                format: int32
+                minimum: 1
+                type: integer
               concurrencyPolicy:
                 default: Forbid
                 description: |-
@@ -71,6 +75,14 @@ spec:
                 - Forbid
                 - Replace
                 type: string
+              groups:
+                items:
+                  maxLength: 63
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                  type: string
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: set
               quiesce:
                 default: true
                 description: |-
@@ -164,11 +176,13 @@ spec:
                 type: boolean
             required:
             - schedule
-            - serverRef
             type: object
             x-kubernetes-validations:
             - message: repoRef is required for the restic-snapshot strategy
               rule: self.strategy == 'volume-snapshot' || has(self.repoRef)
+            - message: exactly one of serverRef or groups is required
+              rule: has(self.serverRef) != (has(self.groups) && size(self.groups)
+                > 0)
           status:
             description: BackupScheduleStatus is the observed state of a BackupSchedule.
             properties:

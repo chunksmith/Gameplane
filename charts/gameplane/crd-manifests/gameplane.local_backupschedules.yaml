@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: d5069bc379d1aee86475b0f63c6c2866423a381b14b44cbf7a77dfd63e3c1c6a
+    gameplane.local/crd-bundle-sha256: f0aacdaada8251bda7b2e2c2ca9d9629fa1bfe4a50635ac29daa5f557e98e194
     controller-gen.kubebuilder.io/version: v0.20.1
   name: backupschedules.gameplane.local
 spec:
@@ -62,6 +62,10 @@ spec:
             description: BackupScheduleSpec defines a recurring backup policy for
               a GameServer.
             properties:
+              concurrency:
+                format: int32
+                minimum: 1
+                type: integer
               concurrencyPolicy:
                 default: Forbid
                 description: |-
@@ -72,6 +76,14 @@ spec:
                 - Forbid
                 - Replace
                 type: string
+              groups:
+                items:
+                  maxLength: 63
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                  type: string
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: set
               quiesce:
                 default: true
                 description: |-
@@ -165,11 +177,13 @@ spec:
                 type: boolean
             required:
             - schedule
-            - serverRef
             type: object
             x-kubernetes-validations:
             - message: repoRef is required for the restic-snapshot strategy
               rule: self.strategy == 'volume-snapshot' || has(self.repoRef)
+            - message: exactly one of serverRef or groups is required
+              rule: has(self.serverRef) != (has(self.groups) && size(self.groups)
+                > 0)
           status:
             description: BackupScheduleStatus is the observed state of a BackupSchedule.
             properties:

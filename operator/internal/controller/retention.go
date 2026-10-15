@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"time"
 
@@ -25,7 +26,7 @@ func (r *BackupScheduleReconciler) trimBackups(
 	var list gameplanev1alpha1.BackupList
 	if err := r.List(ctx, &list,
 		client.InNamespace(sched.Namespace),
-		client.MatchingLabels{"gameplane.local/backup-schedule": sched.Name},
+		client.MatchingLabels{gameplanev1alpha1.BackupScheduleLabel: sched.Name},
 	); err != nil {
 		return err
 	}
@@ -70,7 +71,14 @@ func (r *BackupScheduleReconciler) trimBackups(
 		return succeeded[i].Status.CompletionTime.After(succeeded[j].Status.CompletionTime.Time)
 	})
 
-	keep := selectKept(succeeded, ret)
+	byServer := map[string][]gameplanev1alpha1.Backup{}
+	for _, b := range succeeded {
+		byServer[b.Spec.ServerRef.Name] = append(byServer[b.Spec.ServerRef.Name], b)
+	}
+	keep := map[string]bool{}
+	for _, backups := range byServer {
+		maps.Copy(keep, selectKept(backups, ret))
+	}
 
 	for i := range succeeded {
 		if keep[succeeded[i].Name] || pinned[succeeded[i].Name] {
