@@ -10,7 +10,7 @@ import { ServerActionsCard } from "@/components/server/ServerActionsCard";
 import { ServerStatusCard } from "@/components/server/ServerStatusCard";
 import { ServerSleepCard } from "@/components/server/ServerSleepCard";
 import { EventList } from "@/components/server/EventList";
-import { formatBytes, formatCores, formatRelative, formatUptime, parseQuantityToBytes } from "@/lib/utils";
+import { formatBytes, formatCpuPercent, formatRelative, formatUptime, parseQuantityToBytes } from "@/lib/utils";
 import { parseCpuQuantity } from "@/lib/quantity";
 import { mapServerEvent, type NormalizedServerEvent } from "@/lib/events";
 import { playerRows } from "@/lib/players";
@@ -150,11 +150,11 @@ export function OverviewTab({
               label="CPU"
               icon={<Cpu className="h-4 w-4" />}
               value={
-                cpuKnown ? (cpuLimitMilli ? `${cpuPct.toFixed(0)}%` : `${(cpuMilli / 1000).toFixed(2)} cores`) : "—"
+                cpuKnown ? (cpuLimitMilli ? `${cpuPct.toFixed(0)}%` : formatCpuPercent(cpuMilli / 1000)) : "—"
               }
               sub={
                 cpuKnown && cpuLimitMilli
-                  ? `${(cpuMilli / 1000).toFixed(1)} / ${(cpuLimitMilli / 1000).toFixed(1)} cores`
+                  ? `${formatCpuPercent(cpuMilli / 1000)} / ${formatCpuPercent(cpuLimitMilli / 1000)}`
                   : undefined
               }
               progress={cpuKnown && cpuLimitMilli ? cpuPct : undefined}
@@ -209,7 +209,7 @@ export function OverviewTab({
               used={cpuKnown ? cpuMilli / 1000 : undefined}
               request={cpuRequestCores}
               limit={cpuLimitCores}
-              format={(cores) => `${formatCores(cores)} cores`}
+              format={formatCpuPercent}
               accent="bg-accent"
             />
             <AllocationCard
