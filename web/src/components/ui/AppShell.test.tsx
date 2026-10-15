@@ -64,7 +64,7 @@ describe("AppShell", () => {
 
     // Sidebar should have hidden on mobile, flex and fixed width on lg+
     const sidebarWrapper = screen.getByTestId("app-shell-sidebar");
-    expect(sidebarWrapper).toHaveClass("hidden", "lg:flex", "lg:w-[260px]");
+    expect(sidebarWrapper).toHaveClass("hidden", "lg:flex", "lg:w-[220px]");
 
     // Sidebar should have flex-col (border now handled by Sidebar component)
     expect(sidebarWrapper).toHaveClass("flex-col");

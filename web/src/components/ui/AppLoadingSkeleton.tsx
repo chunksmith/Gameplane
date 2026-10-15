@@ -28,7 +28,7 @@ export function AppLoadingSkeleton({ statCount = 4 }: AppLoadingSkeletonProps) {
     >
       {/* Desktop sidebar — always rendered, hidden on mobile */}
       <div className="hidden lg:flex">
-        <aside className="flex w-[260px] shrink-0 flex-col border-r border-border bg-surface/60">
+        <aside className="flex w-[220px] shrink-0 flex-col border-r border-border bg-surface/60">
           {/* Brand block — real wordmark, skeleton cluster line */}
           <div className="flex items-center gap-2 px-5 py-4">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/15">
