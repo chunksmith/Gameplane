@@ -1,6 +1,8 @@
 package files
 
 import (
+	"archive/zip"
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -222,12 +224,12 @@ func (h *handler) walkDirs(rootFD int, comps []string, create, target bool) (int
 // locate opens the directory that holds the last component of comps and
 // returns it with that component's name. For the root itself (no components)
 // it returns the root directory and an empty name.
-func (h *handler) locate(rootFD int, comps []string, create bool) (int, string, error) {
+func (h *handler) locate(rootFD int, comps []string) (int, string, error) {
 	if len(comps) == 0 {
 		fd, err := h.walkDirs(rootFD, nil, false, false)
 		return fd, "", err
 	}
-	fd, err := h.walkDirs(rootFD, parentsOf(comps), create, false)
+	fd, err := h.walkDirs(rootFD, parentsOf(comps), false, false)
 	return fd, comps[len(comps)-1], err
 }
 
@@ -259,7 +261,7 @@ func (h *handler) listDir(comps []string) ([]Entry, error) {
 		return nil, err
 	}
 	defer closeFD(rootFD)
-	parentFD, name, err := h.locate(rootFD, comps, false)
+	parentFD, name, err := h.locate(rootFD, comps)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +309,7 @@ func (h *handler) openFile(comps []string) (*os.File, error) {
 		return nil, err
 	}
 	defer closeFD(rootFD)
-	parentFD, name, err := h.locate(rootFD, comps, false)
+	parentFD, name, err := h.locate(rootFD, comps)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +454,7 @@ func (h *handler) removePath(comps []string, recursive bool) error {
 		return err
 	}
 	defer closeFD(rootFD)
-	parentFD, name, err := h.locate(rootFD, comps, false)
+	parentFD, name, err := h.locate(rootFD, comps)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// A missing parent was a generic 400 before descriptors; keep it.
@@ -554,6 +556,156 @@ func (h *handler) removeChildren(fd int, path []string) error {
 			return errDotfile
 		}
 		if err = h.removeTree(fd, path, n); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var storedExtensions = []string{".7z", ".gz", ".jar", ".mca", ".png", ".rar", ".tgz", ".xz", ".zip", ".zst"}
+
+func (h *handler) treeSize(ctx context.Context, comps []string) (int64, error) {
+	rootFD, err := openRoot(h.root)
+	if err != nil {
+		return 0, err
+	}
+	defer closeFD(rootFD)
+	fd, err := h.walkDirs(rootFD, comps, false, false)
+	if err != nil {
+		return 0, err
+	}
+	defer closeFD(fd)
+	return h.dirSize(ctx, fd, comps)
+}
+
+func (h *handler) dirSize(ctx context.Context, fd int, path []string) (int64, error) {
+	names, err := dirNames(fd)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, name := range names {
+		if err = ctx.Err(); err != nil {
+			return 0, err
+		}
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		var stat unix.Stat_t
+		if unix.Fstatat(fd, name, &stat, unix.AT_SYMLINK_NOFOLLOW) != nil {
+			continue
+		}
+		switch stat.Mode & unix.S_IFMT {
+		case unix.S_IFREG:
+			total += stat.Size
+		case unix.S_IFDIR:
+			child, openErr := h.openChild(fd, path, name, dirFlags)
+			if openErr != nil {
+				continue
+			}
+			size, sizeErr := h.dirSize(ctx, child, append(slices.Clone(path), name))
+			closeFD(child)
+			if sizeErr != nil {
+				return 0, sizeErr
+			}
+			total += size
+		}
+	}
+	return total, nil
+}
+
+func (h *handler) writeArchive(ctx context.Context, dst io.Writer, targets [][]string) error {
+	rootFD, err := openRoot(h.root)
+	if err != nil {
+		return err
+	}
+	defer closeFD(rootFD)
+	zipWriter := zip.NewWriter(dst)
+	for _, comps := range targets {
+		if err = h.archiveTarget(ctx, zipWriter, rootFD, comps); err != nil {
+			return err
+		}
+	}
+	if err = zipWriter.Close(); err != nil {
+		return fmt.Errorf("close archive: %w", err)
+	}
+	return nil
+}
+
+func (h *handler) archiveTarget(ctx context.Context, zipWriter *zip.Writer, rootFD int, comps []string) error {
+	parentFD, name, err := h.locate(rootFD, comps)
+	if err != nil {
+		return err
+	}
+	defer closeFD(parentFD)
+	return h.archiveEntry(ctx, zipWriter, parentFD, parentsOf(comps), name, name)
+}
+
+func (h *handler) archiveEntry(ctx context.Context, zipWriter *zip.Writer, dirFD int, parents []string, name, zipName string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var stat unix.Stat_t
+	if err := unix.Fstatat(dirFD, name, &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return fmt.Errorf("stat %q: %w", name, err)
+	}
+	header := &zip.FileHeader{Name: zipName, Modified: time.Unix(stat.Mtim.Unix())}
+	header.SetMode(fileModeFromStat(stat.Mode))
+	switch stat.Mode & unix.S_IFMT {
+	case unix.S_IFREG:
+		return h.archiveFile(zipWriter, dirFD, parents, name, header)
+	case unix.S_IFDIR:
+		return h.archiveDir(ctx, zipWriter, dirFD, parents, name, header)
+	}
+	return nil
+}
+
+func (h *handler) archiveFile(zipWriter *zip.Writer, dirFD int, parents []string, name string, header *zip.FileHeader) error {
+	fd, err := h.openChild(dirFD, parents, name, fileFlags)
+	if err != nil {
+		return err
+	}
+	file, err := fileFromFD(fd, name)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = file.Close() }()
+	header.Method = zip.Deflate
+	if slices.Contains(storedExtensions, strings.ToLower(filepath.Ext(name))) {
+		header.Method = zip.Store
+	}
+	entryWriter, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return fmt.Errorf("zip %q: %w", name, err)
+	}
+	if _, err = io.Copy(entryWriter, file); err != nil {
+		return fmt.Errorf("zip %q: %w", name, err)
+	}
+	return nil
+}
+
+func (h *handler) archiveDir(ctx context.Context, zipWriter *zip.Writer, dirFD int, parents []string, name string, header *zip.FileHeader) error {
+	fd, err := h.openChild(dirFD, parents, name, dirFlags)
+	if err != nil {
+		return err
+	}
+	defer closeFD(fd)
+	prefix := header.Name + "/"
+	header.Name = prefix
+	if _, err = zipWriter.CreateHeader(header); err != nil {
+		return fmt.Errorf("zip %q: %w", name, err)
+	}
+	names, err := dirNames(fd)
+	if err != nil {
+		return err
+	}
+	here := append(slices.Clone(parents), name)
+	for _, child := range names {
+		if strings.HasPrefix(child, ".") {
+			continue
+		}
+		err = h.archiveEntry(ctx, zipWriter, fd, here, child, prefix+child)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}

@@ -419,6 +419,10 @@ function filesBase(server: string): string {
   return `/servers/${encodeURIComponent(server)}/files`;
 }
 
+function pathsQuery(paths: string[]): string {
+  return paths.map((path) => `path=${encodeURIComponent(path)}`).join("&");
+}
+
 // Shared helper for the non-JSON file endpoints (read/write/mkdir/upload/
 // delete). The agent speaks raw bytes and multipart for these, which the
 // generic api<T>() helper can't express. Errors are still surfaced as
@@ -953,6 +957,10 @@ function makeResourceEndpoints(request: RequestClient) {
       const entries = (await res.json()) as FileEntry[];
       return { entries, total: Number(res.headers.get("X-Total-Count") ?? entries.length) };
     },
+    size: async (server: string, path: string, ns?: string): Promise<number> => {
+      const res = await filesFetch(withNS(`${filesBase(server)}/size?path=${encodeURIComponent(path)}`, ns));
+      return ((await res.json()) as { size: number }).size;
+    },
     read: async (server: string, path: string, ns?: string): Promise<string> => {
       const res = await filesFetch(
         withNS(`${filesBase(server)}/read?path=${encodeURIComponent(path)}`, ns),
@@ -1005,6 +1013,14 @@ function makeResourceEndpoints(request: RequestClient) {
     },
     downloadURL: (server: string, path: string, ns?: string) =>
       withCluster(withNS(`${filesBase(server)}/download?path=${encodeURIComponent(path)}`, ns)),
+    archiveURL: (server: string, paths: string[], ns?: string) =>
+      withCluster(withNS(`${filesBase(server)}/archive?${pathsQuery(paths)}`, ns)),
+    zip: async (server: string, dest: string, paths: string[], ns?: string): Promise<void> => {
+      await filesFetch(withNS(`${filesBase(server)}/zip?dest=${encodeURIComponent(dest)}&${pathsQuery(paths)}`, ns), {
+        method: "POST",
+        headers: csrfHeaders(),
+      });
+    },
   };
 
   const Logs = {

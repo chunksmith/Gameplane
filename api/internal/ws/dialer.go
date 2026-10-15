@@ -69,11 +69,14 @@ func MountWithPlayerNames(r chi.Router, reg *kube.Registry, caBundle, clientCert
 	mountPodLogs(r, reg)
 	r.Route("/servers/{name}/files", func(r chi.Router) {
 		r.Get("/list", withListLimit(options.FileListLimit, p.agentHTTP("/files/list")))
+		r.Get("/size", p.agentHTTP("/files/size"))
 		r.Get("/read", p.agentHTTP("/files/read"))
 		r.Get("/download", p.agentHTTP("/files/download"))
+		r.Get("/archive", p.agentHTTP("/files/archive"))
 		r.Post("/write", p.agentHTTP("/files/write"))
 		r.Post("/upload", p.agentHTTP("/files/upload"))
 		r.Post("/mkdir", p.agentHTTP("/files/mkdir"))
+		r.Post("/zip", p.agentHTTP("/files/zip"))
 		r.Delete("/delete", p.agentHTTP("/files/delete"))
 	})
 	r.Route("/servers/{name}/players", func(r chi.Router) {
