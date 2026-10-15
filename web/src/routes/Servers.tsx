@@ -26,7 +26,7 @@ import { FilterPopover } from "@/components/ui/FilterPopover";
 import { GameIcon } from "@/components/ui/GameIcon";
 import { PageHeader } from "@/components/PageHeader";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { describeStorageProvisioned, formatBytes, cn } from "@/lib/utils";
+import { describeStorageProvisioned, formatBytes, formatCpuPercent, cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/media";
 import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
 import { Networks, Servers, type LifecycleVerb } from "@/lib/endpoints";
@@ -485,7 +485,7 @@ function serverRowData(gs: GameServer) {
   const cpuLabel = cpuKnown
     ? cpuLimitMilli
       ? `${((cpuMilli / cpuLimitMilli) * 100).toFixed(0)}%`
-      : `${(cpuMilli / 1000).toFixed(2)} cores`
+      : formatCpuPercent(cpuMilli / 1000)
     : "—";
 
   const memKnown = typeof agent?.memoryBytes === "number";

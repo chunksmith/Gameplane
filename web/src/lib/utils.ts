@@ -88,6 +88,10 @@ export function formatCores(n: number): string {
   return Number.isInteger(n) ? `${n}` : n.toFixed(2);
 }
 
+export function formatCpuPercent(cores: number): string {
+  return `${Number((cores * 100).toFixed(1))}%`;
+}
+
 export interface StorageReading {
   valueText: string;
   // subText is undefined when totalBytes is unknown (0/undefined) — callers
