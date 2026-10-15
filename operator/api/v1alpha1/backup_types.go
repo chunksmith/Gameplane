@@ -35,6 +35,9 @@ const BackupFinalizer = "gameplane.local/backup-finalizer"
 // See backup_forget.go's finalizeSnapshot.
 const BackupSnapshotFinalizer = "gameplane.local/backup-snapshot-finalizer"
 
+// BackupScheduleLabel names the BackupSchedule that created a Backup. A GameServer
+// joins backup group <g> through the label BackupGroupLabelPrefix+<g> set to
+// BackupGroupEnabled; a server without any group label belongs to BackupGroupDefault.
 const (
 	BackupScheduleLabel    = "gameplane.local/backup-schedule"
 	BackupGroupLabelPrefix = "backup-group.gameplane.local/"
@@ -95,6 +98,7 @@ type LocalObjectRef struct {
 	Name string `json:"name"`
 }
 
+// BackupProgress is the live progress of a running restic backup, parsed from restic's JSON status output.
 type BackupProgress struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100

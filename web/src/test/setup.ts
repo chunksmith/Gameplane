@@ -37,6 +37,9 @@ if (typeof window !== "undefined") {
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = () => {};
   }
+  if (!Element.prototype.getAnimations) {
+    Element.prototype.getAnimations = () => [];
+  }
 
   // ResizeObserver / IntersectionObserver / matchMedia — frequently used
   // by virtualized lists, popovers, and theme detection. jsdom omits all

@@ -188,10 +188,10 @@ test.describe("Slice 3: Create Server, Modules, Backups (Desktop — 1440x900) @
     await expect(page.getByRole("heading", { name: /^backups$/i })).toBeVisible({
       timeout: 10_000,
     });
-    await clickTab(page, "Schedules");
+    await clickTab(page, "Server schedules");
     // Screenshot dataset's schedules (screenshotSchedules), not the
     // "alpha-daily" default-dataset fixture used by e2e/specs/backups.spec.ts.
-    await expect(page.getByText("test-server-01-daily")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("grid", { name: "Schedules", exact: true }).getByText("test-server-01-daily")).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(200);
     await capture(page, "fK8Bi");
   });

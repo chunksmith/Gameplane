@@ -33,7 +33,7 @@ test.describe("schedule create", () => {
     await page.waitForLoadState("domcontentloaded");
 
     // Switch to the Schedules sub-tab.
-    await page.getByRole("tab", { name: /^schedules$/i }).click();
+    await page.getByRole("tab", { name: "Server schedules", exact: true }).click();
 
     // The Schedules panel renders a "New schedule for" HeroUI Select. Pick
     // alpha and the ScheduleForm appears below.
@@ -76,7 +76,7 @@ test.describe("schedule create", () => {
   test("Create button stays disabled when cron is empty", async ({ page }) => {
     await page.goto("/backups");
     await page.waitForLoadState("domcontentloaded");
-    await page.getByRole("tab", { name: /^schedules$/i }).click();
+    await page.getByRole("tab", { name: "Server schedules", exact: true }).click();
 
     const newScheduleCard = page
       .getByText("New schedule for", { exact: true })

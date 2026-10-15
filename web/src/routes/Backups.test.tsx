@@ -50,10 +50,10 @@ describe("BackupsPage", () => {
       ),
     );
     renderWithQuery(<BackupsPage />);
-    const schedTab = screen.getByRole("tab", { name: /Schedules/i });
+    const schedTab = screen.getByRole("tab", { name: "Server schedules" });
     await userEvent.click(schedTab);
     await waitFor(() =>
-      expect(screen.getByText("alpha-daily")).toBeInTheDocument(),
+      expect(within(screen.getByRole("grid", { name: "Schedules" })).getByText("alpha-daily")).toBeInTheDocument(),
     );
   });
 
@@ -310,9 +310,9 @@ describe("BackupsPage", () => {
       http.put("/schedules/alpha-daily", toggleHandler),
     );
     renderWithQuery(<BackupsPage />);
-    const schedTab = screen.getByRole("tab", { name: /Schedules/i });
+    const schedTab = screen.getByRole("tab", { name: "Server schedules" });
     await userEvent.click(schedTab);
-    await screen.findByText("alpha-daily");
+    await within(await screen.findByRole("grid", { name: "Schedules" })).findByText("alpha-daily");
     // HeroUI Switch renders as a switch element
     const switchControl = screen.getByRole("switch", { name: /Schedule active/i });
     await userEvent.click(switchControl);
@@ -334,9 +334,9 @@ describe("BackupsPage", () => {
       ),
     );
     renderWithQuery(<BackupsPage />);
-    const schedTab = screen.getByRole("tab", { name: /Schedules/i });
+    const schedTab = screen.getByRole("tab", { name: "Server schedules" });
     await userEvent.click(schedTab);
-    await screen.findByText("alpha-daily");
+    await within(await screen.findByRole("grid", { name: "Schedules" })).findByText("alpha-daily");
     const deleteBtn = screen.getByRole("button", { name: /Delete/i });
     await userEvent.click(deleteBtn);
     expect(await screen.findByText(/Delete schedule/)).toBeInTheDocument();
@@ -443,9 +443,9 @@ describe("BackupsPage", () => {
       http.delete("/schedules/alpha-daily", deleteHandler),
     );
     renderWithQuery(<BackupsPage />);
-    const schedTab = screen.getByRole("tab", { name: /Schedules/i });
+    const schedTab = screen.getByRole("tab", { name: "Server schedules" });
     await userEvent.click(schedTab);
-    await screen.findByText("alpha-daily");
+    await within(await screen.findByRole("grid", { name: "Schedules" })).findByText("alpha-daily");
     const deleteBtn = screen.getByRole("button", { name: /Delete/i });
     await userEvent.click(deleteBtn);
     await screen.findByText(/Delete schedule/);

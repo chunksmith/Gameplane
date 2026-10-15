@@ -111,7 +111,7 @@ describe("BackupsPage flows", () => {
       http.get("/servers", () => HttpResponse.json({ items: [makeServer({ metadata: { name: "alpha" } })] })),
     );
     renderWithQuery(<BackupsPage />);
-    await userEvent.click(screen.getByRole("tab", { name: /^Schedules$/i }));
+    await userEvent.click(screen.getByRole("tab", { name: "Server schedules" }));
     const select = serverSelect();
     await userEvent.click(select);
     const alphaOption = await screen.findByRole("option", { name: /^alpha · local \/ gameplane-games$/ });
@@ -134,8 +134,8 @@ describe("BackupsPage flows", () => {
       }),
     );
     renderWithQuery(<BackupsPage />);
-    await userEvent.click(screen.getByRole("tab", { name: /^Schedules$/i }));
-    await screen.findByText("alpha-daily");
+    await userEvent.click(screen.getByRole("tab", { name: "Server schedules" }));
+    await within(await screen.findByRole("grid", { name: "Schedules" })).findByText("alpha-daily");
 
     // Toggle the "active" switch → patchSpec (read-modify-write PUT).
     const switchControl = screen.getByRole("switch", { name: /Schedule active/i });

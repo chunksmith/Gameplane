@@ -94,7 +94,7 @@ describe("fleet location follows router navigation", () => {
     const history = createMemoryHistory({ initialEntries: ["/backups"] });
     const { router, unmount } = mountRouter(history, BackupsPage);
     try {
-      await userEvent.click(await screen.findByRole("tab", { name: "Schedules" }));
+      await userEvent.click(await screen.findByRole("tab", { name: "Server schedules" }));
       await waitFor(() => expect(router.state.location.search.tab).toBe("schedules"));
       await userEvent.click(screen.getByRole("button", { name: /^Filter$/ }));
       expect(screen.queryByRole("button", { name: /Filter by phase/ })).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("fleet location follows router navigation", () => {
       await userEvent.click(await screen.findByRole("option", { name: "remote" }));
       await userEvent.click(screen.getByRole("button", { name: "Apply" }));
       await waitFor(() => expect(scheduleScopes).toContain("remote"));
-      expect(screen.getByRole("tab", { name: "Schedules" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Server schedules" })).toHaveAttribute("aria-selected", "true");
       expect(router.state.location.search).toMatchObject({ tab: "schedules", cluster: "remote" });
       expect(new URL(history.location.href, "http://localhost").searchParams.get("tab")).toBe("schedules");
 
@@ -116,7 +116,7 @@ describe("fleet location follows router navigation", () => {
       expect(screen.queryByRole("button", { name: /Filter by location/ })).not.toBeInTheDocument();
 
       act(() => history.back());
-      await waitFor(() => expect(screen.getByRole("tab", { name: "Schedules" })).toHaveAttribute("aria-selected", "true"));
+      await waitFor(() => expect(screen.getByRole("tab", { name: "Server schedules" })).toHaveAttribute("aria-selected", "true"));
       await userEvent.click(screen.getByRole("button", { name: /^Filter\s*1$/ }));
       expect(screen.getByRole("button", { name: /Filter by location/ })).toHaveTextContent("remote");
       screen.getByRole("button", { name: "Clear" }).focus();
