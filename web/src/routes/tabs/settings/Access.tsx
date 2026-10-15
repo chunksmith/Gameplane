@@ -8,11 +8,10 @@ import { useMe, can } from "@/lib/auth";
 import { Networks } from "@/lib/endpoints";
 
 import { errorText } from "@/lib/errors";
-import { OWNER_ANNOTATION } from "@/lib/annotations";
+import { NETWORK_ANNOTATION, OWNER_ANNOTATION } from "@/lib/annotations";
 
 const COLLABORATORS_ANNOTATION = "gameplane.local/collaborators";
 const COLLABORATOR_NAMES_ANNOTATION = "gameplane.local/collaborator-names";
-const NETWORK_ANNOTATION = "gameplane.local/network";
 
 interface Props {
   gs?: GameServer;
