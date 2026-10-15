@@ -233,41 +233,47 @@ description: "Task list for 013-expand-test-coverage"
 
 **PR**: `test(web): live e2e for admin, users, roles, backups, registries`.
 
-- [ ] T037 [US2] Add `TestE2E_ResticRepoReady` to `test/e2e/test_helpers_e2e_test.go`. It calls `t.Parallel()` and `ensureResticRepo(t)`, then asserts that the warm-up Job from `fixtures/restic-warmup-job.yaml` reports `succeeded >= 1`. Register it in `bucket_operator` in `test/e2e/buckets.sh`. Use the `e2e-test-authoring` skill.
-- [ ] T038 [US2] In `.github/workflows/ci.yaml`, in the `e2e-web-live` steps anchor (`&e2e-web-live-steps`), add a step after "bootstrap admin" that runs `go test -tags=e2e -timeout 10m -v -run '^TestE2E_ResticRepoReady$' ./...` with the same env as the bootstrap step. Depends on T037.
-- [ ] T039 [P] [US2] Write `web/e2e/specs/live/admin-notifications.spec.ts`:
+- [X] T037 [US2] Add `TestE2E_ResticRepoReady` to `test/e2e/test_helpers_e2e_test.go`. It calls `t.Parallel()` and `ensureResticRepo(t)`, then asserts that the warm-up Job from `fixtures/restic-warmup-job.yaml` reports `succeeded >= 1`. Register it in `bucket_operator` in `test/e2e/buckets.sh`. Use the `e2e-test-authoring` skill.
+- [X] T038 [US2] In `.github/workflows/ci.yaml`, in the `e2e-web-live` steps anchor (`&e2e-web-live-steps`), add a step after "bootstrap admin" that runs `go test -tags=e2e -timeout 10m -v -run '^TestE2E_ResticRepoReady$' ./...` with the same env as the bootstrap step. Depends on T037.
+- [X] T039 [P] [US2] Write `web/e2e/specs/live/admin-notifications.spec.ts`:
   1. Seed nothing, then use the UI to add a webhook notification target with a unique name and an in-cluster URL.
   2. Reload and assert the target is listed.
   3. Edit the URL, reload and assert the new URL.
   4. Delete the target.
 
   Error path: saving `http://169.254.169.254/` renders the API's SSRF rejection inline. Clean up in `afterEach`. Selectors come from `web/src/routes/AdminSettings.tsx` and the existing `AdminSettings_notifications.test.tsx`.
-- [ ] T040 [P] [US2] Write `web/e2e/specs/live/users-and-roles.spec.ts`:
+  *Implementation note (2026-10-14)*: Reworded to current behaviour (valgul card 2026-10-14, "Test current"): the UI cannot edit a sink URL, so the spec toggles the sink's enabled switch instead of editing the URL. Save accepts http://169.254.169.254/; the SSRF guard (netguard in notify.HTTPClient) rejects it at delivery, so the error path asserts the inline result after "Send test".
+- [X] T040 [P] [US2] Write `web/e2e/specs/live/users-and-roles.spec.ts`:
   1. Create a user with a unique name through the Users page, and assign it a built-in non-admin role.
   2. Reload and assert the role.
   3. In a fresh `browser.newContext()` with no `storageState`, sign in as that user, which is the spec's one extra login, and assert the sidebar shows only the role's nav entries.
 
   Error path: assigning a role to a user deleted through `_seed.ts` surfaces the 404 message. `afterEach` deletes the user.
-- [ ] T041 [P] [US2] Write `web/e2e/specs/live/role-bindings.spec.ts`:
+  *Implementation note (2026-10-14)*: the role PATCH on a deleted user returned 500; valgul chose "Fix in separate PR" on the card, and #699 made it 404 "user not found" (test change signed off on its own card). The spec's error path changes a deleted user's role in the Edit dialog and asserts the inline 404 alert, as written.
+- [X] T041 [P] [US2] Write `web/e2e/specs/live/role-bindings.spec.ts`:
   1. Create a custom role with `RoleEditorModal` and bind it to a namespace-scoped user seeded through `_seed.ts`.
   2. Reload and assert the binding.
   3. Revoke the binding and reload.
 
   Error path: in a fresh context signed in as the restricted user (one login), opening `/users` shows the forbidden state, backed by a 403 response. Clean up the role and the user.
-- [ ] T042 [P] [US2] Write `web/e2e/specs/live/backup-restore.spec.ts`:
+  *Implementation note (2026-10-14)*: Reworded (valgul card 2026-10-14, "Test current"): the dashboard draws Access denied from the user's permissions without calling the API, so the spec asserts Access denied on /users and then proves the 403 with a direct GET /users from the same session.
+- [X] T042 [P] [US2] Write `web/e2e/specs/live/backup-restore.spec.ts`:
   1. Seed a busybox GameServer through `_seed.ts`, pointing at the restic repo Secret from `test/e2e/fixtures/backup-restic-secret.yaml`.
   2. Take a backup from the Backups tab and wait for `Completed`.
   3. Write a marker file through the Files tab.
   4. Restore the backup, reload, and assert the marker is gone.
 
   Error path: restoring a backup whose server was deleted through the API shows the error toast. Clean up the server and the backups. Depends on T038 at runtime only.
-- [ ] T043 [P] [US2] Write `web/e2e/specs/live/mod-registries.spec.ts`:
+  *Implementation note (2026-10-14)*: Reworded (valgul card 2026-10-14, "Test current"): the backup phase is `Succeeded`, not `Completed`. Restoring onto a deleted server is accepted and fails in the background, so the error path asserts the Failed row ("target server ... not found") on /backups?tab=restores instead of a toast. The spec seeds its own labelled backup destination because the Backups tab needs exactly one.
+- [X] T043 [P] [US2] Write `web/e2e/specs/live/mod-registries.spec.ts`:
   1. Add a mod registry with a unique name in Admin Settings.
   2. Reload and assert it is listed.
   3. Remove it.
 
   Error path: adding the same name twice shows the 409 message inline. Selectors come from `AdminSettings_modregistries.test.tsx`.
-- [ ] T044 [US2] Run `npm run typecheck:e2e` in `web/`, then push. After the first green live run, record the job's login count and duration in `coverage-gaps.md` (contracts/e2e-additions.md requires ≤ 10 logins), and flip G-07 to G-11.
+  *Implementation note (2026-10-14)*: Reworded (valgul card 2026-10-14, "Test current"): mod registries are fixed keyed providers with no add-by-name, so the spec sets, reloads and removes the Nexus Mods key. The 409 path is an unmanaged Secret that already has the provider's Secret name.
+- [X] T044 [US2] Run `npm run typecheck:e2e` in `web/`, then push. After the first green live run, record the job's login count and duration in `coverage-gaps.md` (contracts/e2e-additions.md requires ≤ 10 logins), and flip G-07 to G-11.
+  *Implementation note (2026-10-15)*: `npm run typecheck:e2e` passes once #696 (fleet.ts) merged. First green live run 38500956044: 9 logins (limit 10), arm64 live job about 8.6 min, Playwright 5.2 min (recorded on G-11). G-07 to G-11 closed; G-08 closed on run 38649266488 after #699.
 
 **Checkpoint**: SC-002 is met. Every major dashboard flow has a live spec.
 

@@ -1,7 +1,7 @@
 # Coverage Gap Record
 
-**Summary**: 10/24 closed · 1 closed unproven · 1 in progress · 11 open · 1 unit-only by design
-**Last updated**: 2026-10-13
+**Summary**: 15/24 closed · 1 closed unproven · 1 in progress · 6 open · 1 unit-only by design
+**Last updated**: 2026-10-14
 
 | ID | Category | Gap | Story | FR | Priority | Status | Evidence | Notes |
 |---|---|---|---|---|---|---|---|---|
@@ -11,11 +11,11 @@
 | G-04 | static | dependency-review gate | US1 | FR-001 | P1 | closed-unproven | `dependency review` job, added in https://github.com/GameplanePanel/Gameplane/pull/676 | OD-4: proven by configuration review only (`fail-on-severity: high`, PR-only); no throwaway PR, no fixture branch, no local act run. |
 | G-05 | static | codegen / tidy drift gate | US1 | FR-001 | P1 | closed | `codegen drift` https://github.com/GameplanePanel/Gameplane/actions/runs/38189397259 | First run on #672 found no drift; the proof shows the job fails on injected drift. |
 | G-06 | static | submodule pointer freshness gate | US1 | FR-001 | P1 | closed | `submodule freshness` https://github.com/GameplanePanel/Gameplane/actions/runs/38189409720 | First run on #675 green; the proof covers a stale and a fresh pointer. |
-| G-07 | e2e-dashboard | live: notification webhook config | US2 | FR-002 | P1 | open |  |  |
-| G-08 | e2e-dashboard | live: user create + role assignment | US2 | FR-002 | P1 | open |  |  |
-| G-09 | e2e-dashboard | live: custom role + binding | US2 | FR-002 | P1 | open |  |  |
-| G-10 | e2e-dashboard | live: backup restore | US2 | FR-002 | P1 | open |  |  |
-| G-11 | e2e-dashboard | live: mod registry config | US2 | FR-002 | P1 | open |  |  |
+| G-07 | e2e-dashboard | live: notification webhook config | US2 | FR-002 | P1 | closed | `e2e web live / arm64 (kind)` https://github.com/GameplanePanel/Gameplane/actions/runs/38500956044 | admin-notifications.spec.ts on #693: sink create, enable toggle and delete persist across reload; the SSRF URL is rejected at delivery (Send test). T039 reworded to current behaviour, valgul card 2026-10-14. |
+| G-08 | e2e-dashboard | live: user create + role assignment | US2 | FR-002 | P1 | closed | `e2e web live / arm64 (kind)` https://github.com/GameplanePanel/Gameplane/actions/runs/38649266488 | users-and-roles.spec.ts on #693: invite, promote to operator, persist across reload, sign in as the new user and check its nav; changing a deleted user's role shows the inline 404 "user not found" (fixed from 500 in #699). valgul cards 2026-10-14. |
+| G-09 | e2e-dashboard | live: custom role + binding | US2 | FR-002 | P1 | closed | `e2e web live / arm64 (kind)` https://github.com/GameplanePanel/Gameplane/actions/runs/38500956044 | role-bindings.spec.ts on #693: custom role bound in gameplane-games, persists across reload, gates /users (Access denied plus a direct GET /users 403), then revoked. T041 reworded, valgul card 2026-10-14. |
+| G-10 | e2e-dashboard | live: backup restore | US2 | FR-002 | P1 | closed | `e2e web live / arm64 (kind)` https://github.com/GameplanePanel/Gameplane/actions/runs/38500956044 | backup-restore.spec.ts on #693: backup Succeeded, marker removed by restore; restoring onto a deleted server shows a Failed row on the Restores tab (no toast). T042 reworded, valgul card 2026-10-14. |
+| G-11 | e2e-dashboard | live: mod registry config | US2 | FR-002 | P1 | closed | `e2e web live / arm64 (kind)` https://github.com/GameplanePanel/Gameplane/actions/runs/38500956044 | mod-registries.spec.ts on #693: Nexus Mods key set, persists, removed; an unmanaged Secret with the same name gives 409 inline. T043 reworded, valgul card 2026-10-14. Live job: 9 logins (limit 10), arm64 job about 8.6 min, Playwright 5.2 min. |
 | G-12 | e2e-dashboard | live: login, create/delete server, settings | US2 | FR-002 | P1 | closed | `web/e2e/specs/live/*` specs (`login-and-shell`, `createAndCleanupServer`, `servers-core`, `server-settings`) in job `e2e web live`: https://github.com/GameplanePanel/Gameplane/tree/master/web/e2e/specs/live |  |
 | G-13 | e2e-optional | MCP server | US3 | FR-003 | P2 | open |  |  |
 | G-14 | e2e-optional | audit syslog bridge | US3 | FR-003 | P2 | open |  |  |

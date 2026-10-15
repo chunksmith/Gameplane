@@ -105,6 +105,7 @@ TestAddressPool_ExplicitAddressRequest
 TestAddressPool_AddressInUseConflict
 TestAddressPool_PoolExhausted
 TestAPI_EventStreamAndRoleEdits_FollowCallerPermissions
+TestE2E_ResticRepoReady
 EOF
 }
 
