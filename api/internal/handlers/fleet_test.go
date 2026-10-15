@@ -33,7 +33,8 @@ import (
 func fleetTestClient(objects ...runtime.Object) *kube.Client {
 	kinds := map[schema.GroupVersionResource]string{
 		kube.GVRCluster: "ClusterList", kube.GVRs["servers"]: "GameServerList",
-		kube.GVRs["backups"]: "BackupList", kube.GVRs["schedules"]: "BackupScheduleList",
+		kube.GVRs["serversets"]: "GameServerSetList",
+		kube.GVRs["backups"]:    "BackupList", kube.GVRs["schedules"]: "BackupScheduleList",
 		kube.GVRs["restores"]: "RestoreList", kube.GVRs["templates"]: "GameTemplateList",
 	}
 	return &kube.Client{Dynamic: dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, objects...), Typed: kubefake.NewClientset()}
@@ -67,7 +68,7 @@ func TestFleetReadBudgetStopsBeforeDiscovery(t *testing.T) {
 			}
 		}
 		homeBefore, remoteBefore := kubeClientCalls(t, home), kubeClientCalls(t, remote)
-		for _, route := range []string{"servers", "backups", "schedules", "restores", "inventory", "placements"} {
+		for _, route := range []string{"servers", "serversets", "backups", "schedules", "restores", "inventory", "placements"} {
 			// A fresh request/user context models a different session for the same account.
 			rr := inventoryRequest(t, router, &auth.User{ID: 42}, http.MethodGet, "/fleet/"+route)
 			if rr.Code != http.StatusTooManyRequests || rr.Header().Get("Retry-After") != "1" {
@@ -207,6 +208,31 @@ func TestFleetResources_ExactReadPermissions(t *testing.T) {
 				t.Fatalf("server ownership granted unrelated resource reads: %+v", ownerOnly)
 			}
 		})
+	}
+}
+
+func TestFleetServerSets_RedactsAndRequiresServersRead(t *testing.T) {
+	template := templateObj("demo-game", nil)
+	template.Object["spec"] = map[string]any{"configSchema": []any{
+		map[string]any{"name": "rconPassword", "type": "password"},
+	}}
+	set := fleetObject("GameServerSet", scope.DefaultNamespace, "lobby", "set-uid")
+	set.Object["spec"] = map[string]any{"template": map[string]any{
+		"templateRef": map[string]any{"name": "demo-game"},
+		"config":      map[string]any{"rconPassword": "secret"},
+	}}
+	router := fleetRouter(clusterTestRegistry(fleetTestClient(template, set)))
+	got := decodeFleet[fleetResource](t, router, inventoryUser("local", scope.DefaultNamespace, "servers:read"), "/fleet/serversets")
+	if len(got.Items) != 1 {
+		t.Fatalf("serversets=%+v", got)
+	}
+	password, _, _ := unstructured.NestedString(got.Items[0].Resource.Object, "spec", "template", "config", "rconPassword")
+	if password != configRedactedMarker {
+		t.Fatalf("rconPassword=%q, want the redaction marker", password)
+	}
+	hidden := decodeFleet[fleetResource](t, router, inventoryUser("local", scope.DefaultNamespace, "backups:read"), "/fleet/serversets")
+	if len(hidden.Items) != 0 {
+		t.Fatalf("backups:read listed server sets: %+v", hidden)
 	}
 }
 
@@ -396,7 +422,7 @@ func TestFleetAuthFiltersAndDiscoveryFailures(t *testing.T) {
 	reg := clusterTestRegistry(fleetTestClient())
 	r := fleetRouter(reg)
 	u := inventoryUser("local", "*", "*")
-	for _, path := range []string{"servers", "backups", "schedules", "restores", "inventory", "placements"} {
+	for _, path := range []string{"servers", "serversets", "backups", "schedules", "restores", "inventory", "placements"} {
 		if rr := inventoryRequest(t, r, nil, http.MethodGet, "/fleet/"+path); rr.Code != http.StatusUnauthorized {
 			t.Fatalf("unauth %s=%d", path, rr.Code)
 		}

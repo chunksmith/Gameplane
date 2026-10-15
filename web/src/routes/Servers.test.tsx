@@ -5,7 +5,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { server } from "@/test/server";
 import { renderWithQuery } from "@/test/render";
-import { makeServer, makeClusterStats } from "@/test/factories";
+import { makeServer, makeServerSet, makeClusterStats, makeUser } from "@/test/factories";
 
 // TanStack Router's Link needs a router context the test doesn't supply.
 // Replace it with a plain anchor — same DOM contract for what we assert.
@@ -882,5 +882,108 @@ describe("ServersPage mobile layout", () => {
     const row = (await screen.findByText("locked")).closest("tr") as HTMLElement;
     await userEvent.click(within(row).getByTitle("Start"));
     expect(await screen.findByText(/forbidden: viewers cannot start servers/i)).toBeInTheDocument();
+  });
+});
+
+describe("server groups", () => {
+  const owner = [{ apiVersion: "gameplane.local/v1alpha1", kind: "GameServerSet", name: "lobby", uid: "lobby-uid", controller: true }];
+  const children = () => [
+    makeServer({ metadata: { name: "lobby-0", namespace: "gameplane-games", ownerReferences: owner }, status: { phase: "Running" } }),
+    makeServer({ metadata: { name: "lobby-1", namespace: "gameplane-games", ownerReferences: owner }, status: { phase: "Running" } }),
+  ];
+
+  it("nests set children under a collapsible group card", async () => {
+    server.use(
+      http.get("/servers", () =>
+        HttpResponse.json({
+          items: [...children(), makeServer({ metadata: { name: "alpha", namespace: "gameplane-games" } })],
+        }),
+      ),
+      http.get("/serversets", () => HttpResponse.json({ items: [makeServerSet()] })),
+    );
+    renderWithQuery(<ServersPage />);
+    const toggle = await screen.findByRole("button", { name: "Expand group lobby" });
+    expect(await screen.findByText("alpha")).toBeInTheDocument();
+    expect(screen.queryByText("lobby-0")).not.toBeInTheDocument();
+    await userEvent.click(toggle);
+    expect(await screen.findByText("lobby-0")).toBeInTheDocument();
+    expect(screen.getByText("lobby-1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse group lobby" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("scales the set through its replica controls", async () => {
+    const scaled: { namespace: string | null; body: unknown }[] = [];
+    server.use(
+      http.get("/servers", () => HttpResponse.json({ items: children() })),
+      http.get("/serversets", () => HttpResponse.json({ items: [makeServerSet()] })),
+      http.get("/serversets/:name", () => HttpResponse.json(makeServerSet({ metadata: { resourceVersion: "42" } }))),
+      http.put("/serversets/:name", async ({ request }) => {
+        scaled.push({ namespace: new URL(request.url).searchParams.get("namespace"), body: await request.json() });
+        return HttpResponse.json(makeServerSet({ spec: { replicas: 3 } }));
+      }),
+    );
+    renderWithQuery(<ServersPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Add replica" }));
+    await waitFor(() => expect(scaled).toHaveLength(1));
+    expect(scaled[0]).toMatchObject({ namespace: "gameplane-games", body: { metadata: { resourceVersion: "42" }, spec: { replicas: 3 } } });
+  });
+
+  it("lists only the children matching the active status tab", async () => {
+    server.use(
+      http.get("/servers", () =>
+        HttpResponse.json({
+          items: [
+            makeServer({ metadata: { name: "lobby-0", namespace: "gameplane-games", ownerReferences: owner }, status: { phase: "Running" } }),
+            makeServer({ metadata: { name: "lobby-1", namespace: "gameplane-games", ownerReferences: owner }, status: { phase: "Stopped" } }),
+          ],
+        }),
+      ),
+      http.get("/serversets", () => HttpResponse.json({ items: [makeServerSet()] })),
+    );
+    renderWithQuery(<ServersPage />);
+    await userEvent.click(await screen.findByRole("tab", { name: /Running/i }));
+    expect(await screen.findByText("1/2 ready")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Expand group lobby" }));
+    expect(await screen.findByText("lobby-0")).toBeInTheDocument();
+    expect(screen.queryByText("lobby-1")).not.toBeInTheDocument();
+  });
+
+  it("deletes the set after confirmation", async () => {
+    const deleted: string[] = [];
+    server.use(
+      http.get("/servers", () => HttpResponse.json({ items: children() })),
+      http.get("/serversets", () => HttpResponse.json({ items: [makeServerSet()] })),
+      http.delete("/serversets/:name", ({ params }) => {
+        deleted.push(String(params.name));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithQuery(<ServersPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete group" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete group" }));
+    await waitFor(() => expect(deleted).toEqual(["lobby"]));
+  });
+
+  it("keeps an empty set's group card on the All tab", async () => {
+    server.use(
+      http.get("/servers", () => HttpResponse.json({ items: [] })),
+      http.get("/serversets", () => HttpResponse.json({ items: [makeServerSet({ spec: { replicas: 0 } })] })),
+    );
+    renderWithQuery(<ServersPage />);
+    expect(await screen.findByRole("button", { name: "Expand group lobby" })).toBeInTheDocument();
+    expect(screen.getByText("0/0 ready")).toBeInTheDocument();
+  });
+
+  it("hides replica and delete controls without servers:write", async () => {
+    server.use(
+      http.get("/users/me", () => HttpResponse.json(makeUser({ role: "viewer", permissions: { "*": ["servers:read"] } }))),
+      http.get("/servers", () => HttpResponse.json({ items: children() })),
+      http.get("/serversets", () => HttpResponse.json({ items: [makeServerSet()] })),
+    );
+    renderWithQuery(<ServersPage />);
+    expect(await screen.findByRole("button", { name: "Expand group lobby" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add replica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete group" })).not.toBeInTheDocument();
   });
 });

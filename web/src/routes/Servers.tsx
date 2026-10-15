@@ -4,10 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ServerActionsMenu } from "@/components/server/ServerActionsMenu";
 import {
   Activity,
+  ChevronDown,
+  ChevronRight,
   Cpu,
   Database,
   Filter,
   HardDrive,
+  Layers,
+  Minus,
   Play,
   Plus,
   RotateCw,
@@ -16,6 +20,7 @@ import {
   SlidersHorizontal,
   Square,
   Sunrise,
+  Trash2,
   Users as UsersIcon,
 } from "lucide-react";
 
@@ -26,13 +31,16 @@ import { FilterPopover } from "@/components/ui/FilterPopover";
 import { GameIcon } from "@/components/ui/GameIcon";
 import { PageHeader } from "@/components/PageHeader";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { describeStorageProvisioned, formatBytes, formatCpuPercent, cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/media";
 import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
-import { Networks, Servers, type LifecycleVerb } from "@/lib/endpoints";
+import { Networks, Servers, createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
 import { NETWORK_ANNOTATION } from "@/lib/annotations";
 import { countByState } from "@/lib/servers";
-import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServers, type FleetTarget, type Located } from "@/lib/fleet";
+import { groupServers, type ServerGroup } from "@/lib/serverSets";
+import { resourceCan } from "@/lib/resourceTarget";
+import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServerSets, useFleetServers, type FleetTarget, type Located } from "@/lib/fleet";
 import { FleetCoverage, FleetScopeFilter } from "@/components/FleetScope";
 
 type FilterKey = "all" | "running" | "stopped";
@@ -54,6 +62,9 @@ export function ServersPage() {
 
   const { data: scopes } = useFleetServers();
   const { data: fleet, isLoading, error } = useFleetServerSelection(location, appliedNamespaces);
+  const { data: setFleet } = useFleetServerSets(location);
+  const sets = useMemo(() => (setFleet?.items ?? []).map(located).filter((set) => !location || set.fleetTarget.cluster === location), [setFleet, location]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { data: inventory, error: inventoryError } = useQuery({
     queryKey: ["fleet", "inventory", location],
     queryFn: ({ signal }) => Fleet.inventory({ cluster: location || undefined }, signal),
@@ -171,7 +182,38 @@ export function ServersPage() {
     setDraftNamespaces(new Set());
   };
 
-  const visible = servers.filter(filterServer);
+  const setMatches = (set: (typeof sets)[number]) =>
+    (!query || set.metadata.name.toLowerCase().includes(query.toLowerCase())) &&
+    (appliedGames.size === 0 || appliedGames.has(set.spec.template?.templateRef?.name ?? "")) &&
+    (appliedNamespaces.size === 0 || appliedNamespaces.has(set.fleetTarget.namespace));
+  const grouped = groupServers(servers, sets);
+  const standalone = grouped.standalone.filter(filterServer);
+  const groups = grouped.groups
+    .map((group) => ({ group, shown: group.servers.filter(filterServer) }))
+    .filter(({ group, shown }) => shown.length > 0 || (filter === "all" && !network && !!group.set && setMatches(group.set)));
+  const toggleGroup = (key: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+  const groupSection = groups.length > 0 && (
+    <section aria-label="Server groups" className="space-y-3">
+      {groups.map(({ group, shown }) => (
+        <ServerGroupCard
+          key={group.key}
+          group={group}
+          shown={shown}
+          expanded={expanded.has(group.key)}
+          onToggle={() => toggleGroup(group.key)}
+          templates={templatesByCluster.get(group.cluster)}
+          gameCodes={gameCodes}
+          pending={act.isPending}
+          onAct={act.mutate}
+        />
+      ))}
+    </section>
+  );
 
   return (
     <div className="space-y-6 p-6">
@@ -341,13 +383,14 @@ export function ServersPage() {
 
       {isMobile ? (
         <div className="space-y-3">
+          {groupSection}
           {isLoading && (
             <Card className="p-10 text-center text-sm text-foreground/60">Loading…</Card>
           )}
-          {!isLoading && visible.length === 0 && (
+          {!isLoading && standalone.length === 0 && groups.length === 0 && (
             <Card className="p-12 text-center text-sm text-foreground/60">{error || fleet?.partial ? "No server data available for this filter." : "No servers match."}</Card>
           )}
-          {visible.map((gs) => (
+          {standalone.map((gs) => (
             <ServerCard
               key={targetKey(resourceTarget(gs))}
               gs={gs}
@@ -359,94 +402,99 @@ export function ServersPage() {
 
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <Table.Root className="bg-transparent">
-            <Table.ScrollContainer>
-              <Table.Content aria-label="Server list" keyboardNavigationBehavior="arrow">
-                <Table.Header>
-                  <Table.Column id="name" isRowHeader>Name</Table.Column>
-                  <Table.Column id="game">Game</Table.Column>
-                  <Table.Column id="status">Status</Table.Column>
-                  <Table.Column id="cpu">CPU</Table.Column>
-                  <Table.Column id="memory">Memory</Table.Column>
-                  <Table.Column id="players">Players</Table.Column>
-                  <Table.Column id="node">Node</Table.Column>
-                  <Table.Column id="actions" className="text-right">Actions</Table.Column>
-                </Table.Header>
-                <Table.Body
-                  renderEmptyState={() => (
-                    <div className="text-center py-10 text-foreground/60">
-                      {isLoading ? "Loading…" : error || fleet?.partial ? "No server data available for this filter." : "No servers match."}
-                    </div>
-                  )}
-                >
-              {visible.map((gs) => (
-                <Table.Row key={targetKey(resourceTarget(gs))}>
-                  <Table.Cell>
-                    <div className="group relative flex min-w-0 items-center gap-3">
-                      <GameIcon
-                        game={gs.spec.templateRef.name}
-                        icon={byName.get(templateKey(resourceTarget(gs).cluster, gs.spec.templateRef.name))?.spec.icon}
-                        code={gameCodes.get(templateKey(resourceTarget(gs).cluster, gs.spec.templateRef.name))}
-                        size="sm"
-                      />
-                      <div className="min-w-0">
-                        <Link
-                          to="/servers/$name"
-                          params={{ name: gs.metadata.name }}
-                          search={targetSearch(resourceTarget(gs))}
-                          className="block truncate font-mono text-sm text-foreground after:absolute after:inset-0 group-hover:text-primary"
-                        >
-                          {gs.metadata.name}
-                        </Link>
-                        <div className="truncate text-xs text-muted">{targetLabel(resourceTarget(gs))}</div>
+        <div className="space-y-4">
+          {groupSection}
+          {(standalone.length > 0 || groups.length === 0) && (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <Table.Root className="bg-transparent">
+              <Table.ScrollContainer>
+                <Table.Content aria-label="Server list" keyboardNavigationBehavior="arrow">
+                  <Table.Header>
+                    <Table.Column id="name" isRowHeader>Name</Table.Column>
+                    <Table.Column id="game">Game</Table.Column>
+                    <Table.Column id="status">Status</Table.Column>
+                    <Table.Column id="cpu">CPU</Table.Column>
+                    <Table.Column id="memory">Memory</Table.Column>
+                    <Table.Column id="players">Players</Table.Column>
+                    <Table.Column id="node">Node</Table.Column>
+                    <Table.Column id="actions" className="text-right">Actions</Table.Column>
+                  </Table.Header>
+                  <Table.Body
+                    renderEmptyState={() => (
+                      <div className="text-center py-10 text-foreground/60">
+                        {isLoading ? "Loading…" : error || fleet?.partial ? "No server data available for this filter." : "No servers match."}
                       </div>
-                    </div>
-                  </Table.Cell>
-                  <Table.Cell>{gs.spec.templateRef.name}</Table.Cell>
-                  <Table.Cell>
-                    {(() => {
-                      const { phase, asleep } = serverRowData(gs);
-                      return <PhaseChip phase={phase} asleep={asleep} />;
-                    })()}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {(() => {
-                      const { cpuLabel } = serverRowData(gs);
-                      return <span className="font-mono">{cpuLabel}</span>;
-                    })()}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {(() => {
-                      const { memLabel } = serverRowData(gs);
-                      return <span className="font-mono">{memLabel}</span>;
-                    })()}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {(() => {
-                      const { playersLabel } = serverRowData(gs);
-                      return <span className="font-mono">{playersLabel}</span>;
-                    })()}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {(() => {
-                      const { node } = serverRowData(gs);
-                      return <span className="font-mono text-foreground/60">{node ?? "—"}</span>;
-                    })()}
-                  </Table.Cell>
-                  <Table.Cell className="text-right">
-                    {(() => {
-                      const { phase, asleep } = serverRowData(gs);
-                      return <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={act.isPending} onAct={act.mutate} />;
-                    })()}
-                  </Table.Cell>
-                </Table.Row>
-              ))}
+                    )}
+                  >
+                {standalone.map((gs) => (
+                  <Table.Row key={targetKey(resourceTarget(gs))}>
+                    <Table.Cell>
+                      <div className="group relative flex min-w-0 items-center gap-3">
+                        <GameIcon
+                          game={gs.spec.templateRef.name}
+                          icon={byName.get(templateKey(resourceTarget(gs).cluster, gs.spec.templateRef.name))?.spec.icon}
+                          code={gameCodes.get(templateKey(resourceTarget(gs).cluster, gs.spec.templateRef.name))}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <Link
+                            to="/servers/$name"
+                            params={{ name: gs.metadata.name }}
+                            search={targetSearch(resourceTarget(gs))}
+                            className="block truncate font-mono text-sm text-foreground after:absolute after:inset-0 group-hover:text-primary"
+                          >
+                            {gs.metadata.name}
+                          </Link>
+                          <div className="truncate text-xs text-muted">{targetLabel(resourceTarget(gs))}</div>
+                        </div>
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>{gs.spec.templateRef.name}</Table.Cell>
+                    <Table.Cell>
+                      {(() => {
+                        const { phase, asleep } = serverRowData(gs);
+                        return <PhaseChip phase={phase} asleep={asleep} />;
+                      })()}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {(() => {
+                        const { cpuLabel } = serverRowData(gs);
+                        return <span className="font-mono">{cpuLabel}</span>;
+                      })()}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {(() => {
+                        const { memLabel } = serverRowData(gs);
+                        return <span className="font-mono">{memLabel}</span>;
+                      })()}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {(() => {
+                        const { playersLabel } = serverRowData(gs);
+                        return <span className="font-mono">{playersLabel}</span>;
+                      })()}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {(() => {
+                        const { node } = serverRowData(gs);
+                        return <span className="font-mono text-foreground/60">{node ?? "—"}</span>;
+                      })()}
+                    </Table.Cell>
+                    <Table.Cell className="text-right">
+                      {(() => {
+                        const { phase, asleep } = serverRowData(gs);
+                        return <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={act.isPending} onAct={act.mutate} />;
+                      })()}
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
 
-                </Table.Body>
-              </Table.Content>
-            </Table.ScrollContainer>
-          </Table.Root>
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table.Root>
+          </div>
+          )}
         </div>
       )}
     </div>
@@ -570,16 +618,147 @@ function ServerLifecycleActions({
 }
 
 
+function ServerGroupCard({
+  group,
+  shown,
+  expanded,
+  onToggle,
+  templates,
+  gameCodes,
+  pending,
+  onAct,
+}: {
+  group: ServerGroup;
+  shown: Located<GameServer>[];
+  expanded: boolean;
+  onToggle: () => void;
+  templates?: GameTemplate[];
+  gameCodes: Map<string, string>;
+  pending: boolean;
+  onAct: (args: { target: FleetTarget; verb: LifecycleVerb }) => void;
+}) {
+  const qc = useQueryClient();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const client = useMemo(() => createResourceClient({ cluster: group.cluster, namespace: group.namespace }), [group.cluster, group.namespace]);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["fleet"] });
+  const scale = useMutation({
+    mutationFn: (replicas: number) => group.set ? client.ServerSets.scale(group.name, replicas) : Promise.reject(new Error("Group unavailable")),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    mutationFn: () => client.ServerSets.remove(group.name),
+    onSuccess: async () => {
+      setConfirmDelete(false);
+      await refresh();
+    },
+  });
+  const game = group.set?.spec.template?.templateRef?.name ?? group.servers[0]?.spec.templateRef.name ?? "";
+  const desired = group.set?.spec.replicas ?? group.servers.length;
+  const ready = group.servers.filter((gs) => gs.status?.phase === "Running").length;
+  const players = group.servers.reduce((sum, gs) => sum + Math.max(0, gs.status?.agent?.playersOnline ?? 0), 0);
+  const nodes = new Set(group.servers.map((gs) => gs.metadata.annotations?.["gameplane.local/node"]).filter(Boolean)).size;
+  const canWrite = !!group.set && resourceCan(group.set.fleetPermissions, "servers:write");
+  const busy = scale.isPending || remove.isPending;
+  return (
+    <Card className="overflow-hidden border border-border bg-card p-0">
+      <div className="flex flex-wrap items-center gap-3 p-4">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} group ${group.name}`}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted" />}
+          <GameIcon
+            game={game}
+            icon={templates?.find((template) => template.metadata.name === game)?.spec.icon}
+            code={gameCodes.get(templateKey(group.cluster, game))}
+            size="sm"
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-mono text-sm text-foreground">{group.name}</span>
+              <Chip size="sm" variant="soft"><Layers className="h-3 w-3" /> Group</Chip>
+            </div>
+            <div className="truncate text-xs text-muted">{targetLabel(group)} · {game}</div>
+          </div>
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatChip icon={<Activity className="h-3.5 w-3.5" />} value={`${ready}/${desired} ready`} />
+          <StatChip icon={<UsersIcon className="h-3.5 w-3.5" />} value={players} />
+          <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={`${nodes} ${nodes === 1 ? "node" : "nodes"}`} />
+          {canWrite && (
+            <div className="inline-flex items-center rounded-full border border-border">
+              <ActionButton title="Remove replica" disabled={busy || desired <= 0} onClick={() => scale.mutate(desired - 1)}>
+                <Minus className="h-4 w-4" />
+              </ActionButton>
+              <span className="min-w-6 text-center font-mono text-sm" aria-label="Replicas">{desired}</span>
+              <ActionButton title="Add replica" disabled={busy || desired >= 100} onClick={() => scale.mutate(desired + 1)}>
+                <Plus className="h-4 w-4" />
+              </ActionButton>
+            </div>
+          )}
+          {canWrite && (
+            <ActionButton title="Delete group" disabled={busy} onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-4 w-4" />
+            </ActionButton>
+          )}
+        </div>
+      </div>
+      {(scale.error || remove.error) && (
+        <div className="px-4 pb-4">
+          <ErrorBanner err={scale.error ?? remove.error} onDismiss={() => { scale.reset(); remove.reset(); }} />
+        </div>
+      )}
+      {expanded && (
+        <div className="grid gap-3 border-t border-border p-4 sm:grid-cols-2 xl:grid-cols-3">
+          {shown.length === 0 && <div className="text-sm text-muted">No replicas running.</div>}
+          {shown.map((gs) => {
+            const { phase, asleep, node } = serverRowData(gs);
+            return (
+              <ServerCard
+                key={targetKey(resourceTarget(gs))}
+                gs={gs}
+                templates={templates}
+                gameCodes={gameCodes}
+                footer={
+                  <div className="flex items-center justify-between gap-2">
+                    <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={node ?? "—"} />
+                    <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={pending} onAct={onAct} />
+                  </div>
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete group ${group.name}?`}
+        description={`This deletes the group and all ${desired} of its servers.`}
+        confirmLabel="Delete group"
+        destructive
+        busy={remove.isPending}
+        onConfirm={() => remove.mutate()}
+      />
+    </Card>
+  );
+}
+
 // ServerCard is the mobile (< md) stand-in for a table row: compact card
 // with name, address, game, status pill, and players/memory chips.
 function ServerCard({
   gs,
   templates,
   gameCodes,
+  footer,
 }: {
   gs: GameServer;
   templates?: GameTemplate[];
   gameCodes: Map<string, string>;
+  footer?: ReactNode;
 }) {
   const { phase, asleep, memLabel, playersLabel } = serverRowData(gs);
 
@@ -626,6 +805,8 @@ function ServerCard({
         <StatChip icon={<UsersIcon className="h-3.5 w-3.5" />} value={playersLabel} />
         <StatChip icon={<Database className="h-3.5 w-3.5" />} value={memLabel} />
       </div>
+
+      {footer && <div className="relative z-10 mt-3">{footer}</div>}
     </Card>
   );
 }

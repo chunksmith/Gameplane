@@ -38,6 +38,8 @@ const (
 )
 
 // GameServerSpec is the desired state of a single game server instance.
+// +kubebuilder:validation:XValidation:rule="!has(self.storage) || !has(self.storage.ephemeral) || !self.storage.ephemeral || (!has(self.backupPolicy) && !has(self.storage.dataSource))",message="ephemeral storage cannot be combined with backupPolicy or storage.dataSource"
+// +kubebuilder:validation:XValidation:rule="(has(self.storage) && has(self.storage.ephemeral) && self.storage.ephemeral) == (has(oldSelf.storage) && has(oldSelf.storage.ephemeral) && oldSelf.storage.ephemeral)",message="storage.ephemeral is immutable"
 type GameServerSpec struct {
 	// TemplateRef references a GameTemplate that provides defaults for
 	// image, ports, probes, etc. Required. Immutable after creation: the

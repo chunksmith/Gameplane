@@ -820,3 +820,19 @@ describe("ServerDetailPage capture tab", () => {
     await waitFor(() => expect(submitBtn).toBeDisabled());
   });
 });
+
+describe("ServerDetailPage ephemeral storage", () => {
+  it("hides the Backups tab for an ephemeral server", async () => {
+    server.use(http.get("/servers/alpha", () => HttpResponse.json(makeServer({ spec: { storage: { ephemeral: true } } }))));
+    renderWithQuery(<ServerDetailPage />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Restart/ })).toBeEnabled());
+    expect(screen.queryByRole("tab", { name: "Backups" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the Backups tab for a persistent server", async () => {
+    server.use(http.get("/servers/alpha", () => HttpResponse.json(makeServer())));
+    renderWithQuery(<ServerDetailPage />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Restart/ })).toBeEnabled());
+    expect(screen.getByRole("tab", { name: "Backups" })).toBeInTheDocument();
+  });
+});

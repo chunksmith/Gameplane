@@ -943,6 +943,21 @@ The warning is shown regardless of how many groups are being added (single or mu
     - Uses HeroUI Card, Button, Chip, Spinner; brand header with ShieldCheck icon; address copy button
     - Built directly from HeroUI primitives; no ui/ atom components
 
+## Server Groups (feature 026)
+
+Feature spec: `specs/026-server-groups/`.
+
+**Servers page** (`web/src/routes/Servers.tsx`):
+- A "Server groups" section sits above the table/cards: one collapsible `ServerGroupCard` per GameServerSet. Children are GameServers whose controller ownerReference kind is `GameServerSet`; they are pulled out of the flat list and grouped by `groupServers` (`web/src/lib/serverSets.ts`).
+- Card header: game icon, name, location, ready/desired replicas, players, node count, scale −/+ and delete. Group stats (ready/desired, players, node count) count all replicas. Scale-up needs `servers:write`; scale-down and delete are owner-or-admin in the API (scale-down deletes children). Scale −/+ does a fresh GET of the set, then PUTs it, so no stale `resourceVersion` is sent.
+- Expanded card: one card per replica (phase, address, players, memory, node, Start/Stop/Restart and menu), each linking to the normal ServerDetail page. The replica list follows the active filters.
+- Data: `useFleetServerSets` (`web/src/lib/fleet.ts`) reads `/fleet/serversets`, query key `["fleet","serversets",cluster]`.
+
+**Create wizard** (`web/src/routes/CreateServer.tsx`, Configure step):
+- "Single server / Server group" switch. Group mode adds a replicas field and a multi-node picker (nodes from `Cluster.view()`).
+- Both modes get an optional container image and an "Ephemeral storage" switch (default on for groups).
+- Group mode rejects tunnel and fixed address, posts `ServerSets.create` (`web/src/lib/endpoints.ts`), and navigates to `/servers`. A rejected create (for example a 403) shows the API's reason text rather than a generic message.
+
 ## ServerDetail Tabs
 
 Visible tab set depends on server template + active version:
@@ -955,7 +970,7 @@ Visible tab set depends on server template + active version:
 6. **Mods** — List/install/remove mods; browse by registry provider (Modrinth, CurseForge, etc.) if template declares one
 7. **Modpacks** — Install modpacks (only if template + active version supports loader with modpack capability)
 8. **Players** — Online player snapshot, ban list, whitelist, kick/ban/unban actions
-9. **Backups** — Per-server backup list, schedule management, restore trigger; reads backup repository URL from Secret `key: "repo"`
+9. **Backups** — Per-server backup list, schedule management, restore trigger; reads backup repository URL from Secret `key: "repo"`. Hidden for ephemeral servers (`spec.storage.ephemeral`)
 10. **Capture** — a `CaptureWidget` component driving start/stop of packet captures and a table of past captures for this server, gated on the `captures:manage` permission. Sits between the Backups and Settings tabs per `assets/design-export/json` node `O08uaD`/`b4eaUf` (start-capture modal) and `m5kOm4` (capture list). `CaptureWidget.tsx` with `Captures` client namespace (`web/src/lib/api.ts:127-175`) and router/tab wiring (`ServerDetail.tsx:278`) are implemented in `web/src`.
 11. **Settings** — Grouped form with sub-sections (below); changes are draft-until-save; conflict detection on reload
 

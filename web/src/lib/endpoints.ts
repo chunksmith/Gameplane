@@ -16,6 +16,7 @@ import type {
   CustomColorConfig,
   ExtendedUser,
   GameServer,
+  GameServerSet,
   GameTemplate,
   InstalledMod,
   ModID,
@@ -73,8 +74,9 @@ export interface ServerCreate {
   templateRef: { name: string };
   // Selects a GameTemplate.spec.versions[].id; flows into spec.version.
   version?: string;
+  image?: string;
   config?: Record<string, string>;
-  storage?: { size?: string };
+  storage?: { size?: string; ephemeral?: boolean };
   networking?: {
     expose?: string;
     hostname?: string;
@@ -99,6 +101,23 @@ function gameServerEnvelope(input: ServerCreate) {
       ...(description ? { annotations: { "gameplane.local/description": description } } : {}),
     },
     spec,
+  };
+}
+
+export interface ServerSetCreate extends ServerCreate {
+  replicas: number;
+  nodes?: string[];
+}
+
+function serverSetEnvelope({ name, description, replicas, nodes, ...template }: ServerSetCreate) {
+  return {
+    apiVersion: "gameplane.local/v1alpha1",
+    kind: "GameServerSet",
+    metadata: {
+      name,
+      ...(description ? { annotations: { "gameplane.local/description": description } } : {}),
+    },
+    spec: { replicas, ...(nodes?.length ? { nodes } : {}), template },
   };
 }
 
@@ -833,6 +852,17 @@ function makeResourceEndpoints(request: RequestClient) {
       api<void>(withNS(`/servers/${name}:tunnel-credentials`, ns), { method: "DELETE" }),
   };
 
+  const ServerSets = {
+    create: (body: ServerSetCreate) =>
+      api<GameServerSet>("/serversets", { method: "POST", body: serverSetEnvelope(body) }),
+    scale: async (name: string, replicas: number) => {
+      const path = `/serversets/${encodeURIComponent(name)}`;
+      const current = await api<GameServerSet>(path);
+      return api<GameServerSet>(path, { method: "PUT", body: { ...current, spec: { ...current.spec, replicas } } });
+    },
+    remove: (name: string) => api<void>(`/serversets/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  };
+
   const Templates = {
     list: (cluster?: string, signal?: AbortSignal) => api<List<GameTemplate>>("/templates", { cluster, signal }),
     get: (name: string, cluster?: string, signal?: AbortSignal) => api<GameTemplate>(`/templates/${name}`, { cluster, signal }),
@@ -1048,7 +1078,7 @@ function makeResourceEndpoints(request: RequestClient) {
     podStreamPath: (server: string, ns?: string) =>
       withCluster(withNS(`/ws/servers/${encodeURIComponent(server)}/logs/pod?from=start`, ns)),
   };
-  return { Servers, Templates, Namespaces, Cluster, Backups, Schedules, Restores, BackupDestinations, Players, Files, Logs, Captures: request.Captures, Shares: request.Shares };
+  return { Servers, ServerSets, Templates, Namespaces, Cluster, Backups, Schedules, Restores, BackupDestinations, Players, Files, Logs, Captures: request.Captures, Shares: request.Shares };
 }
 
 /** Capture cluster/namespace once before starting any asynchronous operation. */

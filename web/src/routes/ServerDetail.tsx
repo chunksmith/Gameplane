@@ -218,6 +218,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
     if (t.key === "mods") return modsAvailable;
     if (t.key === "modpacks") return modpacksAvailable;
     if (t.key === "capture") return captureTabVisible;
+    if (t.key === "backups") return !gs?.spec.storage?.ephemeral;
     return true;
   });
 

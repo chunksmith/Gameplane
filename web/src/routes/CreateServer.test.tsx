@@ -50,9 +50,9 @@ function jsonRes(status: number, body: unknown): Response {
 // routes by URL/method instead, resolving each call correctly regardless
 // of order: /cluster → node caps, POST → the create response, else the
 // template list.
-function routeFetch(opts: { templates?: GameTemplate[]; create?: Response } = {}) {
+function routeFetch(opts: { templates?: GameTemplate[]; create?: Response; cluster?: unknown } = {}) {
   fetchMock.mockImplementation((url: string, init?: FetchInit) => {
-    if (url.includes("/cluster")) return Promise.resolve(jsonRes(200, { nodes: [] }));
+    if (url.includes("/cluster")) return Promise.resolve(jsonRes(200, opts.cluster ?? { nodes: [] }));
     if ((init?.method ?? "GET") === "POST") {
       return Promise.resolve(opts.create ?? jsonRes(201, { metadata: { name: "mc-test" } }));
     }
@@ -135,6 +135,24 @@ describe("CreateServerWizard", () => {
 
     const alert = await screen.findByTestId("create-error");
     expect(alert.textContent).toMatch(/A server named mc-test already exists/);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("shows the API's 403 body in the create error alert", async () => {
+    routeFetch({ create: new Response("spec.image override requires admin privileges", { status: 403 }) });
+
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), {
+      target: { value: "mc-test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Review/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Create server/i }));
+
+    const alert = await screen.findByTestId("create-error");
+    expect(alert.textContent).toMatch(/spec\.image override requires admin privileges/);
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -690,5 +708,91 @@ describe("explicit creation location", () => {
     renderWithQuery(<CreateServerWizard />);
     expect(await screen.findByRole("button", { name: /Second-site template/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /First-site template/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("CreateServerWizard server groups", () => {
+  it("creates a server group with the selected nodes, replicas and image", async () => {
+    routeFetch({ cluster: { nodes: [{ name: "node-a" }, { name: "node-b" }] } });
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByRole("button", { name: /Pin to node/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Server group" }));
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "lobby" } });
+    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "5" } });
+    expect(screen.getByText(/kind: GameServerSet/)).toBeInTheDocument();
+    expect(screen.getByText(/replicas: 5/)).toBeInTheDocument();
+    expect(screen.getByText(/storage: ephemeral/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "node-a" }));
+    fireEvent.change(screen.getByPlaceholderText("registry.example.com/lobby:1.0"), { target: { value: "example.com/lobby:1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Review/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Create group/i }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/servers" }));
+    const postCall = fetchMock.mock.calls.find((call) => (call[1] as FetchInit).method === "POST")!;
+    const body = JSON.parse((postCall[1] as FetchInit).body as string);
+    expect(body.kind).toBe("GameServerSet");
+    expect(body.metadata.name).toBe("lobby");
+    expect(body.spec.replicas).toBe(5);
+    expect(body.spec.nodes).toEqual(["node-a"]);
+    expect(body.spec.template.image).toBe("example.com/lobby:1");
+    expect(body.spec.template.storage).toEqual({ ephemeral: true });
+    expect(body.spec.template.templateRef.name).toBe("minecraft-java");
+    expect(body.spec.template.nodeSelector).toBeUndefined();
+  });
+
+  it("validates group replicas and name length on the Configure step", async () => {
+    routeFetch();
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByRole("button", { name: "Server group" }));
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "lobby" } });
+    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "0" } });
+    expect(screen.getByRole("button", { name: /Continue to Network/i })).toBeDisabled();
+    expect(screen.getByTestId("step-reason").textContent).toMatch(/Replicas must be a whole number from 1 to 100/);
+
+    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "3" } });
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "a".repeat(41) } });
+    expect(screen.getByRole("button", { name: /Continue to Network/i })).toBeDisabled();
+    expect(screen.getByTestId("step-reason").textContent).toMatch(/Group name must be at most 40 characters/);
+  });
+
+  it("blocks a tunnel on a server group on the Network step", async () => {
+    routeFetch();
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByRole("button", { name: "Server group" }));
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "lobby" } });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Enable tunnel/i }));
+    expect(screen.getByTestId("step-reason").textContent).toMatch(/Tunnels aren't supported for server groups/);
+    expect(screen.getByRole("button", { name: /Continue to Review/i })).toBeDisabled();
+  });
+
+  it("drops the storage size and sends ephemeral storage for a single server", async () => {
+    routeFetch();
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "mc-test" } });
+    fireEvent.click(screen.getByLabelText("Ephemeral storage"));
+    expect(screen.queryByPlaceholderText("50Gi")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Review/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Create server/i }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    const postCall = fetchMock.mock.calls.find((call) => (call[1] as FetchInit).method === "POST")!;
+    const body = JSON.parse((postCall[1] as FetchInit).body as string);
+    expect(body.spec.storage).toEqual({ ephemeral: true });
+  });
+
+  it("keeps ephemeral storage when the already-selected deployment mode is pressed again", async () => {
+    routeFetch();
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByLabelText("Ephemeral storage"));
+    fireEvent.click(screen.getByRole("button", { name: "Single server" }));
+    expect(screen.getByLabelText("Ephemeral storage")).toBeChecked();
   });
 });

@@ -104,17 +104,17 @@ func TestEvents_StreamsOnlyReadableKinds(t *testing.T) {
 		{
 			name:  "servers:read only",
 			perms: permMap{scope.DefaultCluster: {"*": eventsPermSet("servers:read")}},
-			want:  []string{"servers"},
+			want:  []string{"servers", "serversets"},
 		},
 		{
 			name:  "namespace binding with servers:read and backups:read",
 			perms: permMap{scope.DefaultCluster: {scope.DefaultNamespace: eventsPermSet("servers:read", "backups:read")}},
-			want:  []string{"backups", "restores", "servers"},
+			want:  []string{"backups", "restores", "servers", "serversets"},
 		},
 		{
 			name:  "cluster-wide servers:read and templates:read",
 			perms: permMap{scope.DefaultCluster: {"*": eventsPermSet("servers:read", "templates:read")}},
-			want:  []string{"servers", "templates"},
+			want:  []string{"servers", "serversets", "templates"},
 		},
 		{
 			// Templates, like namespaced workload kinds, require permission
@@ -129,23 +129,24 @@ func TestEvents_StreamsOnlyReadableKinds(t *testing.T) {
 				scope.DefaultCluster: {"*": eventsPermSet("servers:read")},
 				"other":              {"*": eventsPermSet("templates:read")},
 			},
-			want: []string{"servers"},
+			want: []string{"servers", "serversets"},
 		},
 		{
 			name:  "admin",
 			perms: permMap{scope.DefaultCluster: {"*": eventsPermSet("*")}},
-			want:  []string{"backups", "restores", "schedules", "servers", "templates"},
+			want:  []string{"backups", "restores", "schedules", "servers", "serversets", "templates"},
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := &eventsWatchRecorder{watched: map[string]bool{}}
 			dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
-				kube.GVRs["servers"]:   "GameServerList",
-				kube.GVRs["templates"]: "GameTemplateList",
-				kube.GVRs["backups"]:   "BackupList",
-				kube.GVRs["schedules"]: "BackupScheduleList",
-				kube.GVRs["restores"]:  "RestoreList",
+				kube.GVRs["servers"]:    "GameServerList",
+				kube.GVRs["serversets"]: "GameServerSetList",
+				kube.GVRs["templates"]:  "GameTemplateList",
+				kube.GVRs["backups"]:    "BackupList",
+				kube.GVRs["schedules"]:  "BackupScheduleList",
+				kube.GVRs["restores"]:   "RestoreList",
 			})
 			dyn.PrependWatchReactor("*", rec.react)
 			reg := kube.NewRegistry(scope.DefaultCluster)
@@ -196,11 +197,12 @@ func TestEvents_StreamsOnlyReadableKinds(t *testing.T) {
 func TestEvents_WatchesFromListResourceVersion(t *testing.T) {
 	type permMap = map[string]map[string]map[string]struct{}
 	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
-		kube.GVRs["servers"]:   "GameServerList",
-		kube.GVRs["templates"]: "GameTemplateList",
-		kube.GVRs["backups"]:   "BackupList",
-		kube.GVRs["schedules"]: "BackupScheduleList",
-		kube.GVRs["restores"]:  "RestoreList",
+		kube.GVRs["servers"]:    "GameServerList",
+		kube.GVRs["serversets"]: "GameServerSetList",
+		kube.GVRs["templates"]:  "GameTemplateList",
+		kube.GVRs["backups"]:    "BackupList",
+		kube.GVRs["schedules"]:  "BackupScheduleList",
+		kube.GVRs["restores"]:   "RestoreList",
 	})
 	dyn.PrependReactor("list", "*", func(clienttesting.Action) (bool, runtime.Object, error) {
 		l := &unstructured.UnstructuredList{}

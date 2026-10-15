@@ -592,8 +592,8 @@ clusterOps:
   externalAddress: ""
 
 # Optional, strictly read-only MCP (Model Context Protocol) server: lets an
-# AI assistant read cluster state (7 of Gameplane's 9 CRDs — not Cluster or
-# NetworkCapture — plus Pods, Events, pod logs) and propose fixes as text,
+# AI assistant read cluster state (7 of Gameplane's 10 CRDs — not Cluster,
+# GameServerSet or NetworkCapture — plus Pods, Events, pod logs) and propose fixes as text,
 # over stdio JSON-RPC only — never a
 # network port, and never a create/update/patch/delete tool. Off by default.
 # See mcp-server/README.md for how to connect (kubectl exec -i ... -- serve).

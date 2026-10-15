@@ -418,7 +418,7 @@ export function createRequestClient(input: ResourceScope, signal?: AbortSignal) 
     if (clusters.length > 1 || (clusters.length === 1 && clusters[0] !== scope.cluster)) {
       throw new Error("The request cluster does not match its resource.");
     }
-    const namespaced = ["/servers", "/backups", "/schedules", "/restores", "/backup-destinations", "/ws/servers"].some(
+    const namespaced = ["/servers", "/serversets", "/backups", "/schedules", "/restores", "/backup-destinations", "/ws/servers"].some(
       (prefix) => parsed.pathname === prefix || parsed.pathname.startsWith(prefix + "/"),
     );
     if (namespaced && scope.namespace) {

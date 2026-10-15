@@ -304,6 +304,10 @@ func (r *BackupReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	if isEphemeral(&gs) {
+		return r.fail(ctx, &b, fmt.Sprintf("GameServer %q uses ephemeral storage and cannot be backed up", gs.Name))
+	}
+
 	// A missing template is not fatal: it only refines the FSGroup, and
 	// buildBackupPodSecurityContext falls back to 65532 for a zero template.
 	var tmpl gameplanev1alpha1.GameTemplate

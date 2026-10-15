@@ -197,6 +197,13 @@ func TestAllow(t *testing.T) {
 		{RoleViewer, "POST", "/restores", scope.DefaultCluster, false},
 		{RoleOperator, "POST", "/restores", scope.DefaultCluster, true},
 		{RoleAdmin, "POST", "/restores", scope.DefaultCluster, true},
+		{RoleViewer, "GET", "/serversets", scope.DefaultCluster, true},
+		{RoleViewer, "POST", "/serversets", scope.DefaultCluster, false},
+		{RoleOperator, "POST", "/serversets", scope.DefaultCluster, true},
+		{RoleOperator, "PUT", "/serversets/lobby", scope.DefaultCluster, true},
+		{RoleViewer, "DELETE", "/serversets/lobby", scope.DefaultCluster, false},
+		{RoleOperator, "DELETE", "/serversets/lobby", scope.DefaultCluster, true},
+		{RoleViewer, "GET", "/fleet/serversets", scope.DefaultCluster, true},
 		// Events SSE is a namespaced read.
 		{RoleViewer, "GET", "/events", scope.DefaultCluster, true},
 		// Roles: read for all built-ins; manage admin-only.
@@ -363,6 +370,7 @@ func TestReadPermission(t *testing.T) {
 		wantOk   bool
 	}{
 		{"servers", "servers:read", true},
+		{"serversets", "servers:read", true},
 		{"templates", "templates:read", true},
 		{"backups", "backups:read", true},
 		{"schedules", "schedules:read", true},
