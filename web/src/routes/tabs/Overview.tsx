@@ -1,7 +1,7 @@
 import { useResourceClient, useResourceTarget, resourceKey } from "@/lib/resourceTarget";
 import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, Cpu, HardDrive, MemoryStick, AlertCircle } from "lucide-react";
+import { ArrowDownUp, Copy, Cpu, HardDrive, MemoryStick, AlertCircle } from "lucide-react";
 import type { GameServer, GameTemplate, PlayersResp } from "@/types";
 
 import { Card, CardHeader, CardContent, Alert } from "@heroui/react";
@@ -82,6 +82,15 @@ export function OverviewTab({
   const diskTotal = diskKnown ? (agent?.diskTotalBytes as number) : 0;
   const diskPct = diskKnown && diskTotal ? (diskUsed / diskTotal) * 100 : 0;
 
+  const netRateKnown =
+    typeof agent?.networkRxBytesPerSec === "number" && typeof agent?.networkTxBytesPerSec === "number";
+  const netRxRate = netRateKnown ? (agent?.networkRxBytesPerSec as number) : 0;
+  const netTxRate = netRateKnown ? (agent?.networkTxBytesPerSec as number) : 0;
+  const netTotalKnown =
+    typeof agent?.networkRxBytes === "number" && typeof agent?.networkTxBytes === "number";
+  const netRxTotal = netTotalKnown ? (agent?.networkRxBytes as number) : 0;
+  const netTxTotal = netTotalKnown ? (agent?.networkTxBytes as number) : 0;
+
   // Player count is shown in the Players card (sidebar). null/undefined
   // means "unknown" (RCON unavailable or a stale heartbeat the API
   // blanked); fall back to 0 for the card's header.
@@ -129,7 +138,7 @@ export function OverviewTab({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             <ResourceCard
               label="CPU"
               icon={<Cpu className="h-4 w-4" />}
@@ -142,7 +151,7 @@ export function OverviewTab({
                   : undefined
               }
               progress={cpuKnown && cpuLimitMilli ? cpuPct : undefined}
-              trend={cpuKnown && cpuLimitMilli ? cpuPct : undefined}
+              trend={cpuKnown ? (cpuLimitMilli ? cpuPct : cpuMilli) : undefined}
               accent="primary"
             />
             <ResourceCard
@@ -166,6 +175,23 @@ export function OverviewTab({
               progress={diskKnown && diskTotal ? diskPct : undefined}
               trend={diskKnown && diskTotal ? diskPct : undefined}
               accent="success"
+            />
+            <ResourceCard
+              label="Network"
+              icon={<ArrowDownUp className="h-4 w-4" />}
+              value={netRateKnown ? `${formatBytes(netRxRate + netTxRate)}/s` : "—"}
+              sub={
+                netRateKnown || netTotalKnown ? (
+                  <>
+                    {netRateKnown && <div>{`In ${formatBytes(netRxRate)}/s · Out ${formatBytes(netTxRate)}/s`}</div>}
+                    {netTotalKnown && (
+                      <div>{`Since pod start: ${formatBytes(netRxTotal)} in · ${formatBytes(netTxTotal)} out`}</div>
+                    )}
+                  </>
+                ) : undefined
+              }
+              trend={netRateKnown ? netRxRate + netTxRate : undefined}
+              accent="warning"
             />
           </div>
 
@@ -326,7 +352,7 @@ function ResourceCard({
   label: string;
   icon: ReactNode;
   value: string;
-  sub?: string;
+  sub?: ReactNode;
   progress?: number;
   trend?: number;
   accent?: "primary" | "success" | "warning" | "violet";
@@ -360,7 +386,7 @@ function ResourceCard({
           />
         </div>
       )}
-      {sub && <div className="text-xs text-muted">{sub}</div>}
+      {sub && <div className="space-y-0.5 text-xs text-muted">{sub}</div>}
     </Card>
   );
 }

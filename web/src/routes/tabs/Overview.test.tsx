@@ -65,6 +65,8 @@ describe("OverviewTab metric tiles", () => {
         cpuMillicores: 500, cpuLimitMillicores: 2000, // 25%
         memoryBytes: 536870912, memoryLimitBytes: 1073741824, // 512 MB / 1.0 GB = 50%
         diskUsedBytes: 2147483648, diskTotalBytes: 10737418240, // 2.0 GB / 10 GB = 20%
+        networkRxBytes: 1073741824, networkTxBytes: 2147483648,
+        networkRxBytesPerSec: 1024, networkTxBytesPerSec: 2048,
       },
     })} />);
     expect(await screen.findByText("Disk")).toBeInTheDocument();
@@ -75,9 +77,10 @@ describe("OverviewTab metric tiles", () => {
     expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
     expect(screen.getByText("20%")).toBeInTheDocument();
     expect(screen.getByText("2.0 GB / 10 GB")).toBeInTheDocument();
-    // No Network tile (no stock-K8s per-pod source), and Players lives in
-    // the sidebar card, not the metric row.
-    expect(screen.queryByText("Network")).toBeNull();
+    expect(screen.getByText("Network")).toBeInTheDocument();
+    expect(screen.getByText("3.0 KB/s")).toBeInTheDocument();
+    expect(screen.getByText("In 1.0 KB/s · Out 2.0 KB/s")).toBeInTheDocument();
+    expect(screen.getByText("Since pod start: 1.0 GB in · 2.0 GB out")).toBeInTheDocument();
   });
 
   it("renders '—' for usage when the agent heartbeat is stale/absent", async () => {

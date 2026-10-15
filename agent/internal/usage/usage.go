@@ -89,6 +89,13 @@ type Sample struct {
 	DiskUsedBytes  int64
 	DiskTotalBytes int64
 	DiskKnown      bool
+
+	NetRxBytes       int64
+	NetTxBytes       int64
+	NetKnown         bool
+	NetRxBytesPerSec int64
+	NetTxBytesPerSec int64
+	NetRateKnown     bool
 }
 
 // Reader produces Samples. It holds the previous CPU usage counter so it
@@ -102,6 +109,11 @@ type Reader struct {
 	prevUsageUsec uint64
 	prevAt        time.Time
 	havePrev      bool
+
+	prevRx      int64
+	prevTx      int64
+	prevNetAt   time.Time
+	haveNetPrev bool
 }
 
 // New builds a Reader, applying defaults for any unset Config field.
@@ -138,6 +150,7 @@ func (r *Reader) Read() Sample {
 	r.readCPU(&s)
 	r.readMemory(&s)
 	r.readDisk(&s)
+	r.readNetwork(&s)
 	return s
 }
 
@@ -419,6 +432,46 @@ func (r *Reader) readDisk(s *Sample) {
 	}
 	s.DiskUsedBytes = int64(used)
 	s.DiskKnown = true
+}
+
+func (r *Reader) readNetwork(s *Sample) {
+	rx, tx, ok := readNetDev(filepath.Join(r.cfg.ProcRoot, "net", "dev"))
+	if !ok {
+		return
+	}
+	s.NetRxBytes, s.NetTxBytes, s.NetKnown = rx, tx, true
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := r.cfg.now()
+	if elapsed := now.Sub(r.prevNetAt).Seconds(); r.haveNetPrev && elapsed > 0 && rx >= r.prevRx && tx >= r.prevTx {
+		s.NetRxBytesPerSec = int64(float64(rx-r.prevRx) / elapsed)
+		s.NetTxBytesPerSec = int64(float64(tx-r.prevTx) / elapsed)
+		s.NetRateKnown = true
+	}
+	r.prevRx, r.prevTx, r.prevNetAt, r.haveNetPrev = rx, tx, now, true
+}
+
+func readNetDev(path string) (rx, tx int64, ok bool) {
+	b, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return 0, 0, false
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		iface, counters, found := strings.Cut(line, ":")
+		fields := strings.Fields(counters)
+		if !found || strings.TrimSpace(iface) == "lo" || len(fields) < 9 {
+			continue
+		}
+		received, rxErr := strconv.ParseInt(fields[0], 10, 64)
+		transmitted, txErr := strconv.ParseInt(fields[8], 10, 64)
+		if rxErr != nil || txErr != nil {
+			continue
+		}
+		rx += received
+		tx += transmitted
+		ok = true
+	}
+	return rx, tx, ok
 }
 
 // readUintFile parses a cgroup file holding a single unsigned integer.

@@ -156,6 +156,8 @@ func TestSendOnce_EmitsKnownUsage(t *testing.T) {
 			MemoryBytes: 1024, MemoryKnown: true,
 			MemoryLimitBytes: 4096, MemoryLimitKnown: true,
 			DiskUsedBytes: 10, DiskTotalBytes: 100, DiskKnown: true,
+			NetRxBytes: 7, NetTxBytes: 8, NetKnown: true,
+			NetRxBytesPerSec: 3, NetTxBytesPerSec: 4, NetRateKnown: true,
 		}},
 	})
 	if err != nil {
@@ -167,12 +169,16 @@ func TestSendOnce_EmitsKnownUsage(t *testing.T) {
 	}
 	agent := got["status"].(map[string]any)["agent"].(map[string]any)
 	for k, want := range map[string]float64{
-		"cpuMillicores":      500,
-		"cpuLimitMillicores": 2000,
-		"memoryBytes":        1024,
-		"memoryLimitBytes":   4096,
-		"diskUsedBytes":      10,
-		"diskTotalBytes":     100,
+		"cpuMillicores":        500,
+		"cpuLimitMillicores":   2000,
+		"memoryBytes":          1024,
+		"memoryLimitBytes":     4096,
+		"diskUsedBytes":        10,
+		"diskTotalBytes":       100,
+		"networkRxBytes":       7,
+		"networkTxBytes":       8,
+		"networkRxBytesPerSec": 3,
+		"networkTxBytesPerSec": 4,
 	} {
 		if v, ok := agent[k].(float64); !ok || v != want {
 			t.Fatalf("%s = %v, want %v", k, agent[k], want)
@@ -208,6 +214,7 @@ func TestSendOnce_EmitsNullForUnknownUsage(t *testing.T) {
 	for _, k := range []string{
 		"cpuMillicores", "cpuLimitMillicores", "memoryBytes",
 		"memoryLimitBytes", "diskUsedBytes", "diskTotalBytes",
+		"networkRxBytes", "networkTxBytes", "networkRxBytesPerSec", "networkTxBytesPerSec",
 	} {
 		v, present := agent[k]
 		if !present {
