@@ -38,7 +38,7 @@ The Gameplane dashboard is a React SPA providing a UI layer over the Gameplane A
 
 ## Non-goals / Boundaries
 
-**Design-first rule:** Any change to the dashboard's visual surface (new page, new form field, layout shift, color/icon change) originates in `design.pen` (Pencil MCP server), not in React code. The Pencil file is the source of truth for all UI design; code-led redesigns are reverted. See docs/architecture.md and CLAUDE.md rule 1.
+**Modern UI in code:** Visual changes are designed directly in React with HeroUI v3 components and the semantic tokens in `src/styles/globals.css`; they stay responsive and work in light and dark themes. No separate design file is required. See CLAUDE.md rules 1 and 2.
 
 **API-only:** The dashboard never speaks directly to the operator or agent. All reads/writes flow through the Kubernetes API server and the REST/WebSocket API gateway (`api/`).
 
@@ -50,8 +50,7 @@ The Gameplane dashboard is a React SPA providing a UI layer over the Gameplane A
 
 The [unified dashboard](../docs/unified-dashboard.md) combines authorized
 resources across locations. [Cluster administration](../docs/multicluster-ui.md)
-retains a separate inventory selection. `design.pen` and the
-[design exports](../assets/design-export/MANIFEST.md) define the visual surface.
+retains a separate inventory selection.
 
 - Dashboard, Servers, Backups and global Search consume `/fleet/*` envelopes. Exact location/namespace filters request narrower backend results so they can recover resources omitted by the combined result limit. Authorized scope metadata keeps filter options available for empty or unavailable locations.
 - Each row retains `{cluster, namespace, name, uid}`, resource data and exact target permissions. Same-named resources in different locations remain distinct. Server routes carry `cluster` and `ns`; legacy routes without a cluster resolve local, independently of remembered infrastructure selection.
@@ -1133,7 +1132,7 @@ openEventStream(opts: EventStreamOptions)
 1. **TypeScript strict mode** — `tsconfig.json` sets `strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`
 2. **No unjustified `any`** — `@typescript-eslint/no-explicit-any: error`; any real `any` must be a comment explaining why
 3. **No floating promises** — `@typescript-eslint/no-floating-promises: error`; either `await` or `void` prefix every Promise
-4. **Design-first for visuals** — all UI/layout changes start in `design.pen`, not React code
+4. **Modern UI in code** — UI/layout changes are designed in React with HeroUI components and theme tokens
 5. **Pre-auth privacy** — login page and unauthenticated screens leak no internal state (rule 3, CLAUDE.md)
 6. **Fix, not silence** — ESLint / TypeScript flags are fixed at source, never suppressed inline (rule 4, CLAUDE.md)
 7. **Operator is authoritative** — business logic lives in the operator; the dashboard is a pure view layer
@@ -1243,9 +1242,8 @@ for routing, identity and integration coverage.
 - **docs/architecture.md** — component overview, data flow, security boundaries, "operator is authoritative" rationale
 - **docs/security.md** — auth model, RBAC, threat model, pod security, pre-auth privacy rule
 - **docs/install.md** — Helm values, K8s prerequisites, OIDC setup (for deployment contexts)
-- **CLAUDE.md rule 1** — Design-first: visual changes originate in design.pen, not code
+- **CLAUDE.md rules 1–2** — Modern UI in code; HeroUI components and semantic theme tokens
 - **CLAUDE.md rule 3** — Pre-auth privacy: login page must not leak internal metrics/hostnames/versions
 - **CLAUDE.md rule 4** — Fix, don't silence: linter/type flags are fixed at source
 - **CLAUDE.md rule 5** — TS strict; no unjustified `any`; no floating promises
-- **design.pen** — Source of truth for all UI/layout (Pencil MCP server; do not edit as text)
 - **README.md** — Project pitch, quickstart, architecture overview

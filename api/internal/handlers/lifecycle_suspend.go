@@ -45,7 +45,8 @@ func patchServerSuspend(ctx context.Context, k *kube.Client, original *unstructu
 			}
 			if !reflect.DeepEqual(fresh.Object["spec"], original.Object["spec"]) ||
 				fresh.GetAnnotations()[ownerIDAnnotation] != original.GetAnnotations()[ownerIDAnnotation] ||
-				fresh.GetAnnotations()[collaboratorsAnnotation] != original.GetAnnotations()[collaboratorsAnnotation] {
+				fresh.GetAnnotations()[collaboratorsAnnotation] != original.GetAnnotations()[collaboratorsAnnotation] ||
+				fresh.GetAnnotations()[networkAnnotation] != original.GetAnnotations()[networkAnnotation] {
 				return false, lastConflict
 			}
 			current = fresh

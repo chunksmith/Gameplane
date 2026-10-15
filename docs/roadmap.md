@@ -76,7 +76,7 @@ Threat-model context lives in [`security.md`](security.md#audit-log-integrity).
 ### Upgrade testing (`e2e upgrade` bucket) (shipped v0.2.0-beta.8) <!-- doc-versions: historical -->
 
 `helm upgrade` was the most dangerous operation a user performs and the only
-one CI never exercised. It now runs on every PR, on both amd64 and arm64:
+one CI never exercised. It now runs on every PR (amd64) and every master push (amd64 and arm64):
 `deploy/kind/upgrade.sh` installs the **previous release's published chart and
 published GHCR images**, `TestUpgrade_FromPreviousRelease` seeds a running
 GameServer with data plus an admin user, upgrades to the working-tree chart,

@@ -4,12 +4,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Tab, Tabs } from "@heroui/react";
 import {
   AlertTriangle,
+  Archive,
+  FolderOpen,
+  History,
+  LayoutDashboard,
   Loader2,
+  Package,
   Play,
+  Puzzle,
+  RadioTower,
   RotateCw,
+  ScrollText,
+  Settings as SettingsIcon,
   Square,
   Sunrise,
   Terminal,
+  Users,
+  type LucideIcon,
 } from "lucide-react";
 import { createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
 import { useGameCodes } from "@/lib/useGameCodes";
@@ -46,18 +57,18 @@ const FilesTab = lazy(() =>
 type TabKey =
   | "overview" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
 
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: "overview", label: "Overview" },
-  { key: "events",   label: "Events" },
-  { key: "console",  label: "Console" },
-  { key: "logs",     label: "Logs" },
-  { key: "files",    label: "Files" },
-  { key: "mods",     label: "Mods" },
-  { key: "modpacks", label: "Modpacks" },
-  { key: "players",  label: "Players" },
-  { key: "backups",  label: "Backups" },
-  { key: "capture",  label: "Capture" },
-  { key: "settings", label: "Settings" },
+const tabs: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
+  { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "events",   label: "Events",   icon: History },
+  { key: "console",  label: "Console",  icon: Terminal },
+  { key: "logs",     label: "Logs",     icon: ScrollText },
+  { key: "files",    label: "Files",    icon: FolderOpen },
+  { key: "mods",     label: "Mods",     icon: Puzzle },
+  { key: "modpacks", label: "Modpacks", icon: Package },
+  { key: "players",  label: "Players",  icon: Users },
+  { key: "backups",  label: "Backups",  icon: Archive },
+  { key: "capture",  label: "Capture",  icon: RadioTower },
+  { key: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function ServerDetailPage() {
@@ -112,6 +123,19 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   const qc = useQueryClient();
   const nav = useNavigate();
   const { data: me } = useMe();
+  const { _splat: filesSplat } = useParams({ strict: false });
+  const filesPath = filesSplat === undefined ? null : `/${filesSplat}`;
+  const activeTab = filesPath === null ? tab : "files";
+
+  function openFiles(path: string) {
+    void nav({ to: "/servers/$name/files/$", params: { name, _splat: path.replace(/^\/+/, "") }, search: true });
+  }
+
+  function selectTab(key: TabKey) {
+    if (key === "files") return openFiles("/");
+    setTab(key);
+    if (filesPath !== null) void nav({ to: "/servers/$name", params: { name }, search: true });
+  }
 
   const { data: gs } = useQuery({
     queryKey: resourceKey(lookupTarget, "server"),
@@ -220,8 +244,8 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-border bg-background px-6 pb-4 pt-8">
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-8">
+      <header className="border-b border-border bg-background px-6 pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 pb-6">
           <div className="flex items-start gap-4">
             <GameIcon
               game={gs?.spec.templateRef.name}
@@ -296,7 +320,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               </Button>
             )}
             {consoleAvailable && (
-              <Button className="rounded-full" onPress={() => setTab("console")}>
+              <Button className="rounded-full" onPress={() => selectTab("console")}>
                 <Terminal className="h-4 w-4" /> Open console
               </Button>
             )}
@@ -315,16 +339,18 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
           </div>
         )}
 
-        <nav className="overflow-x-auto scrollbar-thin">
+        <nav className="-mb-px overflow-x-auto scrollbar-thin">
           <Tabs
-            selectedKey={tab}
-            onSelectionChange={(key) => setTab(key as TabKey)}
-            className="w-full"
+            selectedKey={activeTab}
+            onSelectionChange={(key) => selectTab(key as TabKey)}
+            className="server-detail-tabs"
           >
-            <Tabs.List aria-label="Server detail tabs" className="flex w-full gap-1 overflow-x-auto">
-              {visibleTabs.map((t) => (
-                <Tab key={t.key} id={t.key}>
-                  {t.label}
+            <Tabs.List aria-label="Server detail tabs">
+              {visibleTabs.map(({ key, label, icon: Icon }) => (
+                <Tab key={key} id={key}>
+                  <Icon className="h-4 w-4" />
+                  {label}
+                  <Tabs.Indicator />
                 </Tab>
               ))}
             </Tabs.List>
@@ -334,7 +360,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
       <div className="flex-1 overflow-auto scrollbar-thin">
         <Suspense fallback={<TabFallback />}>
-          {tab === "overview" && (
+          {activeTab === "overview" && (
             <OverviewTab
               gs={gs}
               name={name}
@@ -344,9 +370,9 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               onOpenConsole={consoleAvailable ? () => setTab("console") : undefined}
             />
           )}
-          {tab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
-          {tab === "console"  && <ConsoleTab name={name} ns={ns} />}
-          {tab === "logs"     && (
+          {activeTab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
+          {activeTab === "console"  && <ConsoleTab name={name} ns={ns} />}
+          {activeTab === "logs"     && (
             <LogsTab
               name={name}
               ns={ns}
@@ -355,13 +381,13 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               progressMessage={progressMessage}
             />
           )}
-          {tab === "files"    && <FilesTab   name={name} ns={ns} />}
-          {tab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
-          {tab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
-          {tab === "players"  && <PlayersTab name={name} ns={ns} />}
-          {tab === "backups"  && <BackupsTab name={name} ns={ns} />}
-          {tab === "capture"  && <CaptureWidget name={name} ns={ns} gs={gs} />}
-          {tab === "settings" && (
+          {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} />}
+          {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
+          {activeTab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
+          {activeTab === "players"  && <PlayersTab name={name} ns={ns} />}
+          {activeTab === "backups"  && <BackupsTab name={name} ns={ns} />}
+          {activeTab === "capture"  && <CaptureWidget name={name} ns={ns} gs={gs} />}
+          {activeTab === "settings" && (
             <SettingsTab gs={gs} name={name} ns={ns} onDirtyChange={setSettingsDirty} />
           )}
         </Suspense>

@@ -31,8 +31,8 @@ export function VersionSection({ draft, onChange, template }: SectionProps) {
   return (
     <div className="max-w-2xl space-y-5">
       <div>
-        <h2 className="text-sm font-medium">Game version</h2>
-        <p className="pt-1 text-xs text-muted">
+        <h2 className="text-lg font-semibold">Game version</h2>
+        <p className="pt-1 text-[13px] text-muted">
           Pick a version + loader from the template&apos;s catalog. Saving
           restarts the server on the new version.
         </p>

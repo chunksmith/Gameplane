@@ -324,6 +324,7 @@ api:
 If a user logs in and their IdP groups do not match any configured mapping (or the groups claim is absent from their token):
 - The user receives the role specified by `api.oidc.defaultRole` (default: `viewer`)
 - If `defaultRole` is set to `"deny"`, the login is rejected and the user is not created
+- If `defaultRole` is set to `"member"`, the user gets no panel-wide access and sees only servers they own, collaborate on, or reach through a network (Users & RBAC → Networks). Use this to keep SSO users of different networks apart.
 - Once logged in, an admin can manually promote the user via Admin Settings → Users if needed
 
 **Note**: `groupsClaim` and `defaultRole` are **Helm-only settings in v1** — they are set at install time via Helm values and cannot be changed from the dashboard. Only `roleMappings` can be overridden by admins through the dashboard (see below).

@@ -21,7 +21,7 @@ export interface AuthRoleMappings {
 
 // Fallback when roleMappings is set but no group matches; "deny" refuses
 // the login. Absent means viewer.
-export type AuthDefaultRole = "viewer" | "operator" | "admin" | "deny";
+export type AuthDefaultRole = "viewer" | "member" | "operator" | "admin" | "deny";
 
 export interface AuthProvider {
   name: string;

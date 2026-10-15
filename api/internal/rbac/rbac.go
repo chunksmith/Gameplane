@@ -21,6 +21,7 @@ package rbac
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -45,6 +46,7 @@ const (
 	RoleAdmin    = "admin"
 	RoleOperator = "operator"
 	RoleViewer   = "viewer"
+	RoleMember   = "member"
 )
 
 // Ownership role constants for server access fallback.
@@ -53,6 +55,13 @@ const (
 	roleCollaborator
 	roleNone
 )
+
+const networkAnnotation = "gameplane.local/network"
+
+func inNetwork(obj *unstructured.Unstructured, u *auth.User) bool {
+	network := obj.GetAnnotations()[networkAnnotation]
+	return network != "" && slices.Contains(u.Networks, network)
+}
 
 // Middleware blocks requests the caller isn't permitted to make. It
 // finds the matching rule, resolves the target namespace for namespaced
@@ -134,6 +143,9 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 						obj, err := fetch.GetServer(req.Context(), cl, ns, name)
 						if err == nil && obj != nil {
 							role := ownershipRole(obj, u.ID)
+							if role == roleNone && inNetwork(obj, u) {
+								role = roleCollaborator
+							}
 							if role != roleNone {
 								// Grant to owner, or to collaborator if not owner-only.
 								if role == roleOwner || !ownerOnlyOperation(req.Method, verb, isExact) {
@@ -207,6 +219,9 @@ var rules = []rule{
 	{method: "POST", segment: "users", suffix: "/users/me/preferences/reset", perm: ""},
 	{method: "GET", segment: "users", perm: "users:read"},
 	{segment: "users", perm: "users:manage"},
+
+	{method: "GET", segment: "networks", perm: "users:read"},
+	{segment: "networks", perm: "users:manage"},
 
 	// Roles + the permission catalog.
 	{method: "GET", segment: "roles", perm: "roles:read"},
@@ -396,7 +411,7 @@ func parseServerPath(path string) (string, string, bool, bool) {
 // owner-only operations: ownership transfer, collaborator edits, data
 // wipe, or DELETE of the server object itself.
 func ownerOnlyOperation(method, verb string, isExact bool) bool {
-	return verb == "transfer" || verb == "collaborators" || verb == "wipe-data" ||
+	return verb == "transfer" || verb == "collaborators" || verb == "network" || verb == "wipe-data" ||
 		(method == http.MethodDelete && isExact)
 }
 

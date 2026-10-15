@@ -34,6 +34,8 @@ bin/gp-module init cs2-match \
   --categories="Shooter,Co-op"
 ```
 
+`init` also writes an `AGENTS.md` into the module directory. AI coding assistants don't know Gameplane from their training data, so the file gives them the module format, the rules they most often get wrong, and the `validate` → `preview` loop. It is not a bundle file: registry pushes and dashboard uploads carry only `module.yaml`, `template.yaml`, `README.md` and `icon.png`.
+
 ### 2. Instant Offline Validation (`validate`)
 
 Run static offline linting and validation on metadata, CRD schemas, image digests, port ranges, and configuration types without requiring network or cluster access:

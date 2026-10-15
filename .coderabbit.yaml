@@ -49,9 +49,7 @@ reviews:
     base_branches: []
     ignore_usernames: []
 
-  # Path filters: exclude design-source files from review
-  # .pen files are multi-megabyte machine-generated JSON design sources (CLAUDE.md rule 2)
-  # and should be reviewed visually in Pencil, not textually by code review.
+  # Path filters: exclude legacy multi-megabyte .pen design files from review
   path_filters:
     - "!**/*.pen"
 
@@ -116,22 +114,17 @@ reviews:
 
         Reference: CLAUDE.md rule 10, Constitution Principle IV (spec-driven).
 
-    # Dashboard routes: visual changes require design.pen + export updates
+    # Dashboard routes: modern, consistent, themeable UI
     - path: "web/src/routes/**"
       instructions: |
-        CRITICAL: Any visual change to a dashboard screen MUST be preceded by a design update.
-        Flag if:
-        - The route file (*.tsx) shows visual changes but no matching design.pen update in the PR
-        - design.pen or website.pen was touched but assets/design-export/ or website-export/ was not updated
-          with fresh JSON dumps and screenshots of the changed frames
+        UI is designed directly in code; no design file or design export is required.
+        Flag if a visual change:
+        - Uses raw hex colors instead of the semantic tokens in web/src/styles/globals.css
+          (theme and terminal palettes are exempt)
+        - Re-implements a control that HeroUI v3 or web/src/components/ui already provides
+        - Breaks at mobile widths or in the light or dark theme
 
-        Visual change means: added/changed components, layout shifts, color/style updates, new pages.
-        Backend-only logic changes do not require a design pass.
-
-        The assets/design-export/ snapshot is critical: a stale export actively misleads future agents.
-        Both design.pen AND the export must be committed in the same change.
-
-        Reference: CLAUDE.md rule 1, Constitution Principle II.
+        Reference: CLAUDE.md rules 1 and 2, Constitution Principle II.
 
     # Login page: strict privacy — no user enumeration or pre-auth telemetry
     - path: "web/src/routes/Login.tsx"

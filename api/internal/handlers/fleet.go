@@ -253,6 +253,7 @@ func serverFleetAccess(u *auth.User, cl, ns string, obj *unstructured.Unstructur
 				break
 			}
 		}
+		collaborator = collaborator || inNetwork(obj, u)
 	}
 	write := u.Can("servers:write", true, cl, ns)
 	return fleetServerAccess{

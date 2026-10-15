@@ -13,7 +13,7 @@
 - Locally only compile checks: `python3 -m py_compile hack/*.py`, `go build ./...`, `go vet -tags e2e ./...` in `test/e2e`, `npx tsc --noEmit` in `web`. Never run `make test|lint|cover`, `go test`, `npm test`, `make test-ci-scope` or any workflow locally; CI is the only verifier.
 - `hack/ci_scope.py` and `hack/check_changed_coverage.py` stay Python stdlib only and never install Go or Node.
 - No test, threshold or bucket is deleted, weakened or excluded from full runs (FR-012). No `.testcoverage.yml` or `vitest.config.ts` threshold is edited. No `//nolint`, `eslint-disable` or `# noqa` added.
-- Signed commits (`git commit -s`), conventional prefix, `Co-Authored-By` trailer; never amend after push. One branch per phase; PR labels `type: ci` plus `area: shared` (and `area: e2e` / `area: web` where touched) via REST.
+- Signed commits (`git commit -s`), conventional prefix, no trailers; never amend after push. One branch per phase; PR labels `type: ci` plus `area: shared` (and `area: e2e` / `area: web` where touched) via REST.
 - Implementation runs through Workflow scripts with `model:` set on every agent, starting at haiku, review one tier up on the diff.
 - Any doubt in the selection logic resolves to full scope (FR-002); it never selects less than today.
 

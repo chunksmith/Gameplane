@@ -660,6 +660,20 @@ export const handlers = [
   http.delete("/users/:id", () => new HttpResponse(null, { status: 204 })),
   http.post("/users/:id/reset-password", () => new HttpResponse(null, { status: 204 })),
 
+  http.get("/networks", () =>
+    HttpResponse.json([
+      { name: "skyblock", members: [{ id: 3, username: "viewer-carol" }] },
+      { name: "smp", members: [] },
+    ]),
+  ),
+  http.post("/networks", async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as { name?: string } | null;
+    return HttpResponse.json({ name: body?.name ?? "new-network", members: [] }, { status: 201 });
+  }),
+  http.delete("/networks/:name", () => new HttpResponse(null, { status: 204 })),
+  http.put("/networks/:name/members/:id", () => new HttpResponse(null, { status: 204 })),
+  http.delete("/networks/:name/members/:id", () => new HttpResponse(null, { status: 204 })),
+
   // Roles + permission catalog (custom RBAC).
   http.get("/roles", () =>
     HttpResponse.json([

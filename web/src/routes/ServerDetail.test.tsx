@@ -11,11 +11,12 @@ import { makeServer, makeTemplate, makeUser } from "@/test/factories";
 // Router APIs the route reaches into.
 const navigate = vi.fn();
 let searchParams = {};
+let routeParams: Record<string, string> = { name: "alpha" };
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to, ...rest }: { children: ReactNode; to: string } & Record<string, unknown>) => (
     <a href={to} {...rest}>{children}</a>
   ),
-  useParams: () => ({ name: "alpha" }),
+  useParams: () => routeParams,
   useSearch: () => searchParams,
   useNavigate: () => navigate,
 }));
@@ -23,7 +24,7 @@ vi.mock("@tanstack/react-router", () => ({
 // Heavy lazy tabs (xterm / Monaco) — replace with stubs so jsdom doesn't
 // have to evaluate them.
 vi.mock("./tabs/Console", () => ({ ConsoleTab: () => <div>console-tab</div> }));
-vi.mock("./tabs/Files", () => ({ FilesTab: () => <div>files-tab</div> }));
+vi.mock("./tabs/Files", () => ({ FilesTab: ({ path }: { path: string }) => <div>files-tab {path}</div> }));
 vi.mock("./tabs/Logs", () => ({ LogsTab: () => <div>logs-tab</div> }));
 vi.mock("./tabs/Mods", () => ({ ModsTab: () => <div>mods-tab</div> }));
 vi.mock("./tabs/Players", () => ({ PlayersTab: () => <div>players-tab</div> }));
@@ -36,6 +37,7 @@ import { ServerDetailPage } from "./ServerDetail";
 let targetCanWrite = true;
 beforeEach(() => {
   searchParams = {};
+  routeParams = { name: "alpha" };
   targetCanWrite = true;
   navigate.mockClear();
   server.use(http.get("/servers/:name/access", ({ request, params }) => {
@@ -309,14 +311,42 @@ describe("ServerDetailPage", () => {
     await waitFor(() => expect(screen.getByText("console-tab")).toBeInTheDocument());
   });
 
-  it("loads Files as a lazy chunk", async () => {
+  it("opens the Files route when the Files tab is picked", async () => {
     server.use(
       http.get("/servers/alpha", () => HttpResponse.json(makeServer())),
     );
     renderWithQuery(<ServerDetailPage />);
-    const filesTab = await screen.findByRole("tab", { name: /Files/i });
-    await userEvent.click(filesTab);
-    await waitFor(() => expect(screen.getByText("files-tab")).toBeInTheDocument());
+    await userEvent.click(await screen.findByRole("tab", { name: /Files/i }));
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/servers/$name/files/$", params: { name: "alpha", _splat: "" }, search: true }),
+    );
+  });
+
+  it("renders the Files tab for a URL path as a lazy chunk", async () => {
+    routeParams = { name: "alpha", _splat: "config/a.txt" };
+    server.use(
+      http.get("/servers/alpha", () => HttpResponse.json(makeServer())),
+    );
+    renderWithQuery(<ServerDetailPage />);
+    expect(await screen.findByText("files-tab /config/a.txt")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Files" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("returns from the Files route when another tab is picked", async () => {
+    routeParams = { name: "alpha", _splat: "config/a.txt" };
+    server.use(
+      http.get("/servers/alpha", () => HttpResponse.json(makeServer())),
+    );
+    renderWithQuery(<ServerDetailPage />);
+    await screen.findByText("files-tab /config/a.txt");
+    navigate.mockImplementationOnce(() => {
+      routeParams = { name: "alpha" };
+    });
+    await userEvent.click(screen.getByRole("tab", { name: /^Logs$/i }));
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/servers/$name", params: { name: "alpha" }, search: true }),
+    );
+    expect(await screen.findByText("logs-tab")).toBeInTheDocument();
   });
 
   it("passes namespace query param to server API when ns search param is set", async () => {

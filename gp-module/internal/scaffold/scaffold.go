@@ -2,6 +2,7 @@
 package scaffold
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -43,6 +44,9 @@ type Result struct {
 	Files        GeneratedFiles
 	CreatedFiles []string
 }
+
+//go:embed module-agents.md
+var agentsGuide []byte
 
 // GenerateFiles generates the module files in-memory from options and archetype defaults.
 func GenerateFiles(opts Options) (*GeneratedFiles, error) {
@@ -285,6 +289,12 @@ func Scaffold(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("failed to write %s: %w", iconPath, err)
 	}
 	created = append(created, iconPath)
+
+	agentsPath := filepath.Join(outDir, "AGENTS.md")
+	if err := os.WriteFile(agentsPath, agentsGuide, 0600); err != nil {
+		return nil, fmt.Errorf("failed to write %s: %w", agentsPath, err)
+	}
+	created = append(created, agentsPath)
 
 	return &Result{
 		Dir:          outDir,

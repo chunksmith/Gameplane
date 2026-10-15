@@ -70,6 +70,11 @@ const serverDetailRoute = new Route({
   },
 });
 
+const serverFilesRoute = new Route({
+  getParentRoute: () => serverDetailRoute,
+  path: "files/$",
+});
+
 const createServerRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/servers/new",
@@ -189,7 +194,7 @@ export const routeTree = rootRoute.addChildren([
     dashboardRoute,
     createServerRoute,
     serversRoute,
-    serverDetailRoute,
+    serverDetailRoute.addChildren([serverFilesRoute]),
     modulesRoute,
     clusterRoute,
     clustersRoute,

@@ -127,6 +127,34 @@ func TestGameServer_AgentSidecarInjected(t *testing.T) {
 	})
 }
 
+func TestGameServer_ImagePullSecrets(t *testing.T) {
+	ns := newNamespace(t)
+	startMgr(t, ns, withGameServerReconcilerPullSecrets(t, ns, "harbor-pull"))
+
+	tmpl := buildGameTemplate(uniqueName("valheim"))
+	if err := k8sClient.Create(context.Background(), tmpl); err != nil {
+		t.Fatalf("create template: %v", err)
+	}
+	deleteCleanup(t, tmpl)
+
+	if err := k8sClient.Create(context.Background(), buildGameServer(ns, "smp", tmpl.Name)); err != nil {
+		t.Fatalf("create gameserver: %v", err)
+	}
+
+	eventually(t, func() (bool, string) {
+		var ss appsv1.StatefulSet
+		if err := k8sClient.Get(context.Background(),
+			types.NamespacedName{Namespace: ns, Name: "smp"}, &ss); err != nil {
+			return false, err.Error()
+		}
+		secrets := ss.Spec.Template.Spec.ImagePullSecrets
+		if len(secrets) != 1 || secrets[0].Name != "harbor-pull" {
+			return false, fmt.Sprintf("pod ImagePullSecrets = %v, want [harbor-pull]", secrets)
+		}
+		return true, ""
+	})
+}
+
 // TestGameServer_AgentImagePullPolicy proves the --agent-image-pull-policy
 // operator flag reaches the agent sidecar's ImagePullPolicy end to end
 // (main.go -> GameServerReconciler.AgentImagePullPolicy -> buildAgentContainer),

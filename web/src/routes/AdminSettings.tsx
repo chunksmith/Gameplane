@@ -863,6 +863,7 @@ function AddProviderForm({
                 <ListBox aria-label="Default role">
                   <ListBoxItem id="">(no mapping)</ListBoxItem>
                   <ListBoxItem id="viewer">Viewer</ListBoxItem>
+                  <ListBoxItem id="member">Member</ListBoxItem>
                   <ListBoxItem id="operator">Operator</ListBoxItem>
                   <ListBoxItem id="admin">Admin</ListBoxItem>
                   <ListBoxItem id="deny">Deny sign-in</ListBoxItem>

@@ -25,7 +25,7 @@ description: "Task list for 013-expand-test-coverage"
   - CI is the only proof.
 - **No suppressions or loosened config** (CLAUDE.md rule 4, FR-008): no `//nolint`, `eslint-disable`, `@ts-ignore`, hadolint `ignored:`, `.trivyignore`, `allow-ghsas` or govulncheck excludes.
 - **Sign-off** (CLAUDE.md override 1): new tests and Dockerfile fixes count as test or production changes. Get the human's go-ahead before each PR's implementation starts.
-- **Commits** (CLAUDE.md rule 11): use `git commit -s` with a conventional prefix. End with the `Co-Authored-By:` trailer. Add no session links and no "Requested by" block to commits or PR bodies (project preference).
+- **Commits** (CLAUDE.md rule 11): use `git commit -s` with a conventional prefix. Add no trailers, no session links and no "Requested by" block to commits or PR bodies (project preference).
 - **PRs** (CLAUDE.md rules 12 and 14): one branch per gate or story slice, as listed in each phase's "PR" line. Apply `type:` and `area:` labels through the REST API. Never push or open a PR without asking first.
 - **CI wiring** (research R11): every new `ci.yaml` job:
   - sets `permissions: contents: read` (plus only what it needs)

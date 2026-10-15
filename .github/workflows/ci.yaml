@@ -372,7 +372,7 @@ jobs:
   build-images-arm64:
     name: build e2e images (arm64)
     needs: [changes]
-    if: needs.changes.outputs.images == 'true'
+    if: needs.changes.outputs.images == 'true' && github.event_name == 'push'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     permissions:
@@ -753,7 +753,7 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.go == 'true'
     # amd64 on the standard hosted runner; arm64 on the free public-repo
-    # arm runner. Unit + envtest run on both arches every PR — this is where
+    # arm runner. Unit + envtest run on both arches every master push — this is where
     # real arch bugs (build tags, sqlite codepaths, struct alignment) surface.
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 20
@@ -764,7 +764,7 @@ jobs:
       matrix:
         module: [netguard, gameaction, gameproto, telemetryschema, operator, api, agent, audit-syslog-bridge, telemetry-receiver, sentinel, mcp-server, capture-sidecar, svcutil, tunnel, gp-module]
         exclude: ${{ fromJSON(needs.changes.outputs.go-exclude) }}
-        arch: [amd64, arm64]
+        arch: ${{ github.event_name == 'push' && fromJSON('["amd64","arm64"]') || fromJSON('["amd64"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: initialize validator module fixtures

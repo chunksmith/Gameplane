@@ -12,6 +12,7 @@ import (
 	"time"
 
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -46,6 +47,16 @@ func (f *cidrListFlag) String() string {
 func (f *cidrListFlag) Set(value string) error {
 	*f = append(*f, value)
 	return nil
+}
+
+func pullSecretRefs(names string) []corev1.LocalObjectReference {
+	var refs []corev1.LocalObjectReference
+	for _, name := range strings.Split(names, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			refs = append(refs, corev1.LocalObjectReference{Name: name})
+		}
+	}
+	return refs
 }
 
 // errUnknownAddressManager is returned for an --address-manager value outside
@@ -122,6 +133,7 @@ func main() {
 		enableLeaderElection             bool
 		agentImage                       string
 		agentImagePullPolicy             string
+		imagePullSecrets                 string
 		configInitImage                  string
 		resticImage                      string
 		sentinelImage                    string
@@ -163,6 +175,9 @@ func main() {
 			"Kubernetes defaults ImagePullPolicy to IfNotPresent for any non-\":latest\" tag, so without "+
 			"this flag a node reuses whatever agent image it already cached and game pods run a stale "+
 			"agent indefinitely.")
+	flag.StringVar(&imagePullSecrets, "image-pull-secrets", "",
+		"Comma-separated imagePullSecret names set on game, sentinel and tunnel pods. "+
+			"Each Secret must exist in the GameServer's namespace.")
 	flag.StringVar(&configInitImage, "config-init-image", controller.DefaultConfigInitImage,
 		"Image for the init container that copies rendered config files onto the data volume. "+
 			"Point at a private registry mirror for air-gapped installs.")
@@ -381,6 +396,7 @@ func main() {
 		Scheme:                 mgr.GetScheme(),
 		AgentImage:             agentImage,
 		AgentImagePullPolicy:   agentImagePullPolicy,
+		ImagePullSecrets:       pullSecretRefs(imagePullSecrets),
 		ConfigInitImage:        configInitImage,
 		SentinelImage:          sentinelImage,
 		TunnelFrpImage:         tunnelFrpImage,

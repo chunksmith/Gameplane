@@ -24,6 +24,9 @@ function htmlBypass(req: { headers: Record<string, string | string[] | undefined
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    "import.meta.env.VITE_BUILD_DATE": JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   resolve: {
     alias: { "@": path.resolve(here, "./src") },
   },

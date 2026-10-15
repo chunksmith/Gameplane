@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ const (
 	ownerAnnotation             = "gameplane.local/owner"
 	collaboratorsAnnotation     = "gameplane.local/collaborators"
 	collaboratorNamesAnnotation = "gameplane.local/collaborator-names"
+	networkAnnotation           = "gameplane.local/network"
 )
 
 // stampOwner records the authenticated caller as the owner of obj. Called
@@ -51,6 +53,7 @@ func stampOwner(obj *unstructured.Unstructured, req *http.Request) {
 	// Strip client-supplied collaborator annotations.
 	delete(ann, collaboratorsAnnotation)
 	delete(ann, collaboratorNamesAnnotation)
+	delete(ann, networkAnnotation)
 	obj.SetAnnotations(ann)
 }
 
@@ -135,6 +138,7 @@ func MountOwnership(r chi.Router, reg *kube.Registry, store *db.Store) {
 	h := &ownershipHandler{reg: reg, db: store}
 	r.Post("/servers/{name}:transfer", h.transfer)
 	r.Put("/servers/{name}:collaborators", h.setCollaborators)
+	r.Put("/servers/{name}:network", h.setNetwork)
 	r.Get("/users/me/servers", h.getOwnedServers)
 }
 
@@ -308,6 +312,56 @@ func collaboratorAnnotations(idToName map[int64]string, ownerIDStr string) (stri
 	return strings.Join(idStrs, ","), strings.Join(nameStrs, ",")
 }
 
+type setNetworkReq struct {
+	Network string `json:"network"`
+}
+
+func (h *ownershipHandler) setNetwork(w http.ResponseWriter, req *http.Request) {
+	k, ok := resolveCluster(w, req, h.reg)
+	if !ok {
+		return
+	}
+	name := chi.URLParam(req, "name")
+	ns, ok := resolveNS(w, req)
+	if !ok {
+		return
+	}
+	obj, ok := requireOwnerOrAdmin(w, req, h.reg, k, ns, name)
+	if !ok {
+		return
+	}
+	var body setNetworkReq
+	if err := json.NewDecoder(io.LimitReader(req.Body, 1<<16)).Decode(&body); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	var value any
+	if body.Network != "" {
+		var exists int
+		err := h.db.DB.QueryRowContext(req.Context(), `SELECT 1 FROM networks WHERE name = ?`, body.Network).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "network not found", http.StatusBadRequest)
+			return
+		}
+		if err != nil {
+			httperr.Write(w, req, err)
+			return
+		}
+		value = body.Network
+	}
+	if !patchServerAsOwner(w, req, h.reg, k, ns, name, obj, func(*unstructured.Unstructured) map[string]any {
+		return map[string]any{"metadata": map[string]any{"annotations": map[string]any{networkAnnotation: value}}}
+	}) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func inNetwork(obj *unstructured.Unstructured, u *auth.User) bool {
+	network := obj.GetAnnotations()[networkAnnotation]
+	return network != "" && slices.Contains(u.Networks, network)
+}
+
 // getOwnedServers returns GameServers where the caller is owner or collaborator.
 func (h *ownershipHandler) getOwnedServers(w http.ResponseWriter, req *http.Request) {
 	k, ok := resolveCluster(w, req, h.reg)
@@ -346,6 +400,11 @@ func (h *ownershipHandler) getOwnedServers(w http.ResponseWriter, req *http.Requ
 				filtered.Items = append(filtered.Items, list.Items[i])
 				continue
 			}
+		}
+		if inNetwork(&list.Items[i], u) {
+			gateStaleAgent(&list.Items[i])
+			filtered.Items = append(filtered.Items, list.Items[i])
+			continue
 		}
 		// Check if caller is in collaborators list.
 		if collabsStr := ann["gameplane.local/collaborators"]; collabsStr != "" {

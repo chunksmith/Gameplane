@@ -94,11 +94,11 @@ gh pr view <pr-number>
 ```bash
 # Instead of: gh pr edit <n> --add-label "type: fix" --add-label "area: api"
 # Use:
-gh api -X POST repos/GameplanePanel/Gameplane/issues/<n>/labels \
+gh api -X POST repos/chunksmith/Gameplane/issues/<n>/labels \
   -f "labels[]=type: fix" -f "labels[]=area: api"
 
 # Verify labels were applied:
-gh api repos/GameplanePanel/Gameplane/issues/<n>/labels -q '[.[].name]|join(", ")'
+gh api repos/chunksmith/Gameplane/issues/<n>/labels -q '[.[].name]|join(", ")'
 ```
 
 ### 3. Master is protected by ruleset, not classic branch-protection (rule 12)
