@@ -532,7 +532,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { e
           <Spinner />
         ) : (
           <Editor
-            wrapperProps={{ className: "absolute inset-0" }}
+            wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
             theme="vs-dark"
             language={guessLang(entry.name)}
             value={draft.value}
