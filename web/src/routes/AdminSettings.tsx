@@ -400,6 +400,15 @@ function GeneralSection({ initial }: { initial?: GeneralCfg }) {
           onChange={(e) => f.update({ defaultNamespace: e.target.value })}
         />
       </Field>
+      <Field label="File list limit" hint="Most files and folders the file browser loads from one folder (1–10,000). Defaults to 500.">
+        <HeroInput
+          type="number"
+          min={1}
+          max={10000}
+          value={String(f.draft.fileListLimit ?? 500)}
+          onChange={(e) => f.update({ fileListLimit: Number(e.target.value) })}
+        />
+      </Field>
     </SectionCard>
   );
 }

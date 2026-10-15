@@ -946,8 +946,11 @@ function makeResourceEndpoints(request: RequestClient) {
   }
 
   const Files = {
-    list: (server: string, path: string, ns?: string) =>
-      api<FileEntry[]>(withNS(`${filesBase(server)}/list?path=${encodeURIComponent(path)}`, ns)),
+    list: async (server: string, path: string, ns?: string): Promise<{ entries: FileEntry[]; total: number }> => {
+      const res = await filesFetch(withNS(`${filesBase(server)}/list?path=${encodeURIComponent(path)}`, ns));
+      const entries = (await res.json()) as FileEntry[];
+      return { entries, total: Number(res.headers.get("X-Total-Count") ?? entries.length) };
+    },
     read: async (server: string, path: string, ns?: string): Promise<string> => {
       const res = await filesFetch(
         withNS(`${filesBase(server)}/read?path=${encodeURIComponent(path)}`, ns),

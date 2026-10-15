@@ -4,6 +4,7 @@
 package ws
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/coder/websocket"
@@ -47,8 +49,12 @@ func MountWithPlayerNames(r chi.Router, reg *kube.Registry, caBundle, clientCert
 	}
 
 	p := &proxy{k: k, transport: transport, stdin: k, playerNames: names}
-	if len(gatewayOptions) > 0 && gatewayOptions[0].Namespace != "" && reg != nil {
-		p.gateway = &agentGatewayResolver{registry: reg, namespace: gatewayOptions[0].Namespace}
+	var options AgentGatewayOptions
+	if len(gatewayOptions) > 0 {
+		options = gatewayOptions[0]
+	}
+	if options.Namespace != "" && reg != nil {
+		p.gateway = &agentGatewayResolver{registry: reg, namespace: options.Namespace}
 	}
 	r.Get("/ws/servers/{name}/console", p.agentWS("/console"))
 	r.Get("/ws/servers/{name}/logs", p.agentWS("/logs/tail"))
@@ -62,7 +68,7 @@ func MountWithPlayerNames(r chi.Router, reg *kube.Registry, caBundle, clientCert
 	// before the game's own log file exists. Mounted unconditionally.
 	mountPodLogs(r, reg)
 	r.Route("/servers/{name}/files", func(r chi.Router) {
-		r.Get("/list", p.agentHTTP("/files/list"))
+		r.Get("/list", withListLimit(options.FileListLimit, p.agentHTTP("/files/list")))
 		r.Get("/read", p.agentHTTP("/files/read"))
 		r.Get("/download", p.agentHTTP("/files/download"))
 		r.Post("/write", p.agentHTTP("/files/write"))
@@ -222,6 +228,18 @@ func copyWS(req *http.Request, src, dst *websocket.Conn) error {
 // blocking unbounded spam.
 func (p *proxy) httpProxy(agentPath string) http.HandlerFunc {
 	return p.httpProxyLimit(agentPath, 64<<20)
+}
+
+func withListLimit(limit func(context.Context) int, next http.HandlerFunc) http.HandlerFunc {
+	if limit == nil {
+		return next
+	}
+	return func(w http.ResponseWriter, req *http.Request) {
+		query := req.URL.Query()
+		query.Set("limit", strconv.Itoa(limit(req.Context())))
+		req.URL.RawQuery = query.Encode()
+		next(w, req)
+	}
 }
 
 // httpProxyLimit is httpProxy with an explicit request-body cap, for the

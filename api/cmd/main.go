@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -428,7 +429,7 @@ func main() {
 		}
 		handlers.MountServerCapabilities(p, reg, ws.NewCaptureGatewayClient(reg, cfg.namespace), captureConfig)
 		handlers.MountCapture(p, reg, auditor, captureConfig, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey)
-		ws.MountWithPlayerNames(p, reg, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, playerNames, ws.AgentGatewayOptions{Namespace: cfg.namespace})
+		ws.MountWithPlayerNames(p, reg, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, playerNames, ws.AgentGatewayOptions{Namespace: cfg.namespace, FileListLimit: fileListLimit(store)})
 	})
 
 	// Usage telemetry. Run returns at once when the resolved destination is
@@ -680,6 +681,21 @@ func (c *config) bindFlags(fs *flag.FlagSet) {
 	// This must happen in main() after flag parsing, not here, so we can
 	// apply error handling.
 	c.trustedProxies = strings.Split(trustedProxiesStr, ",")
+}
+
+const defaultFileListLimit = 500
+
+func fileListLimit(store *db.Store) func(context.Context) int {
+	return func(ctx context.Context) int {
+		var general struct {
+			FileListLimit int `json:"fileListLimit"`
+		}
+		raw, ok, err := store.ConfigValue(ctx, "general")
+		if err != nil || !ok || json.Unmarshal([]byte(raw), &general) != nil || general.FileListLimit <= 0 {
+			return defaultFileListLimit
+		}
+		return general.FileListLimit
+	}
 }
 
 func envOr(key, fallback string) string {

@@ -61,10 +61,10 @@ function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
     queryFn: ({ signal }) => client.withSignal(signal).Files.list(name, parent, ns),
     enabled: !isRoot,
   });
-  const entry = isRoot ? ROOT_ENTRY : parentListing.data?.find((item) => item.name === baseName(path));
+  const entry = isRoot ? ROOT_ENTRY : parentListing.data?.entries.find((item) => item.name === baseName(path));
 
   return (
-    <div className="flex h-full flex-col gap-4 p-6">
+    <div className="flex min-h-full flex-col gap-4 p-6">
       {entry?.dir ? (
         <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} />
       ) : entry ? (
@@ -107,7 +107,8 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
   const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
   const [dragging, setDragging] = useState(false);
   const uploadInput = useRef<HTMLInputElement | null>(null);
-  const entries = listing.data && sortEntries(listing.data);
+  const entries = listing.data && sortEntries(listing.data.entries);
+  const total = listing.data?.total ?? 0;
 
   async function refresh() {
     void qc.invalidateQueries({ queryKey: ["fleet"] });
@@ -254,6 +255,11 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
               </li>
             ))}
           </ul>
+        )}
+        {entries && total > entries.length && (
+          <p role="status" className="border-t border-border px-4 py-3 text-center text-xs text-muted">
+            Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries. The file list limit is set in Settings → General.
+          </p>
         )}
         {dragging && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-sm font-medium text-primary">

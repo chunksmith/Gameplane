@@ -7,6 +7,7 @@ export interface GeneralCfg {
   instanceName: string;
   externalURL: string;
   defaultNamespace: string;
+  fileListLimit?: number;
 }
 
 export type AuthKind = "local" | "oidc" | "google" | "github";
