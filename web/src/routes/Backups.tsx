@@ -26,6 +26,7 @@ import {
   Switch,
 } from "@heroui/react";
 import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRelative, formatRelativeFuture } from "@/lib/utils";
 import { cronPreset, describeCron } from "@/lib/backupGroups";
 import { PhaseChip } from "@/components/ui/PhaseChip";
@@ -195,16 +196,6 @@ export function BackupsPage() {
 }
 
 type LocationFilterProps = { location: string; onLocationChange: (location: string) => void; locations: string[] };
-
-function EmptyState({ icon, title, hint }: { icon: ReactNode; title: string; hint?: ReactNode }) {
-  return (
-    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-default/60 text-muted [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
-      <div className="text-sm font-medium text-foreground">{title}</div>
-      {hint && <p className="max-w-sm text-xs text-muted">{hint}</p>}
-    </div>
-  );
-}
 
 function BackupsTabPanel({ location, onLocationChange, locations }: LocationFilterProps) {
   const [search, setSearch] = useState("");

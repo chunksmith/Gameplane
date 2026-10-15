@@ -2,9 +2,12 @@ import { useInstallation } from "@/lib/useInstallation";
 import { useState, useEffect, useRef, type ChangeEvent, type ComponentType, type ReactNode, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Activity,
+  AlertCircle,
   Archive,
   Bell,
   BellRing,
+  Check,
   CircleHelp,
   CircleSlash2,
   Cog,
@@ -12,16 +15,21 @@ import {
   Gamepad2,
   Globe,
   House,
+  Info,
   Key,
+  Loader2,
   Lock,
   Mail,
   Megaphone,
   MessagesSquare,
   Plus,
   Puzzle,
+  RefreshCcw,
   RotateCcw,
+  ShieldCheck,
   Trash2,
   Webhook,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Button,
@@ -114,26 +122,28 @@ export function AdminSettingsPage() {
   };
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="Admin settings"
         description="Platform-wide configuration for this Gameplane instance."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         {/* /admin is gated on config:manage, so every section is reachable. */}
         <SettingsNav active={section} onSelect={selectSection} showAdminSections />
 
-        <div className="space-y-6">
+        <div className="min-w-0 max-w-4xl space-y-6">
           {cfg.isLoading && (
-            <Card>
-              <Card.Content className="text-sm text-muted">Loading configuration…</Card.Content>
+            <Card className="border border-border">
+              <Card.Content className="flex items-center gap-2 text-sm text-muted">
+                <Loader2 className="h-4 w-4 animate-spin" />Loading configuration…
+              </Card.Content>
             </Card>
           )}
           {cfg.isError && (
-            <Card>
-              <Card.Content className="text-sm text-danger">
-                Failed to load configuration. Refresh to retry.
+            <Card className="border border-danger/30">
+              <Card.Content className="flex items-center gap-2 text-sm text-danger">
+                <AlertCircle className="h-4 w-4 shrink-0" />Failed to load configuration. Refresh to retry.
               </Card.Content>
             </Card>
           )}
@@ -157,6 +167,7 @@ function SectionCard({
   subtitle,
   footer,
   children,
+  icon: Icon,
   className,
   headerClassName,
   titleClassName,
@@ -168,6 +179,7 @@ function SectionCard({
   subtitle?: string;
   footer?: ReactNode;
   children: ReactNode;
+  icon?: LucideIcon;
   className?: string;
   headerClassName?: string;
   titleClassName?: string;
@@ -176,14 +188,23 @@ function SectionCard({
   footerClassName?: string;
 }) {
   return (
-    <Card className={cn("space-y-4", className)}>
+    <Card className={cn("space-y-4 border border-border", className)}>
       <Card.Header className={cn("space-y-2 pb-2", headerClassName)}>
-        <div className={cn("font-medium text-base", titleClassName)}>{title}</div>
-        {subtitle && <div className={cn("text-xs text-muted", subtitleClassName)}>{subtitle}</div>}
+        <div className="flex items-start gap-3">
+          {Icon && (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+              <Icon className="h-[18px] w-[18px]" />
+            </span>
+          )}
+          <div className="min-w-0 space-y-1">
+            <div className={cn("text-base font-semibold leading-tight", titleClassName)}>{title}</div>
+            {subtitle && <div className={cn("text-xs text-muted", subtitleClassName)}>{subtitle}</div>}
+          </div>
+        </div>
       </Card.Header>
       <Card.Content className={cn("space-y-4", contentClassName)}>{children}</Card.Content>
       {footer && (
-        <Card.Footer className={cn("flex items-center justify-end gap-3 pt-2", footerClassName)}>
+        <Card.Footer className={cn("flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4", footerClassName)}>
           {footer}
         </Card.Footer>
       )}
@@ -210,9 +231,9 @@ function SaveStatus({
   error: string | null;
   saved: boolean;
 }) {
-  if (pending) return <span className="text-xs text-muted">Saving…</span>;
-  if (error)   return <span className="text-xs text-danger">{error}</span>;
-  if (saved)   return <span className="text-xs text-success">Saved</span>;
+  if (pending) return <span className="inline-flex items-center gap-1.5 text-xs text-muted"><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</span>;
+  if (error)   return <span className="inline-flex items-center gap-1.5 text-xs text-danger"><AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}</span>;
+  if (saved)   return <span className="inline-flex items-center gap-1.5 text-xs text-success"><Check className="h-3.5 w-3.5" />Saved</span>;
   return null;
 }
 
@@ -373,6 +394,7 @@ function GeneralSection({ initial }: { initial?: GeneralCfg }) {
   const f = useSectionForm<GeneralCfg>(initial ?? defaultGeneral, "general");
   return (
     <SectionCard
+      icon={Cog}
       title="General"
       subtitle="Basic identity for this Gameplane instance."
       footer={
@@ -484,6 +506,7 @@ function AuthSection({ initial, general, installTimeSettings }: { initial?: Auth
     <div className="space-y-6">
       <SectionCard
         className="gap-0 space-y-0 p-0"
+        icon={ShieldCheck}
         title="Authentication"
         subtitle="Built-in local accounts plus federated identity providers. Changes take effect on save — no restart needed."
         titleClassName="text-sm font-medium"
@@ -722,7 +745,7 @@ function AddProviderForm({
   };
 
   return (
-    <div className="space-y-3 rounded-md border border-border bg-surface/30 p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-surface/40 p-4">
       <div className="text-sm font-medium">Add identity provider</div>
       {!externalURLSet && (
         <Alert status="warning">
@@ -928,7 +951,7 @@ function BackupDestSection() {
     {registry.isPending ? <LoadingCard message="Loading clusters…" />
       : registry.isError ? <ErrorCard message="Couldn't load registered clusters." onRetry={() => void registry.refetch()} />
       : target ? <ClusterBackupDestSection key={target.name} cluster={target.name} />
-      : <SectionCard title="Select a workload cluster" subtitle="Backup destinations are stored on the workload cluster that runs your servers.">
+      : <SectionCard icon={Archive} title="Select a workload cluster" subtitle="Backup destinations are stored on the workload cluster that runs your servers.">
         <p className="text-sm text-muted">Choose a registered cluster above, or register one on the Clusters page.</p>
       </SectionCard>}
   </div>;
@@ -956,6 +979,7 @@ function ClusterBackupDestSection({ cluster }: { cluster: string }) {
 
   return (
     <SectionCard
+      icon={Archive}
       title="Backup destinations"
       subtitle="Restic repositories for snapshots. Stored as labelled Kubernetes Secrets in the configured namespace."
       footer={
@@ -1045,7 +1069,7 @@ function NewDestinationForm({ cluster, onClose }: { cluster: string; onClose: ()
     form.url.length > 0 &&
     form.password.length > 0;
   return (
-    <div className="space-y-3 rounded-md border border-border bg-surface/30 p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-surface/40 p-4">
       <div className="text-sm font-medium">Add destination</div>
       <p className="text-xs text-muted">
         Stored as a Secret labelled <span className="font-mono">gameplane.local/backup-destination=true</span>.
@@ -1130,7 +1154,7 @@ function SetRegistryKeyForm({
   };
 
   return (
-    <div className="space-y-3 rounded-md border border-border bg-surface/30 p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-surface/40 p-4">
       <div className="text-sm font-medium">
         {replacing ? "Replace" : "Set"} API key — {label}
       </div>
@@ -1174,6 +1198,7 @@ function ModRegistriesSection({ initial }: { initial?: ModRegistriesCfg }) {
 
   return (
     <SectionCard
+      icon={Key}
       title="Mod registries"
       subtitle="Registries that require an API key stay hidden from the Mods browser until a key is configured."
       footer={
@@ -1359,7 +1384,7 @@ function AddSinkForm({
   };
 
   return (
-    <div className="space-y-3 rounded-md border border-border bg-surface/30 p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-surface/40 p-4">
       <div className="text-sm font-medium">Add sink</div>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Name">
@@ -1566,6 +1591,7 @@ function NotificationsSection({ initial }: { initial?: NotificationsCfg }) {
 
   return (
     <SectionCard
+      icon={Bell}
       title="Notifications"
       subtitle="Deliver server health and backup/restore events to Discord, Slack, ntfy, email, or webhooks. Credentials are entered when adding a sink and stored as a labelled Secret in the control-plane namespace."
       footer={
@@ -1849,6 +1875,7 @@ function TelemetrySection({ initial }: { initial?: TelemetryCfg }) {
 
   return (
     <SectionCard
+      icon={Activity}
       title="Telemetry"
       subtitle="Anonymous usage metrics help us prioritize work. Extended metrics include a random install ID."
       footer={
@@ -1946,6 +1973,7 @@ function UpdatesSection() {
   });
   return (
     <SectionCard
+      icon={RefreshCcw}
       title="Updates"
       subtitle={installation.data?.standalone ? "Update the panel and API container images to upgrade this installation." : "Gameplane is upgraded via Helm (image tags / chart versions)."}
     >
@@ -1975,7 +2003,7 @@ function AboutSection() {
     staleTime: 60_000,
   });
   return (
-    <SectionCard title="About" subtitle="This Gameplane build.">
+    <SectionCard icon={Info} title="About" subtitle="This Gameplane build.">
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
         <dt className="text-muted">Gameplane</dt><dd className="font-mono">{installation.data?.version || data?.gameplaneVersion || "—"}</dd>
         {installation.data?.localCluster && <><dt className="text-muted">Kubernetes</dt><dd className="font-mono">{data?.version || "—"}</dd></>}

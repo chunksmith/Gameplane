@@ -533,17 +533,6 @@ input:-webkit-autofill:focus {
   white-space: nowrap;
 }
 
-/* Users & RBAC section tabs (Dpb9f) only: selected tab keeps the 6px radius
-   but carries the accent-soft fill + foreground, per design ("rounded button
-   but coloured selection"). Scoped so this does not leak into other Tabs.List
-   instances (bd29c0c7 dropped the global version for exactly that reason;
-   the Servers status filter keeps its own separately-scoped rule below). */
-.users-rbac-tabs .tabs__tab[aria-selected="true"],
-.users-rbac-tabs .tabs__tab[data-selected] {
-  background-color: var(--accent-soft);
-  color: var(--accent-soft-foreground);
-}
-
 /* Servers status filter (F9pUrx) only: selected filter keeps the neutral raised
    pill from .tabs__tab but carries accent text/count, per design. Scoped so this
    does not leak into other Tabs.List instances (bd29c0c7 dropped the global

@@ -15,7 +15,8 @@ import {
   ModalHeader,
   ModalHeading,
 } from "@heroui/react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Network as NetworkIcon, Plus, Trash2, X } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useMe, can } from "@/lib/auth";
 import { Networks, Users } from "@/lib/endpoints";
 import { errorText } from "@/lib/errors";
@@ -36,7 +37,7 @@ export function NetworksTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="max-w-2xl text-xs text-foreground/60">
+        <p className="max-w-2xl text-xs text-muted">
           Members can view every server assigned to their network. Console and Manage (start, stop, files, mods and
           players) are granted per member. Delete, transfer and wipe stay with the owner.
         </p>
@@ -48,7 +49,7 @@ export function NetworksTab() {
       </div>
       <ErrorText error={error} />
       {networks.length === 0 ? (
-        <p className="text-sm text-foreground/60">No networks yet.</p>
+        <Card className="border border-border"><EmptyState icon={<NetworkIcon />} title="No networks yet." /></Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {networks.map((network) => (
@@ -145,11 +146,12 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
   const count = network.members.length;
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="flex flex-col gap-3 border border-border p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm">{network.name}</span>
-          <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] uppercase text-foreground/70">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><NetworkIcon className="h-4 w-4" /></span>
+          <span className="truncate font-mono text-sm font-medium">{network.name}</span>
+          <span className="shrink-0 rounded-full bg-default/60 px-2 py-0.5 text-[11px] text-muted">
             {count} member{count === 1 ? "" : "s"}
           </span>
         </div>
@@ -178,7 +180,7 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
                     isDisabled={update.isPending}
                   />
                 ) : (
-                  <span className="text-xs text-foreground/60">{permissionSummary(member.permissions)}</span>
+                  <span className="text-xs text-muted">{permissionSummary(member.permissions)}</span>
                 )}
                 {canManage && (
                   <Button
@@ -198,7 +200,7 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-foreground/60">No members yet</p>
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted">No members yet</p>
       )}
       {canManage && (
         <div className="flex flex-col gap-2">

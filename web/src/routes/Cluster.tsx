@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Download, Plus, Server as ServerIcon, AlertCircle } from "lucide-react";
+import { AlertCircle, Copy, Download, HardDrive, Network, Plus, Server as ServerIcon, Terminal } from "lucide-react";
 import { Button, Card, CardContent, Alert } from "@heroui/react";
 import { Meter } from "@/components/ui/Meter";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { formatBytes, formatUptime } from "@/lib/utils";
+import { cn, formatBytes, formatUptime } from "@/lib/utils";
 import { APIError, api } from "@/lib/api";
 import type { ClusterNode, NodeJoinInfo } from "@/types";
 import { Cluster, Clusters } from "@/lib/endpoints";
@@ -14,6 +14,7 @@ import { useCurrentCluster } from "@/lib/cluster";
 import { ClusterSelector } from "@/components/ClusterSelector";
 import { ErrorCard } from "@/components/ui/ErrorCard";
 import { LoadingCard } from "@/components/ui/LoadingCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useInstallation } from "@/lib/useInstallation";
 
 // opMessage turns a cluster-op error into user copy — 501 means the
@@ -37,10 +38,7 @@ export function ClusterPage() {
       : available ? <ClusterInventory key={clusterId} clusterId={clusterId} />
       : registry.isPending ? <LoadingCard message="Loading clusters…" />
       : registry.isError ? <ErrorCard message="Couldn't load registered clusters." onRetry={() => void registry.refetch()} />
-      : <Card className="m-6"><CardContent className="space-y-2 p-6">
-        <h2 className="font-medium">Select a workload cluster</h2>
-        <p className="text-sm text-muted">Choose a registered cluster to view its node inventory. Register workload clusters on the Clusters page.</p>
-      </CardContent></Card>}
+      : <Card className="m-6 border border-border"><EmptyState icon={<Network />} title="Select a workload cluster" hint="Choose a registered cluster to view its node inventory. Register workload clusters on the Clusters page." /></Card>}
   </>;
 }
 
@@ -149,23 +147,26 @@ function ClusterInventory({ clusterId }: { clusterId: string }) {
       )}
 
       {joinInfo && (
-        <Card>
-          <CardContent className="space-y-2 p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Join a node</div>
+        <Card className="border border-accent/30">
+          <CardContent className="space-y-3 p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><Terminal className="h-[18px] w-[18px]" /></span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">Join a node</div>
+                <p className="pt-0.5 text-xs text-muted">
+                  Run this on the machine you want to join (token expires {joinInfo.expiresAt}):
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setJoinInfo(null)}
-                className="text-xs text-muted hover:text-foreground"
+                className="shrink-0 text-xs text-muted hover:text-foreground"
               >
                 Dismiss
               </button>
             </div>
-            <p className="text-xs text-muted">
-              Run this on the machine you want to join (token expires {joinInfo.expiresAt}):
-            </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-auto rounded bg-[#0b0b0d] px-3 py-2 font-mono text-xs text-foreground">
+              <code className="flex-1 overflow-auto rounded-lg bg-[#0b0b0d] px-3 py-2.5 font-mono text-xs text-zinc-300 scrollbar-thin">
                 {joinInfo.command}
               </code>
               <Button
@@ -173,7 +174,7 @@ function ClusterInventory({ clusterId }: { clusterId: string }) {
                 size="sm"
                 onPress={() => void navigator.clipboard?.writeText(joinInfo.command)}
               >
-                Copy
+                <Copy className="h-4 w-4" /> Copy
               </Button>
             </div>
           </CardContent>
@@ -183,54 +184,43 @@ function ClusterInventory({ clusterId }: { clusterId: string }) {
       {isLoading && <LoadingCard message={`Loading nodes for ${clusterId}…`} />}
       {error && <ErrorCard message={`Couldn't load node inventory for ${clusterId}. Check your cluster access and connection.`} onRetry={() => void refetch()} />}
       {!isLoading && !error && nodes.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-3 p-12 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <ServerIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="font-medium">No node data yet.</div>
-              <div className="pt-1 text-sm text-muted">
-                No nodes are reporting yet — check the API and operator connection.
-              </div>
-            </div>
-          </CardContent>
+        <Card className="border border-border">
+          <EmptyState icon={<ServerIcon />} title="No node data yet." hint="No nodes are reporting yet — check the API and operator connection." />
         </Card>
       )}
 
       {canReadConfig && config?.installTimeSettings && (
-        <Card>
+        <Card className="border border-border">
           <CardContent className="space-y-4 p-5">
-            <div className="space-y-1">
-              <h3 className="text-base font-medium">Storage</h3>
-              <p className="text-sm text-muted">
-                Set at install time via Helm values — not editable from the dashboard.
-              </p>
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><HardDrive className="h-[18px] w-[18px]" /></span>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold leading-tight">Storage</h3>
+                <p className="text-sm text-muted">Set at install time via Helm values — not editable from the dashboard.</p>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-6">
-                <div className="flex-1 space-y-1">
-                  <div className="text-sm font-medium">Game data storage class</div>
-                  <p className="text-xs text-muted">
-                    StorageClass for new GameServers&apos; game-data volumes — set by the
-                    operator.gameDataStorage.storageClassName Helm value and applied by the operator to
-                    every new PVC; the API is passed the same value as --game-data-storage-class only to
-                    report it here.{" "}
-                    {config.installTimeSettings.gameDataStorageClass === "" &&
-                      "Left unset, so new volumes use the cluster's default StorageClass."}
-                  </p>
-                </div>
-                {config.installTimeSettings.gameDataStorageClass ? (
-                  <div className="font-mono text-sm font-medium">
-                    {config.installTimeSettings.gameDataStorageClass}
-                  </div>
-                ) : (
-                  <div className="rounded-full bg-surface px-3 py-1 text-sm text-muted">
-                    Cluster default
-                  </div>
-                )}
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+              <div className="flex-1 space-y-1">
+                <div className="text-sm font-medium">Game data storage class</div>
+                <p className="text-xs text-muted">
+                  StorageClass for new GameServers&apos; game-data volumes — set by the
+                  operator.gameDataStorage.storageClassName Helm value and applied by the operator to
+                  every new PVC; the API is passed the same value as --game-data-storage-class only to
+                  report it here.{" "}
+                  {config.installTimeSettings.gameDataStorageClass === "" &&
+                    "Left unset, so new volumes use the cluster's default StorageClass."}
+                </p>
               </div>
+              {config.installTimeSettings.gameDataStorageClass ? (
+                <div className="font-mono text-sm font-medium">
+                  {config.installTimeSettings.gameDataStorageClass}
+                </div>
+              ) : (
+                <div className="shrink-0 rounded-full bg-default/60 px-3 py-1 text-sm text-muted">
+                  Cluster default
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -251,12 +241,12 @@ function NodeCard({ node }: { node: ClusterNode }) {
   const ready = node.status === "Ready";
   const uptime = node.uptime ?? formatUptime(node.startedAt);
   return (
-    <Card>
+    <Card className="border border-border">
       <CardContent className="p-4 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface">
-              <ServerIcon className="h-4 w-4 text-muted" />
+            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", ready ? "bg-success/10 text-success" : "bg-default/60 text-muted")}>
+              <ServerIcon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="break-all font-mono text-sm font-semibold">{node.name}</div>
@@ -265,12 +255,9 @@ function NodeCard({ node }: { node: ClusterNode }) {
               </div>
             </div>
           </div>
-          <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-mono uppercase ${
-            ready
-              ? "bg-success/15 text-success"
-              : "bg-danger/15 text-danger"
-          }`}>
-            ● {node.status ?? "Unknown"}
+          <span className={cn("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase", ready ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+            {node.status ?? "Unknown"}
           </span>
         </div>
 
@@ -300,7 +287,7 @@ function NodeCard({ node }: { node: ClusterNode }) {
         {node.labels && node.labels.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {node.labels.map((l) => (
-              <span key={l} className="rounded bg-surface px-2 py-0.5 text-[10px] font-mono text-muted">
+              <span key={l} className="rounded-md bg-default/60 px-2 py-0.5 font-mono text-[10px] text-muted">
                 {l}
               </span>
             ))}
@@ -313,7 +300,7 @@ function NodeCard({ node }: { node: ClusterNode }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border bg-surface/60 p-2">
+    <div className="rounded-lg border border-border bg-surface/60 px-2.5 py-2">
       <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
       <div className="pt-0.5 font-mono text-xs text-foreground">{value}</div>
     </div>

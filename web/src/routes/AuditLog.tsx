@@ -1,12 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useInfiniteQuery, useMutation, useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { Download, RefreshCw, ShieldCheck } from "lucide-react";
+import { Download, RefreshCw, ScrollText, Search, SearchX, ShieldCheck, ShieldQuestion } from "lucide-react";
 import type { AuditEvent, AuditVerifyResult } from "@/types";
 import { Audit, type AuditExportFilter } from "@/lib/endpoints";
 import { Button, Card, Input, Chip, Table, Tabs, Tab as TabComponent } from "@heroui/react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AuditIntegrityBanner } from "@/components/ui/AuditIntegrityBanner";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn, formatRelative } from "@/lib/utils";
 
 const PAGE_SIZE = 100;
@@ -112,43 +113,51 @@ export function AuditLogPage() {
         <ErrorBanner err={exportMutation.error} onDismiss={() => exportMutation.reset()} />
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Tabs selectedKey={statusClass} onSelectionChange={(key) => setStatusClass(key as StatusClass)} variant="secondary" aria-label="Status filter">
-          <Tabs.List className="w-fit">
-            {(["all", "2xx", "4xx", "5xx"] as StatusClass[]).map((s) => (
-              <TabComponent key={s} id={s} className="text-xs">
-                {labelFor(s)} · {totals[s] ?? 0}
-              </TabComponent>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="-mx-1 flex overflow-x-auto px-1">
+          <Tabs selectedKey={statusClass} onSelectionChange={(key) => setStatusClass(key as StatusClass)} variant="secondary" aria-label="Status filter">
+            <Tabs.List className="servers-status-filter w-fit">
+              {(["all", "2xx", "4xx", "5xx"] as StatusClass[]).map((s) => (
+                <TabComponent key={s} id={s} className="text-xs">
+                  {labelFor(s)} · {totals[s] ?? 0}
+                </TabComponent>
+              ))}
+            </Tabs.List>
+          </Tabs>
+        </div>
+
+        <div className="flex flex-1 flex-wrap items-center gap-3">
+          <select
+            aria-label="Filter by method"
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value as MethodFilter)}
+            className="h-9 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <option value="all">All methods</option>
+            {(["GET", "POST", "PUT", "PATCH", "DELETE"] as const).map((m) => (
+              <option key={m} value={m}>{m}</option>
             ))}
-          </Tabs.List>
-        </Tabs>
+          </select>
 
-        <select
-          value={methodFilter}
-          onChange={(e) => setMethodFilter(e.target.value as MethodFilter)}
-          className="h-9 rounded-md border border-border bg-surface px-2 text-sm text-foreground"
-        >
-          <option value="all">All methods</option>
-          {(["GET", "POST", "PUT", "PATCH", "DELETE"] as const).map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              placeholder="Filter by actor…"
+              value={actorQ}
+              onChange={(e) => setActorQ(e.target.value)}
+              className="w-full pl-9"
+              variant="primary"
+            />
+          </div>
 
-        <Input
-          placeholder="Filter by actor…"
-          value={actorQ}
-          onChange={(e) => setActorQ(e.target.value)}
-          className="w-64"
-          variant="primary"
-        />
-
-        <div className="ml-auto text-xs text-muted">
-          {filtered.length} of {all.length} loaded
-          {query.hasNextPage && " · more available"}
+          <div className="ml-auto text-xs text-muted">
+            {filtered.length} of {all.length} loaded
+            {query.hasNextPage && " · more available"}
+          </div>
         </div>
       </div>
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden border border-border p-0">
         <Table.Root className="bg-transparent text-xs">
           <Table.ScrollContainer className="max-h-[70vh]">
             <Table.Content aria-label="Audit log" keyboardNavigationBehavior="arrow">
@@ -162,11 +171,9 @@ export function AuditLogPage() {
               </Table.Header>
               <Table.Body
                 renderEmptyState={() =>
-                  <span>
-                    {all.length === 0
-                      ? "No audit events yet."
-                      : "No events match the active filters."}
-                  </span>
+                  all.length === 0
+                    ? <EmptyState icon={<ScrollText />} title="No audit events yet." />
+                    : <EmptyState icon={<SearchX />} title="No events match the active filters." hint="Clear the status, method or actor filters to see every event." />
                 }
               >
                 {filtered.map((e) => {
@@ -176,7 +183,7 @@ export function AuditLogPage() {
                       <Table.Cell className="text-muted">
                         <span title={e.ts}>{formatRelative(e.ts)}</span>
                       </Table.Cell>
-                      <Table.Cell>{e.actor}</Table.Cell>
+                      <Table.Cell className="font-medium text-foreground">{e.actor}</Table.Cell>
                       <Table.Cell>
                         <span
                           className="block max-w-[480px] truncate"
@@ -188,10 +195,13 @@ export function AuditLogPage() {
                       <Table.Cell>
                         <MethodPill method={e.method} />
                       </Table.Cell>
-                      <Table.Cell className={access.tone}>
-                        <span title={`HTTP ${e.status}`}>{access.label}</span>
+                      <Table.Cell>
+                        <span className={cn("inline-flex items-center gap-1.5 font-medium", access.tone)} title={`HTTP ${e.status}`}>
+                          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {access.label}
+                        </span>
                       </Table.Cell>
-                      <Table.Cell className="text-muted">{e.ip || "—"}</Table.Cell>
+                      <Table.Cell className="font-mono text-muted">{e.ip || "—"}</Table.Cell>
                     </Table.Row>
                   );
                 })}
@@ -200,7 +210,7 @@ export function AuditLogPage() {
           </Table.ScrollContainer>
         </Table.Root>
 
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
+        <div className="flex items-center justify-between border-t border-border bg-surface/40 px-5 py-3">
           <div className="text-xs text-muted">
             Page size {PAGE_SIZE}. Older events load on demand.
           </div>
@@ -229,7 +239,8 @@ function renderIntegrityBanner(query: UseQueryResult<AuditVerifyResult>): ReactN
   }
   if (query.isError) {
     return (
-      <div className="flex items-center justify-between rounded-md border border-border bg-surface/50 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3">
+        <ShieldQuestion className="h-4 w-4 shrink-0 text-muted" />
         <div className="text-sm text-muted">Integrity status unavailable</div>
       </div>
     );
@@ -239,11 +250,9 @@ function renderIntegrityBanner(query: UseQueryResult<AuditVerifyResult>): ReactN
   }
   if (data.ok) {
     return (
-      <div className="flex items-center justify-between rounded-md border border-success bg-success/5 px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-success">
-          <ShieldCheck className="h-4 w-4" />
-          Audit chain verified — no tampering detected
-        </div>
+      <div className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 sm:flex-row sm:items-center">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success"><ShieldCheck className="h-[18px] w-[18px]" /></span>
+        <div className="min-w-0 flex-1 text-sm font-medium text-success">Audit chain verified — no tampering detected</div>
         <Button
           size="sm"
           variant="outline"
