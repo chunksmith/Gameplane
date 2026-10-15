@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer, Button } from "@heroui/react";
 import { RotateCcw, Trash2 } from "lucide-react";
 
-import { formatRelative } from "@/lib/utils";
+import { formatRelative, formatSize } from "@/lib/utils";
 import type { Backup } from "@/types";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { ErrorBanner } from "./ErrorBanner";
@@ -91,7 +91,7 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                   <Field label="Snapshot ID">
                     <span className="font-mono text-xs">{backup.status?.snapshotID ?? "—"}</span>
                   </Field>
-                  <Field label="Size">{backup.status?.size ?? "—"}</Field>
+                  <Field label="Size">{formatSize(backup.status?.size)}</Field>
                   <Field label="Started">
                     {formatRelative(backup.status?.startTime)}
                     {backup.status?.startTime && (

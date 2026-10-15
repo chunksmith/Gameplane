@@ -221,6 +221,7 @@ function BackupsTabPanel({ location, onLocationChange, locations }: LocationFilt
                 </Table.Column>
                 <Table.Column key="server">Server</Table.Column>
                 <Table.Column key="phase">Phase</Table.Column>
+                <Table.Column key="progress">Progress</Table.Column>
                 <Table.Column key="size">Size</Table.Column>
                 <Table.Column key="completed">Completed</Table.Column>
                 <Table.Column key="actions" className="text-end" />

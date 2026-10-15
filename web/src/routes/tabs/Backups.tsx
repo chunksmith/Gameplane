@@ -7,11 +7,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 
 import { useBackupDestinations } from "@/lib/destinations";
-import { formatBytes, formatRelative, formatRelativeFuture, parseQuantityToBytes } from "@/lib/utils";
+import { formatBytes, formatRelative, formatRelativeFuture, formatSize, parseQuantityToBytes } from "@/lib/utils";
 import { ErrorBanner } from "@/components/backups/ErrorBanner";
 import { ScheduleForm } from "@/components/backups/ScheduleForm";
 import { RestoreDialog } from "@/components/backups/RestoreDialog";
 import { BackupDetailDrawer } from "@/components/backups/BackupDetailDrawer";
+import { BackupProgressBar, isActiveBackup } from "@/components/backups/ActiveBackups";
 import type { Backup } from "@/types";
 
 export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
@@ -207,6 +208,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
               <Table.Header>
                 <Table.Column key="name" isRowHeader>Name</Table.Column>
                 <Table.Column key="phase">Phase</Table.Column>
+                <Table.Column key="progress">Progress</Table.Column>
                 <Table.Column key="size">Size</Table.Column>
                 <Table.Column key="completed">Completed</Table.Column>
                 <Table.Column key="actions" id="actions" className="text-end">Actions</Table.Column>
@@ -225,7 +227,10 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
                       <Table.Cell>
                         <PhaseChip phase={b.status?.phase} />
                       </Table.Cell>
-                      <Table.Cell className="font-mono">{b.status?.size ?? "—"}</Table.Cell>
+                      <Table.Cell>
+                        {isActiveBackup(b) ? <div className="w-48"><BackupProgressBar backup={b} compact /></div> : "—"}
+                      </Table.Cell>
+                      <Table.Cell className="font-mono">{formatSize(b.status?.size)}</Table.Cell>
                       <Table.Cell className="font-mono text-foreground/60">
                         {formatRelative(b.status?.completionTime)}
                       </Table.Cell>

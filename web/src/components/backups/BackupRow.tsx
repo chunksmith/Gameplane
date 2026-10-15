@@ -1,6 +1,6 @@
 import { useResourcePermissions, resourceCan, type ResourceTarget } from "@/lib/resourceTarget";
 import { Button, Table } from "@heroui/react";
-import { formatRelative } from "@/lib/utils";
+import { formatRelative, formatSize } from "@/lib/utils";
 import type { Backup } from "@/types";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { SCHEDULE_LABEL } from "@/lib/backupGroups";
@@ -37,9 +37,10 @@ export function BackupRow({ backup, showServer, onSelect, onRestore, target, per
       <Table.Cell>
         <PhaseChip phase={backup.status?.phase} />
       </Table.Cell>
-      <Table.Cell className="font-mono">
-        {isActiveBackup(backup) ? <div className="w-48"><BackupProgressBar backup={backup} compact /></div> : backup.status?.size ?? "—"}
+      <Table.Cell>
+        {isActiveBackup(backup) ? <div className="w-48"><BackupProgressBar backup={backup} compact /></div> : "—"}
       </Table.Cell>
+      <Table.Cell className="font-mono">{formatSize(backup.status?.size)}</Table.Cell>
       <Table.Cell>
         {formatRelative(backup.status?.completionTime)}
       </Table.Cell>
