@@ -1,7 +1,7 @@
 import { useResourceClient, useResourceTarget, resourceKey } from "@/lib/resourceTarget";
 import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownUp, Copy, Cpu, HardDrive, MemoryStick, AlertCircle } from "lucide-react";
+import { ArrowDownUp, Copy, Cpu, HardDrive, HeartPulse, MemoryStick, AlertCircle, ServerCog } from "lucide-react";
 import type { GameServer, GameTemplate, PlayersResp } from "@/types";
 
 import { Card, CardHeader, CardContent, Alert } from "@heroui/react";
@@ -10,7 +10,7 @@ import { ServerActionsCard } from "@/components/server/ServerActionsCard";
 import { ServerStatusCard } from "@/components/server/ServerStatusCard";
 import { ServerSleepCard } from "@/components/server/ServerSleepCard";
 import { EventList } from "@/components/server/EventList";
-import { formatBytes, formatCores, parseQuantityToBytes } from "@/lib/utils";
+import { formatBytes, formatCores, formatRelative, formatUptime, parseQuantityToBytes } from "@/lib/utils";
 import { parseCpuQuantity } from "@/lib/quantity";
 import { mapServerEvent, type NormalizedServerEvent } from "@/lib/events";
 import { playerRows } from "@/lib/players";
@@ -220,6 +220,31 @@ export function OverviewTab({
               limit={memoryLimit}
               format={formatBytes}
               accent="bg-violet"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <DetailsCard
+              label="Server details"
+              icon={<ServerCog className="h-4 w-4" />}
+              rows={[
+                ["Template", tmpl?.spec.displayName ?? gs.spec.templateRef.name],
+                ["Game version", agent?.gameVersion ?? gs.spec.version ?? tmpl?.spec.version ?? "—"],
+                ["Uptime", running ? formatUptime(status.startedAt) : "—"],
+                ["Capacity", agent?.playersMax ? `${players} / ${agent.playersMax}` : "—"],
+                ["Exposure", gs.spec.networking?.expose ?? "ClusterIP"],
+                ["Stop grace", `${gs.spec.stopGracePeriodSeconds ?? 30}s`],
+              ]}
+            />
+            <DetailsCard
+              label="Health"
+              icon={<HeartPulse className="h-4 w-4" />}
+              rows={[
+                ...(status.conditions ?? []).map(conditionRow),
+                ["Last heartbeat", `${formatRelative(agent?.lastHeartbeat)}${agent?.stale ? " · stale" : ""}`],
+                ["Last backup", formatRelative(status.lastBackupTime)],
+                ["Agent", agent?.version ?? "—"],
+              ]}
             />
           </div>
 
@@ -456,6 +481,37 @@ function AllocationCard({
         <dd className="text-right font-mono text-foreground">{limit === undefined ? "None, can burst to node" : `${format(limit)}${share(limit)}`}</dd>
       </dl>
       <p className="text-[11px] text-muted">Request is reserved for the server; the limit is the most it may use.</p>
+    </Card>
+  );
+}
+
+type Condition = NonNullable<NonNullable<GameServer["status"]>["conditions"]>[number];
+
+function conditionRow(condition: Condition): [string, ReactNode] {
+  const healthy = condition.type === "Progressing" ? condition.status !== "True" : condition.status === "True";
+  return [
+    condition.type,
+    <span key={condition.type} title={condition.message} className={healthy ? "text-success-soft-foreground" : "text-warning"}>
+      {condition.reason || condition.status}
+    </span>,
+  ];
+}
+
+function DetailsCard({ label, icon, rows }: { label: string; icon: ReactNode; rows: [string, ReactNode][] }) {
+  return (
+    <Card className="flex flex-col gap-3 border border-border bg-card p-4">
+      <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.5px] text-muted">
+        <span>{label}</span>
+        <span>{icon}</span>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        {rows.map(([term, value]) => (
+          <div key={term} className="contents">
+            <dt className="text-muted">{term}</dt>
+            <dd className="truncate text-right font-mono text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
     </Card>
   );
 }

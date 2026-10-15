@@ -572,6 +572,7 @@ export interface GameServer {
     endpoints?: GameServerEndpoint[];
     agent?: {
       lastHeartbeat?: string;
+      version?: string;
       // null/absent means "unknown" (agent couldn't query the game, or
       // the heartbeat is stale and the API blanked it).
       playersOnline?: number | null;
@@ -618,6 +619,7 @@ export interface GameServer {
       lastTransitionTime?: string;
     }>;
     startedAt?: string;
+    lastBackupTime?: string;
     // Observed state of the capture sidecar for this server.
     capture?: CaptureStatus;
   };
