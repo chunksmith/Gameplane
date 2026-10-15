@@ -31,7 +31,10 @@ var errGatewayUnavailable = errors.New("agent gateway not configured")
 
 // AgentGatewayOptions enables registered-cluster agent routes. Secrets are read
 // only from the namespace where the central API runs.
-type AgentGatewayOptions struct{ Namespace string }
+type AgentGatewayOptions struct {
+	Namespace     string
+	FileListLimit func(context.Context) int
+}
 
 type agentGatewayResolver struct {
 	registry  *kube.Registry

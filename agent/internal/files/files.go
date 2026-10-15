@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -149,7 +151,22 @@ func (h *handler) list(w http.ResponseWriter, req *http.Request) {
 		h.fail(w, err)
 		return
 	}
+	w.Header().Set("X-Total-Count", strconv.Itoa(len(out)))
+	if limit, err := strconv.Atoi(req.URL.Query().Get("limit")); err == nil && limit > 0 && len(out) > limit {
+		slices.SortFunc(out, compareEntries)
+		out = out[:limit]
+	}
 	httpjson.Write(w, http.StatusOK, out)
+}
+
+func compareEntries(a, b Entry) int {
+	if a.Dir != b.Dir {
+		if a.Dir {
+			return -1
+		}
+		return 1
+	}
+	return strings.Compare(a.Name, b.Name)
 }
 
 func (h *handler) read(w http.ResponseWriter, req *http.Request) {
