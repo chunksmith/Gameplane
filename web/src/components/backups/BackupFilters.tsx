@@ -1,7 +1,7 @@
 import type { ResourceTarget } from "@/lib/resourceTarget";
 import { useState, type ReactNode } from "react";
 import { Chip, Input, Select, ListBox, ListBoxItem } from "@heroui/react";
-import { Filter } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import { FleetScopeFilter } from "@/components/FleetScope";
 import { FilterPopover } from "@/components/ui/FilterPopover";
 import type { GameServer } from "@/types";
@@ -44,14 +44,17 @@ export function BackupFilters({
   };
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Input
-        className="min-w-0 flex-1 basis-40 max-w-xs"
-        placeholder="Search by name or server…"
-        aria-label="Search backups, schedules or restores"
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        type="text"
-      />
+      <div className="relative min-w-0 flex-1 basis-48 sm:max-w-xs">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" />
+        <Input
+          className="w-full pl-9"
+          placeholder="Search by name or server…"
+          aria-label="Search backups, schedules or restores"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          type="text"
+        />
+      </div>
       <div className="ml-auto flex items-center gap-3">
         {trailing && <div className="text-xs text-muted">{trailing}</div>}
         <FilterPopover

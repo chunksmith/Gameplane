@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Switch, Table } from "@heroui/react";
-import { CalendarClock, Layers, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { CalendarClock, Layers, Pencil, Plus, Trash2, TriangleAlert, Users } from "lucide-react";
 import { createResourceClient } from "@/lib/endpoints";
 import { targetKey, targetLabel, type Located } from "@/lib/fleet";
-import { formatRelative, formatRelativeFuture } from "@/lib/utils";
+import { cn, formatRelative, formatRelativeFuture } from "@/lib/utils";
 import { DEFAULT_GROUP, describeCron, effectiveGroups, inGroups, serverGroups } from "@/lib/backupGroups";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "./ErrorBanner";
@@ -26,6 +26,7 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
   const [assigning, setAssigning] = useState<Located<GameServer> | null>(null);
   const groupSchedules = schedules.filter((schedule) => (schedule.spec.groups?.length ?? 0) > 0);
   const knownGroups = [...new Set([DEFAULT_GROUP, ...groupSchedules.flatMap((s) => s.spec.groups ?? []), ...servers.flatMap((s) => serverGroups(s.metadata.labels))])].sort();
+  const coveredCount = servers.filter((server) => groupSchedules.some((schedule) => groupMembers(schedule, [server]).length > 0)).length;
   const scopes = [...new Map(servers.filter((s) => can(s.fleetPermissions, "schedules:write")).map((s) => [`${s.fleetTarget.cluster}/${s.fleetTarget.namespace}`, { cluster: s.fleetTarget.cluster, namespace: s.fleetTarget.namespace }])).values()];
 
   const toggle = useMutation({
@@ -44,7 +45,7 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Group schedules</h2>
             <p className="text-xs text-muted">One cron, retention and concurrency limit for every server in the selected groups.</p>
@@ -55,9 +56,11 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
         </div>
         {(toggle.error || remove.error) && <ErrorBanner err={toggle.error ?? remove.error} />}
         {groupSchedules.length === 0 ? (
-          <Card className="flex flex-col items-center gap-2 border border-dashed border-border bg-transparent p-8 text-center">
-            <Layers className="h-6 w-6 text-muted" />
-            <div className="text-sm font-medium">No group schedules yet</div>
+          <Card className="flex flex-col items-center gap-3 border border-dashed border-border bg-transparent px-6 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+              <Layers className="h-6 w-6" />
+            </span>
+            <div className="text-sm font-semibold">No group schedules yet</div>
             <p className="max-w-md text-xs text-muted">Create one for the <span className="font-mono">default</span> group to back up every server that has no group label, like Longhorn recurring jobs.</p>
           </Card>
         ) : (
@@ -66,11 +69,14 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
               const members = groupMembers(schedule, servers);
               const writable = can(schedule.fleetPermissions, "schedules:write");
               return (
-                <Card key={targetKey(schedule.fleetTarget)} className={`border border-border bg-surface p-4 ${schedule.spec.suspend ? "opacity-60" : ""}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                <Card key={targetKey(schedule.fleetTarget)} className={cn("flex flex-col gap-4 border border-border bg-surface p-4 transition-colors hover:border-accent/40", schedule.spec.suspend && "opacity-60")}>
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                      <CalendarClock className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
                       <div className="truncate font-semibold">{schedule.metadata.name}</div>
-                      <div className="text-xs text-muted">{targetLabel(schedule.fleetTarget)}</div>
+                      <div className="truncate text-xs text-muted">{targetLabel(schedule.fleetTarget)}</div>
                     </div>
                     <Switch
                       isSelected={!schedule.spec.suspend}
@@ -85,27 +91,26 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
                       </Switch.Content>
                     </Switch>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 pt-3">
-                    {(schedule.spec.groups ?? []).map((group) => (
-                      <span key={group} className="rounded-full bg-accent/10 px-2 py-0.5 font-mono text-[11px] text-accent">{group}</span>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">{describeCron(schedule.spec.schedule)}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(schedule.spec.groups ?? []).map((group) => (
+                        <span key={group} className="rounded-full bg-accent/10 px-2 py-0.5 font-mono text-[11px] text-accent">{group}</span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-3 text-sm">
-                    <CalendarClock className="h-4 w-4 text-muted" />
-                    {describeCron(schedule.spec.schedule)}
-                  </div>
-                  <dl className="grid grid-cols-3 gap-2 pt-3 text-xs">
+                  <dl className="grid grid-cols-3 gap-2 text-xs">
                     <Stat label="Retain" value={schedule.spec.retention?.keepLast ?? "all"} />
                     <Stat label="Parallel" value={schedule.spec.concurrency ?? "∞"} />
                     <Stat label="Servers" value={members.length} />
                   </dl>
-                  <div className="flex flex-wrap gap-1 pt-3">
+                  <div className="flex flex-wrap gap-1">
                     {members.slice(0, 6).map((server) => (
-                      <span key={server.metadata.name} className="rounded border border-border px-1.5 py-0.5 text-[11px]">{server.metadata.name}</span>
+                      <span key={server.metadata.name} className="rounded-md border border-border bg-default/30 px-1.5 py-0.5 font-mono text-[11px]">{server.metadata.name}</span>
                     ))}
                     {members.length > 6 && <span className="px-1 text-[11px] text-muted">+{members.length - 6}</span>}
                   </div>
-                  <div className="flex items-center justify-between gap-2 border-t border-border pt-3 mt-3 text-xs text-muted">
+                  <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted">
                     <span>
                       {schedule.spec.suspend ? "Paused" : `Next ${formatRelativeFuture(schedule.status?.nextScheduleTime)}`}
                       {schedule.status?.lastSuccessfulTime && ` · last ok ${formatRelative(schedule.status.lastSuccessfulTime)}`}
@@ -127,9 +132,16 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Server membership</h2>
-          <p className="text-xs text-muted">Assign servers to groups. Changing groups never restarts a server.</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Server membership</h2>
+            <p className="text-xs text-muted">Assign servers to groups. Changing groups never restarts a server.</p>
+          </div>
+          {servers.length > 0 && (
+            <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", coveredCount < servers.length ? "bg-warning-soft text-warning-soft-foreground" : "bg-success-soft text-success-soft-foreground")}>
+              {coveredCount} of {servers.length} covered
+            </span>
+          )}
         </div>
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <Table.Root>
@@ -162,9 +174,15 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
                         </Table.Cell>
                         <Table.Cell>
                           {covering.length === 0 ? (
-                            <span className="text-xs text-warning">Not backed up by any group</span>
+                            <span className="inline-flex items-center gap-1.5 text-xs text-warning">
+                              <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+                              Not backed up by any group
+                            </span>
                           ) : (
-                            <span className="text-xs text-muted">{covering.map((s) => s.metadata.name).join(", ")}</span>
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                              {covering.map((s) => s.metadata.name).join(", ")}
+                            </span>
                           )}
                         </Table.Cell>
                         <Table.Cell className="text-end">
@@ -208,7 +226,7 @@ export function BackupGroupsPanel({ schedules, servers }: { schedules: Located<B
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-md bg-default/40 px-2 py-1.5">
+    <div className="rounded-lg bg-default/40 px-2.5 py-2">
       <dt className="text-[10px] uppercase tracking-wider text-muted">{label}</dt>
       <dd className="font-mono text-sm text-foreground">{value}</dd>
     </div>

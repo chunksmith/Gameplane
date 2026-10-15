@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { CalendarClock, CheckCircle2, Layers, Loader2, Plus } from "lucide-react";
+import { Archive, CalendarClock, CalendarPlus, CheckCircle2, History, Layers, Loader2, Plus, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { createResourceClient } from "@/lib/endpoints";
 import { useFleetLocation, Fleet, located, targetKey, targetLabel, type Located } from "@/lib/fleet";
 import { FleetCoverage } from "@/components/FleetScope";
 import {
   Button,
   Card,
+  Label,
   Select,
   ListBox,
   ListBoxItem,
@@ -26,6 +27,7 @@ import {
 } from "@heroui/react";
 import { PageHeader } from "@/components/PageHeader";
 import { formatRelative, formatRelativeFuture } from "@/lib/utils";
+import { cronPreset, describeCron } from "@/lib/backupGroups";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { ErrorBanner } from "@/components/backups/ErrorBanner";
 import { ScheduleForm } from "@/components/backups/ScheduleForm";
@@ -40,16 +42,17 @@ import { BackupGroupsPanel, groupMembers } from "@/components/backups/BackupGrou
 import type { Backup, BackupSchedule } from "@/types";
 
 type TabKey = "backups" | "groups" | "schedules" | "restores";
-const TABS: { id: TabKey; label: string }[] = [
-  { id: "backups", label: "Backups" },
-  { id: "groups", label: "Groups" },
-  { id: "schedules", label: "Server schedules" },
-  { id: "restores", label: "Restores" },
+const TABS: { id: TabKey; label: string; icon: ReactNode }[] = [
+  { id: "backups", label: "Backups", icon: <Archive className="h-4 w-4" /> },
+  { id: "groups", label: "Groups", icon: <Layers className="h-4 w-4" /> },
+  { id: "schedules", label: "Server schedules", icon: <CalendarClock className="h-4 w-4" /> },
+  { id: "restores", label: "Restores", icon: <History className="h-4 w-4" /> },
 ];
 
 const BACKUP_PHASES = ["Queued", "Pending", "Running", "Succeeded", "Failed"];
 const DAY = 24 * 60 * 60 * 1000;
 const RESTORE_PHASES = ["Pending", "Suspending", "Running", "Resuming", "Succeeded", "Failed"];
+const TABLE_FRAME = "overflow-hidden rounded-lg border border-border bg-card";
 
 export function BackupsPage() {
   const search = useLocation().search;
@@ -83,13 +86,23 @@ export function BackupsPage() {
   const active = allBackups.filter(isActiveBackup);
   const recent = allBackups.filter((b) => b.status?.completionTime && dataUpdatedAt - Date.parse(b.status.completionTime) < DAY);
   const groupSchedules = allSchedules.filter((s) => (s.spec.groups?.length ?? 0) > 0);
+  const activeServerSchedules = allSchedules.filter((s) => !s.spec.suspend && !s.spec.groups?.length);
   const covered = new Set(groupSchedules.filter((s) => !s.spec.suspend).flatMap((s) => groupMembers(s, allServers).map((server) => targetKey(server.fleetTarget))));
+  const coverageKnown = !!serverScopes && !!liveSchedules;
+  const unprotected = !coverageKnown ? [] : allServers.filter((server) => !covered.has(targetKey(server.fleetTarget)) && !activeServerSchedules.some((s) => matchesServer(s, targetKey(server.fleetTarget), [server])));
+  const activeSchedules = allSchedules.filter((s) => !s.spec.suspend).length;
   const nextRun = allSchedules
     .filter((s) => !s.spec.suspend && s.status?.nextScheduleTime)
     .sort((a, b) => Date.parse(a.status!.nextScheduleTime!) - Date.parse(b.status!.nextScheduleTime!))[0];
+  const counts: Record<TabKey, number> = {
+    backups: allBackups.length,
+    groups: groupSchedules.length,
+    schedules: allSchedules.length - groupSchedules.length,
+    restores: (backupScopes[2].data?.items ?? []).length,
+  };
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-6 p-6">
       <PageHeader
         title="Backups"
         subtitle="Snapshots, group schedules, and restores across your authorized locations."
@@ -115,11 +128,11 @@ export function BackupsPage() {
           accent={recent.some((b) => b.status?.phase === "Failed") ? "danger" : "success"}
         />
         <StatCard
-          label="Group coverage"
-          value={`${covered.size}/${allServers.length}`}
-          sub={`${groupSchedules.length} group ${groupSchedules.length === 1 ? "schedule" : "schedules"}`}
-          icon={<Layers />}
-          accent={covered.size < allServers.length ? "warning" : "violet"}
+          label="Protected"
+          value={coverageKnown ? `${allServers.length - unprotected.length}/${allServers.length}` : "—"}
+          sub={`${activeSchedules} active ${activeSchedules === 1 ? "schedule" : "schedules"}`}
+          icon={unprotected.length > 0 ? <ShieldAlert /> : <ShieldCheck />}
+          accent={unprotected.length > 0 ? "warning" : "success"}
         />
         <StatCard
           label="Next run"
@@ -128,6 +141,22 @@ export function BackupsPage() {
           icon={<CalendarClock />}
         />
       </div>
+      {unprotected.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 sm:flex-row sm:items-center">
+          <ShieldAlert className="h-5 w-5 shrink-0 text-warning" />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-warning-soft-foreground">
+              {unprotected.length === 1 ? "1 server has" : `${unprotected.length} servers have`} no automatic backups
+            </div>
+            <div className="truncate text-xs text-muted">{unprotected.map((server) => server.metadata.name).join(", ")}</div>
+          </div>
+          {tab !== "groups" && (
+            <Button size="sm" variant="outline" onPress={() => setTab("groups")}>
+              Set up a group schedule
+            </Button>
+          )}
+        </div>
+      )}
       <ActiveBackups backups={active} onSelect={setSelected} />
       <BackupDetailDrawer
         name={selected?.metadata.name ?? null}
@@ -140,24 +169,42 @@ export function BackupsPage() {
         }}
       />
       <RestoreDialog backup={restoring} target={restoring?.fleetTarget} permissions={restoring?.fleetPermissions} onClose={() => setRestoring(null)} />
-      <Tabs selectedKey={tab} onSelectionChange={(key) => setTab(key as TabKey)}>
-        <Tabs.List>
-          {TABS.map((t) => (
-            <Tab key={t.id} id={t.id}>
-              {t.label}
-            </Tab>
-          ))}
-        </Tabs.List>
-      </Tabs>
+      <div className="-mx-1 flex overflow-x-auto px-1">
+        <Tabs selectedKey={tab} onSelectionChange={(key) => setTab(key as TabKey)} variant="secondary">
+          <Tabs.List aria-label="Backup sections" className="servers-status-filter">
+            {TABS.map((t) => (
+              <Tab key={t.id} id={t.id}>
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  {t.icon}
+                  {t.label}
+                  <span aria-hidden="true" className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
+                    {counts[t.id]}
+                  </span>
+                </span>
+              </Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
+      </div>
       {tab === "backups" && <BackupsTabPanel location={location} onLocationChange={setLocation} locations={locations} />}
       {tab === "groups" && <BackupGroupsPanel schedules={allSchedules} servers={allServers} />}
-      {tab === "schedules" && <SchedulesTabPanel location={location} onLocationChange={setLocation} locations={locations} />}
+      {tab === "schedules" && <SchedulesTabPanel location={location} onLocationChange={setLocation} locations={locations} onOpenGroups={() => setTab("groups")} />}
       {tab === "restores" && <RestoresTabPanel location={location} onLocationChange={setLocation} locations={locations} />}
     </div>
   );
 }
 
 type LocationFilterProps = { location: string; onLocationChange: (location: string) => void; locations: string[] };
+
+function EmptyState({ icon, title, hint }: { icon: ReactNode; title: string; hint?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-default/60 text-muted [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
+      <div className="text-sm font-medium text-foreground">{title}</div>
+      {hint && <p className="max-w-sm text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
 
 function BackupsTabPanel({ location, onLocationChange, locations }: LocationFilterProps) {
   const [search, setSearch] = useState("");
@@ -211,29 +258,31 @@ function BackupsTabPanel({ location, onLocationChange, locations }: LocationFilt
         trailing={`${filtered.length} of ${items.length} ${items.length === 1 ? "backup" : "backups"}`}
       />
 
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <Table.Root>
+      <div className={TABLE_FRAME}>
+        <Table.Root className="bg-transparent">
           <Table.ScrollContainer>
             <Table.Content aria-label="Backups" keyboardNavigationBehavior="arrow">
               <Table.Header>
                 <Table.Column key="name" isRowHeader>
-                  Name
+                  Backup
                 </Table.Column>
                 <Table.Column key="server">Server</Table.Column>
-                <Table.Column key="phase">Phase</Table.Column>
+                <Table.Column key="phase">Status</Table.Column>
                 <Table.Column key="progress">Progress</Table.Column>
                 <Table.Column key="size">Size</Table.Column>
                 <Table.Column key="completed">Completed</Table.Column>
                 <Table.Column key="actions" className="text-end" />
               </Table.Header>
               <Table.Body
-                renderEmptyState={() => (
-                  <>
-                    {items.length === 0
-                      ? (backupsFleet?.partial || fleetError ? "No backup data available." : 'No backups yet. Use "Back up now" to create the first one.')
-                      : "No backups match the current filters."}
-                  </>
-                )}
+                renderEmptyState={() =>
+                  items.length > 0 ? (
+                    <EmptyState icon={<Archive />} title="No backups match the current filters." hint="Clear the search or filters to see every snapshot." />
+                  ) : backupsFleet?.partial || fleetError ? (
+                    <EmptyState icon={<Archive />} title="No backup data available." />
+                  ) : (
+                    <EmptyState icon={<Archive />} title="No backups yet." hint={'Use "Back up now" to take the first snapshot, or add a schedule so it happens automatically.'} />
+                  )
+                }
               >
                 {filtered.map((b) => (
                   <BackupRow
@@ -321,70 +370,69 @@ function BackupNowDialog({ onClose }: { onClose: () => void }) {
     <Modal isOpen onOpenChange={(open) => { if (!open) onClose(); }}>
       <ModalBackdrop isDismissable={!createNow.isPending} isKeyboardDismissDisabled={createNow.isPending}>
         <ModalContainer>
-          <ModalDialog>
+          <ModalDialog className="max-w-md">
             <ModalHeader>
-              <ModalHeading>Back up now</ModalHeading>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+                <Archive className="h-5 w-5" />
+              </span>
+              <div className="space-y-1">
+                <ModalHeading>Back up now</ModalHeading>
+                <p className="text-sm text-muted">Run a one-off snapshot outside any schedule.</p>
+              </div>
             </ModalHeader>
             <ModalBody className="gap-4">
-              <p className="text-sm text-foreground/60">Run a one-off snapshot outside any schedule.</p>
-              <div className="space-y-4">
-                <div>
-                  <Select
-                    value={createServer}
-                    onChange={(v) => { setCreateServer(v as string); setCreateDest(""); }}
-                    placeholder="Select a server…"
-                    aria-label="Server"
-                    className="mt-1"
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator className="ml-auto h-4 w-4" />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox aria-label="Server options">
-                        {(serversList?.items ?? []).filter((item) => hasPermission(item.fleetPermissions, "backups:write")).map((s) => (
-                          <ListBoxItem key={targetKey(s.fleetTarget)} id={targetKey(s.fleetTarget)} textValue={`${s.metadata.name} · ${targetLabel(s.fleetTarget)}`}>
-                            {s.metadata.name} · {targetLabel(s.fleetTarget)}
-                          </ListBoxItem>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                </div>
-                {destinations.length > 1 && (
-                  <div>
-                    <Select
-                      value={createDest}
-                      onChange={(v) => setCreateDest(v as string)}
-                      placeholder="Select a destination…"
-                      aria-label="Destination"
-                      className="mt-1"
-                    >
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator className="ml-auto h-4 w-4" />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox aria-label="Destination options">
-                          {destinations.map((d) => (
-                            <ListBoxItem key={d.name} id={d.name} textValue={d.name}>{d.name}</ListBoxItem>
-                          ))}
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
-                  </div>
-                )}
-                {noDestinations && (
-                  <p className="text-xs text-foreground/60">
-                    No backup destinations configured. Add one in{" "}
-                    <Link to="/admin" className="text-primary hover:underline">
-                      admin settings
-                    </Link>{" "}
-                    to enable snapshots.
-                  </p>
-                )}
-                {createNow.error && <ErrorBanner err={createNow.error} />}
-              </div>
+              <Select
+                value={createServer}
+                onChange={(v) => { setCreateServer(v as string); setCreateDest(""); }}
+                placeholder="Select a server…"
+                className="space-y-1.5"
+              >
+                <Label className="text-xs">Server</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator className="ml-auto h-4 w-4" />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox aria-label="Server options">
+                    {(serversList?.items ?? []).filter((item) => hasPermission(item.fleetPermissions, "backups:write")).map((s) => (
+                      <ListBoxItem key={targetKey(s.fleetTarget)} id={targetKey(s.fleetTarget)} textValue={`${s.metadata.name} · ${targetLabel(s.fleetTarget)}`}>
+                        {s.metadata.name} · {targetLabel(s.fleetTarget)}
+                      </ListBoxItem>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              {destinations.length > 1 && (
+                <Select
+                  value={createDest}
+                  onChange={(v) => setCreateDest(v as string)}
+                  placeholder="Select a destination…"
+                  className="space-y-1.5"
+                >
+                  <Label className="text-xs">Destination</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator className="ml-auto h-4 w-4" />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox aria-label="Destination options">
+                      {destinations.map((d) => (
+                        <ListBoxItem key={d.name} id={d.name} textValue={d.name}>{d.name}</ListBoxItem>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+              )}
+              {noDestinations && (
+                <p className="rounded-lg bg-default/40 px-3 py-2 text-xs text-muted">
+                  No backup destinations configured. Add one in{" "}
+                  <Link to="/admin" className="text-primary hover:underline">
+                    admin settings
+                  </Link>{" "}
+                  to enable snapshots.
+                </p>
+              )}
+              {createNow.error && <ErrorBanner err={createNow.error} />}
             </ModalBody>
             <ModalFooter>
               <Button variant="ghost" onPress={onClose} isDisabled={createNow.isPending}>
@@ -405,7 +453,7 @@ function BackupNowDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFilterProps) {
+function SchedulesTabPanel({ location, onLocationChange, locations, onOpenGroups }: LocationFilterProps & { onOpenGroups: () => void }) {
   const [search, setSearch] = useState("");
   const [server, setServer] = useState("");
   const qc = useQueryClient();
@@ -450,6 +498,47 @@ function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFi
     <div className="space-y-4">
       <FleetCoverage partial={schedulesFleet?.partial} issues={schedulesFleet?.issues} error={fleetError} label="Schedules" />
       {fleetLoading && <p className="text-sm text-muted">Loading schedules…</p>}
+      <Card className="flex flex-col gap-3 border border-dashed border-border bg-transparent p-4 sm:flex-row sm:items-center">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+          <CalendarPlus className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">Add a server schedule</div>
+          <p className="text-xs text-muted">
+            Back up a single server on its own cron. Covering many servers? A{" "}
+            <button type="button" onClick={onOpenGroups} className="text-accent hover:underline">group schedule</button>{" "}
+            is easier to manage.
+          </p>
+        </div>
+        <Select
+          value={creatingFor}
+          onChange={(v) => setCreatingFor(v as string)}
+          placeholder="Select a server…"
+          className="w-full space-y-1.5 sm:w-72"
+        >
+          <Label className="text-xs text-muted">New schedule for</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator className="ml-auto h-4 w-4" />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox aria-label="Server options">
+              {(serversList?.items ?? []).filter((item) => hasPermission(item.fleetPermissions, "schedules:write")).map((s) => (
+                <ListBoxItem key={targetKey(s.fleetTarget)} id={targetKey(s.fleetTarget)} textValue={`${s.metadata.name} · ${targetLabel(s.fleetTarget)}`}>
+                  {s.metadata.name} · {targetLabel(s.fleetTarget)}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      </Card>
+
+      {selectedServer && (
+        <ScheduleForm target={selectedServer.fleetTarget} permissions={selectedServer.fleetPermissions} serverName={selectedServer.metadata.name} onClose={() => setCreatingFor("")} />
+      )}
+      {toggleSuspend.error && <ErrorBanner err={toggleSuspend.error} />}
+      {remove.error && <ErrorBanner err={remove.error} />}
+
       <BackupFilters
         location={location}
         onLocationChange={onLocationChange}
@@ -461,43 +550,9 @@ function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFi
         servers={serversList.items}
         trailing={`${filtered.length} of ${items.length} ${items.length === 1 ? "schedule" : "schedules"}`}
       />
-      <Card className="p-4">
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <label className="text-xs font-medium">New schedule for</label>
-            <Select
-              value={creatingFor}
-              onChange={(v) => setCreatingFor(v as string)}
-              placeholder="Select a server…"
-              aria-label="Select a server"
-              className="mt-1"
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator className="ml-auto h-4 w-4" />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox aria-label="Server options">
-                  {(serversList?.items ?? []).filter((item) => hasPermission(item.fleetPermissions, "schedules:write")).map((s) => (
-                    <ListBoxItem key={targetKey(s.fleetTarget)} id={targetKey(s.fleetTarget)} textValue={`${s.metadata.name} · ${targetLabel(s.fleetTarget)}`}>
-                      {s.metadata.name} · {targetLabel(s.fleetTarget)}
-                    </ListBoxItem>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </div>
-        </div>
-      </Card>
 
-      {selectedServer && (
-        <ScheduleForm target={selectedServer.fleetTarget} permissions={selectedServer.fleetPermissions} serverName={selectedServer.metadata.name} onClose={() => setCreatingFor("")} />
-      )}
-      {toggleSuspend.error && <ErrorBanner err={toggleSuspend.error} />}
-      {remove.error && <ErrorBanner err={remove.error} />}
-
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <Table.Root>
+      <div className={TABLE_FRAME}>
+        <Table.Root className="bg-transparent">
           <Table.ScrollContainer>
             <Table.Content aria-label="Schedules" keyboardNavigationBehavior="arrow">
               <Table.Header>
@@ -505,27 +560,38 @@ function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFi
                   Name
                 </Table.Column>
                 <Table.Column key="server">Server</Table.Column>
-                <Table.Column key="cron">Cron</Table.Column>
+                <Table.Column key="cron">Runs</Table.Column>
                 <Table.Column key="lastrun">Last run</Table.Column>
                 <Table.Column key="nextrun">Next run</Table.Column>
                 <Table.Column key="active">Active</Table.Column>
                 <Table.Column key="actions" className="text-end" />
               </Table.Header>
-              <Table.Body renderEmptyState={() => <>{items.length > 0 ? "No schedules match the current filters." : schedulesFleet?.partial || fleetError ? "No schedule data available." : "No schedules configured yet."}</>}>
+              <Table.Body
+                renderEmptyState={() =>
+                  items.length > 0 ? (
+                    <EmptyState icon={<CalendarClock />} title="No schedules match the current filters." />
+                  ) : schedulesFleet?.partial || fleetError ? (
+                    <EmptyState icon={<CalendarClock />} title="No schedule data available." />
+                  ) : (
+                    <EmptyState icon={<CalendarClock />} title="No schedules configured yet." hint="Pick a server above to add its first per-server schedule." />
+                  )
+                }
+              >
                 {filtered.map((s) => (
                   <Table.Row key={targetKey(s.fleetTarget)}>
                     <Table.Cell>
                       <span className="font-mono text-xs">{s.metadata.name}</span><div className="text-xs text-muted">{targetLabel(s.fleetTarget)}</div>
                     </Table.Cell>
-                    <Table.Cell>{s.spec.serverRef?.name}</Table.Cell>
+                    <Table.Cell className="font-medium">{s.spec.serverRef?.name}</Table.Cell>
                     <Table.Cell>
-                      <span className="font-mono text-xs">{s.spec.schedule}</span>
+                      <div className="text-sm">{describeCron(s.spec.schedule)}</div>
+                      {cronPreset(s.spec.schedule) && <div className="font-mono text-xs text-muted">{s.spec.schedule}</div>}
                     </Table.Cell>
                     <Table.Cell className="text-foreground/60">
                       {formatRelative(s.status?.lastSuccessfulTime)}
                     </Table.Cell>
                     <Table.Cell className="text-foreground/60">
-                      {s.spec.suspend ? "—" : formatRelativeFuture(s.status?.nextScheduleTime)}
+                      {s.spec.suspend ? "Paused" : formatRelativeFuture(s.status?.nextScheduleTime)}
                     </Table.Cell>
                     <Table.Cell>
                       <Switch
@@ -543,14 +609,15 @@ function SchedulesTabPanel({ location, onLocationChange, locations }: LocationFi
                         </Switch.Content>
                       </Switch>
                     </Table.Cell>
-                    <Table.Cell>
+                    <Table.Cell className="text-end">
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="text-danger"
                         isDisabled={!hasPermission(s.fleetPermissions, "schedules:write")}
                         onPress={() => setDeleting(s)}
                       >
-                        Delete
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
                       </Button>
                     </Table.Cell>
                   </Table.Row>
@@ -637,8 +704,8 @@ function RestoresTabPanel({ location, onLocationChange, locations }: LocationFil
         phases={RESTORE_PHASES}
         trailing={`${filtered.length} of ${items.length} ${items.length === 1 ? "restore" : "restores"}`}
       />
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <Table.Root>
+      <div className={TABLE_FRAME}>
+        <Table.Root className="bg-transparent">
           <Table.ScrollContainer>
             <Table.Content aria-label="Restores" keyboardNavigationBehavior="arrow">
               <Table.Header>
@@ -647,18 +714,20 @@ function RestoresTabPanel({ location, onLocationChange, locations }: LocationFil
                 </Table.Column>
                 <Table.Column key="backup">Backup</Table.Column>
                 <Table.Column key="target">Target</Table.Column>
-                <Table.Column key="phase">Phase</Table.Column>
+                <Table.Column key="phase">Status</Table.Column>
                 <Table.Column key="completed">Completed</Table.Column>
                 <Table.Column key="message">Message</Table.Column>
               </Table.Header>
               <Table.Body
-                renderEmptyState={() => (
-                  <>
-                    {items.length === 0
-                      ? (restoresFleet?.partial || fleetError ? "No restore data available." : "No restores have been run.")
-                      : "No restores match the current filters."}
-                  </>
-                )}
+                renderEmptyState={() =>
+                  items.length > 0 ? (
+                    <EmptyState icon={<History />} title="No restores match the current filters." />
+                  ) : restoresFleet?.partial || fleetError ? (
+                    <EmptyState icon={<History />} title="No restore data available." />
+                  ) : (
+                    <EmptyState icon={<History />} title="No restores have been run." hint="Open a backup and choose Restore to roll a server back to that snapshot." />
+                  )
+                }
               >
                 {filtered.map((r) => (
                   <Table.Row key={targetKey(r.fleetTarget)}>
@@ -668,15 +737,15 @@ function RestoresTabPanel({ location, onLocationChange, locations }: LocationFil
                     <Table.Cell>
                       <span className="font-mono text-xs">{r.spec.backupRef.name}</span>
                     </Table.Cell>
-                    <Table.Cell>{r.spec.serverRef.name}</Table.Cell>
+                    <Table.Cell className="font-medium">{r.spec.serverRef.name}</Table.Cell>
                     <Table.Cell>
                       <PhaseChip phase={r.status?.phase} />
                     </Table.Cell>
                     <Table.Cell className="text-foreground/60">
-                      {formatRelative(r.status?.completionTime)}
+                      <span title={r.status?.completionTime}>{formatRelative(r.status?.completionTime)}</span>
                     </Table.Cell>
-                    <Table.Cell className="text-xs text-foreground/60">
-                      {r.status?.message ?? "—"}
+                    <Table.Cell>
+                      <span className="block max-w-xs truncate text-xs text-foreground/60" title={r.status?.message}>{r.status?.message ?? "—"}</span>
                     </Table.Cell>
                   </Table.Row>
                 ))}
