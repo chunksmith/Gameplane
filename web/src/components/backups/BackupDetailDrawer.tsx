@@ -8,6 +8,8 @@ import { formatRelative } from "@/lib/utils";
 import type { Backup } from "@/types";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { ErrorBanner } from "./ErrorBanner";
+import { BackupProgressBar, isActiveBackup } from "./ActiveBackups";
+import { SCHEDULE_LABEL } from "@/lib/backupGroups";
 
 interface Props {
   target?: ResourceTarget;
@@ -78,7 +80,14 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                   <Field label="Phase">
                     <PhaseChip phase={backup.status?.phase} />
                   </Field>
+                  {isActiveBackup(backup) && (
+                    <Field label="Progress">
+                      <BackupProgressBar backup={backup} />
+                    </Field>
+                  )}
+                  {backup.status?.message && <Field label="Message">{backup.status.message}</Field>}
                   <Field label="Server">{backup.spec.serverRef.name}</Field>
+                  <Field label="Schedule">{backup.metadata.labels?.[SCHEDULE_LABEL] ?? "manual"}</Field>
                   <Field label="Snapshot ID">
                     <span className="font-mono text-xs">{backup.status?.snapshotID ?? "—"}</span>
                   </Field>

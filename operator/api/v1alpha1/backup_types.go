@@ -6,11 +6,12 @@ import (
 )
 
 // BackupPhase is a high-level state for a Backup job.
-// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed
+// +kubebuilder:validation:Enum=Queued;Pending;Running;Succeeded;Failed
 type BackupPhase string
 
 // BackupPhase constants define the possible values for a Backup's phase.
 const (
+	BackupPhaseQueued    BackupPhase = "Queued"
 	BackupPhasePending   BackupPhase = "Pending"
 	BackupPhaseRunning   BackupPhase = "Running"
 	BackupPhaseSucceeded BackupPhase = "Succeeded"
@@ -33,6 +34,13 @@ const BackupFinalizer = "gameplane.local/backup-finalizer"
 // because their VolumeSnapshot is garbage-collected through its owner reference.
 // See backup_forget.go's finalizeSnapshot.
 const BackupSnapshotFinalizer = "gameplane.local/backup-snapshot-finalizer"
+
+const (
+	BackupScheduleLabel    = "gameplane.local/backup-schedule"
+	BackupGroupLabelPrefix = "backup-group.gameplane.local/"
+	BackupGroupEnabled     = "enabled"
+	BackupGroupDefault     = "default"
+)
 
 // BackupSpec is the desired state of a one-shot backup.
 // +kubebuilder:validation:XValidation:rule="self.strategy == 'volume-snapshot' || has(self.repoRef)",message="repoRef is required for the restic-snapshot strategy"
@@ -87,6 +95,23 @@ type LocalObjectRef struct {
 	Name string `json:"name"`
 }
 
+type BackupProgress struct {
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	PercentDone int32 `json:"percentDone"`
+	// +optional
+	SecondsRemaining int64 `json:"secondsRemaining,omitempty"`
+	// +optional
+	BytesDone int64 `json:"bytesDone,omitempty"`
+	// +optional
+	TotalBytes int64 `json:"totalBytes,omitempty"`
+	// +optional
+	FilesDone int64 `json:"filesDone,omitempty"`
+	// +optional
+	TotalFiles int64       `json:"totalFiles,omitempty"`
+	UpdatedAt  metav1.Time `json:"updatedAt"`
+}
+
 // BackupStatus is the observed state of a Backup.
 type BackupStatus struct {
 	// +optional
@@ -121,6 +146,9 @@ type BackupStatus struct {
 	// Message is a human-readable reason when Phase=Failed.
 	// +optional
 	Message string `json:"message,omitempty"`
+
+	// +optional
+	Progress *BackupProgress `json:"progress,omitempty"`
 
 	// Conditions carry detailed state transitions.
 	// +optional

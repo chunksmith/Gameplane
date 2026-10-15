@@ -21,6 +21,7 @@ const phaseColorMap: Record<string, PhaseColor> = {
   Resuming: "warning",
   // Stopped/idle states
   Pending: "default",
+  Queued: "warning",
   Stopped: "default",
   Suspended: "default",
   // Error state

@@ -3,6 +3,8 @@ import { Button, Table } from "@heroui/react";
 import { formatRelative } from "@/lib/utils";
 import type { Backup } from "@/types";
 import { PhaseChip } from "@/components/ui/PhaseChip";
+import { SCHEDULE_LABEL } from "@/lib/backupGroups";
+import { BackupProgressBar, isActiveBackup } from "./ActiveBackups";
 
 interface Props {
   target?: ResourceTarget;
@@ -22,14 +24,22 @@ export function BackupRow({ backup, showServer, onSelect, onRestore, target, per
       className="cursor-pointer"
       onAction={() => onSelect(backup)}
     >
-      <Table.Cell className="font-mono text-xs">{backup.metadata.name}{target && <div className="text-muted">{target.cluster} / {target.namespace}</div>}</Table.Cell>
+      <Table.Cell className="font-mono text-xs">
+        {backup.metadata.name}
+        <div className="text-muted">
+          {backup.metadata.labels?.[SCHEDULE_LABEL] ?? "manual"}
+          {target && ` · ${target.cluster} / ${target.namespace}`}
+        </div>
+      </Table.Cell>
       <Table.Cell>
         {showServer && backup.spec.serverRef.name}
       </Table.Cell>
       <Table.Cell>
         <PhaseChip phase={backup.status?.phase} />
       </Table.Cell>
-      <Table.Cell className="font-mono">{backup.status?.size ?? "—"}</Table.Cell>
+      <Table.Cell className="font-mono">
+        {isActiveBackup(backup) ? <div className="w-48"><BackupProgressBar backup={backup} compact /></div> : backup.status?.size ?? "—"}
+      </Table.Cell>
       <Table.Cell>
         {formatRelative(backup.status?.completionTime)}
       </Table.Cell>

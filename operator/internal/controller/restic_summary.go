@@ -6,6 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
 )
 
 // ResticSummary mirrors the trailing summary line restic prints when
@@ -58,4 +62,38 @@ func ParseResticSummary(r io.Reader) (*ResticSummary, error) {
 		return nil, ErrNoResticSummary
 	}
 	return last, nil
+}
+
+type resticStatus struct {
+	MessageType      string  `json:"message_type"`
+	PercentDone      float64 `json:"percent_done"`
+	SecondsRemaining int64   `json:"seconds_remaining"`
+	TotalFiles       int64   `json:"total_files"`
+	FilesDone        int64   `json:"files_done"`
+	TotalBytes       int64   `json:"total_bytes"`
+	BytesDone        int64   `json:"bytes_done"`
+}
+
+func ParseResticProgress(r io.Reader) *gameplanev1alpha1.BackupProgress {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 64*1024), 1<<20)
+	var last *resticStatus
+	for scanner.Scan() {
+		var status resticStatus
+		if json.Unmarshal(scanner.Bytes(), &status) == nil && status.MessageType == "status" {
+			last = &status
+		}
+	}
+	if last == nil {
+		return nil
+	}
+	return &gameplanev1alpha1.BackupProgress{
+		PercentDone:      int32(min(max(last.PercentDone, 0), 1) * 100),
+		SecondsRemaining: last.SecondsRemaining,
+		TotalFiles:       last.TotalFiles,
+		FilesDone:        last.FilesDone,
+		TotalBytes:       last.TotalBytes,
+		BytesDone:        last.BytesDone,
+		UpdatedAt:        metav1.Now(),
+	}
 }

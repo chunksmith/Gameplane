@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: d5069bc379d1aee86475b0f63c6c2866423a381b14b44cbf7a77dfd63e3c1c6a
+    gameplane.local/crd-bundle-sha256: f0aacdaada8251bda7b2e2c2ca9d9629fa1bfe4a50635ac29daa5f557e98e194
     controller-gen.kubebuilder.io/version: v0.20.1
   name: backups.gameplane.local
 spec:
@@ -198,11 +198,41 @@ spec:
               phase:
                 description: BackupPhase is a high-level state for a Backup job.
                 enum:
+                - Queued
                 - Pending
                 - Running
                 - Succeeded
                 - Failed
                 type: string
+              progress:
+                properties:
+                  bytesDone:
+                    format: int64
+                    type: integer
+                  filesDone:
+                    format: int64
+                    type: integer
+                  percentDone:
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  secondsRemaining:
+                    format: int64
+                    type: integer
+                  totalBytes:
+                    format: int64
+                    type: integer
+                  totalFiles:
+                    format: int64
+                    type: integer
+                  updatedAt:
+                    format: date-time
+                    type: string
+                required:
+                - percentDone
+                - updatedAt
+                type: object
               size:
                 anyOf:
                 - type: integer

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -345,6 +346,10 @@ func (r *BackupReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 			b.Spec.RepoRef.Name, strings.Join(missing, ", ")))
 	}
 
+	if res, wait, err := r.waitForSlot(ctx, &b); err != nil || wait {
+		return res, err
+	}
+
 	if res, err := r.prepareBackupQuiesce(ctx, &b); err != nil || res.RequeueAfter > 0 {
 		return res, err
 	}
@@ -380,6 +385,12 @@ func (r *BackupReconciler) maybeQuiesce(ctx context.Context, b *gameplanev1alpha
 	}
 	if state := b.Annotations[annoQuiesceAttempted]; state != "" && state != "pending" {
 		return nil
+	}
+	var gs gameplanev1alpha1.GameServer
+	if err := r.Get(ctx, types.NamespacedName{Namespace: b.Namespace, Name: b.Spec.ServerRef.Name}, &gs); err == nil &&
+		gs.Status.Phase != "" && gs.Status.Phase != gameplanev1alpha1.GameServerPhaseRunning {
+		patchBackupAnnotations(b, map[string]string{annoQuiesceAttempted: "unsupported"})
+		return r.Update(ctx, b)
 	}
 	// Persist cleanup intent BEFORE save-off: a crash or a partial agent failure
 	// must still owe save-on even when quiesced-at was never recorded.
@@ -442,7 +453,7 @@ func (r *BackupReconciler) mirrorJobStatus(
 	case job.Status.Active > 0:
 		phase = gameplanev1alpha1.BackupPhaseRunning
 	default:
-		if phase == "" {
+		if phase == "" || phase == gameplanev1alpha1.BackupPhaseQueued {
 			phase = gameplanev1alpha1.BackupPhasePending
 		}
 	}
@@ -463,6 +474,18 @@ func (r *BackupReconciler) mirrorJobStatus(
 	if job.Status.CompletionTime != nil && b.Status.CompletionTime == nil {
 		b.Status.CompletionTime = job.Status.CompletionTime
 		dirty = true
+	}
+	switch phase {
+	case gameplanev1alpha1.BackupPhaseRunning:
+		if progress := r.readResticProgress(ctx, b); progress != nil && !sameProgress(b.Status.Progress, progress) {
+			b.Status.Progress = progress
+			dirty = true
+		}
+	case gameplanev1alpha1.BackupPhaseSucceeded, gameplanev1alpha1.BackupPhaseFailed:
+		if b.Status.Progress != nil {
+			b.Status.Progress = nil
+			dirty = true
+		}
 	}
 
 	// On Succeeded, scrape the restic summary for snapshot id + size.
@@ -555,6 +578,103 @@ func (r *BackupReconciler) mirrorJobStatus(
 		return res, nil
 	}
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+}
+
+func (r *BackupReconciler) waitForSlot(ctx context.Context, b *gameplanev1alpha1.Backup) (ctrl.Result, bool, error) {
+	schedName := b.Labels[gameplanev1alpha1.BackupScheduleLabel]
+	if schedName == "" {
+		return ctrl.Result{}, false, nil
+	}
+	var sched gameplanev1alpha1.BackupSchedule
+	if err := r.Get(ctx, types.NamespacedName{Namespace: b.Namespace, Name: schedName}, &sched); err != nil {
+		return ctrl.Result{}, false, client.IgnoreNotFound(err)
+	}
+	if sched.Spec.Concurrency <= 0 {
+		return ctrl.Result{}, false, nil
+	}
+	var job batchv1.Job
+	if err := r.Get(ctx, types.NamespacedName{Namespace: b.Namespace, Name: b.Name}, &job); err == nil {
+		return ctrl.Result{}, false, nil
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, false, err
+	}
+	reader := r.APIReader
+	if reader == nil {
+		reader = r.Client
+	}
+	var list gameplanev1alpha1.BackupList
+	if err := reader.List(ctx, &list, client.InNamespace(b.Namespace),
+		client.MatchingLabels{gameplanev1alpha1.BackupScheduleLabel: schedName}); err != nil {
+		return ctrl.Result{}, false, err
+	}
+	running := 0
+	var queued []gameplanev1alpha1.Backup
+	for _, other := range list.Items {
+		switch {
+		case other.Name == b.Name:
+			queued = append(queued, other)
+		case !other.DeletionTimestamp.IsZero():
+		case other.Status.Phase == "", other.Status.Phase == gameplanev1alpha1.BackupPhaseQueued:
+			queued = append(queued, other)
+		case other.Status.Phase == gameplanev1alpha1.BackupPhasePending, other.Status.Phase == gameplanev1alpha1.BackupPhaseRunning:
+			running++
+		}
+	}
+	slices.SortFunc(queued, func(x, y gameplanev1alpha1.Backup) int {
+		if c := x.CreationTimestamp.Compare(y.CreationTimestamp.Time); c != 0 {
+			return c
+		}
+		return strings.Compare(x.Name, y.Name)
+	})
+	position := slices.IndexFunc(queued, func(other gameplanev1alpha1.Backup) bool { return other.Name == b.Name })
+	limit := int(sched.Spec.Concurrency)
+	if running+position < limit {
+		b.Status.Message = ""
+		return ctrl.Result{}, false, nil
+	}
+	msg := fmt.Sprintf("waiting for a free slot: %d/%d running, #%d in queue", running, limit, position+1)
+	if b.Status.Phase != gameplanev1alpha1.BackupPhaseQueued || b.Status.Message != msg {
+		b.Status.Phase = gameplanev1alpha1.BackupPhaseQueued
+		b.Status.Message = msg
+		b.Status.ObservedGeneration = b.Generation
+		if err := r.Status().Update(ctx, b); err != nil {
+			return ctrl.Result{}, false, err
+		}
+	}
+	return ctrl.Result{RequeueAfter: 10 * time.Second}, true, nil
+}
+
+func (r *BackupReconciler) readResticProgress(ctx context.Context, b *gameplanev1alpha1.Backup) *gameplanev1alpha1.BackupProgress {
+	if r.Clientset == nil {
+		return nil
+	}
+	pods := r.Clientset.CoreV1().Pods(b.Namespace)
+	list, err := pods.List(ctx, metav1.ListOptions{LabelSelector: "job-name=" + b.Name})
+	if err != nil {
+		return nil
+	}
+	for i := range list.Items {
+		if list.Items[i].Status.Phase != corev1.PodRunning {
+			continue
+		}
+		tail := int64(20)
+		rc, err := pods.GetLogs(list.Items[i].Name, &corev1.PodLogOptions{Container: "restic", TailLines: &tail}).Stream(ctx)
+		if err != nil {
+			return nil
+		}
+		defer func() { _ = rc.Close() }()
+		return ParseResticProgress(rc)
+	}
+	return nil
+}
+
+func sameProgress(a, b *gameplanev1alpha1.BackupProgress) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	x, y := *a, *b
+	x.UpdatedAt, y.UpdatedAt = metav1.Time{}, metav1.Time{}
+	return x == y
 }
 
 // recordServerBackupTime stamps the owning GameServer's
@@ -981,12 +1101,14 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 			Name:  "restic",
 			Image: resticImageOrDefault(r.ResticImage),
 			Args:  args,
-			Env:   env,
+			Env: append(env,
+				corev1.EnvVar{Name: "RESTIC_PROGRESS_FPS", Value: "0.2"},
+				corev1.EnvVar{Name: "RESTIC_CACHE_DIR", Value: "/tmp/restic-reader-cache"}),
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "data", MountPath: "/data", ReadOnly: true},
 				{Name: "cache", MountPath: "/tmp"},
 			},
-			SecurityContext: containerSec,
+			SecurityContext: resticReaderSecurityContext(),
 		}},
 		Volumes: []corev1.Volume{
 			{
@@ -1032,6 +1154,16 @@ func resticEnv(repoSecretName string) []corev1.EnvVar {
 // resticContainerSecurityContext is the locked-down container security context
 // for restic Jobs: non-root, read-only root filesystem, no privilege
 // escalation, all capabilities dropped.
+func resticReaderSecurityContext() *corev1.SecurityContext {
+	root, nonRoot := int64(0), false
+	sc := resticContainerSecurityContext()
+	sc.RunAsUser = &root
+	sc.RunAsGroup = &root
+	sc.RunAsNonRoot = &nonRoot
+	sc.Capabilities.Add = []corev1.Capability{"DAC_READ_SEARCH"}
+	return sc
+}
+
 func resticContainerSecurityContext() *corev1.SecurityContext {
 	nonRoot := true
 	roRootFS := true
