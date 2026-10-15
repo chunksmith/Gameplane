@@ -204,6 +204,8 @@ spec:
                 - Failed
                 type: string
               progress:
+                description: BackupProgress is the live progress of a running restic
+                  backup, parsed from restic's JSON status output.
                 properties:
                   bytesDone:
                     format: int64
