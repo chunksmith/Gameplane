@@ -255,6 +255,14 @@ test-doc-versions: ## Run the fixture tests for hack/check-doc-versions.sh
 check-links: ## Verify internal documentation links and anchors resolve
 	hack/check-links.sh
 
+.PHONY: check-features-sync
+check-features-sync: ## Verify FEATURES.md and the website features page carry the same capability catalog
+	bash hack/check-features-sync.sh
+
+.PHONY: test-features-sync
+test-features-sync: ## Run the fixture tests for hack/check-features-sync.sh
+	bash hack/test-check-features-sync.sh
+
 .PHONY: check-telemetry-catalog
 check-telemetry-catalog: ## Verify telemetryschema/catalog.txt matches the chart's official module list
 	hack/check-telemetry-catalog.sh
@@ -273,7 +281,7 @@ test-up-registry: ## Run the fixture tests for deploy/kind/up.sh's registry/cont
 	hack/test-up-registry.sh
 
 .PHONY: lint
-lint: check-doc-versions check-links check-specs check-telemetry-catalog check-dev-load-images check-coverage-gaps test-up-registry lint-go lint-web ## Run all linters
+lint: check-doc-versions check-links check-features-sync check-specs check-telemetry-catalog check-dev-load-images check-coverage-gaps test-up-registry lint-go lint-web ## Run all linters
 
 .PHONY: lint-go
 lint-go: ## Run golangci-lint across all modules

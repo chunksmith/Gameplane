@@ -45,7 +45,7 @@ were added and verified on **2026-09-26**.
 | `api/` | Go | 17 | chi REST + WebSocket gateway: auth (local + OIDC), RBAC, K8s client, SQLite/Postgres persistence, notifications |
 | `agent/` | Go | 6 | In-pod sidecar: RCON/WebRcon console, chi HTTP surface, heartbeat status patch, disk usage stats |
 | `audit-syslog-bridge/` | Go | 0 (stdlib only) | Standalone HTTP-JSON → syslog relay for the audit webhook sink |
-| `telemetry-receiver/` | Go | 1 | Standalone collector for the API's opt-in anonymous usage telemetry |
+| `telemetry-receiver/` | Go | 1 | Standalone collector for the API's usage telemetry (daily counts; extended reports add a random install ID and its public key; on by default for new installs; `api.telemetry.enabled=false` turns it off) |
 | `sentinel/` | Go | 2 | Wake-on-connect listener holding ports for sleeping pods |
 | `capture-sidecar/` | Go | 3 | Ephemeral AF_PACKET packet capture sidecar with BPF filtering |
 | `tunnel/` | Go | 0 (stdlib only) | Relay client supervisor for frp/Tailscale/playit |

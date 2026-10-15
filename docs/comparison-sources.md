@@ -69,7 +69,7 @@ verified.
 **Source ID**: G-f  
 **Evidence**: docs/module-authoring.md § Verifying and pinning bundles (lines 340–414); CLAUDE.md § Repository Map (`modules/`)  
 **Checked on**: 2026-09-26 (re-verified)  
-**What was verified**: OCI bundles via ModuleSource CRD supporting git/http/oci/local/upload sources; cosign signature verification documented at lines 340–414; 30 ready-to-use templates in gameplane-module repository.  
+**What was verified**: OCI bundles via ModuleSource CRD supporting git/http/oci/local/upload sources; cosign signature verification documented at lines 340–414; 29 ready-to-use templates in gameplane-module repository.  
 **Last-known URL**: https://github.com/GameplanePanel/Gameplane/tree/master/modules
 
 <a id="gameplane-row-g"></a>

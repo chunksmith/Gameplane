@@ -118,7 +118,7 @@ operator:
     # empty string (default) = use cluster's default StorageClass
     # "fast-nvme", "gpu-attached", etc. = use named StorageClass
     # If the named class doesn't exist, PVC provisioning fails and GameServer
-    # status.conditions surfaces "StorageClassNotFound" reason.
+    # status.conditions surfaces the "PVCProvisioningFailed" reason.
     storageClassName: ""
 
 api:
