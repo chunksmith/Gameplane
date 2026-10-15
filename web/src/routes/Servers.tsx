@@ -19,7 +19,7 @@ import {
   Users as UsersIcon,
 } from "lucide-react";
 
-import { Button, Card, Input, Chip, Tabs, Tab, Table, buttonVariants } from "@heroui/react";
+import { Button, Card, Input, Chip, ListBox, ListBoxItem, Select, Tabs, Tab, Table, buttonVariants } from "@heroui/react";
 import { StatCard } from "@/components/ui/StatCard";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { FilterPopover } from "@/components/ui/FilterPopover";
@@ -29,7 +29,8 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { describeStorageProvisioned, formatBytes, cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/media";
 import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
-import { Servers, type LifecycleVerb } from "@/lib/endpoints";
+import { Networks, Servers, type LifecycleVerb } from "@/lib/endpoints";
+import { NETWORK_ANNOTATION } from "@/lib/annotations";
 import { countByState } from "@/lib/servers";
 import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServers, type FleetTarget, type Located } from "@/lib/fleet";
 import { FleetCoverage, FleetScopeFilter } from "@/components/FleetScope";
@@ -43,6 +44,7 @@ export function ServersPage() {
   const [location, setLocation] = useFleetLocation();
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
+  const [network, setNetwork] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [appliedGames, setAppliedGames] = useState<Set<string>>(new Set());
   const [appliedNamespaces, setAppliedNamespaces] = useState<Set<string>>(new Set());
@@ -57,6 +59,7 @@ export function ServersPage() {
     queryFn: ({ signal }) => Fleet.inventory({ cluster: location || undefined }, signal),
     staleTime: 30_000,
   });
+  const { data: networks } = useQuery({ queryKey: ["networks"], queryFn: () => Networks.list() });
   const allServers = useMemo(() => (fleet?.items ?? []).map(located), [fleet]);
   const servers = useMemo(() => allServers.filter((server) => !location || server.fleetTarget.cluster === location), [allServers, location]);
   const clusterView = inventoryTotals((inventory?.items ?? []).filter((item) => !location || item.cluster === location));
@@ -103,6 +106,13 @@ export function ServersPage() {
     <div className="text-xs font-semibold text-muted">Location</div>
     <FleetScopeFilter value={draftLocation} onChange={setDraftLocation} clusters={locationChoices} />
   </div>;
+  const networkSelect = (className: string) => <Select value={network} onChange={(next) => setNetwork(String(next ?? ""))} aria-label="Filter by network" className={className}>
+    <Select.Trigger><Select.Value /><Select.Indicator className="ml-auto h-4 w-4" /></Select.Trigger>
+    <Select.Popover><ListBox aria-label="Network options">
+      <ListBoxItem id="" textValue="All networks">All networks</ListBoxItem>
+      {(networks ?? []).map(({ name }) => <ListBoxItem key={name} id={name} textValue={name}>{name}</ListBoxItem>)}
+    </ListBox></Select.Popover>
+  </Select>;
 
   const filterServer = (gs: GameServer) => {
     if (query && !gs.metadata.name.toLowerCase().includes(query.toLowerCase())) return false;
@@ -112,6 +122,7 @@ export function ServersPage() {
     if (appliedGames.size > 0 && !appliedGames.has(gs.spec.templateRef.name)) return false;
     const ns = gs.metadata.namespace ?? "gameplane-games";
     if (appliedNamespaces.size > 0 && !appliedNamespaces.has(ns)) return false;
+    if (network && gs.metadata.annotations?.[NETWORK_ANNOTATION] !== network) return false;
     const phase = gs.status?.phase;
     if (filter === "running") return phase === "Running";
     if (filter === "stopped") return phase === "Stopped" || phase === "Suspended" || phase === "Failed";
@@ -265,6 +276,7 @@ export function ServersPage() {
                 aria-label="Search servers"
               />
             </div>
+            {networkSelect("w-48")}
             <FilterPopover
               fields={locationField}
               games={distinctGames}
@@ -304,6 +316,7 @@ export function ServersPage() {
               aria-label="Search servers"
             />
           </div>
+          {networkSelect("w-36 shrink-0")}
           <FilterPopover
             fields={locationField}
             games={distinctGames}
