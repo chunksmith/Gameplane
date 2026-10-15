@@ -71,7 +71,7 @@ describe("OverviewTab metric tiles", () => {
     })} />);
     expect(await screen.findByText("Disk")).toBeInTheDocument();
     expect(screen.getByText("25%")).toBeInTheDocument(); // CPU 500/2000
-    expect(screen.getByText("0.5 / 2.0 cores")).toBeInTheDocument();
+    expect(screen.getByText("50% / 200%")).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
     // formatBytes gives one decimal below 10 units: 1 GiB → "1.0 GB".
     expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
@@ -106,13 +106,13 @@ describe("OverviewTab metric tiles", () => {
       phase: "Starting",
       agent: {
         lastHeartbeat: "now",
-        cpuMillicores: 1500,                          // no limit → "1.50 cores", no bar
+        cpuMillicores: 1500,                          // no limit → "150%", no bar
         memoryBytes: 536870912,                       // no limit → "512 MB" primary + "512 MB / —"
         diskUsedBytes: 1073741824, diskTotalBytes: 0, // no total → "1.0 GB" primary + "1.0 GB / —"
         playersOnline: 3,                             // exercises the players fallback branch
       },
     })} />);
-    expect(await screen.findByText("1.50 cores")).toBeInTheDocument();
+    expect(await screen.findByText("150%")).toBeInTheDocument();
     expect(screen.getByText("512 MB")).toBeInTheDocument();
     expect(screen.getByText("512 MB / —")).toBeInTheDocument();
     expect(screen.getByText("1.0 GB")).toBeInTheDocument();
