@@ -1,6 +1,6 @@
 import { useLocation, Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { ShieldCheck, X, LogOut, Palette, GitCommitHorizontal } from "lucide-react";
+import { ShieldCheck, X, LogOut, GitCommitHorizontal } from "lucide-react";
 import {
   Drawer,
 } from "@heroui/react";
@@ -30,8 +30,6 @@ export interface SidebarProps {
   onLogout: () => void | Promise<void>;
   theme?: AppearanceMode;
   onThemeChange?: (mode: AppearanceMode) => void;
-  /** Called when the footer "Customize theme" button is pressed (navigates to /settings/theme). */
-  onCustomizeTheme?: () => void;
   /** D4: true while a custom-colors theme is active — disables the footer AppearanceToggle. */
   isCustomColorsActive?: boolean;
   version?: string;
@@ -58,7 +56,6 @@ export function Sidebar({
   onLogout,
   theme = "system",
   onThemeChange,
-  onCustomizeTheme,
   isCustomColorsActive = false,
   version,
   buildDate,
@@ -83,7 +80,7 @@ export function Sidebar({
       aria-label="Sidebar"
       className={cn(
         "flex flex-col border-r border-border bg-surface/60",
-        variant === "fixed" ? "h-full w-[260px] shrink-0" : "w-full h-full"
+        variant === "fixed" ? "h-full w-[220px] shrink-0" : "w-full h-full"
       )}>
       {/* Header */}
       <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
@@ -157,29 +154,13 @@ export function Sidebar({
       {/* Footer */}
       <div className="border-t border-border px-3 py-3 space-y-2" aria-label="Sidebar footer">
         {/* Appearance toggle row */}
-        {(onThemeChange || onCustomizeTheme) && (
-          <div className="flex items-center justify-center gap-2">
-            {onThemeChange && (
-              <AppearanceToggle
-                value={theme}
-                onChange={onThemeChange}
-                disabled={isCustomColorsActive}
-              />
-            )}
-            {onCustomizeTheme && (
-              <button
-                type="button"
-                aria-label="Customize theme"
-                title="Customize theme"
-                onClick={() => {
-                  onNavigate?.();
-                  onCustomizeTheme();
-                }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-border/60 hover:text-fg"
-              >
-                <Palette className="h-4 w-4" />
-              </button>
-            )}
+        {onThemeChange && (
+          <div className="flex items-center justify-center">
+            <AppearanceToggle
+              value={theme}
+              onChange={onThemeChange}
+              disabled={isCustomColorsActive}
+            />
           </div>
         )}
 

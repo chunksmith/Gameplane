@@ -16,8 +16,8 @@ export interface AppShellProps {
 export function AppShell({ sidebar, topBar, children }: AppShellProps) {
   return (
     <div className="flex h-screen w-full bg-background">
-      {/* Sidebar — desktop only, fixed 260px wide */}
-      <div className="hidden lg:flex lg:w-[260px] flex-col" data-testid="app-shell-sidebar">
+      {/* Sidebar — desktop only, fixed 220px wide */}
+      <div className="hidden lg:flex lg:w-[220px] flex-col" data-testid="app-shell-sidebar">
         {sidebar}
       </div>
 

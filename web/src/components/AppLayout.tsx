@@ -155,8 +155,6 @@ export function AppLayout() {
     location.assign("/login");
   };
 
-  // Sidebar is deliberately router-free (its tests mock the router module),
-  // so the footer's customize-theme button reports through this callback.
   const openThemeSettings = () => {
     void navigate({ to: "/settings/theme" });
   };
@@ -235,7 +233,6 @@ export function AppLayout() {
             onLogout={onLogout}
             theme={theme}
             onThemeChange={setTheme}
-            onCustomizeTheme={openThemeSettings}
             isCustomColorsActive={isCustomColorsActive}
             version={installation.data?.version}
             buildDate={import.meta.env.VITE_BUILD_DATE}
@@ -280,7 +277,6 @@ export function AppLayout() {
         onLogout={onLogout}
         theme={theme}
         onThemeChange={setTheme}
-        onCustomizeTheme={openThemeSettings}
         isCustomColorsActive={isCustomColorsActive}
         version={installation.data?.version}
         buildDate={import.meta.env.VITE_BUILD_DATE}
