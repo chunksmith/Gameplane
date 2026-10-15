@@ -195,11 +195,10 @@ describe("AdminSettingsPage", () => {
   it("switches to a different section on click", async () => {
     renderWithQuery(<AdminSettingsPage />);
     const authBtn = await screen.findByRole("button", { name: /Authentication/i });
+    expect(authBtn).not.toHaveAttribute("aria-current");
     await userEvent.click(authBtn);
-    // The Authentication tab is now selected — its label is rendered in
-    // the active style. Sanity-check via the nav button class change.
     await waitFor(() => {
-      expect(authBtn.className).toContain("bg-surface");
+      expect(authBtn).toHaveAttribute("aria-current", "page");
     });
   });
 
