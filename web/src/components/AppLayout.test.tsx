@@ -223,12 +223,12 @@ describe("AppLayout", () => {
     await userEvent.type(search, "alph");
     const result = await screen.findByTestId(searchResultID("alpha"));
     expect(result).toBeInTheDocument();
-    expect(within(result).getByRole("link")).toHaveAttribute("href", "/servers/alpha?cluster=local&ns=gameplane-games");
+    expect(within(result).getByRole("link")).toHaveAttribute("href", "/servers/alpha");
     expect(screen.queryByTestId(searchResultID("beta"))).not.toBeInTheDocument();
 
     await userEvent.click(within(result).getByRole("link"));
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: { cluster: "local", ns: "gameplane-games" } }),
+      expect(navigateMock).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: {} }),
     );
   });
 
@@ -373,7 +373,7 @@ describe("AppLayout", () => {
     await screen.findByTestId(searchResultID("alpha"));
     await userEvent.keyboard("{Enter}");
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: { cluster: "local", ns: "gameplane-games" } }),
+      expect(navigateMock).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: {} }),
     );
   });
 

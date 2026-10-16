@@ -8,7 +8,7 @@ import {
   PopoverContent,
 } from "@heroui/react";
 import { cn } from "@/lib/utils";
-import { targetKey, targetLabel, targetSearch, useFleetServers, type FleetTarget } from "@/lib/fleet";
+import { targetHref, targetKey, targetLabel, targetSearch, useFleetServers, type FleetTarget } from "@/lib/fleet";
 
 /**
  * GlobalSearch provides a server search dropdown with keyboard navigation.
@@ -161,7 +161,7 @@ export function GlobalSearch(): JSX.Element {
               >
                 <Server className="h-3.5 w-3.5 shrink-0 text-muted" />
                 <a
-                  href={`/servers/${encodeURIComponent(server.target.name)}?${new URLSearchParams(targetSearch(server.target))}`}
+                  href={targetHref(server.target)}
                   onClick={(event) => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) { event.preventDefault(); void navigateToServer(server.target); } }}
                   className="min-w-0 flex-1"
                 >

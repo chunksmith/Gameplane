@@ -162,7 +162,7 @@ describe("GlobalSearch", () => {
       expect(navigateMock).toHaveBeenCalledWith({
         to: "/servers/$name",
         params: { name: "mc-survival" },
-        search: { cluster: "local", ns: "default" },
+        search: { ns: "default" },
       });
     });
   });
@@ -208,7 +208,7 @@ describe("GlobalSearch", () => {
       expect(navigateMock).toHaveBeenCalledWith({
         to: "/servers/$name",
         params: { name: "mc-creative" },
-        search: { cluster: "local", ns: "default" },
+        search: { ns: "default" },
       });
     });
   });
@@ -267,7 +267,7 @@ describe("GlobalSearch", () => {
       expect(navigateMock).toHaveBeenCalledWith({
         to: "/servers/$name",
         params: { name: "mc-survival" },
-        search: { cluster: "local", ns: "default" },
+        search: { ns: "default" },
       });
     });
   });

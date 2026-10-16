@@ -229,7 +229,7 @@ describe("CloneServerDialog", () => {
     expect(mockNavigate).toHaveBeenCalledWith({
       to: "/servers/$name",
       params: { name: "source-copy" },
-      search: { cluster: "local", ns: "team-a" },
+      search: { ns: "team-a" },
     });
   });
 
