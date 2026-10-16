@@ -166,7 +166,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   };
   const actionError = submit.error ?? decide.error ?? stop.error;
   const subtitle = conv
-    ? [all && conv.username, conv.server || "All servers", conv.namespace].filter(Boolean).join(" · ")
+    ? [conv.server || "All servers", conv.namespace, all && conv.username].filter(Boolean).join(" · ")
     : scope.server
       ? [scope.server, scope.namespace].filter(Boolean).join(" · ")
       : "All servers you can access";
