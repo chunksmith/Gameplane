@@ -417,3 +417,31 @@ func TestBuildAgentContainerBindsServerUID(t *testing.T) {
 	}
 	t.Fatal("agent must receive the immutable GameServer UID")
 }
+
+func TestBuildAgentContainer_DiskLimitEnv(t *testing.T) {
+	diskEnv := func(gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate) (string, bool) {
+		for _, e := range buildAgentContainer(gs, tmpl, nil, "fb", "", "").Env {
+			if e.Name == "GAMEPLANE_DISK_LIMIT_BYTES" {
+				return e.Value, true
+			}
+		}
+		return "", false
+	}
+	tmpl := &gameplanev1alpha1.GameTemplate{}
+	if got, _ := diskEnv(&gameplanev1alpha1.GameServer{}, tmpl); got != "10737418240" {
+		t.Fatalf("default disk limit = %q", got)
+	}
+	tmpl.Spec.Storage.Size = resource.MustParse("30Gi")
+	if got, _ := diskEnv(&gameplanev1alpha1.GameServer{}, tmpl); got != "32212254720" {
+		t.Fatalf("template disk limit = %q", got)
+	}
+	gs := &gameplanev1alpha1.GameServer{}
+	gs.Spec.Storage = &gameplanev1alpha1.GameStorageSpec{Size: resource.MustParse("400Gi")}
+	if got, _ := diskEnv(gs, tmpl); got != "429496729600" {
+		t.Fatalf("server disk limit = %q", got)
+	}
+	gs.Spec.Storage.Ephemeral = true
+	if _, ok := diskEnv(gs, tmpl); ok {
+		t.Fatalf("ephemeral storage should not set a disk limit")
+	}
+}

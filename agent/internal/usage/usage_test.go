@@ -429,3 +429,60 @@ func TestRead_NetworkUnknown(t *testing.T) {
 		t.Fatalf("loopback-only or malformed net/dev should be unknown: %+v", s)
 	}
 }
+
+func sharedStatfs(_ string, st *unix.Statfs_t) error {
+	st.Bsize = 4096
+	st.Blocks = 1 << 20
+	st.Bfree = 1 << 10
+	return nil
+}
+
+func TestRead_DiskLimitWalksSharedFilesystem(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "level.dat", "12345")
+	if err := os.Mkdir(filepath.Join(dir, "region"), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, filepath.Join(dir, "region"), "r.0.0.mca", "123")
+	s := New(Config{Root: t.TempDir(), DataDir: dir, DiskLimitBytes: 1 << 20, statfs: sharedStatfs}).Read()
+	if !s.DiskKnown || s.DiskTotalBytes != 1<<20 || s.DiskUsedBytes != 8 {
+		t.Fatalf("disk = %+v", s)
+	}
+}
+
+func TestRead_DiskLimitKeepsStatfsOnDedicatedVolume(t *testing.T) {
+	s := New(Config{Root: t.TempDir(), DataDir: t.TempDir(), DiskLimitBytes: 1 << 40, statfs: sharedStatfs}).Read()
+	if !s.DiskKnown || s.DiskTotalBytes != 4096<<20 || s.DiskUsedBytes != 4096*((1<<20)-(1<<10)) {
+		t.Fatalf("disk = %+v", s)
+	}
+}
+
+func TestRead_DiskWalkCached(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "a", "12345")
+	clock := &fakeClock{t: time.Unix(1000, 0)}
+	r := New(Config{Root: t.TempDir(), DataDir: dir, DiskLimitBytes: 1 << 20, statfs: sharedStatfs, now: clock.now})
+	if got := r.Read().DiskUsedBytes; got != 5 {
+		t.Fatalf("first used = %d", got)
+	}
+	writeFile(t, dir, "b", "123")
+	if got := r.Read().DiskUsedBytes; got != 5 {
+		t.Fatalf("cached used = %d", got)
+	}
+	clock.t = clock.t.Add(diskWalkInterval)
+	if got := r.Read().DiskUsedBytes; got != 8 {
+		t.Fatalf("refreshed used = %d", got)
+	}
+}
+
+func TestRead_DiskWalkErrorUnknown(t *testing.T) {
+	r := New(Config{
+		Root:           t.TempDir(),
+		DataDir:        filepath.Join(t.TempDir(), "missing"),
+		DiskLimitBytes: 1 << 20,
+		statfs:         sharedStatfs,
+	})
+	if r.Read().DiskKnown {
+		t.Fatalf("disk should be unknown when the data dir walk fails")
+	}
+}

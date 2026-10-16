@@ -21,6 +21,7 @@
 package usage
 
 import (
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -44,6 +45,8 @@ const defaultProcRoot = "/proc"
 // builds; tests override it via Config.clkTck.
 const userHZ = 100
 
+const diskWalkInterval = time.Minute
+
 // Config selects where the reader looks. Root, DataDir, ProcMode, and the
 // limit hints are the public knobs; the rest are injected only by tests.
 type Config struct {
@@ -62,6 +65,7 @@ type Config struct {
 	// container's cgroup limit). Zero means unknown.
 	CPULimitMillicores int64
 	MemLimitBytes      int64
+	DiskLimitBytes     int64
 
 	// ProcRoot is the procfs mount; empty means defaultProcRoot.
 	ProcRoot string
@@ -114,6 +118,9 @@ type Reader struct {
 	prevTx      int64
 	prevNetAt   time.Time
 	haveNetPrev bool
+
+	diskWalkBytes int64
+	diskWalkedAt  time.Time
 }
 
 // New builds a Reader, applying defaults for any unset Config field.
@@ -432,6 +439,45 @@ func (r *Reader) readDisk(s *Sample) {
 	}
 	s.DiskUsedBytes = int64(used)
 	s.DiskKnown = true
+	if r.cfg.DiskLimitBytes > 0 && s.DiskTotalBytes > r.cfg.DiskLimitBytes {
+		size, ok := r.dataDirSize()
+		s.DiskTotalBytes, s.DiskUsedBytes, s.DiskKnown = r.cfg.DiskLimitBytes, size, ok
+	}
+}
+
+func (r *Reader) dataDirSize() (int64, bool) {
+	now := r.cfg.now()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.diskWalkedAt.IsZero() && now.Sub(r.diskWalkedAt) < diskWalkInterval {
+		return r.diskWalkBytes, true
+	}
+	size, err := dirSize(r.cfg.DataDir)
+	if err != nil {
+		return 0, false
+	}
+	r.diskWalkBytes, r.diskWalkedAt = size, now
+	return size, true
+}
+
+func dirSize(root string) (int64, error) {
+	var size int64
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if path == root {
+				return walkErr
+			}
+			return nil
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		if info, infoErr := entry.Info(); infoErr == nil {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
 }
 
 func (r *Reader) readNetwork(s *Sample) {
