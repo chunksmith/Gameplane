@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ServerActionsMenu } from "@/components/server/ServerActionsMenu";
@@ -6,6 +6,7 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  Clock,
   Cpu,
   Database,
   Filter,
@@ -34,7 +35,7 @@ import { GameIcon } from "@/components/ui/GameIcon";
 import { PageHeader } from "@/components/PageHeader";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { describeStorageProvisioned, formatBytes, formatCpuPercent, cn } from "@/lib/utils";
+import { describeStorageProvisioned, formatBytes, formatCpuPercent, formatUptime, cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/media";
 import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
 import { Networks, Servers, createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
@@ -107,7 +108,23 @@ export function ServersPage() {
   // representation of each server ever mounts; two would duplicate every
   // row's accessible text in the DOM.
   const isMobile = useMediaQuery("(max-width: 767px)");
-
+  const [tableBox, setTableBox] = useState<HTMLDivElement | null>(null);
+  const [fit, setFit] = useState({ width: 0, compact: 0 });
+  useEffect(() => {
+    const table = tableBox?.querySelector("table");
+    const scroller = table?.parentElement;
+    if (!table || !scroller) return;
+    const observer = new ResizeObserver(() => {
+      const width = scroller.clientWidth;
+      const overflow = scroller.scrollWidth > width;
+      setFit((prev) => prev.width !== width
+        ? { width, compact: prev.compact === 0 && overflow ? 1 : 0 }
+        : overflow && prev.compact < 2 ? { width, compact: prev.compact + 1 } : prev);
+    });
+    observer.observe(scroller);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [tableBox]);
 
   const counts = useMemo(() => countByState(servers), [servers]);
   const players = playerCoverage(servers);
@@ -437,7 +454,7 @@ export function ServersPage() {
         <div className="space-y-4">
           {groupSection}
           {(standalone.length > 0 || groups.length === 0) && (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div ref={setTableBox} className="rounded-lg border border-border bg-card overflow-hidden">
             <Table.Root className="bg-transparent">
               <Table.ScrollContainer>
                 <Table.Content aria-label="Server list" keyboardNavigationBehavior="arrow" dragAndDropHooks={dragAndDropHooks}>
@@ -446,6 +463,7 @@ export function ServersPage() {
                     <Table.Column id="name" isRowHeader>Name</Table.Column>
                     <Table.Column id="game">Game</Table.Column>
                     <Table.Column id="status">Status</Table.Column>
+                    <Table.Column id="uptime">Uptime</Table.Column>
                     <Table.Column id="cpu">CPU</Table.Column>
                     <Table.Column id="memory">Memory</Table.Column>
                     <Table.Column id="disk">Disk</Table.Column>
@@ -496,6 +514,9 @@ export function ServersPage() {
                       })()}
                     </Table.Cell>
                     <Table.Cell>
+                      <span className="whitespace-nowrap font-mono">{serverRowData(gs).uptimeLabel}</span>
+                    </Table.Cell>
+                    <Table.Cell>
                       {(() => {
                         const { cpuLabel } = serverRowData(gs);
                         return <span className="font-mono">{cpuLabel}</span>;
@@ -528,7 +549,7 @@ export function ServersPage() {
                     <Table.Cell className="text-right">
                       {(() => {
                         const { phase, asleep } = serverRowData(gs);
-                        return <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={act.isPending} onAct={act.mutate} />;
+                        return <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={act.isPending} onAct={act.mutate} compact={fit.compact} />;
                       })()}
                     </Table.Cell>
                   </Table.Row>
@@ -583,6 +604,7 @@ function serverRowData(gs: GameServer) {
 
   const memLabel = usageLabel(agent?.memoryBytes, agent?.memoryLimitBytes);
   const diskLabel = usageLabel(agent?.diskUsedBytes, agent?.diskTotalBytes);
+  const uptimeLabel = phase === "Running" ? formatUptime(gs.status?.startedAt) : "—";
 
   const playersLabel =
     typeof players === "number" && players >= 0
@@ -591,7 +613,7 @@ function serverRowData(gs: GameServer) {
         : `${players}`
       : "—";
 
-  return { phase, asleep, node, isSharedNonDefault, cpuLabel, memLabel, diskLabel, playersLabel };
+  return { phase, asleep, node, isSharedNonDefault, cpuLabel, memLabel, diskLabel, playersLabel, uptimeLabel };
 }
 
 function usageLabel(used?: number | null, max?: number | null): string {
@@ -607,14 +629,18 @@ function ServerLifecycleActions({
   asleep,
   onAct,
   pending,
+  compact = 0,
 }: {
   gs: Located<GameServer>;
   phase?: GameServerPhase;
   asleep?: boolean;
   pending: boolean;
   onAct: (args: { target: FleetTarget; verb: LifecycleVerb }) => void;
+  compact?: number;
 }) {
   const qc = useQueryClient();
+  const running = phase === "Running" || phase === "Starting";
+  const stopped = !asleep && (phase === "Stopped" || phase === "Suspended");
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["fleet", "servers"] });
   };
@@ -628,34 +654,38 @@ function ServerLifecycleActions({
         >
           <Sunrise className="h-4 w-4" />
         </ActionButton>
-      ) : (
+      ) : !(compact > 1 && running) && (
         <ActionButton
           title="Start"
-          disabled={pending || !gs.fleetAccess?.canControl || phase === "Running" || phase === "Starting"}
+          disabled={pending || !gs.fleetAccess?.canControl || running}
           onClick={() => onAct({ target: gs.fleetTarget, verb: "start" })}
         >
           <Play className="h-4 w-4" />
         </ActionButton>
       )}
-      <ActionButton
-        title="Stop"
-        // An asleep server is phase Suspended, but :stop is still a real
-        // action there — it patches spec.suspend=true, which the operator
-        // honors immediately, distinct from an idle sleep a wake window
-        // would otherwise resurrect.
-        disabled={pending || !gs.fleetAccess?.canControl || (!asleep && (phase === "Stopped" || phase === "Suspended"))}
-        onClick={() => onAct({ target: gs.fleetTarget, verb: "stop" })}
-      >
-        <Square className="h-4 w-4" />
-      </ActionButton>
-      <ActionButton
-        title="Restart"
-        disabled={pending || !gs.fleetAccess?.canControl}
-        onClick={() => onAct({ target: gs.fleetTarget, verb: "restart" })}
-      >
-        <RotateCw className="h-4 w-4" />
-      </ActionButton>
-      <ServerActionsMenu gs={gs} target={gs.fleetTarget} access={gs.fleetAccess ? { ...gs.fleetAccess, permissions: gs.fleetPermissions } : undefined} onDeleted={invalidate} onTransferred={invalidate} size="sm" className="text-foreground/60 hover:text-foreground" />
+      {!(compact > 1 && stopped) && (
+        <>
+          <ActionButton
+            title="Stop"
+            // An asleep server is phase Suspended, but :stop is still a real
+            // action there — it patches spec.suspend=true, which the operator
+            // honors immediately, distinct from an idle sleep a wake window
+            // would otherwise resurrect.
+            disabled={pending || !gs.fleetAccess?.canControl || stopped}
+            onClick={() => onAct({ target: gs.fleetTarget, verb: "stop" })}
+          >
+            <Square className="h-4 w-4" />
+          </ActionButton>
+          <ActionButton
+            title="Restart"
+            disabled={pending || !gs.fleetAccess?.canControl}
+            onClick={() => onAct({ target: gs.fleetTarget, verb: "restart" })}
+          >
+            <RotateCw className="h-4 w-4" />
+          </ActionButton>
+        </>
+      )}
+      {compact < 1 && <ServerActionsMenu gs={gs} target={gs.fleetTarget} access={gs.fleetAccess ? { ...gs.fleetAccess, permissions: gs.fleetPermissions } : undefined} onDeleted={invalidate} onTransferred={invalidate} size="sm" className="text-foreground/60 hover:text-foreground" />}
     </div>
   );
 }
@@ -803,7 +833,7 @@ function ServerCard({
   gameCodes: Map<string, string>;
   footer?: ReactNode;
 }) {
-  const { phase, asleep, memLabel, diskLabel, playersLabel } = serverRowData(gs);
+  const { phase, asleep, memLabel, diskLabel, playersLabel, uptimeLabel } = serverRowData(gs);
 
   // Extract address from the first endpoint, if available
   const endpoint = gs.status?.endpoints?.[0];
@@ -848,6 +878,7 @@ function ServerCard({
         <StatChip icon={<UsersIcon className="h-3.5 w-3.5" />} value={playersLabel} />
         <StatChip icon={<Database className="h-3.5 w-3.5" />} value={memLabel} />
         <StatChip icon={<HardDrive className="h-3.5 w-3.5" />} value={diskLabel} />
+        <StatChip icon={<Clock className="h-3.5 w-3.5" />} value={uptimeLabel} />
       </div>
 
       {footer && <div className="relative z-10 mt-3">{footer}</div>}
