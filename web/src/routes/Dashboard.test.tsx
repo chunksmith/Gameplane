@@ -79,7 +79,8 @@ describe("DashboardPage", () => {
     // before the synchronous assertions, otherwise the fleet is still empty.
     const failedLink = await screen.findByRole("link", { name: /broken-srv/i });
     expect(failedLink).toHaveAttribute("href", "/servers/$name");
-    expect(screen.getByText("Failed 1")).toBeInTheDocument();
+    const failedTile = screen.getAllByRole("term").find((term) => term.textContent === "Failed");
+    expect(failedTile?.nextElementSibling).toHaveTextContent("1");
     expect(screen.getByText(/Failed — check logs$/)).toBeInTheDocument();
     // Stale agent is flagged even though the phase is Running.
     expect(screen.getByRole("link", { name: /stale-srv/i })).toBeInTheDocument();
@@ -298,15 +299,11 @@ describe("DashboardPage", () => {
     expect(viewClusterLink).toHaveAttribute("href", "/clusters");
   });
 
-  it("renders vcpus as — when no node data is available", async () => {
+  it("renders the CPU meter as — when no node data is available", async () => {
     server.use(http.get("/cluster", () => HttpResponse.json({})));
     renderWithQuery(<DashboardPage />);
-    const label = await screen.findByText("vCPUs");
-    // Several stat cards fall back to the same "—" placeholder when their
-    // data is missing, so scope the assertion to the vCPUs card itself.
-    const card = label.closest("div.card");
-    expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText("—")).toBeInTheDocument();
+    const label = await screen.findByText("CPU");
+    expect(label.parentElement).toHaveTextContent("—");
   });
 
   it("renders nodes section only when nodes exist", async () => {
@@ -348,14 +345,7 @@ describe("DashboardPage", () => {
     );
     renderWithQuery(<DashboardPage />);
     await screen.findByText("local / partial-node");
-    // Multiple placeholders can render "—" for missing metrics (vCPUs card,
-    // per-node cpu/mem cells); scope to the vCPUs stat card specifically,
-    // since a node with no cpu.capacity keeps the cluster-wide vcpus sum
-    // at zero.
-    const label = screen.getByText("vCPUs");
-    const card = label.closest("div.card");
-    expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("CPU").parentElement).toHaveTextContent("—");
   });
 
   it("sorts backups by startTime descending", async () => {

@@ -92,7 +92,7 @@ describe("unified fleet pages", () => {
     expect(await screen.findByText("server status unavailable")).toBeInTheDocument();
     expect(screen.getByText("player status unavailable")).toBeInTheDocument();
     expect(screen.queryByText(/Everything looks healthy/)).not.toBeInTheDocument();
-    const running = screen.getByText("Running").closest("div.card")!;
+    const running = screen.getByText("Servers running").closest("div.card")!;
     expect(within(running as HTMLElement).getByText("—")).toBeInTheDocument();
   });
   it("keeps schedule mutations in the originating scope and disables read-only rows", async () => {
