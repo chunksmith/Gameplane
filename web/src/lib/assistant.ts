@@ -53,7 +53,7 @@ export interface AssistantBlock {
   type: string;
   text?: string;
   id?: string;
-  input?: { method?: string; path?: string; query?: Record<string, string>; body?: unknown };
+  input?: { method?: string; path?: string; query?: unknown; body?: unknown };
   tool_use_id?: string;
   content?: string | Array<{ type: string; text?: string }>;
   is_error?: boolean;
@@ -113,18 +113,25 @@ export function modelLabel(id: string): string {
 }
 
 export function blocksOf(message: AssistantMessage): AssistantBlock[] {
-  return typeof message.content === "string" ? [{ type: "text", text: message.content }] : message.content;
+  if (typeof message.content === "string") return [{ type: "text", text: message.content }];
+  return Array.isArray(message.content) ? message.content.filter((block) => !!block) : [];
 }
 
 export function resultText(block: AssistantBlock): string {
   if (typeof block.content === "string") return block.content;
-  return (block.content ?? []).map((part) => part.text ?? "").join("\n");
+  if (!Array.isArray(block.content)) return "";
+  return block.content.map((part) => part?.text ?? "").join("\n");
+}
+
+function queryString(query: unknown): string {
+  if (!query || typeof query !== "object" || Array.isArray(query)) return "";
+  return new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)])).toString();
 }
 
 export function callLabel(block: AssistantBlock): string {
   const input = block.input ?? {};
-  const query = new URLSearchParams(input.query ?? {}).toString();
-  return `${(input.method ?? "").toUpperCase()} ${input.path ?? ""}${query ? `?${query}` : ""}`.trim();
+  const query = queryString(input.query);
+  return `${String(input.method ?? "").toUpperCase()} ${String(input.path ?? "")}${query ? `?${query}` : ""}`.trim();
 }
 
 export function resultStatus(text: string): string {
