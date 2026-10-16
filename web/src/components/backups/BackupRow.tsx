@@ -56,6 +56,7 @@ export function BackupRow({ backup, showServer, onSelect, onRestore, target, per
         {isActiveBackup(backup) ? <div className="w-48"><BackupProgressBar backup={backup} compact /></div> : <span className="text-muted">—</span>}
       </Table.Cell>
       <Table.Cell className="font-mono text-sm">{formatSize(backup.status?.size)}</Table.Cell>
+      <Table.Cell className="font-mono text-sm">{formatSize(backup.status?.dataAdded)}</Table.Cell>
       <Table.Cell className="text-foreground/70">
         <span title={backup.status?.completionTime}>{formatRelative(backup.status?.completionTime)}</span>
       </Table.Cell>

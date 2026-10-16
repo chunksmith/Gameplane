@@ -677,6 +677,7 @@ export interface Backup {
     completionTime?: string;
     snapshotID?: string;
     size?: string;
+    dataAdded?: string;
     message?: string;
     progress?: BackupProgress;
   };

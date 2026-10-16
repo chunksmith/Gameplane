@@ -147,6 +147,8 @@ type BackupStatus struct {
 	// +optional
 	Size *resource.Quantity `json:"size,omitempty"`
 
+	DataAdded *resource.Quantity `json:"dataAdded,omitempty"`
+
 	// Message is a human-readable reason when Phase=Failed.
 	// +optional
 	Message string `json:"message,omitempty"`
