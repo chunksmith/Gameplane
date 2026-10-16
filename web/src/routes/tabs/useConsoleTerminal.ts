@@ -32,6 +32,7 @@ export interface ConsoleProtocol {
   // Status lines written once per connect/disconnect transition.
   connectLabel: string;
   disconnectLabel: string;
+  backlog: () => Promise<string[]>;
   attach: (term: Terminal, send: Send) => ConsoleAttachment;
 }
 
@@ -110,27 +111,39 @@ export function useConsoleTerminal(proto: ConsoleProtocol): ConsoleHandle {
     // unreachable agent doesn't flood the buffer; the ongoing "reconnecting"
     // state is surfaced via `status` to the chrome instead.
     let prevConnected: boolean | null = null;
-    const sock = openWS(proto.wsPath, {
-      onMessage: (data) => {
-        if (typeof data === "string") attRef.current?.onMessage(data);
-      },
-      onStatus: (s) => {
-        // A reconnect/close can land after teardown (sock.close() during
-        // cleanup fires onclose); don't touch a disposed terminal or set
-        // state on an unmounted component.
-        if (disposedRef.current) return;
-        setStatus(s);
-        if (s === "open" && prevConnected !== true) {
-          term.writeln(`\x1b[90m${protoRef.current.connectLabel}\x1b[0m`);
-          prevConnected = true;
-        } else if ((s === "reconnecting" || s === "closed") && prevConnected === true) {
-          term.writeln(`\x1b[31m${protoRef.current.disconnectLabel}\x1b[0m`);
-          prevConnected = false;
-        }
-      },
-      onOpen: () => attRef.current?.onSocketOpen?.(),
-    });
-    sockRef.current = sock;
+    let cancelled = false;
+    let sock: { send: Send; close: () => void } | null = null;
+    const connect = () => {
+      sock = openWS(proto.wsPath, {
+        onMessage: (data) => {
+          if (typeof data === "string") attRef.current?.onMessage(data);
+        },
+        onStatus: (s) => {
+          // A reconnect/close can land after teardown (sock.close() during
+          // cleanup fires onclose); don't touch a disposed terminal or set
+          // state on an unmounted component.
+          if (disposedRef.current) return;
+          setStatus(s);
+          if (s === "open" && prevConnected !== true) {
+            term.writeln(`\x1b[90m${protoRef.current.connectLabel}\x1b[0m`);
+            prevConnected = true;
+          } else if ((s === "reconnecting" || s === "closed") && prevConnected === true) {
+            term.writeln(`\x1b[31m${protoRef.current.disconnectLabel}\x1b[0m`);
+            prevConnected = false;
+          }
+        },
+        onOpen: () => attRef.current?.onSocketOpen?.(),
+      });
+      sockRef.current = sock;
+    };
+    void protoRef.current
+      .backlog()
+      .catch((): string[] => [])
+      .then((lines) => {
+        if (cancelled) return;
+        if (lines.length > 0) term.write(lines.map((line) => `${line}\r\n`).join(""));
+        connect();
+      });
 
     const att = protoRef.current.attach(term, send);
     attRef.current = att;
@@ -141,11 +154,12 @@ export function useConsoleTerminal(proto: ConsoleProtocol): ConsoleHandle {
     return () => {
       // Mark disposed first so any in-flight rAF/observer callback no-ops.
       disposedRef.current = true;
+      cancelled = true;
       cancelAnimationFrame(raf);
       ro.disconnect();
       dataDisp.dispose();
       resizeDisp.dispose();
-      sock.close();
+      sock?.close();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;

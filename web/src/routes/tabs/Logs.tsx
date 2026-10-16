@@ -1,5 +1,5 @@
 import { useResourceClient, useResourceTarget } from "@/lib/resourceTarget";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, Box, Download, FileText, Loader2, Search } from "lucide-react";
 import { Button, Input, Tabs, Tab as TabComponent } from "@heroui/react";
@@ -68,6 +68,7 @@ function rowParser(): (raw: string) => LogRow {
 // (before it writes its own log file), and it works without agent mTLS;
 // "file" tails the configured game log file via the agent.
 type LogSource = "pod" | "file";
+const PAGE_SIZE: Record<LogSource, number> = { pod: 1000, file: 100 };
 
 export function LogsTab({
   name,
@@ -97,6 +98,10 @@ export function LogsTab({
   // of an endless "Connecting…" spinner.
   const [streamFailed, setStreamFailed] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const receivedRef = useRef(0);
+  const historyRef = useRef({ loading: false, done: false });
+  const stickRef = useRef(true);
+  const anchorRef = useRef<number | null>(null);
 
   // The game-log file is only an option when the template declares a
   // logPath; otherwise the only source is the container's stdout, which
@@ -107,11 +112,22 @@ export function LogsTab({
     setLines([]);
     setConnected(false);
     setStreamFailed(false);
-    const toRow = rowParser();
+    let toRow = rowParser();
+    const restart = () => {
+      receivedRef.current = 0;
+      stickRef.current = true;
+      historyRef.current = { loading: false, done: false };
+    };
+    restart();
     const path =
       effectiveSource === "pod" ? Logs.podStreamPath(name, ns) : Logs.fileStreamPath(name, ns);
     const sock = openWS(path, {
-      onOpen: () => setConnected(true),
+      onOpen: () => {
+        restart();
+        toRow = rowParser();
+        setLines([]);
+        setConnected(true);
+      },
       onClose: () => setConnected(false),
       onStatus: (status, info) => {
         if (status === "open") {
@@ -127,6 +143,7 @@ export function LogsTab({
       onMessage: (data) => {
         if (typeof data !== "string") return;
         const rows = data.replace(/\r?\n$/, "").split(/\r?\n/).map(toRow);
+        receivedRef.current += rows.length;
         setLines((prev) => {
           const next = prev.concat(rows);
           return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
@@ -135,6 +152,28 @@ export function LogsTab({
     });
     return () => sock.close();
   }, [name, ns, effectiveSource, Logs]);
+
+  const loadOlder = () => {
+    const history = historyRef.current;
+    if (history.loading || history.done || lines.length === 0 || lines.length >= MAX_LINES) return;
+    history.loading = true;
+    const limit = PAGE_SIZE[effectiveSource];
+    void Logs.history(name, effectiveSource, receivedRef.current, limit, ns)
+      .then((older) => {
+        if (historyRef.current !== history) return;
+        history.done = older.length < limit;
+        if (older.length === 0) return;
+        receivedRef.current += older.length;
+        const scroller = scrollerRef.current;
+        if (scroller) anchorRef.current = scroller.scrollHeight - scroller.scrollTop;
+        const toRow = rowParser();
+        setLines((prev) => older.map(toRow).concat(prev));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        history.loading = false;
+      });
+  };
 
   const counts = useMemo(() => {
     const c: Record<LogLevel, number> = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0 };
@@ -159,11 +198,16 @@ export function LogsTab({
     overscan: 20,
   });
 
-  useEffect(() => {
-    // Autoscroll to bottom on new lines.
-    const el = scrollerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines.length]);
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (anchorRef.current !== null) {
+      scroller.scrollTop = scroller.scrollHeight - anchorRef.current;
+      anchorRef.current = null;
+    } else if (stickRef.current) {
+      scroller.scrollTop = scroller.scrollHeight;
+    }
+  }, [lines]);
 
   // No output yet. While the server is still coming up (image pull /
   // first-boot install), the pod-log stream stays closed (the API replies
@@ -253,7 +297,16 @@ export function LogsTab({
           </Button>
         </div>
       </div>
-      <div ref={scrollerRef} className="m-4 min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-[#0b0b0d] py-2 font-mono text-xs text-zinc-300 [tab-size:4]">
+      <div
+        ref={scrollerRef}
+        data-testid="log-scroller"
+        onScroll={(event) => {
+          const scroller = event.currentTarget;
+          stickRef.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 32;
+          if (!stickRef.current && scroller.scrollTop < 200) loadOlder();
+        }}
+        className="m-4 min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-[#0b0b0d] py-2 font-mono text-xs text-zinc-300 [tab-size:4]"
+      >
         {noOutput ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-8 text-center">
             {failed ? (

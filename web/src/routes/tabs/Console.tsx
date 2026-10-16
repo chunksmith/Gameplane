@@ -10,6 +10,8 @@ import { resolveConsoleMode } from "@/lib/capabilities";
 import { ConsoleShell } from "./ConsoleShell";
 import { useConsoleTerminal } from "./useConsoleTerminal";
 
+const BACKLOG_LINES = 100;
+
 export function ConsoleTab({ name, ns }: { name: string; ns?: string }) {
   const target = useResourceTarget({ name, namespace: ns });
   const client = useResourceClient(target);
@@ -50,12 +52,14 @@ export function ConsoleTab({ name, ns }: { name: string; ns?: string }) {
 // as {kind:"out"|"err"} with a string body.
 function RconConsole({ name, ns }: { name: string; ns?: string }) {
   const target = useResourceTarget({ name, namespace: ns });
+  const { Logs } = useResourceClient(target);
   const wsPath = createRequestClient(target).url(`/ws/servers/${encodeURIComponent(name)}/console`);
   const handle = useConsoleTerminal({
     wsPath,
     name,
     connectLabel: "— connected —",
     disconnectLabel: "— disconnected —",
+    backlog: () => Logs.history(name, "pod", 0, BACKLOG_LINES, ns),
     attach: (term, send) => {
       let buf = "";
       return {
@@ -110,12 +114,14 @@ function RconConsole({ name, ns }: { name: string; ns?: string }) {
 // TTY) or {kind:"err", body:string} on a teardown.
 function PtyConsole({ name, ns }: { name: string; ns?: string }) {
   const target = useResourceTarget({ name, namespace: ns });
+  const { Logs } = useResourceClient(target);
   const wsPath = createRequestClient(target).url(`/ws/servers/${encodeURIComponent(name)}/console-pty`);
   const handle = useConsoleTerminal({
     wsPath,
     name,
     connectLabel: "— attached —",
     disconnectLabel: "— detached —",
+    backlog: () => Logs.history(name, "pod", 0, BACKLOG_LINES, ns),
     attach: (term, send) => {
       const sendResize = () =>
         send(JSON.stringify({ kind: "resize", cols: term.cols, rows: term.rows }));

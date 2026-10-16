@@ -188,6 +188,8 @@ The HTTP server listens on `:8000` (configurable) with these route groups. Prome
 - `/ws/servers/{name}/console-pty` — WebSocket: PTY command execution (write-capable)
 - `/ws/servers/{name}/logs` — WebSocket: game/agent log file stream (read-only)
 - `/ws/servers/{name}/logs/pod` — WebSocket: pod stdout stream (read-only)
+- `/servers/{name}/logs/history` — GET: page of the game log file via the agent; `skip` (lines back from the end) and `limit` (1–20000); JSON array of lines, oldest first
+- `/servers/{name}/logs/pod/history` — GET: page of the stitched init→game pod log timeline; `skip` (lines back from the end) and `limit` (1–5000); JSON array of lines, oldest first, with `── <container> ──` phase markers when the pod has init containers
 - **Log stream query parameters:** The logs WebSocket proxy (`/ws/servers/{name}/logs` and related) forwards only allow-listed query keys (`from`, `tail`) to the agent to prevent unauthorized parameter injection (e.g., `cluster`, namespace).
 
 All cluster-dispatch routes accept `?cluster={name}` (validates against registered Cluster CRDs; default is `local`).
@@ -197,7 +199,7 @@ All cluster-dispatch routes accept `?cluster={name}` (validates against register
 - **`/ws/servers/{name}/console` (GET upgrade)** — RCON to game pod via agent; write-capable
 - **`/ws/servers/{name}/console-pty` (GET upgrade)** — PTY attach to the selected cluster's game pod; write-capable
 - **`/ws/servers/{name}/logs` (GET upgrade)** — game/agent log file stream via agent; read-only
-- **`/ws/servers/{name}/logs/pod` (GET upgrade)** — selected cluster's init/game stdout via the Kubernetes Pod log API; read-only
+- **`/ws/servers/{name}/logs/pod` (GET upgrade)** — selected cluster's init/game stdout via the Kubernetes Pod log API; read-only. `tail=N` (capped at 5000) streams only the game container's last N lines once it has started; before that the full init→game timeline streams as with `from=start`
 - All authenticate via session and cluster/namespace RBAC. Pod logs and PTY use
   the selected registry client's Kubernetes credentials and verify the
   GameServer → StatefulSet → Pod owner UID chain before opening streams.

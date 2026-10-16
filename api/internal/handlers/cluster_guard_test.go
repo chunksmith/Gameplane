@@ -330,7 +330,8 @@ func TestHomeClientMounts_ServeHomeClusterOnly(t *testing.T) {
 		// legacy 501 guard rather than performing a remote target lookup.
 		selectedModRoute := strings.HasPrefix(path, "/servers/alpha/mods/registry/") ||
 			path == "/servers/alpha/mods/ids" || path == "/servers/alpha/modpack"
-		if attach || selectedModRoute {
+		podHistory := path == "/servers/alpha/logs/pod/history"
+		if attach || selectedModRoute || podHistory {
 			// The registered remote cluster has no alpha GameServer.
 			want = http.StatusNotFound
 		} else if path == "/ws/servers/alpha/logs/pod" {
@@ -365,7 +366,7 @@ func TestHomeClientMounts_ServeHomeClusterOnly(t *testing.T) {
 		if n := kubeClientCalls(t, home) - before; n != wantHomeCalls {
 			t.Errorf("%s %s?cluster=%s: home client saw %d API calls, want %d", method, path, remote, n, wantHomeCalls)
 		}
-		if (attach || selectedModRoute) && kubeClientCalls(t, remoteClient) == remoteBefore {
+		if (attach || selectedModRoute || podHistory) && kubeClientCalls(t, remoteClient) == remoteBefore {
 			t.Errorf("%s %s?cluster=%s: remote client saw no lookup", method, path, remote)
 		}
 		return nil
