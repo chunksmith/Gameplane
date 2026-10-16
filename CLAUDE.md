@@ -78,7 +78,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 
 ## Core rules
 
-1. **Modern UI, code-first:** design dashboard and website changes directly in code with a modern, consistent look: clear hierarchy, generous spacing, responsive down to mobile, accessible, light and dark. No Pencil/`.pen` design step or export is required.
+1. **Figma-first UI:** a new dashboard or website screen, panel or modal — and any visual redesign of an existing one — is designed in Figma through the Figma MCP, approved by the user, and only then translated to code (skill: `.claude/skills/figma-design-first/SKILL.md`). Copy fixes, bug fixes, token swaps and logic changes stay code-first. Either way the result is modern and consistent: clear hierarchy, generous spacing, responsive down to mobile, accessible, light and dark. No Pencil/`.pen` step.
 2. **Theme tokens:** build on HeroUI v3 components and the semantic tokens in `web/src/styles/globals.css` (website: `website/src/styles/global.css`); no raw hex outside theme and terminal palettes, so light/dark and user themes keep working.
 3. **Login privacy:** `/login` and unauthenticated views never expose cluster names, versions, server counts, or account-existence errors — generic messages ("invalid credentials").
 4. **Fix, don't silence:** no `//nolint`, `eslint-disable`, or loosened configs. Allowed: `_test.go` exempt from `errcheck`/`gosec`/`unparam`; `operator/internal/controller/` exempt from revive `exported:`.
