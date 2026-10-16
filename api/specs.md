@@ -188,6 +188,8 @@ The HTTP server listens on `:8000` (configurable) with these route groups. Prome
 - `/ws/servers/{name}/console-pty` — WebSocket: PTY command execution (write-capable)
 - `/ws/servers/{name}/logs` — WebSocket: game/agent log file stream (read-only)
 - `/ws/servers/{name}/logs/pod` — WebSocket: pod stdout stream (read-only)
+- `/servers/{name}/logs/history` — GET: page of the game log file via the agent; `skip` (lines back from the end) and `limit` (1–20000); JSON array of lines, oldest first
+- `/servers/{name}/logs/pod/history` — GET: page of the stitched init→game pod log timeline; `skip` (lines back from the end) and `limit` (1–5000); JSON array of lines, oldest first, with `── <container> ──` phase markers when the pod has init containers
 - **Log stream query parameters:** The logs WebSocket proxy (`/ws/servers/{name}/logs` and related) forwards only allow-listed query keys (`from`, `tail`) to the agent to prevent unauthorized parameter injection (e.g., `cluster`, namespace).
 
 All cluster-dispatch routes accept `?cluster={name}` (validates against registered Cluster CRDs; default is `local`).
@@ -197,7 +199,7 @@ All cluster-dispatch routes accept `?cluster={name}` (validates against register
 - **`/ws/servers/{name}/console` (GET upgrade)** — RCON to game pod via agent; write-capable
 - **`/ws/servers/{name}/console-pty` (GET upgrade)** — PTY attach to the selected cluster's game pod; write-capable
 - **`/ws/servers/{name}/logs` (GET upgrade)** — game/agent log file stream via agent; read-only
-- **`/ws/servers/{name}/logs/pod` (GET upgrade)** — selected cluster's init/game stdout via the Kubernetes Pod log API; read-only
+- **`/ws/servers/{name}/logs/pod` (GET upgrade)** — selected cluster's init/game stdout via the Kubernetes Pod log API; read-only. `tail=N` (capped at 5000) streams only the game container's last N lines once it has started; before that the full init→game timeline streams as with `from=start`
 - All authenticate via session and cluster/namespace RBAC. Pod logs and PTY use
   the selected registry client's Kubernetes credentials and verify the
   GameServer → StatefulSet → Pod owner UID chain before opening streams.
@@ -502,10 +504,11 @@ audit:read, config:read, config:manage (cluster-scoped)
 
 Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md). Handlers `handlers/ai.go` (routes, records), `handlers/ai_run.go` (Claude loop, scope policy) and `handlers/ai_cli.go` (Claude Code runner for subscription tokens).
 
-- `GET /ai/status`, `GET|POST /ai/conversations`, `GET /ai/conversations/{id}`, `POST /ai/conversations/{id}/messages|approval|cancel`: any authenticated user; only the owner writes; `scope=all` lists need `audit:read`.
+- `GET /ai/status`, `GET|POST /ai/conversations`, `GET /ai/conversations/{id}`, `GET /ai/conversations/{id}/stream`, `POST /ai/conversations/{id}/messages|approval|cancel`: any authenticated user; only the owner writes; `scope=all` lists need `audit:read`.
+- `GET /ai/conversations/{id}/stream` (`handlers/ai_stream.go`) is a Server-Sent Events feed of the reply being written: `{"text"}` frames carry the whole text so far (a snapshot, throttled to one per 60ms, so a dropped frame cannot desync a reader) and `{"flush":true}` says a message was persisted and the transcript should be refetched. Frames come from an in-memory per-conversation registry (one entry per live run, dropped when the run settles), so a reader that joins mid-reply still gets the text so far. The route is exempt from the app-wide request timeout (`isStreamingRequest`, `api/cmd/main.go`). Both run paths feed it: the Messages API path streams (`sendClaude`), and the CLI path passes `--include-partial-messages`.
 - `PUT|DELETE /admin/ai/secret`: `config:manage`; the credential lives in the labelled Secret `gameplane-ai` (`gameplane.local/ai=true`) as key `apiKey` or `oauthToken` (a `claude setup-token` subscription token; `PUT` takes exactly one and clears the other). Config section `ai`: `{enabled, defaultModel, defaultEffort, apiKeySet, subscriptionSet?}`.
 - Each tool call replays through the API router with the caller's cookie, CSRF header and client IP, so authentication, rate limits, RBAC and audit apply unchanged. Server conversations force the server's namespace and cluster and reach only that server, `GET /templates` and its own backups, schedules and restores. `DELETE`, `:wipe-data` and `POST /restores` wait for the user's approval.
-- With an `oauthToken`, runs spawn the bundled Claude Code CLI (`claude -p`, stream-json) instead of calling the Messages API. `gameplane_api` reaches it as an MCP tool on a `127.0.0.1` listener with a per-run bearer token; approvals block the tool call (30 minutes at most); `ai_conversations.session_id` (migration `common/021_ai_session.sql`) resumes the CLI session. The CLI runs in the API container, so it needs at least 1Gi of API memory.
+- With an `oauthToken`, runs spawn the bundled Claude Code CLI (`claude -p`, stream-json with partial messages) instead of calling the Messages API. `gameplane_api` reaches it as an MCP tool on a `127.0.0.1` listener with a per-run bearer token; approvals block the tool call (30 minutes at most); `ai_conversations.session_id` (migration `common/021_ai_session.sql`) resumes the CLI session. The CLI runs in the API container, so it needs at least 1Gi of API memory.
 - Tables `ai_conversations` and `ai_messages` (migration `common/020_ai_assistant.sql`). Runs execute in the background; runs left `running` (or `awaiting_approval` with a CLI session) by a restart become `error` at startup.
 
 ## Key invariants

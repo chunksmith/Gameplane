@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { http, HttpResponse } from "msw";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { server } from "@/test/server";
 import { renderWithQuery } from "@/test/render";
@@ -33,7 +33,27 @@ function mockAssistant(opts: { enabled?: boolean; configured?: boolean; list?: A
   );
 }
 
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  onmessage: ((e: { data: string }) => void) | null = null;
+  closed = false;
+  constructor(
+    public url: string,
+    public opts?: unknown,
+  ) {
+    FakeEventSource.instances.push(this);
+  }
+  close() {
+    this.closed = true;
+  }
+}
+
 describe("AssistantPanel", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeEventSource.instances = [];
+  });
+
   it("explains when the assistant is off", async () => {
     mockAssistant({ enabled: false });
     renderWithQuery(<AssistantPanel />);
@@ -157,6 +177,43 @@ describe("AssistantPanel", () => {
     expect(screen.getByRole("textbox", { name: "Message the assistant" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /New conversation/ }));
     expect(screen.getByText("What should I do?")).toBeInTheDocument();
+  });
+
+  it("streams the reply while it is written and refetches once it is saved", async () => {
+    let detail: AssistantDetail = {
+      conversation: conv({ status: "running" }),
+      pending: [],
+      messages: [{ role: "user", content: "read the config" }],
+    };
+    mockAssistant({ list: [conv({ status: "running", title: "Live reply" })] });
+    server.use(http.get("/ai/conversations/:id", () => HttpResponse.json(detail)));
+    vi.stubGlobal("EventSource", FakeEventSource as unknown as typeof EventSource);
+    renderWithQuery(<AssistantPanel />);
+    await userEvent.click(await screen.findByRole("button", { name: /Live reply/ }));
+    const source = await waitFor(() => {
+      expect(FakeEventSource.instances).toHaveLength(1);
+      return FakeEventSource.instances[0];
+    });
+    expect(source.url).toBe("/ai/conversations/c1/stream");
+
+    await act(async () => {
+      source.onmessage?.({ data: JSON.stringify({ text: "Reading" }) });
+      source.onmessage?.({ data: "not json" });
+    });
+    expect(await screen.findByText("Reading")).toBeInTheDocument();
+    expect(screen.queryByText("Working…")).not.toBeInTheDocument();
+
+    detail = {
+      conversation: conv({ status: "idle" }),
+      pending: [],
+      messages: [{ role: "user", content: "read the config" }, { role: "assistant", content: "Reading the config. Done." }],
+    };
+    await act(async () => {
+      source.onmessage?.({ data: JSON.stringify({ flush: true }) });
+    });
+    expect(await screen.findByText("Reading the config. Done.")).toBeInTheDocument();
+    await waitFor(() => expect(source.closed).toBe(true));
+    expect(screen.queryByText("Reading")).not.toBeInTheDocument();
   });
 
   it("shows API errors from sending", async () => {

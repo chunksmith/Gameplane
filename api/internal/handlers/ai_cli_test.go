@@ -132,12 +132,22 @@ func waitUntracked(t *testing.T, h *aiHandler, id string) {
 }
 
 func TestAICLIRun(t *testing.T) {
+	streamed, proceed := make(chan struct{}, 1), make(chan struct{})
 	f, spawns := newCLIFixture(t, func(_ aiSpawn, emit func(string)) {
 		emit(cliInit)
+		emit(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"All good."}}}`)
+		emit(cliBarrier)
+		streamed <- struct{}{}
+		<-proceed
 		emit(cliAssistant(`{"type":"text","text":"All good."}`))
 		emit(cliDone)
 	})
 	conv := f.create(map[string]any{"prompt": "check the fleet"})
+	<-streamed
+	if text := f.waitStream(conv.ID); text != "All good." {
+		t.Errorf("streamed text = %q", text)
+	}
+	close(proceed)
 	got := f.wait(conv.ID, aiIdle)
 	if got.InputTokens != 15 || got.OutputTokens != 4 {
 		t.Errorf("usage = %d/%d", got.InputTokens, got.OutputTokens)
@@ -153,7 +163,8 @@ func TestAICLIRun(t *testing.T) {
 	first := spawns()[0]
 	if first.stdin != "check the fleet" || slices.Contains(first.args, "--resume") ||
 		!hasArg(first.args, "--model", "claude-opus-5-5") || !hasArg(first.args, "--effort", "medium") ||
-		!hasArg(first.args, "--tools", "") || !hasArg(first.args, "--allowedTools", aiMCPTool) || !hasArg(first.args, "--permission-mode", "dontAsk") {
+		!hasArg(first.args, "--tools", "") || !hasArg(first.args, "--allowedTools", aiMCPTool) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
+		!slices.Contains(first.args, "--include-partial-messages") {
 		t.Errorf("first spawn = %+v", first)
 	}
 	if !slices.Contains(first.env, "CLAUDE_CODE_OAUTH_TOKEN=oat-test") || !slices.Contains(first.env, "MCP_TOOL_TIMEOUT=2100000") {

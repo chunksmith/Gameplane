@@ -35,6 +35,7 @@ import {
   resultText,
   scopeQuery,
   useAssistantStatus,
+  useAssistantStream,
   type AssistantBlock,
   type AssistantConversation,
   type AssistantDetail,
@@ -94,6 +95,12 @@ function dayGroup(iso: string): DayGroup {
   return "Earlier";
 }
 
+const assistantAvatar = (
+  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/20">
+    <Sparkles className="h-4 w-4" />
+  </span>
+);
+
 const chipClass = "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-foreground/5 px-2.5 py-1 text-xs text-muted";
 
 export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
@@ -119,6 +126,9 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
     enabled: ready && !!selected,
     refetchInterval: (query) => (query.state.data?.conversation.status === "running" ? 1500 : false),
   });
+  const tail = useAssistantStream(selected, detail.data?.conversation.status === "running", () =>
+    qc.invalidateQueries({ queryKey: ["ai", "conversation", selected] }),
+  );
 
   const groups = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -294,7 +304,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             </div>
           )}
           {selected && detail.isLoading && <div className="flex items-center gap-2 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>}
-          {selected && detail.data && <Thread detail={detail.data} />}
+          {selected && detail.data && <Thread detail={detail.data} tail={tail} />}
         </div>
 
         {conv?.error && <p className="mx-4 mb-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{conv.error}</p>}
@@ -375,7 +385,7 @@ function turnsOf(message: AssistantMessage): Turn[] {
   return turns;
 }
 
-function Thread({ detail }: { detail: AssistantDetail }) {
+function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
   const end = useRef<HTMLLIElement>(null);
   const results = new Map<string, AssistantBlock>();
   for (const message of detail.messages) {
@@ -387,7 +397,7 @@ function Thread({ detail }: { detail: AssistantDetail }) {
   const running = detail.conversation.status === "running";
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [detail.messages.length]);
+  }, [detail.messages.length, tail]);
 
   return (
     <ol className="space-y-6">
@@ -404,7 +414,7 @@ function Thread({ detail }: { detail: AssistantDetail }) {
         }
         return (
           <li key={i} className="flex gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/20"><Sparkles className="h-4 w-4" /></span>
+            {assistantAvatar}
             <div className="min-w-0 flex-1 space-y-3 pt-1">
               {turns.map((turn, j) =>
                 turn.kind === "text" ? (
@@ -424,7 +434,13 @@ function Thread({ detail }: { detail: AssistantDetail }) {
           </li>
         );
       })}
-      {running && (
+      {tail && (
+        <li className="flex gap-3">
+          {assistantAvatar}
+          <div className="min-w-0 flex-1 pt-1"><Markdown text={tail} /></div>
+        </li>
+      )}
+      {running && !tail && (
         <li className="flex items-center gap-1.5 pl-11 text-xs text-muted">
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:-0.3s]" />
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:-0.15s]" />

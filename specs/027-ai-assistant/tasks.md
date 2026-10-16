@@ -43,3 +43,10 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T020 Bake Claude Code 2.1.301 into the API image on `distroless/cc` (`api/Dockerfile`)
 - [X] T021 Admin "Claude credential" with subscription token (`web/src/routes/AdminSettings.tsx`, `web/src/lib/assistant.ts`, `web/src/lib/config.ts`); test `AdminSettings_ai.test.tsx`
 - [X] T022 Document subscription mode in `api/specs.md` and `web/specs.md`
+
+## Phase 5: Live reply streaming
+
+- [X] T023 Per-conversation frame registry and `GET /ai/conversations/{id}/stream` SSE route (`api/internal/handlers/ai_stream.go`, `ai.go`); exempt the route from the request timeout (`api/cmd/main.go`)
+- [X] T024 Stream the Messages API reply (`sendClaude` via `NewStreaming`) and the CLI reply (`--include-partial-messages`, `stream_event` frames) into the registry (`api/internal/handlers/ai_run.go`, `ai_cli.go`)
+- [X] T025 `useAssistantStream` and the live assistant bubble (`web/src/lib/assistant.ts`, `web/src/components/assistant/AssistantPanel.tsx`)
+- [X] T026 Tests `api/internal/handlers/ai_stream_test.go`, CLI delta case in `ai_cli_test.go`, timeout case in `api/cmd/timeout_test.go`, panel streaming case in `AssistantPanel.test.tsx`; document the route in `api/specs.md` and `web/specs.md`

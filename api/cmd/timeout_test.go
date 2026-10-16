@@ -21,6 +21,9 @@ func TestIsStreamingRequest(t *testing.T) {
 		{"events GET", "GET", "/events", "", true},
 		{"events GET with query", "GET", "/events?namespace=gameplane-games", "", true},
 		{"events wrong method", "POST", "/events", "", false},
+		{"assistant stream GET", "GET", "/ai/conversations/abc/stream", "", true},
+		{"assistant stream wrong method", "POST", "/ai/conversations/abc/stream", "", false},
+		{"assistant detail GET", "GET", "/ai/conversations/abc", "", false},
 		{"unrelated path", "GET", "/servers/alpha", "", false},
 		{"unrelated upgrade value", "GET", "/servers/alpha", "h2c", false},
 		// F-074: large-transfer routes (isLargeTransferPath).

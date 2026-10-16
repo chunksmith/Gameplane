@@ -286,11 +286,12 @@ Six of the nine ServerDetail tabs are rebuilt in this slice:
    - Interactive RCON/PTY terminal (xterm.js, lazy-loaded, NOT rebuilt — uses existing engine)
    - LoadingCard during template resolution (line 28); ErrorCard if no console available (line 35)
    - Uses ui/ LoadingCard, ErrorCard only (lines 4–5); console I/O engine unchanged
+   - Before opening its socket the terminal writes the last 100 container-output lines (`GET /servers/{name}/logs/pod/history?skip=0&limit=100`) so it never opens blank
    - Command bar under the terminal (`ConsoleShell.tsx`): Send or Enter submits; ArrowUp/ArrowDown recall the last 100 commands sent from this tab (consecutive repeats collapsed), and ArrowDown past the newest restores the unsent line. History lives per mount and is not persisted
 
 4. **Logs** (`web/src/routes/tabs/Logs.tsx`, 299 lines)
    - Pod stdout or configured game log file stream (WebSocket, NOT rebuilt — uses existing engine)
-   - Requests last 500 lines of history via `?tail=500` query parameter before streaming new output
+   - Container output opens with the last 1000 lines (`?from=start&tail=1000`), the game log with the last 100 (`?tail=100`); scrolling to the top loads older pages of the same size via `Logs.history` (`GET /servers/{name}/logs/pod/history` and `/servers/{name}/logs/history`). Autoscroll follows only while the view is at the bottom; a reconnect starts the view over
    - Search/filter input via HeroUI Input; download button
    - Virtualized log viewer (TanStack Virtual, NOT rebuilt)
    - Uses HeroUI Button, Input only (line 4); log streaming engine unchanged
@@ -1257,8 +1258,8 @@ for routing, identity and integration coverage.
 
 Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md).
 
-- `src/lib/assistant.ts`: client (`/ai/*`, `/admin/ai/secret`), types, `useAssistantStatus`.
-- `src/components/assistant/AssistantPanel.tsx`: conversation list (admin "All users" toggle), transcript with tool calls, approval card, stop, composer. Polls while a run is active.
+- `src/lib/assistant.ts`: client (`/ai/*`, `/admin/ai/secret`), types, `useAssistantStatus`, `useAssistantStream` (EventSource on `/ai/conversations/{id}/stream` while a run is active; `text` frames replace the live tail, a `flush` frame refetches the transcript).
+- `src/components/assistant/AssistantPanel.tsx`: conversation list (admin "All users" toggle), transcript with tool calls, approval card, stop, composer. Polls while a run is active and renders the streamed reply as a live assistant bubble until it is saved.
 - `/assistant` page (`src/routes/Assistant.tsx`) under the sidebar "General" group, and the server detail "Assistant" tab scoped to the server; both shown only while the assistant is enabled.
 - Admin settings "AI assistant": enable switch, write-only Claude credential (Console API key, or a `claude setup-token` subscription token), default model and effort.
 

@@ -884,13 +884,17 @@ func requestTimeout(d time.Duration) func(http.Handler) http.Handler {
 // isStreamingRequest reports whether req is a long-lived stream that must
 // not be cut off by the app-wide request timeout: a WebSocket upgrade
 // (every route under ws.Mount, plus the PTY console-pty and pod-log
-// routes) or the SSE /events feed (handlers.MountEvents mounts it at
-// exactly this GET path).
+// routes), the SSE /events feed (handlers.MountEvents mounts it at
+// exactly this GET path) or the assistant's per-conversation SSE stream
+// (handlers.MountAI).
 func isStreamingRequest(req *http.Request) bool {
 	if strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
 		return true
 	}
 	if req.Method == http.MethodGet && req.URL.Path == "/events" {
+		return true
+	}
+	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/ai/conversations/") && strings.HasSuffix(req.URL.Path, "/stream") {
 		return true
 	}
 	return isLargeTransferPath(req.Method, req.URL.Path)
