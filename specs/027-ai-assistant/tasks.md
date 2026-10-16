@@ -33,3 +33,13 @@ description: "Task list for Feature 027: AI assistant"
 ## Phase 3: Docs
 
 - [X] T015 Document the routes, tables and permission model in `api/specs.md`; the screens in `web/specs.md`
+
+## Phase 4: Subscription credential
+
+- [X] T016 Migration `api/internal/db/migrations/common/021_ai_session.sql` (`ai_conversations.session_id`)
+- [X] T017 Add `github.com/modelcontextprotocol/go-sdk` v1.8.0 to `api/go.mod`
+- [X] T018 Secret key `oauthToken`, `AIKeyReader` credential kind, subscription branches in create, post, get, approval and cancel (`api/internal/handlers/ai.go`); shared tool schema (`ai_run.go`)
+- [X] T019 Claude Code runner, stream-json recording, loopback MCP tool endpoint and approval gate (`api/internal/handlers/ai_cli.go`); tests `ai_cli_test.go`
+- [X] T020 Bake Claude Code 2.1.301 into the API image on `distroless/cc` (`api/Dockerfile`)
+- [X] T021 Admin "Claude credential" with subscription token (`web/src/routes/AdminSettings.tsx`, `web/src/lib/assistant.ts`, `web/src/lib/config.ts`); test `AdminSettings_ai.test.tsx`
+- [X] T022 Document subscription mode in `api/specs.md` and `web/specs.md`

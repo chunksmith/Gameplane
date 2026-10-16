@@ -100,6 +100,7 @@ export const Assistant = {
 
 export const AssistantAdmin = {
   putSecret: (apiKey: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { apiKey } }),
+  putToken: (oauthToken: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { oauthToken } }),
   deleteSecret: () => api<void>("/admin/ai/secret", { method: "DELETE" }),
 };
 

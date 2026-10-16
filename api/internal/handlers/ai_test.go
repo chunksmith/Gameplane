@@ -64,7 +64,7 @@ func newAIFixture(t *testing.T, enabled bool) *aiFixture {
 	f := &aiFixture{t: t, routes: map[string]func() (int, string){
 		"GET /servers/lobby": func() (int, string) { return http.StatusOK, `{"metadata":{"name":"lobby"}}` },
 	}}
-	f.h = &aiHandler{store: store, router: http.HandlerFunc(f.serve), key: func(context.Context) string { return "sk-test" }, send: f.send}
+	f.h = &aiHandler{store: store, router: http.HandlerFunc(f.serve), key: func(context.Context) (string, bool) { return "sk-test", false }, send: f.send}
 	f.r = chi.NewRouter()
 	f.r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -129,6 +129,19 @@ func (f *aiFixture) script(err error, replies ...string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sendErr, f.replies = err, replies
+}
+
+func (f *aiFixture) waitSends(n int) {
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		done := len(f.params) >= n
+		f.mu.Unlock()
+		if done {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func (f *aiFixture) do(method, path, user string, body any) *httptest.ResponseRecorder {
@@ -365,11 +378,11 @@ func TestAIStatusAndGuards(t *testing.T) {
 		t.Errorf("disabled create = %d", rr.Code)
 	}
 	f = newAIFixture(t, true)
-	f.h.key = func(context.Context) string { return "" }
+	f.h.key = func(context.Context) (string, bool) { return "", false }
 	if rr := f.do(http.MethodPost, "/ai/conversations", "", map[string]any{"prompt": "hi"}); rr.Code != http.StatusServiceUnavailable {
 		t.Errorf("no key create = %d", rr.Code)
 	}
-	f.h.key = func(context.Context) string { return "sk-test" }
+	f.h.key = func(context.Context) (string, bool) { return "sk-test", false }
 	for _, body := range []map[string]any{
 		{"prompt": ""},
 		{"prompt": "hi", "model": "gpt"},
@@ -495,6 +508,7 @@ func TestAIRunCancelAndFailures(t *testing.T) {
 	close(f.block)
 	f.block = nil
 	f.mu.Unlock()
+	f.waitSends(1)
 	stopped := f.wait(conv.ID, aiIdle)
 	if stopped.Error != "Stopped by the user." {
 		t.Errorf("cancel error = %q", stopped.Error)
@@ -545,7 +559,7 @@ func TestAISecret(t *testing.T) {
 	f := newAIFixture(t, true)
 	MountAISecret(f.r, k, notifNS)
 	key := AIKeyReader(k, notifNS)
-	if key(t.Context()) != "" {
+	if got, _ := key(t.Context()); got != "" {
 		t.Error("key before put")
 	}
 	if rr := f.do(http.MethodPut, "/admin/ai/secret", "", map[string]string{"apiKey": " "}); rr.Code != http.StatusUnprocessableEntity {
@@ -558,7 +572,7 @@ func TestAISecret(t *testing.T) {
 		t.Fatalf("put = %d %s", rr.Code, rr.Body.String())
 	}
 	syncSecretData(t, k, notifNS, aiSecretName)
-	if got := key(t.Context()); got != "sk-live" {
+	if got, sub := key(t.Context()); got != "sk-live" || sub {
 		t.Errorf("key = %q", got)
 	}
 	if rr := f.do(http.MethodDelete, "/admin/ai/secret", "", nil); rr.Code != http.StatusNoContent {
