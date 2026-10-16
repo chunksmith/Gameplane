@@ -131,6 +131,19 @@ func (f *aiFixture) script(err error, replies ...string) {
 	f.sendErr, f.replies = err, replies
 }
 
+func (f *aiFixture) waitSends(n int) {
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		done := len(f.params) >= n
+		f.mu.Unlock()
+		if done {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func (f *aiFixture) do(method, path, user string, body any) *httptest.ResponseRecorder {
 	f.t.Helper()
 	var reader io.Reader
@@ -495,6 +508,7 @@ func TestAIRunCancelAndFailures(t *testing.T) {
 	close(f.block)
 	f.block = nil
 	f.mu.Unlock()
+	f.waitSends(1)
 	stopped := f.wait(conv.ID, aiIdle)
 	if stopped.Error != "Stopped by the user." {
 		t.Errorf("cancel error = %q", stopped.Error)
