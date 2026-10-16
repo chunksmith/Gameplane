@@ -70,16 +70,27 @@ func (in aiToolInput) needsApproval() bool {
 		(method == http.MethodPost && strings.HasPrefix(in.Path, "/restores"))
 }
 
-func sendClaude(ctx context.Context, key string, params anthropic.BetaMessageNewParams) (*anthropic.BetaMessage, error) {
+func sendClaude(ctx context.Context, key string, params anthropic.BetaMessageNewParams, onText func(string)) (*anthropic.BetaMessage, error) {
 	client := anthropic.NewClient(option.WithAPIKey(key))
-	msg, err := client.Beta.Messages.New(ctx, params)
-	if err != nil {
+	stream := client.Beta.Messages.NewStreaming(ctx, params)
+	msg := &anthropic.BetaMessage{}
+	for stream.Next() {
+		event := stream.Current()
+		if err := msg.Accumulate(event); err != nil {
+			return nil, fmt.Errorf("claude stream: %w", err)
+		}
+		if event.Type == "content_block_delta" && event.Delta.Type == "text_delta" {
+			onText(event.Delta.Text)
+		}
+	}
+	if err := stream.Err(); err != nil {
 		return nil, fmt.Errorf("claude request: %w", err)
 	}
 	return msg, nil
 }
 
 func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds, key, runID string, approved *bool) {
+	defer h.pushFlush(conv.ID)
 	for calls := 0; calls < aiMaxSteps; {
 		msgs, err := h.messages(ctx, conv.ID)
 		if err != nil {
@@ -107,7 +118,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			return
 		}
 		calls++
-		resp, err := h.send(ctx, key, aiParams(conv, history))
+		resp, err := h.send(ctx, key, aiParams(conv, history), func(text string) { h.pushText(conv.ID, text) })
 		if err != nil {
 			h.settle(ctx, conv.ID, runID, aiFailed, aiErrorText(err))
 			return

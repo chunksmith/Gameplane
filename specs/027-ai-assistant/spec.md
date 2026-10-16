@@ -53,7 +53,7 @@
 - `POST /ai/conversations/{id}/messages {prompt}`, `POST …/approval {approve}`, `POST …/cancel`. Only the owner may write; a run in progress → 409.
 - RBAC: `/ai` needs any authenticated user; `/admin/ai` needs `config:manage`.
 - Admin: config section `ai` `{enabled, defaultModel, defaultEffort, apiKeySet, subscriptionSet?}`; the credential is stored in the labelled Secret `gameplane-ai` (`gameplane.local/ai=true`) as key `apiKey` or, for a subscription token, `oauthToken` via `PUT /admin/ai/secret` (`{apiKey}` or `{oauthToken}`, exactly one; storing one clears the other) and `DELETE /admin/ai/secret`.
-- Runs execute in a background goroutine (max 40 model calls per turn); the web polls while a run is active. A run interrupted by an API restart is marked `error` at startup.
+- Runs execute in a background goroutine (max 40 model calls per turn); the web polls while a run is active and streams the reply text over `GET /ai/conversations/{id}/stream` (SSE) as it is written. A run interrupted by an API restart is marked `error` at startup.
 
 ### Web
 

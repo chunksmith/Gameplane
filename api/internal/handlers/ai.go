@@ -92,12 +92,15 @@ type aiHandler struct {
 	store   *db.Store
 	router  http.Handler
 	key     func(context.Context) (string, bool)
-	send    func(context.Context, string, anthropic.BetaMessageNewParams) (*anthropic.BetaMessage, error)
+	send    func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
 	spawn   func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
 	mcpOnce sync.Once
 	mcpURL  string
 	mu      sync.Mutex
 	live    map[string]*aiLive
+
+	streamMu sync.Mutex
+	streams  map[string]*aiStream
 }
 
 // MountAI wires the AI assistant routes; its tool calls replay through router with the caller's own session.
@@ -168,6 +171,7 @@ func (h *aiHandler) mount(r chi.Router) {
 	r.Get("/ai/conversations", h.list)
 	r.Post("/ai/conversations", h.create)
 	r.Get("/ai/conversations/{id}", h.get)
+	r.Get("/ai/conversations/{id}/stream", h.sse)
 	r.Post("/ai/conversations/{id}/messages", h.post)
 	r.Post("/ai/conversations/{id}/approval", h.approval)
 	r.Post("/ai/conversations/{id}/cancel", h.cancel)
@@ -548,6 +552,7 @@ func (h *aiHandler) appendRaw(ctx context.Context, id, runID string, data []byte
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit ai message: %w", err)
 	}
+	h.pushFlush(id)
 	return nil
 }
 
@@ -557,6 +562,7 @@ func (h *aiHandler) settle(ctx context.Context, id, runID, status, message strin
 		status, message, aiNow(), id, runID, aiRunning); err != nil {
 		slog.Warn("settle ai run", "id", id, "err", err)
 	}
+	h.pushFlush(id)
 }
 
 func (h *aiHandler) active(ctx context.Context, id, runID string) bool {

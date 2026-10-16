@@ -50,6 +50,7 @@ type aiEvent struct {
 	Subtype   string              `json:"subtype"`
 	SessionID string              `json:"session_id"`
 	Message   json.RawMessage     `json:"message"`
+	Event     json.RawMessage     `json:"event"`
 	IsError   bool                `json:"is_error"`
 	Result    string              `json:"result"`
 	Usage     anthropic.BetaUsage `json:"usage"`
@@ -66,6 +67,7 @@ func (h *aiHandler) begin(ctx context.Context, conv aiConversation, creds aiCred
 func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCreds, token, runID, prompt string) {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer h.pushFlush(conv.ID)
 	h.mcpOnce.Do(func() { h.startMCP(runCtx) })
 	if h.mcpURL == "" {
 		h.settle(ctx, conv.ID, runID, aiFailed, "The assistant tool endpoint could not start.")
@@ -130,6 +132,8 @@ func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID strin
 					return last, err
 				}
 			}
+		case "stream_event":
+			h.pushText(conv.ID, aiCLIDelta(ev.Event))
 		case "result":
 			h.addUsage(ctx, conv.ID, ev.Usage)
 		}
@@ -156,11 +160,25 @@ func aiCLIMessage(role string, raw json.RawMessage) ([]byte, bool) {
 	return data, err == nil
 }
 
+func aiCLIDelta(raw json.RawMessage) string {
+	var ev struct {
+		Type  string `json:"type"`
+		Delta struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"delta"`
+	}
+	if json.Unmarshal(raw, &ev) != nil || ev.Type != "content_block_delta" || ev.Delta.Type != "text_delta" {
+		return ""
+	}
+	return ev.Delta.Text
+}
+
 func aiCLIArgs(conv aiConversation, mcpURL, token string) []string {
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	args := []string{"-p", "--output-format", "stream-json", "--verbose",
+	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--model", conv.Model, "--effort", conv.Effort, "--max-turns", strconv.Itoa(aiMaxSteps),
 		"--system-prompt", aiSystemPrompt(conv),
 		"--strict-mcp-config", "--mcp-config", string(servers),

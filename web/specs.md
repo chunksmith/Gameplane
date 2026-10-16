@@ -1258,8 +1258,8 @@ for routing, identity and integration coverage.
 
 Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md).
 
-- `src/lib/assistant.ts`: client (`/ai/*`, `/admin/ai/secret`), types, `useAssistantStatus`.
-- `src/components/assistant/AssistantPanel.tsx`: conversation list (admin "All users" toggle), transcript with tool calls, approval card, stop, composer. Polls while a run is active.
+- `src/lib/assistant.ts`: client (`/ai/*`, `/admin/ai/secret`), types, `useAssistantStatus`, `useAssistantStream` (EventSource on `/ai/conversations/{id}/stream` while a run is active; `text` frames replace the live tail, a `flush` frame refetches the transcript).
+- `src/components/assistant/AssistantPanel.tsx`: conversation list (admin "All users" toggle), transcript with tool calls, approval card, stop, composer. Polls while a run is active and renders the streamed reply as a live assistant bubble until it is saved.
 - `/assistant` page (`src/routes/Assistant.tsx`) under the sidebar "General" group, and the server detail "Assistant" tab scoped to the server; both shown only while the assistant is enabled.
 - Admin settings "AI assistant": enable switch, write-only Claude credential (Console API key, or a `claude setup-token` subscription token), default model and effort.
 

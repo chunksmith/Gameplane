@@ -41,6 +41,7 @@ type aiFixture struct {
 	calls   []aiCall
 	replies []string
 	sendErr error
+	deltas  []string
 	block   chan struct{}
 	params  []anthropic.BetaMessageNewParams
 	routes  map[string]func() (int, string)
@@ -97,13 +98,16 @@ func (f *aiFixture) serve(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write([]byte(out))
 }
 
-func (f *aiFixture) send(_ context.Context, key string, params anthropic.BetaMessageNewParams) (*anthropic.BetaMessage, error) {
+func (f *aiFixture) send(_ context.Context, key string, params anthropic.BetaMessageNewParams, onText func(string)) (*anthropic.BetaMessage, error) {
 	if key != "sk-test" {
 		f.t.Errorf("send key = %q", key)
 	}
 	f.mu.Lock()
-	block := f.block
+	block, deltas := f.block, f.deltas
 	f.mu.Unlock()
+	for _, delta := range deltas {
+		onText(delta)
+	}
 	if block != nil {
 		<-block
 	}
@@ -183,6 +187,23 @@ func (f *aiFixture) wait(id, want string) aiConversation {
 		}
 		if time.Now().After(deadline) {
 			f.t.Fatalf("status = %q (%q), want %q", conv.Status, conv.Error, want)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func (f *aiFixture) waitStream(id string) string {
+	f.t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		f.h.streamMu.Lock()
+		text := ""
+		if s := f.h.streams[id]; s != nil {
+			text = s.text
+		}
+		f.h.streamMu.Unlock()
+		if text != "" || time.Now().After(deadline) {
+			return text
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

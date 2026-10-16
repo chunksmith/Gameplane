@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
@@ -70,6 +71,11 @@ export interface AssistantPending {
   path: string;
 }
 
+export interface AssistantFrame {
+  text?: string;
+  flush?: boolean;
+}
+
 export interface AssistantDetail {
   conversation: AssistantConversation;
   messages: AssistantMessage[];
@@ -106,6 +112,33 @@ export const AssistantAdmin = {
 
 export function useAssistantStatus() {
   return useQuery({ queryKey: ["ai", "status"], queryFn: Assistant.status, staleTime: 60_000 });
+}
+
+export function useAssistantStream(id: string | null, active: boolean, onFlush: () => Promise<unknown>): string {
+  const [live, setLive] = useState({ id: "", text: "" });
+  const flush = useRef(onFlush);
+  useEffect(() => {
+    flush.current = onFlush;
+  }, [onFlush]);
+  useEffect(() => {
+    if (!id || !active || typeof EventSource === "undefined") return () => {};
+    const source = new EventSource(conversationPath(id, "/stream"), { withCredentials: true });
+    source.onmessage = (event) => {
+      let frame: AssistantFrame;
+      try {
+        frame = JSON.parse(String(event.data)) as AssistantFrame;
+      } catch {
+        return;
+      }
+      if (frame.flush) {
+        void flush.current().then(() => setLive({ id, text: "" }));
+        return;
+      }
+      setLive({ id, text: frame.text ?? "" });
+    };
+    return () => source.close();
+  }, [id, active]);
+  return active && live.id === id ? live.text : "";
 }
 
 export function modelLabel(id: string): string {
