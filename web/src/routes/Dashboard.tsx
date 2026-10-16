@@ -1,13 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card } from "@heroui/react";
 import {
   Activity,
   Archive,
+  ArrowRight,
   CheckCircle2,
-  Cpu,
   HardDrive,
+  Info,
   Pencil,
   Play,
   Plus,
@@ -20,7 +21,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { StatCard } from "@/components/ui/StatCard";
 import { Meter } from "@/components/ui/Meter";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { GameIcon } from "@/components/ui/GameIcon";
@@ -48,6 +48,8 @@ import type {
   GameServer,
   GameTemplate,
 } from "@/types";
+
+const ALLOCATION_HINT = "Requests are reserved by the scheduler; limits are the most pods may burst to and can exceed capacity.";
 
 export function DashboardPage() {
   const { data: placements } = useFleetPlacements();
@@ -81,41 +83,49 @@ export function DashboardPage() {
   const counts = useMemo(() => countByState(servers), [servers]);
   const players = playerCoverage(servers);
   const groups = useMemo(() => phaseGroups(servers), [servers]);
+  const busiest = useMemo(() => mostPlayers(servers), [servers]);
   const recentBackups = useMemo(
     () => sortBackups(backupsData?.items ?? []).slice(0, 6),
     [backupsData?.items],
   );
+  const scopeLabel = location ? `in ${location}` : "across all locations";
 
   const nodes = clusterError ? [] : clusterView.nodes;
   const nodesReady = clusterView.ready;
   const nodesTotal = clusterView.total;
+  const nodesKnown = !clusterError && nodesTotal > 0;
   const cpu = inventory?.partial ? { known: false, pct: 0 } : sumUsage(nodes, "cpu");
   const mem = inventory?.partial ? { known: false, pct: 0 } : sumUsage(nodes, "memory");
   const cpuAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(nodes, "cpu");
   const memAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(nodes, "memory");
   const network = sumNetwork(servers);
-  const vcpus = nodes.reduce((sum, n) => sum + (n.cpu?.capacity ?? 0), 0);
   const storage = clusterView.usedStorageBytes === undefined ? { valueText: "—", subText: "inventory unavailable", overcommitted: false } : describeStorageProvisioned(clusterView.usedStorageBytes, clusterView.totalStorageBytes);
   const storagePct = clusterView.totalStorageBytes ? ((clusterView.usedStorageBytes ?? 0) / clusterView.totalStorageBytes) * 100 : 0;
   const isLoading = serversLoading || clusterLoading || backupsLoading || (canAudit && auditLoading);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
       <PageHeader
         title="Dashboard"
         subtitle="Your game servers and resources across authorized locations."
-        actions={canCreate ?
-          <Button
-            variant="primary"
-            className="rounded-full"
-            onPress={() => void navigate({ to: "/servers/new" })}
-          >
-            <Plus className="h-4 w-4" /> Create server
-          </Button> : undefined
+        actions={
+          <>
+            <div className="min-w-0 flex-1 sm:w-56 sm:flex-none">
+              <FleetScopeFilter value={location} onChange={setLocation} clusters={[...(scopes?.scopes ?? []).map((scope) => scope.cluster), ...(scopes?.items ?? []).map((item) => item.target.cluster), ...(scopes?.issues ?? []).map((issue) => issue.cluster), ...(inventory?.items ?? []).map((item) => item.cluster)]} />
+            </div>
+            {canCreate && (
+              <Button
+                variant="primary"
+                className="rounded-full"
+                onPress={() => void navigate({ to: "/servers/new" })}
+              >
+                <Plus className="h-4 w-4" /> Create server
+              </Button>
+            )}
+          </>
         }
       />
 
-      <FleetScopeFilter value={location} onChange={setLocation} clusters={[...(scopes?.scopes ?? []).map((scope) => scope.cluster), ...(scopes?.items ?? []).map((item) => item.target.cluster), ...(scopes?.issues ?? []).map((issue) => issue.cluster), ...(inventory?.items ?? []).map((item) => item.cluster)]} />
       <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={serversError} label="Server totals" />
       <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={clusterError} label="Inventory" />
       <FleetCoverage partial={backupsFleet?.partial} issues={backupsFleet?.issues} error={backupsError} label="Backups" />
@@ -124,39 +134,38 @@ export function DashboardPage() {
         <LoadingCard message="Loading dashboard…" />
       ) : (
         <>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-            <StatCard
-              label="Running"
-              icon={<Activity className="h-4 w-4" />}
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+            <KpiCard
+              label="Servers running"
+              icon={Activity}
+              accent="text-success"
               value={countsUnavailable ? "—" : counts.running}
-              sub={countsUnavailable ? "server status unavailable" : `of ${groups.total} ${fleet?.partial ? "returned" : "total"}`}
-              accent={countsUnavailable ? "warning" : "success"}
+              suffix={countsUnavailable ? undefined : `/ ${groups.total}`}
+              sub={
+                countsUnavailable
+                  ? "server status unavailable"
+                  : fleet?.partial
+                    ? "returned servers only"
+                    : groups.total === 0
+                      ? "no servers"
+                    : counts.running === groups.total
+                      ? "all servers running"
+                      : `${groups.total - counts.running} not running`
+              }
             />
-            <StatCard
+            <KpiCard
               label="Players online"
-              icon={<UsersIcon className="h-4 w-4" />}
+              icon={UsersIcon}
+              accent="text-accent"
               value={countsUnavailable || !players.known ? "—" : counts.players}
               sub={countsUnavailable || !players.known ? "player status unavailable" : players.unknown ? `${players.unknown} server player counts unavailable` : `peak ${counts.playersMax}`}
-              accent="primary"
             />
-            <StatCard
-              label="vCPUs"
-              icon={<Cpu className="h-4 w-4" />}
-              value={vcpus > 0 ? vcpus : "—"}
-              sub={inventory?.partial ? "returned inventory cores" : "authorized inventory cores"}
-              accent="warning"
-            />
-            <StatCard
-              label="Storage provisioned"
-              icon={<HardDrive className="h-4 w-4" />}
-              value={storage.valueText}
-              sub={storage.subText ?? "—"}
-              accent={storage.overcommitted ? "warning" : "violet"}
-            />
-            <StatCard
+            <KpiCard
               label="Nodes ready"
-              icon={<ServerIcon className="h-4 w-4" />}
-              value={!clusterError && nodesTotal > 0 ? `${nodesReady}/${nodesTotal}` : "—"}
+              icon={ServerIcon}
+              accent="text-warning"
+              value={nodesKnown ? nodesReady : "—"}
+              suffix={nodesKnown ? `/ ${nodesTotal}` : undefined}
               sub={
                 clusterError
                   ? "inventory unavailable"
@@ -168,14 +177,20 @@ export function DashboardPage() {
                     ? "all healthy"
                     : "needs attention"
               }
-              accent="warning"
+            />
+            <KpiCard
+              label="Storage provisioned"
+              icon={HardDrive}
+              accent={storage.overcommitted ? "text-warning" : "text-chart-stat"}
+              value={storage.valueText}
+              sub={storage.subText ?? "—"}
             />
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             {countsUnavailable
               ? <ErrorCard message={"Couldn't load servers. Status and player totals are unavailable."} />
-              : <FleetStatusCard complete={!fleet?.partial} groups={groups} gameCodes={gameCodes} byName={byName} />}
+              : <FleetStatusCard complete={!fleet?.partial} groups={groups} busiest={busiest} scope={scopeLabel} gameCodes={gameCodes} byName={byName} />}
             <ClusterResourcesCard
               cpu={cpu}
               mem={mem}
@@ -186,15 +201,18 @@ export function DashboardPage() {
               nodesTotal={nodesTotal}
               canViewCluster={canCluster}
               network={network}
+              cpuAllocation={cpuAllocation}
+              memAllocation={memAllocation}
             />
-            <AllocationCard cpu={cpuAllocation} mem={memAllocation} />
           </div>
 
           <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-            {canAudit && <div className="space-y-2"><p className="text-xs text-muted">Central Gameplane audit activity</p><RecentActivityCard events={audit ?? []} /></div>}
-            {backupsError
-              ? <ErrorCard message={"Couldn't load backups. Backup status is unavailable."} />
-              : <RecentBackupsCard complete={!backupsFleet?.partial} backups={recentBackups} gameCodes={gameCodes} byName={byName} servers={serversData?.items} />}
+            {canAudit && <RecentActivityCard events={audit ?? []} />}
+            <div className={cn("grid min-w-0", !canAudit && "lg:col-span-2")}>
+              {backupsError
+                ? <ErrorCard message={"Couldn't load backups. Backup status is unavailable."} />
+                : <RecentBackupsCard complete={!backupsFleet?.partial} backups={recentBackups} gameCodes={gameCodes} byName={byName} servers={serversData?.items} />}
+            </div>
           </div>
         </>
       )}
@@ -202,14 +220,88 @@ export function DashboardPage() {
   );
 }
 
+function KpiCard({
+  label,
+  icon: Icon,
+  accent,
+  value,
+  suffix,
+  sub,
+}: {
+  label: string;
+  icon: LucideIcon;
+  accent: string;
+  value: ReactNode;
+  suffix?: string;
+  sub: ReactNode;
+}) {
+  return (
+    <Card className="min-w-0 gap-3 border border-border p-4 sm:p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+          <Icon className={cn("h-4 w-4", accent)} />
+        </span>
+        <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</span>
+      </div>
+      <div className="flex items-baseline gap-1 font-mono">
+        <span className="text-2xl font-bold text-foreground sm:text-[28px]">{value}</span>
+        {suffix && <span className="text-base text-muted">{suffix}</span>}
+      </div>
+      <div className="text-xs text-muted">{sub}</div>
+    </Card>
+  );
+}
+
+function CardHeader({
+  title,
+  sub,
+  badge,
+  action,
+}: {
+  title: string;
+  sub?: ReactNode;
+  badge?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {badge}
+        </div>
+        {sub && <p className="text-xs text-muted">{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function CardLink({ to, children }: { to: "/servers" | "/clusters" | "/admin/audit" | "/backups"; children: ReactNode }) {
+  return (
+    <Link to={to} className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline">
+      {children}
+      <ArrowRight className="h-3.5 w-3.5" />
+    </Link>
+  );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</div>;
+}
+
 function FleetStatusCard({
   complete,
   groups,
+  busiest,
+  scope,
   gameCodes,
   byName,
 }: {
   complete: boolean;
   groups: PhaseGroups;
+  busiest: GameServer[];
+  scope: string;
   gameCodes: Map<string, string>;
   byName: Map<string, GameTemplate>;
 }) {
@@ -219,35 +311,60 @@ function FleetStatusCard({
     { n: stopped, cls: "bg-muted" },
     { n: groups.failed, cls: "bg-danger" },
   ].filter((s) => s.n > 0);
+  const tiles = [
+    { label: "Running", n: groups.running, cls: "bg-success" },
+    { label: "Stopped", n: stopped, cls: "bg-muted" },
+    { label: "Failed", n: groups.failed, cls: "bg-danger" },
+  ];
   const attention = groups.attention.slice(0, 4);
 
   return (
-    <Card className="min-w-0 space-y-4 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Fleet status</h3>
-        <span className="text-xs text-muted">{groups.total} {complete ? "servers" : "returned servers"}</span>
-      </div>
+    <Card className="min-w-0 gap-5 border border-border p-5">
+      <CardHeader
+        title="Fleet status"
+        sub={`${groups.total} ${complete ? "" : "returned "}${groups.total === 1 ? "server" : "servers"} ${scope}`}
+        action={<CardLink to="/servers">View servers</CardLink>}
+      />
 
-      <div className="flex h-2 overflow-hidden rounded-full bg-surface">
+      <div className="flex h-2 overflow-hidden rounded-full bg-border">
         {groups.total > 0 &&
           segments.map((s, i) => (
             <div key={i} className={s.cls} style={{ width: `${(s.n / groups.total) * 100}%` }} />
           ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-        <LegendDot cls="bg-success" label={`Running ${groups.running}`} />
-        <LegendDot cls="bg-muted" label={`Stopped ${stopped}`} />
-        <LegendDot cls="bg-danger" label={`Failed ${groups.failed}`} />
-      </div>
+      <dl className="grid grid-cols-3 gap-3">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="min-w-0 space-y-1 rounded-lg border border-border bg-card p-3">
+            <dt className="flex items-center gap-2 text-xs text-muted">
+              <span className={cn("h-2 w-2 shrink-0 rounded-full", tile.cls)} />
+              {tile.label}
+            </dt>
+            <dd className="font-mono text-xl font-bold text-foreground">{tile.n}</dd>
+          </div>
+        ))}
+      </dl>
 
-      <div className="space-y-3 border-t border-border pt-4">
-        <div className="text-[10px] font-medium uppercase tracking-wider text-muted">
-          Needs attention
+      {busiest.length > 0 && (
+        <div className="space-y-3">
+          <SectionLabel>Most players</SectionLabel>
+          {busiest.map((gs) => (
+            <PlayerRow key={targetKey(resourceTarget(gs))} gs={gs} gameCodes={gameCodes} byName={byName} />
+          ))}
         </div>
+      )}
+
+      <div className="space-y-3 border-t border-border pt-5">
+        <SectionLabel>Needs attention</SectionLabel>
         {attention.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <CheckCircle2 className="h-4 w-4 text-success" /> {complete ? "Everything looks healthy." : "No issues among returned servers; some locations are unavailable."}
+          <div className="flex items-center gap-3 rounded-lg bg-success-soft p-3">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-success-soft-foreground">Everything looks healthy</div>
+              <div className="text-xs text-muted">
+                {complete ? "No failed servers or stale agents." : "No issues among returned servers; some locations are unavailable."}
+              </div>
+            </div>
           </div>
         ) : (
           attention.map((gs) => (
@@ -256,6 +373,39 @@ function FleetStatusCard({
         )}
       </div>
     </Card>
+  );
+}
+
+function PlayerRow({
+  gs,
+  gameCodes,
+  byName,
+}: {
+  gs: GameServer;
+  gameCodes: Map<string, string>;
+  byName: Map<string, GameTemplate>;
+}) {
+  const target = resourceTarget(gs);
+  const template = templateKey(target.cluster, gs.spec.templateRef.name);
+  const max = gs.status?.agent?.playersMax;
+  return (
+    <Link
+      to="/servers/$name"
+      params={{ name: gs.metadata.name }}
+      search={targetSearch(target)}
+      className="group flex items-center gap-3"
+    >
+      <GameIcon game={gs.spec.templateRef.name} icon={byName.get(template)?.spec.icon} code={gameCodes.get(template)} size="sm" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-mono text-sm text-foreground group-hover:text-primary">{gs.metadata.name}</div>
+        <div className="truncate text-[11px] text-muted">{targetLabel(target)}</div>
+      </div>
+      <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-foreground">
+        <UsersIcon className="h-3.5 w-3.5 text-muted" />
+        {gs.status?.agent?.playersOnline}
+        {max ? <span className="text-muted">/ {max}</span> : null}
+      </span>
+    </Link>
   );
 }
 
@@ -332,6 +482,8 @@ function ClusterResourcesCard({
   nodesTotal,
   canViewCluster,
   network,
+  cpuAllocation,
+  memAllocation,
 }: {
   cpu: Usage;
   mem: Usage;
@@ -342,81 +494,79 @@ function ClusterResourcesCard({
   nodesTotal: number;
   canViewCluster: boolean;
   network: NetworkUsage;
+  cpuAllocation: Allocation;
+  memAllocation: Allocation;
 }) {
   return (
-    <Card className="min-w-0 space-y-4 p-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">Cluster resources</h3>
-          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium text-success">
+    <Card className="min-w-0 gap-5 border border-border p-5">
+      <CardHeader
+        title="Cluster resources"
+        badge={
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-soft-foreground">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
             Live
           </span>
-        </div>
-        {canViewCluster ? (
-          <Link to="/clusters" className="text-xs text-primary hover:underline">
-            View clusters
-          </Link>
-        ) : (
-          <span className="text-xs text-muted">
-            {nodesTotal > 0 ? `${nodesReady}/${nodesTotal} nodes ready` : "—"}
-          </span>
-        )}
-      </div>
+        }
+        sub={nodesTotal > 0 ? `Usage and scheduler allocation across ${nodesTotal} ${nodesTotal === 1 ? "node" : "nodes"}` : "Usage and scheduler allocation"}
+        action={
+          canViewCluster ? (
+            <CardLink to="/clusters">View clusters</CardLink>
+          ) : (
+            <span className="shrink-0 text-xs text-muted">
+              {nodesTotal > 0 ? `${nodesReady}/${nodesTotal} nodes ready` : "—"}
+            </span>
+          )
+        }
+      />
 
-      <div className="space-y-3">
-        <Meter label="CPU" pct={cpu.pct} sub={cpu.sub} unknown={!cpu.known} accent="primary" />
-        <Meter label="Memory" pct={mem.pct} sub={mem.sub} unknown={!mem.known} accent="violet" />
-        <Meter
-          label="Storage"
-          pct={storagePct}
-          sub={storage.subText}
-          unknown={storage.valueText === "—"}
-          accent={storage.overcommitted ? "warning" : "success"}
-        />
-        <div>
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-muted">Network</span>
-            <span className={cn("font-mono", network.known ? "text-foreground" : "text-muted")}>
-              {network.known ? `${formatBytes(network.rx + network.tx)}/s` : "—"}
+      <div className="grid gap-5 md:grid-cols-2 md:gap-6">
+        <div className="min-w-0 space-y-4">
+          <SectionLabel>Usage</SectionLabel>
+          <Meter label="CPU" pct={cpu.pct} sub={cpu.sub} unknown={!cpu.known} accent="primary" />
+          <Meter label="Memory" pct={mem.pct} sub={mem.sub} unknown={!mem.known} accent="violet" />
+          <Meter
+            label="Storage"
+            pct={storagePct}
+            sub={storage.subText}
+            unknown={storage.valueText === "—"}
+            accent={storage.overcommitted ? "warning" : "success"}
+          />
+          <div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-muted">Network</span>
+              <span className={cn("font-mono", network.known ? "text-foreground" : "text-muted")}>
+                {network.known ? `${formatBytes(network.rx + network.tx)}/s` : "—"}
+              </span>
+            </div>
+            <div className="pt-1 text-[10px] text-muted">
+              {network.known
+                ? `In ${formatBytes(network.rx)}/s · Out ${formatBytes(network.tx)}/s · ${network.servers} game ${network.servers === 1 ? "server" : "servers"}`
+                : "no game server traffic reported"}
+            </div>
+          </div>
+        </div>
+        <div className="min-w-0 space-y-4 border-t border-border pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+          <div className="flex items-center gap-1 text-muted">
+            <SectionLabel>Allocation</SectionLabel>
+            <span role="img" aria-label={ALLOCATION_HINT} title={ALLOCATION_HINT}>
+              <Info className="h-3 w-3" />
             </span>
           </div>
-          <div className="pt-1 text-[10px] text-muted">
-            {network.known
-              ? `In ${formatBytes(network.rx)}/s · Out ${formatBytes(network.tx)}/s · ${network.servers} game ${network.servers === 1 ? "server" : "servers"}`
-              : "no game server traffic reported"}
-          </div>
+          <Meter label="CPU requested" pct={cpuAllocation.requestPct} sub={cpuAllocation.requestSub} unknown={!cpuAllocation.known} accent="primary" />
+          <Meter label="CPU limits" pct={cpuAllocation.limitPct} sub={cpuAllocation.limitSub} unknown={!cpuAllocation.known} accent={cpuAllocation.limitPct > 100 ? "warning" : "primary"} />
+          <Meter label="Memory requested" pct={memAllocation.requestPct} sub={memAllocation.requestSub} unknown={!memAllocation.known} accent="violet" />
+          <Meter label="Memory limits" pct={memAllocation.limitPct} sub={memAllocation.limitSub} unknown={!memAllocation.known} accent={memAllocation.limitPct > 100 ? "warning" : "violet"} />
         </div>
       </div>
 
       {nodes.length > 0 && (
-        <div className="space-y-2 border-t border-border pt-4">
-          <div className="text-[10px] font-medium uppercase tracking-wider text-muted">Nodes</div>
+        <div className="mt-auto space-y-2 border-t border-border pt-4">
+          <SectionLabel>Nodes</SectionLabel>
           {nodes.slice(0, 4).map((n) => (
             <NodeRow key={n.name} node={n} />
           ))}
         </div>
       )}
-    </Card>
-  );
-}
-
-function AllocationCard({ cpu, mem }: { cpu: Allocation; mem: Allocation }) {
-  return (
-    <Card className="min-w-0 space-y-4 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Allocation</h3>
-        <span className="text-xs text-muted">pod requests &amp; limits</span>
-      </div>
-      <div className="space-y-3">
-        <Meter label="CPU requested" pct={cpu.requestPct} sub={cpu.requestSub} unknown={!cpu.known} accent="primary" />
-        <Meter label="CPU limits" pct={cpu.limitPct} sub={cpu.limitSub} unknown={!cpu.known} accent={cpu.limitPct > 100 ? "warning" : "primary"} />
-        <Meter label="Memory requested" pct={mem.requestPct} sub={mem.requestSub} unknown={!mem.known} accent="violet" />
-        <Meter label="Memory limits" pct={mem.limitPct} sub={mem.limitSub} unknown={!mem.known} accent={mem.limitPct > 100 ? "warning" : "violet"} />
-      </div>
-      <p className="border-t border-border pt-4 text-[11px] text-muted">
-        Requests are reserved by the scheduler; limits are the most pods may burst to and can exceed capacity.
-      </p>
     </Card>
   );
 }
@@ -442,17 +592,16 @@ function NodeRow({ node }: { node: ClusterNode }) {
 
 function RecentActivityCard({ events }: { events: AuditEvent[] }) {
   return (
-    <Card className="min-w-0 space-y-4 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
-        <Link to="/admin/audit" className="text-xs text-primary hover:underline">
-          View all
-        </Link>
-      </div>
+    <Card className="min-w-0 gap-5 border border-border p-5">
+      <CardHeader
+        title="Recent activity"
+        sub="Central audit log · not filtered by location"
+        action={<CardLink to="/admin/audit">View all</CardLink>}
+      />
       {events.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted">No recent activity.</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {events.map((e) => (
             <ActivityRow key={e.id} event={e} />
           ))}
@@ -466,8 +615,8 @@ function ActivityRow({ event }: { event: AuditEvent }) {
   const { icon: Icon, accent } = actionIcon(event);
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface">
-        <Icon className={cn("h-3.5 w-3.5", accent)} />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+        <Icon className={cn("h-4 w-4", accent)} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm text-foreground">{describeAudit(event)}</div>
@@ -494,17 +643,16 @@ function RecentBackupsCard({
   servers?: GameServer[];
 }) {
   return (
-    <Card className="min-w-0 space-y-4 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Recent backups</h3>
-        <Link to="/backups" className="text-xs text-primary hover:underline">
-          View all
-        </Link>
-      </div>
+    <Card className="min-w-0 gap-5 border border-border p-5">
+      <CardHeader
+        title="Recent backups"
+        sub="Latest snapshots in the selected locations"
+        action={<CardLink to="/backups">View all</CardLink>}
+      />
       {backups.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted">{complete ? "No backups yet." : "No backup data available."}</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {backups.map((b) => (
             <BackupRow key={targetKey(resourceTarget(b))} backup={b} gameCodes={gameCodes} byName={byName} servers={servers} />
           ))}
@@ -550,13 +698,12 @@ function BackupRow({
   );
 }
 
-function LegendDot({ cls, label }: { cls: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 text-muted">
-      <span className={cn("h-2 w-2 rounded-full", cls)} />
-      {label}
-    </span>
-  );
+function mostPlayers(servers: GameServer[]): GameServer[] {
+  const online = (gs: GameServer) => gs.status?.agent?.playersOnline ?? 0;
+  return servers
+    .filter((gs) => gs.status?.phase === "Running" && !gs.status?.agent?.stale && online(gs) > 0)
+    .sort((a, b) => online(b) - online(a))
+    .slice(0, 3);
 }
 
 // sumUsage aggregates a resource across nodes into a percentage and a

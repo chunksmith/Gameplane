@@ -38,7 +38,7 @@ export function Meter({
           {unknown ? "—" : `${Math.max(0, Math.round(pct))}%`}
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface">
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-border">
         {!unknown && (
           <div
             className={`h-full ${accentClass[accent]}`}
