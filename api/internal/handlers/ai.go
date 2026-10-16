@@ -84,24 +84,66 @@ type aiCreds struct {
 	remoteAddr string
 }
 
-type valuelessContext struct{ context.Context }
-
-func (valuelessContext) Value(any) any { return nil }
-
 type aiHandler struct {
 	store  *db.Store
 	router http.Handler
-	k      *kube.Client
-	ns     string
 	key    func(context.Context) string
 	send   func(context.Context, string, anthropic.BetaMessageNewParams) (*anthropic.BetaMessage, error)
 }
 
 // MountAI wires the AI assistant routes; its tool calls replay through router with the caller's own session.
-func MountAI(r chi.Router, store *db.Store, router http.Handler, k *kube.Client, controlNS string) {
-	h := &aiHandler{store: store, router: router, k: k, ns: controlNS, send: sendClaude}
-	h.key = h.secretKey
-	h.mount(r)
+func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) string) {
+	(&aiHandler{store: store, router: router, key: key, send: sendClaude}).mount(r)
+}
+
+// MountAISecret wires the admin routes that store and remove the assistant's Claude API key.
+func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
+	r.Put("/admin/ai/secret", func(w http.ResponseWriter, req *http.Request) {
+		var body struct {
+			APIKey string `json:"apiKey"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		key := strings.TrimSpace(body.APIKey)
+		if key == "" {
+			http.Error(w, "apiKey is required", http.StatusUnprocessableEntity)
+			return
+		}
+		err := upsertLabelledSecret(req.Context(), k, controlNS, aiSecretName, aiSecretLabel, map[string]string{"apiKey": key})
+		if errors.Is(err, errNotManagedSecret) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		if err != nil {
+			httperr.Write(w, req, err)
+			return
+		}
+		writeJSON(w, map[string]any{"name": aiSecretName, "keys": []string{"apiKey"}})
+	})
+	r.Delete("/admin/ai/secret", func(w http.ResponseWriter, req *http.Request) {
+		if err := deleteManagedSecret(req.Context(), k, controlNS, aiSecretName, aiSecretLabel); err != nil {
+			httperr.Write(w, req, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+// AIKeyReader returns a lookup of the assistant's Claude API key in its labelled Secret; the lookup yields "" when none is set.
+func AIKeyReader(k *kube.Client, controlNS string) func(context.Context) string {
+	return func(ctx context.Context) string {
+		secrets := k.Secrets(controlNS)
+		if secrets == nil {
+			return ""
+		}
+		sec, err := secrets.Get(ctx, aiSecretName, metav1.GetOptions{})
+		if err != nil || sec.Labels[aiSecretLabel] != "true" {
+			return ""
+		}
+		return string(sec.Data["apiKey"])
+	}
 }
 
 func (h *aiHandler) mount(r chi.Router) {
@@ -116,8 +158,6 @@ func (h *aiHandler) mount(r chi.Router) {
 	r.Post("/ai/conversations/{id}/messages", h.post)
 	r.Post("/ai/conversations/{id}/approval", h.approval)
 	r.Post("/ai/conversations/{id}/cancel", h.cancel)
-	r.Put("/admin/ai/secret", h.putSecret)
-	r.Delete("/admin/ai/secret", h.deleteSecret)
 }
 
 func validateAI(body []byte) (json.RawMessage, error) {
@@ -164,18 +204,6 @@ func (h *aiHandler) settings(ctx context.Context) aiSettings {
 		_ = json.Unmarshal([]byte(raw), &s)
 	}
 	return s.withDefaults()
-}
-
-func (h *aiHandler) secretKey(ctx context.Context) string {
-	secrets := h.k.Secrets(h.ns)
-	if secrets == nil {
-		return ""
-	}
-	sec, err := secrets.Get(ctx, aiSecretName, metav1.GetOptions{})
-	if err != nil || sec.Labels[aiSecretLabel] != "true" {
-		return ""
-	}
-	return string(sec.Data["apiKey"])
 }
 
 func (h *aiHandler) ready(w http.ResponseWriter, req *http.Request) (aiSettings, string, bool) {
@@ -266,7 +294,7 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	ctx := valuelessContext{context.WithoutCancel(req.Context())}
+	ctx := context.WithoutCancel(req.Context())
 	creds := aiCredentials(req)
 	if server != "" {
 		target := aiTarget("/servers/"+server, url.Values{"namespace": {namespace}, "cluster": {cluster}})
@@ -360,7 +388,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	conv.Status, conv.Error = aiRunning, ""
-	go h.run(valuelessContext{context.WithoutCancel(req.Context())}, conv, aiCredentials(req), key, runID, nil)
+	go h.run(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, runID, nil)
 	writeJSON(w, conv)
 }
 
@@ -385,7 +413,7 @@ func (h *aiHandler) approval(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	conv.Status, conv.Error = aiRunning, ""
-	go h.run(valuelessContext{context.WithoutCancel(req.Context())}, conv, aiCredentials(req), key, runID, &body.Approve)
+	go h.run(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, runID, &body.Approve)
 	writeJSON(w, conv)
 }
 
@@ -403,39 +431,6 @@ func (h *aiHandler) cancel(w http.ResponseWriter, req *http.Request) {
 	}
 	if n, err := res.RowsAffected(); err != nil || n == 0 {
 		http.Error(w, "the assistant is not running", http.StatusConflict)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *aiHandler) putSecret(w http.ResponseWriter, req *http.Request) {
-	var body struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
-		return
-	}
-	key := strings.TrimSpace(body.APIKey)
-	if key == "" {
-		http.Error(w, "apiKey is required", http.StatusUnprocessableEntity)
-		return
-	}
-	err := upsertLabelledSecret(req.Context(), h.k, h.ns, aiSecretName, aiSecretLabel, map[string]string{"apiKey": key})
-	if errors.Is(err, errNotManagedSecret) {
-		http.Error(w, err.Error(), http.StatusConflict)
-		return
-	}
-	if err != nil {
-		httperr.Write(w, req, err)
-		return
-	}
-	writeJSON(w, map[string]any{"name": aiSecretName, "keys": []string{"apiKey"}})
-}
-
-func (h *aiHandler) deleteSecret(w http.ResponseWriter, req *http.Request) {
-	if err := deleteManagedSecret(req.Context(), h.k, h.ns, aiSecretName, aiSecretLabel); err != nil {
-		httperr.Write(w, req, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

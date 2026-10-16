@@ -17,6 +17,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/shared/constant"
+	"github.com/go-chi/chi/v5"
 )
 
 const (
@@ -226,7 +227,7 @@ func (h *aiHandler) checkServerRef(ctx context.Context, conv aiConversation, cre
 }
 
 func (h *aiHandler) call(ctx context.Context, creds aiCreds, method, target string, body []byte, contentType string) (int, []byte) {
-	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.WithValue(ctx, chi.RouteCtxKey, nil), method, target, bytes.NewReader(body))
 	if err != nil {
 		return http.StatusBadRequest, []byte(err.Error())
 	}

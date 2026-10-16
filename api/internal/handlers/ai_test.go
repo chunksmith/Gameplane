@@ -543,8 +543,9 @@ func TestAISecret(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: notifNS},
 	})}
 	f := newAIFixture(t, true)
-	f.h.k, f.h.ns = k, notifNS
-	if f.h.secretKey(t.Context()) != "" {
+	MountAISecret(f.r, k, notifNS)
+	key := AIKeyReader(k, notifNS)
+	if key(t.Context()) != "" {
 		t.Error("key before put")
 	}
 	if rr := f.do(http.MethodPut, "/admin/ai/secret", "", map[string]string{"apiKey": " "}); rr.Code != http.StatusUnprocessableEntity {
@@ -557,8 +558,8 @@ func TestAISecret(t *testing.T) {
 		t.Fatalf("put = %d %s", rr.Code, rr.Body.String())
 	}
 	syncSecretData(t, k, notifNS, aiSecretName)
-	if got := f.h.secretKey(t.Context()); got != "sk-live" {
-		t.Errorf("secretKey = %q", got)
+	if got := key(t.Context()); got != "sk-live" {
+		t.Errorf("key = %q", got)
 	}
 	if rr := f.do(http.MethodDelete, "/admin/ai/secret", "", nil); rr.Code != http.StatusNoContent {
 		t.Errorf("delete = %d", rr.Code)
