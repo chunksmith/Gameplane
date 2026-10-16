@@ -509,6 +509,7 @@ func (r *BackupReconciler) mirrorJobStatus(
 				q := resource.MustParse(strconv.FormatInt(summary.TotalBytesProcessed, 10))
 				b.Status.Size = &q
 			}
+			b.Status.DataAdded = resource.NewQuantity(summary.addedBytes(), resource.BinarySI)
 			if b.Status.Message != "" {
 				b.Status.Message = "" // clear any transient scrape error
 			}
@@ -1081,7 +1082,7 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 	// --retry-lock makes the backup wait (up to 10m) for the repository lock
 	// instead of failing while a snapshot forget/prune, started by deleting
 	// another Backup, holds it exclusively.
-	args := []string{"backup", "/data", "--json", "--retry-lock", "10m", "--tag", "gameplane"}
+	args := []string{"backup", "/data", "--json", "--retry-lock", "10m", "--host", b.Namespace + "/" + b.Spec.ServerRef.Name, "--tag", "gameplane"}
 	for _, t := range b.Spec.Tags {
 		args = append(args, "--tag", t)
 	}

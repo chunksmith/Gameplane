@@ -2,7 +2,7 @@ import { useResourceClient, useResourceTarget, resourceKey, useResourcePermissio
 import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer, Button } from "@heroui/react";
-import { Archive, CalendarClock, CheckCircle2, Clock, HardDrive, Hash, RotateCcw, Server as ServerIcon, Trash2 } from "lucide-react";
+import { Archive, CalendarClock, CheckCircle2, Clock, HardDrive, HardDriveUpload, Hash, RotateCcw, Server as ServerIcon, Trash2 } from "lucide-react";
 
 import { cn, formatRelative, formatSize } from "@/lib/utils";
 import type { Backup } from "@/types";
@@ -86,6 +86,9 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                     <Field icon={<CalendarClock />} label="Schedule">{backup.metadata.labels?.[SCHEDULE_LABEL] ?? "manual"}</Field>
                     <Field icon={<HardDrive />} label="Size">
                       <span className="font-mono">{formatSize(backup.status?.size)}</span>
+                    </Field>
+                    <Field icon={<HardDriveUpload />} label="Added">
+                      <span className="font-mono">{formatSize(backup.status?.dataAdded)}</span>
                     </Field>
                     <Field icon={<Hash />} label="Snapshot ID">
                       <span className="break-all font-mono text-xs">{backup.status?.snapshotID ?? "—"}</span>

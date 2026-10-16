@@ -96,3 +96,19 @@ func TestParseResticSummary_MalformedJSONIgnored(t *testing.T) {
 		t.Errorf("got %+v", got)
 	}
 }
+
+func TestResticSummary_AddedBytes(t *testing.T) {
+	cases := []struct {
+		summary ResticSummary
+		want    int64
+	}{
+		{ResticSummary{DataAdded: 4096, DataAddedPacked: 1024}, 1024},
+		{ResticSummary{DataAdded: 4096}, 4096},
+		{ResticSummary{}, 0},
+	}
+	for _, c := range cases {
+		if got := c.summary.addedBytes(); got != c.want {
+			t.Errorf("addedBytes(%+v) = %d, want %d", c.summary, got, c.want)
+		}
+	}
+}

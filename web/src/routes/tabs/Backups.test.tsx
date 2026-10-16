@@ -352,6 +352,29 @@ describe("BackupsTab", () => {
     // Total size stat should show combined size
     expect(await screen.findByText(/Total size/i)).toBeInTheDocument();
   });
+
+  it("totals data added to the repository when backups report it", async () => {
+    server.use(
+      http.get("/backups", () =>
+        HttpResponse.json({
+          items: [
+            makeBackup({
+              metadata: { name: "backup-1" },
+              spec: { serverRef: { name: "alpha" } },
+              status: { phase: "Succeeded", size: "100 MiB", dataAdded: "30 MiB" },
+            }),
+            makeBackup({
+              metadata: { name: "backup-2" },
+              spec: { serverRef: { name: "alpha" } },
+              status: { phase: "Succeeded", size: "50 MiB" },
+            }),
+          ],
+        }),
+      ),
+    );
+    renderWithQuery(<BackupsTab name="alpha" />);
+    expect(await screen.findByText("80 MB")).toBeInTheDocument();
+  });
 });
 
 function renderWithQuery(ui: ReactElement, options?: Parameters<typeof baseRenderWithQuery>[1]) {

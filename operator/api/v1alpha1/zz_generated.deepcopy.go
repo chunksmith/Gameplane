@@ -442,6 +442,11 @@ func (in *BackupStatus) DeepCopyInto(out *BackupStatus) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.DataAdded != nil {
+		in, out := &in.DataAdded, &out.DataAdded
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	if in.Progress != nil {
 		in, out := &in.Progress, &out.Progress
 		*out = new(BackupProgress)

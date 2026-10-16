@@ -110,7 +110,7 @@ func newScrapeReconciler(
 func TestMirrorJobStatus_ScrapesSnapshotID(t *testing.T) {
 	b := scrapeBackup()
 	r := newScrapeReconciler(t, b,
-		scrapeLogReader{body: `{"message_type":"summary","snapshot_id":"snap-abc","total_bytes_processed":2048}`},
+		scrapeLogReader{body: `{"message_type":"summary","snapshot_id":"snap-abc","total_bytes_processed":2048,"data_added":4096,"data_added_packed":1024}`},
 		time.Hour, nil)
 
 	if _, err := r.mirrorJobStatus(context.Background(), b, succeededJob(time.Second)); err != nil {
@@ -124,6 +124,9 @@ func TestMirrorJobStatus_ScrapesSnapshotID(t *testing.T) {
 	}
 	if b.Status.Size == nil || b.Status.Size.Value() != 2048 {
 		t.Errorf("size = %v, want 2048", b.Status.Size)
+	}
+	if b.Status.DataAdded == nil || b.Status.DataAdded.Value() != 1024 {
+		t.Errorf("dataAdded = %v, want 1024", b.Status.DataAdded)
 	}
 }
 

@@ -22,6 +22,15 @@ type ResticSummary struct {
 	MessageType         string `json:"message_type"`
 	SnapshotID          string `json:"snapshot_id"`
 	TotalBytesProcessed int64  `json:"total_bytes_processed"`
+	DataAdded           int64  `json:"data_added"`
+	DataAddedPacked     int64  `json:"data_added_packed"`
+}
+
+func (s ResticSummary) addedBytes() int64 {
+	if s.DataAddedPacked > 0 {
+		return s.DataAddedPacked
+	}
+	return s.DataAdded
 }
 
 // ErrNoResticSummary is returned by ParseResticSummary when the input

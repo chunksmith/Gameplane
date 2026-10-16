@@ -82,7 +82,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
     .filter((t): t is string => Boolean(t))
     .sort();
   const nextBackupAt = nextRuns[0];
-  const totalBytes = succeeded.reduce((acc, b) => acc + parseQuantityToBytes(b.status?.size), 0);
+  const totalBytes = succeeded.reduce((acc, b) => acc + parseQuantityToBytes(b.status?.dataAdded ?? b.status?.size), 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -210,6 +210,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
                 <Table.Column key="phase">Phase</Table.Column>
                 <Table.Column key="progress">Progress</Table.Column>
                 <Table.Column key="size">Size</Table.Column>
+                <Table.Column key="added">Added</Table.Column>
                 <Table.Column key="completed">Completed</Table.Column>
                 <Table.Column key="actions" id="actions" className="text-end">Actions</Table.Column>
               </Table.Header>
@@ -231,6 +232,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
                         {isActiveBackup(b) ? <div className="w-48"><BackupProgressBar backup={b} compact /></div> : "—"}
                       </Table.Cell>
                       <Table.Cell className="font-mono">{formatSize(b.status?.size)}</Table.Cell>
+                      <Table.Cell className="font-mono">{formatSize(b.status?.dataAdded)}</Table.Cell>
                       <Table.Cell className="font-mono text-foreground/60">
                         {formatRelative(b.status?.completionTime)}
                       </Table.Cell>

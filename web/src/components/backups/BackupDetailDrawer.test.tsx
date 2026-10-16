@@ -37,6 +37,7 @@ describe("BackupDetailDrawer", () => {
               snapshotID: "abc123",
               completionTime: "2026-05-07T03:00:00Z",
               size: "120 MiB",
+              dataAdded: "12 MiB",
             },
           }),
         ),
@@ -47,6 +48,7 @@ describe("BackupDetailDrawer", () => {
     );
     expect(await screen.findByText(/Backup details/i)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("Succeeded")).toBeInTheDocument());
+    expect(screen.getByText("12 MB")).toBeInTheDocument();
   });
 
   it("Close button calls onClose", async () => {
