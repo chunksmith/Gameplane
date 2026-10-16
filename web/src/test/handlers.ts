@@ -793,6 +793,7 @@ export const handlers = [
   ),
   http.get("/admin/config", () => HttpResponse.json(makeConfig())),
   http.put("/admin/config/:section", () => new HttpResponse(null, { status: 204 })),
+  http.get("/ai/status", () => HttpResponse.json({ enabled: false, configured: false, defaultModel: "claude-opus-5-5", defaultEffort: "medium" })),
   // First-login telemetry notice (spec 022): not pending by default, so
   // tests that render the app shell as an admin see no banner.
   http.get("/admin/telemetry/notice", () => HttpResponse.json({ pending: false })),

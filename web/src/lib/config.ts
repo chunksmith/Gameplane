@@ -130,6 +130,13 @@ export interface InstallTimeSettings {
   oidcHelmProvider?: OIDCHelmProvider;
 }
 
+export interface AICfg {
+  enabled: boolean;
+  defaultModel: string;
+  defaultEffort: string;
+  apiKeySet: boolean;
+}
+
 // AllConfig is the shape of GET /admin/config — every section is optional
 // because the row only exists once it's been written. Defaults are
 // supplied by the section components, not by the API.
@@ -144,6 +151,7 @@ export interface AllConfig {
   notifications?: NotificationsCfg;
   telemetry?: TelemetryCfg;
   modRegistries?: ModRegistriesCfg;
+  ai?: AICfg;
   installTimeSettings?: InstallTimeSettings;
 }
 

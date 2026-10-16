@@ -10,6 +10,7 @@ import {
   Palette,
   RefreshCcw,
   ShieldCheck,
+  Sparkles,
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ export type SettingsNavKey =
   | "backups"
   | "modules"
   | "modRegistries"
+  | "ai"
   | "notifications"
   | "telemetry"
   | "updates"
@@ -47,6 +49,7 @@ const navItems: Array<{ key: SettingsNavKey; label: string; icon: ComponentType<
   { key: "backups",       label: "Backup destinations", icon: Archive },
   { key: "modules",       label: "Module sources",      icon: Boxes },
   { key: "modRegistries", label: "Mod registries",      icon: Key },
+  { key: "ai",            label: "AI assistant",        icon: Sparkles },
   { key: "notifications", label: "Notifications",       icon: Bell },
   { key: "telemetry",     label: "Telemetry",           icon: Activity },
   { key: "updates",       label: "Updates",             icon: RefreshCcw },

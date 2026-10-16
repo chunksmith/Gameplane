@@ -1253,6 +1253,15 @@ Permission checks remain independent, and an already-open start dialog respects
 subsequent capability loss. See [remote server feature parity](../docs/remote-parity.md)
 for routing, identity and integration coverage.
 
+## AI assistant (feature 027)
+
+Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md).
+
+- `src/lib/assistant.ts`: client (`/ai/*`, `/admin/ai/secret`), types, `useAssistantStatus`.
+- `src/components/assistant/AssistantPanel.tsx`: conversation list (admin "All users" toggle), transcript with tool calls, approval card, stop, composer. Polls while a run is active.
+- `/assistant` page (`src/routes/Assistant.tsx`) under the sidebar "General" group, and the server detail "Assistant" tab scoped to the server; both shown only while the assistant is enabled.
+- Admin settings "AI assistant": enable switch, write-only API key, default model and effort.
+
 ## References
 
 - **docs/architecture.md** — component overview, data flow, security boundaries, "operator is authoritative" rationale

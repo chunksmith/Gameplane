@@ -27,6 +27,7 @@ import {
   RefreshCcw,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Webhook,
   type LucideIcon,
@@ -66,6 +67,7 @@ import {
   useConfig,
   useUpdateConfigSection,
   useResetRoleMapping,
+  type AICfg,
   type AllConfig,
   type AuthCfg,
   type AuthDefaultRole,
@@ -84,15 +86,16 @@ import {
   type SinkKind,
   type TelemetryCfg,
 } from "@/lib/config";
+import { ASSISTANT_EFFORTS, ASSISTANT_MODELS, AssistantAdmin } from "@/lib/assistant";
 import { ErrorBanner } from "@/components/backups/ErrorBanner";
 import { ModuleSourcesPanel } from "@/components/modules/ModuleSourcesPanel";
 
 type Section =
-  | "general" | "auth" | "backups" | "modules" | "modRegistries" | "notifications"
+  | "general" | "auth" | "backups" | "modules" | "modRegistries" | "ai" | "notifications"
   | "telemetry" | "updates" | "about";
 
 const SECTIONS: readonly Section[] = [
-  "general", "auth", "backups", "modules", "modRegistries", "notifications",
+  "general", "auth", "backups", "modules", "modRegistries", "ai", "notifications",
   "telemetry", "updates", "about",
 ];
 
@@ -152,6 +155,7 @@ export function AdminSettingsPage() {
           {section === "backups"                   && <BackupDestSection />}
           {section === "modules"                   && <ModuleSourcesPanel />}
           {cfg.data && section === "modRegistries" && <ModRegistriesSection initial={cfg.data.modRegistries} />}
+          {cfg.data && section === "ai"            && <AISection            initial={cfg.data.ai} />}
           {cfg.data && section === "notifications" && <NotificationsSection initial={cfg.data.notifications} />}
           {cfg.data && section === "telemetry"     && <TelemetrySection     initial={cfg.data.telemetry} />}
           {section === "updates"                   && <UpdatesSection />}
@@ -1174,6 +1178,132 @@ function SetRegistryKeyForm({
         </Button>
       </div>
     </div>
+  );
+}
+
+const defaultAI: AICfg = { enabled: false, defaultModel: "claude-opus-5-5", defaultEffort: "medium", apiKeySet: false };
+
+function AISection({ initial }: { initial?: AICfg }) {
+  const f = useSectionForm<AICfg>(initial ?? defaultAI, "ai");
+  const qc = useQueryClient();
+  const [editingKey, setEditingKey] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+
+  useEffect(() => {
+    if (f.saved) void qc.invalidateQueries({ queryKey: ["ai"] });
+  }, [f.saved, qc]);
+
+  const closeKeyForm = () => {
+    setApiKey("");
+    setEditingKey(false);
+  };
+  const stageKey = () => {
+    const key = apiKey.trim();
+    f.stageSecret("ai:key", { kind: "write", run: () => AssistantAdmin.putSecret(key) });
+    f.update({ apiKeySet: true });
+    closeKeyForm();
+  };
+  const removeKey = () => {
+    f.stageSecret("ai:key", { kind: "remove", run: () => AssistantAdmin.deleteSecret() });
+    f.update({ apiKeySet: false });
+  };
+
+  return (
+    <SectionCard
+      icon={Sparkles}
+      title="AI assistant"
+      subtitle="One Claude API key for the whole panel. Every action the assistant takes runs with the signed-in user's own permissions."
+      footer={
+        <>
+          <SaveStatus pending={f.pending} error={f.error} saved={f.saved} />
+          <Button onPress={f.save} isDisabled={f.pending}>Save changes</Button>
+        </>
+      }
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">Enable the assistant</div>
+          <div className="text-xs text-muted">Adds the Assistant page and the server Assistant tab for every user.</div>
+        </div>
+        <TelemetrySwitch ariaLabel="Enable the AI assistant" isSelected={f.draft.enabled} onChange={(enabled) => f.update({ enabled })} />
+      </div>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm">Claude API key</div>
+          <div className="text-xs text-muted">Create one in the Claude Console (platform.claude.com). Claude.ai Pro and Max subscriptions cannot be used here.</div>
+        </div>
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs",
+            f.draft.apiKeySet ? "bg-primary/15 text-primary" : "bg-muted/15 text-muted",
+          )}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+          {f.draft.apiKeySet ? "Configured" : "Not configured"}
+        </span>
+        {!editingKey && (
+          <Button variant="primary" size="sm" onPress={() => setEditingKey(true)}>
+            {f.draft.apiKeySet ? "Replace" : "Set API key"}
+          </Button>
+        )}
+        {!editingKey && f.draft.apiKeySet && (
+          <Button variant="danger" size="sm" onPress={removeKey}>Remove</Button>
+        )}
+      </div>
+      {editingKey && (
+        <div className="space-y-3 rounded-xl border border-border bg-surface/40 p-4">
+          <Field label="API key">
+            <HeroInput
+              type="password"
+              autoFocus
+              value={apiKey}
+              placeholder="sk-ant-…"
+              onChange={(e) => setApiKey(e.target.value)}
+              spellCheck={false}
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onPress={closeKeyForm}>Cancel</Button>
+            <Button isDisabled={apiKey.trim() === ""} onPress={stageKey}>Use this key</Button>
+          </div>
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AISelect label="Default model" value={f.draft.defaultModel} options={ASSISTANT_MODELS} onChange={(defaultModel) => f.update({ defaultModel })} />
+        <AISelect label="Default effort" value={f.draft.defaultEffort} options={ASSISTANT_EFFORTS} onChange={(defaultEffort) => f.update({ defaultEffort })} />
+      </div>
+    </SectionCard>
+  );
+}
+
+function AISelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: ReadonlyArray<{ id: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TextField className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <Select aria-label={label} selectedKey={value} onSelectionChange={(key) => onChange(String(key))}>
+        <Select.Trigger className="w-full rounded border border-border bg-surface px-3 py-2 text-sm hover:bg-surface/80">
+          <Select.Value />
+          <Select.Indicator className="ml-auto h-4 w-4" />
+        </Select.Trigger>
+        <Select.Popover className="rounded border border-border">
+          <ListBox aria-label={label}>
+            {options.map((option) => (
+              <ListBoxItem key={option.id} id={option.id}>{option.label}</ListBoxItem>
+            ))}
+          </ListBox>
+        </Select.Popover>
+      </Select>
+    </TextField>
   );
 }
 
