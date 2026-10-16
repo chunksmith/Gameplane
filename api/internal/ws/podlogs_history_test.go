@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -77,7 +78,7 @@ func TestPodLogs_TailStreamsOnlyRunningGame(t *testing.T) {
 
 func TestLogPage_PagesBackwardsAcrossSteps(t *testing.T) {
 	logs := map[string][]string{"init": {"i1", "i2"}, "game": {"g1", "g2", "g3", "g4", "g5"}}
-	read := func(container string, tail, keep int64) ([]string, int64, error) {
+	read := func(_ context.Context, container string, tail, keep int64) ([]string, int64, error) {
 		lines := logs[container]
 		lines = lines[max(int64(len(lines))-tail, 0):]
 		return lines[:min(int64(len(lines)), keep)], int64(len(lines)), nil
@@ -93,7 +94,7 @@ func TestLogPage_PagesBackwardsAcrossSteps(t *testing.T) {
 		{9, 5, []string{}},
 	}
 	for _, c := range cases {
-		got, err := logPage([]string{"init", "game"}, true, c.skip, c.limit, read)
+		got, err := logPage(t.Context(), []string{"init", "game"}, true, c.skip, c.limit, read)
 		if err != nil || !slices.Equal(got, c.want) {
 			t.Errorf("skip=%d limit=%d: got %q err %v, want %q", c.skip, c.limit, got, err, c.want)
 		}
@@ -101,8 +102,10 @@ func TestLogPage_PagesBackwardsAcrossSteps(t *testing.T) {
 }
 
 func TestLogPage_ReturnsReadError(t *testing.T) {
-	read := func(string, int64, int64) ([]string, int64, error) { return nil, 0, errors.New("boom") }
-	if _, err := logPage([]string{"game"}, false, 0, 1, read); err == nil {
+	read := func(context.Context, string, int64, int64) ([]string, int64, error) {
+		return nil, 0, errors.New("boom")
+	}
+	if _, err := logPage(t.Context(), []string{"game"}, false, 0, 1, read); err == nil {
 		t.Fatal("want error")
 	}
 }

@@ -299,15 +299,15 @@ func (h *podLogProxy) history(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid server name", http.StatusBadRequest)
 		return
 	}
+	pod, err := serverPod(req.Context(), h.k, ns, name)
+	if err != nil {
+		httperr.Write(w, req, err)
+		return
+	}
 	skip, skipErr := strconv.ParseInt(req.URL.Query().Get("skip"), 10, 32)
 	limit, limitErr := strconv.ParseInt(req.URL.Query().Get("limit"), 10, 32)
 	if skipErr != nil || limitErr != nil || skip < 0 || limit < 1 || limit > maxPodLogLines {
 		http.Error(w, "invalid skip or limit", http.StatusBadRequest)
-		return
-	}
-	pod, err := serverPod(req.Context(), h.k, ns, name)
-	if err != nil {
-		httperr.Write(w, req, err)
 		return
 	}
 	var steps []string
@@ -319,10 +319,10 @@ func (h *podLogProxy) history(w http.ResponseWriter, req *http.Request) {
 	if started, _ := containerLogState(pod, gameContainer, false); started {
 		steps = append(steps, gameContainer)
 	}
-	read := func(container string, tail, keep int64) ([]string, int64, error) {
-		return h.readTail(req.Context(), ns, pod.Name, container, tail, keep)
+	read := func(ctx context.Context, container string, tail, keep int64) ([]string, int64, error) {
+		return h.readTail(ctx, ns, pod.Name, container, tail, keep)
 	}
-	lines, err := logPage(steps, len(pod.Spec.InitContainers) > 0, skip, limit, read)
+	lines, err := logPage(req.Context(), steps, len(pod.Spec.InitContainers) > 0, skip, limit, read)
 	if err != nil {
 		httperr.Write(w, req, err)
 		return
@@ -330,11 +330,11 @@ func (h *podLogProxy) history(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, lines)
 }
 
-func logPage(steps []string, marked bool, skip, limit int64, read func(container string, tail, keep int64) ([]string, int64, error)) ([]string, error) {
+func logPage(ctx context.Context, steps []string, marked bool, skip, limit int64, read func(ctx context.Context, container string, tail, keep int64) ([]string, int64, error)) ([]string, error) {
 	page := []string{}
 	for i := len(steps) - 1; i >= 0 && limit > 0; i-- {
 		want := skip + limit
-		lines, total, err := read(steps[i], want, limit)
+		lines, total, err := read(ctx, steps[i], want, limit)
 		if err != nil {
 			return nil, err
 		}
