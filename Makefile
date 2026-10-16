@@ -339,7 +339,7 @@ manifests: ## Regenerate CRDs + RBAC manifests (and sync chart CRD copies)
 		paths=./... \
 		output:crd:artifacts:config=config/crd \
 		output:rbac:artifacts:config=config/rbac
-	# Copy the CRDs into the chart's crds/ and crd-manifests/ (the same CRDs
+	# Copy the CRDs into the conditional CRD subchart and crd-manifests/ (the same CRDs
 	# where Helm's .Files can read them -- it can't read the special crds/
 	# dir -- so the crds.autoApply hook can apply them), stamping each copy
 	# with a bundle hash the hook compares against the live CRDs to tell

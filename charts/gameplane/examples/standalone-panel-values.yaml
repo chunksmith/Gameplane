@@ -1,5 +1,5 @@
-# Fresh central panel install; use helm install/upgrade --skip-crds.
-# Helm processes crds/ before values/templates, so values alone cannot skip CRDs.
+# Fresh central panel install. operator.enabled=false excludes the bundled
+# native CRD subchart; api.standalone=true also skips the CRD apply hook/RBAC.
 operator:
   enabled: false
 api:

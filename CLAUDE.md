@@ -69,7 +69,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 
 - **Dev:** `make dev-up` (Kind + OCI registry :5001 + Helm), `make web-dev` (Vite, proxies in-cluster API), `make dev-load` (load built images; run `make images` first), `make dev-install` (Helm upgrade), `make dev-down`.
 - **Build:** `make build` (all Go + web), `make build-go` (15 modules in GO_MODULES, all but test/e2e), `make build-web` (`npm ci && npm run build`), `make images`.
-- **Codegen:** `make generate` (deepcopy), `make manifests` (CRD/RBAC YAML, synced to `charts/gameplane/crds/`), `make modules-push`, `make tidy`.
+- **Codegen:** `make generate` (deepcopy), `make manifests` (CRD/RBAC YAML, synced to `charts/gameplane/charts/gameplane-crds/crds/` and `charts/gameplane/crd-manifests/`), `make modules-push`, `make tidy`.
 - **Tests (CI only — never run locally, see Rule 8):** `make test`, `make test-integration` (envtest operator+api), `make test-e2e` (~10–20 min), `make test-e2e-bucket BUCKET=(operator|api-auth|api-roles|api-rbac|api-agent|api-mods|ratelimit|bot-fast|bot-heavy|multicluster|upgrade)`.
 - **E2E conventions:** register new tests in `test/e2e/buckets.sh`; `t.Parallel()` + unique names; guard shared resources (`ociPushMu` for module pushes, `ensureResticRepo(t)` for shared backup repos). Rate limits per cluster: IP burst 10 (5/min), user burst 6 (3/min) — cap an API bucket at ~7 admin logins.
 - **Lint:** `make lint` = gofmt, go vet, golangci-lint, ESLint, `check-specs`, `check-doc-versions`, `check-links`.
@@ -84,7 +84,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 4. **Fix, don't silence:** no `//nolint`, `eslint-disable`, or loosened configs. Allowed: `_test.go` exempt from `errcheck`/`gosec`/`unparam`; `operator/internal/controller/` exempt from revive `exported:`.
 5. **TypeScript:** strict; no unjustified `any` (explain in a comment if unavoidable); every promise `await`ed or `void`-prefixed.
 6. **Go errors:** wrap with `%w`.
-7. **CRD sync:** after editing `operator/api/v1alpha1/*_types.go` run `make generate && make manifests`; commit deepcopy, `operator/config/{crd,rbac}/*.yaml`, `charts/gameplane/crds/*.yaml`/`crd-manifests/` in the same changeset.
+7. **CRD sync:** after editing `operator/api/v1alpha1/*_types.go` run `make generate && make manifests`; commit deepcopy, `operator/config/{crd,rbac}/*.yaml`, `charts/gameplane/charts/gameplane-crds/crds/*.yaml`, and `charts/gameplane/crd-manifests/*.yaml` in the same changeset.
 8. **Verification:** locally only compile checks (`go build ./...`, `npx tsc --noEmit`); never test/lint suites (`make test|lint|cover`, `go test`, `npm test`, envtest, E2E). Push a feature branch; CI is the sole verification authority.
 9. **Kubernetes primitives first** (StatefulSet, Service, PVC, Job, ConfigMap, Secret, CRDs) before custom abstractions.
 10. **Operator authority:** business logic lives in reconcilers (`operator/internal/controller/`); the API is a UX gateway and never bypasses reconciliation.

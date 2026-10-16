@@ -22,7 +22,10 @@ image:
   pullPolicy: IfNotPresent
   pullSecrets: []
 
-# CRD lifecycle. Helm installs the files under crds/ only on the FIRST install
+# Native CRDs live in the bundled gameplane-crds subchart, enabled by
+# operator.enabled. Dependency gating happens before Helm installs CRDs, so
+# operator.enabled=false omits them from a standalone central panel install.
+# CRD lifecycle. Helm installs the files under the subchart's crds/ on first install
 # and NEVER updates them on `helm upgrade` (a documented Helm limitation). This
 # hook closes that gap: a pre-UPGRADE Job runs `kubectl apply --server-side`
 # over the CRDs, so a plain `helm upgrade` always brings the CRD schema up to
@@ -47,7 +50,7 @@ crds:
     pullPolicy: IfNotPresent
 
 operator:
-  # Disable all operator resources for a standalone central panel.
+  # Disable the operator and bundled native CRDs for a standalone central panel.
   enabled: true
   replicas: 1
   logLevel: info     # zap log level: debug|info|error (warn not supported by zap's --zap-log-level)
@@ -126,7 +129,8 @@ api:
   # integrations on remote operator+gateway installs. Agent mTLS is preserved.
   enabled: true
   # Central panel only: SQL-backed settings and credentials, no local cluster.
-  # Requires operator.enabled=false and helm install --skip-crds.
+  # Requires operator.enabled=false, which excludes bundled native CRDs.
+  # Standalone mode also skips the CRD apply hook and its RBAC.
   standalone: false
   replicas: 1        # Keep at 1. SQLite is single-writer on a RWO volume; with db.driver=postgres the user-management lock and audit hash chain are still per-process
   logLevel: info     # API log verbosity (debug|info|warn|error), passed as GAMEPLANE_LOG_LEVEL

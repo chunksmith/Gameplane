@@ -1,13 +1,51 @@
 """CI-only checks for combined, standalone central, and remote deployment roles."""
 from pathlib import Path
+import subprocess
+import tempfile
 
 import yaml
 
-from check_gateway import one, render
+from check_gateway import CHART, one, render
+
+
+EXPECTED_CRDS = {
+    "gameservers.gameplane.local", "gameserversets.gameplane.local", "gametemplates.gameplane.local",
+    "backups.gameplane.local", "backupschedules.gameplane.local",
+    "restores.gameplane.local", "modules.gameplane.local",
+    "modulesources.gameplane.local", "clusters.gameplane.local",
+    "networkcaptures.gameplane.local",
+}
+
+
+def assert_crds(objects, expected):
+    """Require exactly the expected CRD names, with no duplicate definitions."""
+    names = [obj["metadata"]["name"] for obj in objects if obj["kind"] == "CustomResourceDefinition"]
+    assert set(names) == expected and len(names) == len(expected), names
+
+
+def check_packaged_crds(example):
+    """Verify vendored chart archives preserve CRD gating for each install role."""
+    # Package only vendored files. Dependency downloads/builds would hide a
+    # missing bundled CRD chart and require network access for installation.
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(["helm", "package", str(CHART), "--destination", directory],
+                                capture_output=True, text=True, check=False)
+        assert result.returncode == 0, result.stderr
+        packages = list(Path(directory).glob("gameplane-*.tgz"))
+        assert len(packages) == 1, packages
+        for upgrade in (False, True):
+            for values in ({}, {"api": {"enabled": False}}):
+                assert_crds(render(values, chart=packages[0], include_crds=True, upgrade=upgrade), EXPECTED_CRDS)
+            for values in ({"operator": {"enabled": False}, "api": {"standalone": True}}, example):
+                objects = render(values, chart=packages[0], include_crds=True, upgrade=upgrade)
+                assert_crds(objects, set())
+                assert not any("crd-apply" in obj["metadata"]["name"] for obj in objects), objects
 
 
 def main():
-    defaults = render()
+    """Check deployment roles, standalone key custody, and source/archive CRDs."""
+    defaults = render(include_crds=True)
+    assert_crds(defaults, EXPECTED_CRDS)
     one(defaults, "Deployment", "gameplane-operator")
     one(defaults, "Deployment", "gameplane-api")
     one(defaults, "ModuleSource", "default")
@@ -22,7 +60,8 @@ def main():
         "mcpServer": {"enabled": True}, "capture": {"enabled": True},
     }
     for upgrade in (False, True):
-        objects = render(values, upgrade=upgrade)
+        objects = render(values, upgrade=upgrade, include_crds=True)
+        assert_crds(objects, set())
         for obj in objects:
             assert obj["kind"] not in {"ClusterRole", "ClusterRoleBinding", "Role", "RoleBinding", "Namespace", "ModuleSource", "NetworkPolicy", "PodMonitor", "PrometheusRule", "Job"}, obj
             assert "operator" not in obj["metadata"]["name"], obj
@@ -87,11 +126,14 @@ def main():
     args = one(objects, "Deployment", "gameplane-api")["spec"]["template"]["spec"]["containers"][0]["args"]
     assert "--remote-allowed-cidrs=10.20.0.0/16,fd12:3456::/48" in args
 
-    remote = render({"api": {"enabled": False}})
+    remote = render({"api": {"enabled": False}}, include_crds=True)
+    assert_crds(remote, EXPECTED_CRDS)
     one(remote, "Deployment", "gameplane-operator")
     one(remote, "Secret", "gameplane-agent-ca")
     assert not any(obj["metadata"]["name"] in {"gameplane-api", "gameplane-web"} for obj in remote)
-    disabled = render({"operator": {"enabled": False}})
+    disabled = render({"operator": {"enabled": False}}, include_crds=True)
+    assert_crds(disabled, set())
+    one(disabled, "Job", "gameplane-crd-apply")
     assert not any("operator" in obj["metadata"]["name"] for obj in disabled)
     one(disabled, "Deployment", "gameplane-api")
 
@@ -99,7 +141,14 @@ def main():
     render({"operator": {"enabled": False}, "api": {"enabled": False, "standalone": True}}, failure="api.standalone requires api.enabled=true")
     render({"operator": {"enabled": False}, "api": {"standalone": True, "replicas": 2}}, failure="api.standalone requires api.replicas=1")
     example = yaml.safe_load((Path(__file__).parents[1] / "gameplane/examples/standalone-panel-values.yaml").read_text())
-    one(render(example), "Deployment", "gameplane-api")
+    for upgrade in (False, True):
+        objects = render(example, include_crds=True, upgrade=upgrade)
+        assert_crds(objects, set())
+        one(objects, "Deployment", "gameplane-api")
+        assert not any("crd-apply" in obj["metadata"]["name"] for obj in objects), objects
+        assert_crds(render(include_crds=True, upgrade=upgrade), EXPECTED_CRDS)
+        assert_crds(render({"api": {"enabled": False}}, include_crds=True, upgrade=upgrade), EXPECTED_CRDS)
+    check_packaged_crds(example)
 
 
 if __name__ == "__main__":
