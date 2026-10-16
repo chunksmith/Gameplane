@@ -26,6 +26,15 @@ describe("assistant helpers", () => {
     expect(modelLabel("custom-model")).toBe("custom-model");
   });
 
+  it("survives tool input the model made up", () => {
+    expect(callLabel({ type: "tool_use", input: { method: "GET", path: "/servers", query: ["path", "/x"] } })).toBe("GET /servers");
+    expect(callLabel({ type: "tool_use", input: { method: "GET", path: "/servers", query: "path=/x" } })).toBe("GET /servers");
+    expect(callLabel({ type: "tool_use", input: { method: "GET", path: "/backups", query: { recursive: true } } })).toBe("GET /backups?recursive=true");
+    expect(blocksOf({ role: "assistant", content: null as never })).toEqual([]);
+    expect(blocksOf({ role: "assistant", content: [null as never, { type: "text", text: "ok" }] })).toEqual([{ type: "text", text: "ok" }]);
+    expect(resultText({ type: "tool_result", content: { text: "nope" } as never })).toBe("");
+  });
+
   it("calls the assistant endpoints", async () => {
     const seen: string[] = [];
     server.use(
