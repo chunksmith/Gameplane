@@ -253,6 +253,7 @@ func main() {
 			ProcMode:           envOr("GAMEPLANE_USAGE_PROC", "") == "1",
 			CPULimitMillicores: envInt("GAMEPLANE_CPU_LIMIT_MILLICORES"),
 			MemLimitBytes:      envInt("GAMEPLANE_MEM_LIMIT_BYTES"),
+			DiskLimitBytes:     envInt("GAMEPLANE_DISK_LIMIT_BYTES"),
 		}),
 		Metrics: m,
 	})

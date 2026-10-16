@@ -88,7 +88,7 @@ Per-package roles:
 - **`quiesce`**: Runs module-declared sequences (e.g., Minecraft's `save-off` + `save-all flush`) over RCON; responds `quiesced: false` + reason when unsupported (not an error).
 - **`rcon`**: Factory pattern for wire-protocol clients (`Valve/Source`, `Telnet`, `WebSocket`, `BattlEye`, `Satisfactory`, `Palworld`, `NuclearOption`, `REST`, `CLI`, `Disabled`); `Exec(cmd) (string, error)` interface. RCON reply packets are accepted up to 16394 bytes (a 4096-character Minecraft chunk at its worst-case UTF-8 byte length, plus the 10-byte packet header) and rejected as malformed outside `[10, 16394]` (F-104).
 - **`status`**: Runs module-declared metrics queries over RCON; each metric specifies a command and a regex with named group `"value"` for extraction.
-- **`usage`**: Reads CPU/memory from `/proc` (proc mode, default) or cgroup v2; disk via `statfs`; exposes `Sample` with `Known` flags so callers distinguish "unknown" from "zero".
+- **`usage`**: Reads CPU/memory from `/proc` (proc mode, default) or cgroup v2; disk via `statfs`, or a data-directory walk (cached for a minute) capped at `GAMEPLANE_DISK_LIMIT_BYTES` when the filesystem is larger than the PVC; exposes `Sample` with `Known` flags so callers distinguish "unknown" from "zero".
 
 ## External interface / contracts
 
@@ -129,6 +129,7 @@ Resource usage env vars (set by the operator):
 | `GAMEPLANE_USAGE_PROC` | When `"1"`, enables proc mode (reads game process CPU/memory from `/proc`); otherwise falls back to cgroup mode |
 | `GAMEPLANE_CPU_LIMIT_MILLICORES` | Game container's CPU limit (for usage percentage calculation) |
 | `GAMEPLANE_MEM_LIMIT_BYTES` | Game container's memory limit |
+| `GAMEPLANE_DISK_LIMIT_BYTES` | Data PVC's requested size; when the data volume's filesystem is larger (a local or hostPath volume on a shared node disk), disk usage reports the data directory's walked size against this limit instead of the whole filesystem |
 
 ### Endpoint groups (from mounted routes in cmd/main.go; openapi.yaml documents a subset)
 

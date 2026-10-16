@@ -525,18 +525,23 @@ func isEphemeral(gs *gameplanev1alpha1.GameServer) bool {
 	return gs.Spec.Storage != nil && gs.Spec.Storage.Ephemeral
 }
 
+func storageSize(gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate) resource.Quantity {
+	if gs.Spec.Storage != nil && !gs.Spec.Storage.Size.IsZero() {
+		return gs.Spec.Storage.Size
+	}
+	if !tmpl.Spec.Storage.Size.IsZero() {
+		return tmpl.Spec.Storage.Size
+	}
+	return resource.MustParse("10Gi")
+}
+
 func (r *GameServerReconciler) reconcilePVC(
 	ctx context.Context, gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate,
 ) error {
 	if isEphemeral(gs) {
 		return nil
 	}
-	size := resource.MustParse("10Gi")
-	if gs.Spec.Storage != nil && !gs.Spec.Storage.Size.IsZero() {
-		size = gs.Spec.Storage.Size
-	} else if !tmpl.Spec.Storage.Size.IsZero() {
-		size = tmpl.Spec.Storage.Size
-	}
+	size := storageSize(gs, tmpl)
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: gs.Name + "-data", Namespace: gs.Namespace},
@@ -2268,6 +2273,12 @@ func buildAgentContainer(
 	if mem := gameRes.Limits.Memory(); mem != nil && !mem.IsZero() {
 		env = append(env, corev1.EnvVar{
 			Name: "GAMEPLANE_MEM_LIMIT_BYTES", Value: strconv.FormatInt(mem.Value(), 10),
+		})
+	}
+	if !isEphemeral(gs) {
+		size := storageSize(gs, tmpl)
+		env = append(env, corev1.EnvVar{
+			Name: "GAMEPLANE_DISK_LIMIT_BYTES", Value: strconv.FormatInt(size.Value(), 10),
 		})
 	}
 	// Declared capability commands travel to the agent as one JSON blob;
