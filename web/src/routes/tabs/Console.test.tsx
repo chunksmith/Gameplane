@@ -269,6 +269,19 @@ describe("ConsoleTab", () => {
     expect(term.writeln).toHaveBeenCalledTimes(2);
   });
 
+  it("writes recent container output before attaching", async () => {
+    server.use(
+      http.get("/servers/alpha/logs/pod/history", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        return params.get("skip") === "0" && params.get("limit") === "100"
+          ? HttpResponse.json(["earlier one", "earlier two"])
+          : HttpResponse.json([]);
+      }),
+    );
+    const { term } = await renderConsole("pty");
+    expect(term.write).toHaveBeenCalledWith("earlier one\r\nearlier two\r\n");
+  });
+
   it("safe-fits on mount and never fits a disposed terminal (B1)", async () => {
     const { unmount, fit } = await renderConsole("rcon");
     // The deferred initial fit ran once (host connected, not disposed).

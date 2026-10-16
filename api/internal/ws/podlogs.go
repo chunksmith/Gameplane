@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/coder/websocket"
@@ -29,6 +30,8 @@ const gameContainer = "game"
 // the next container in the startup sequence to begin emitting logs.
 const podLogPollInterval = time.Second
 
+const maxPodLogLines = 5000
+
 // mountPodLogs streams a server's startup-through-runtime output over a
 // WebSocket via the Kubernetes pod-log API. Unlike the agent's /logs/tail
 // — which tails the configured game log file — this surfaces everything
@@ -52,6 +55,13 @@ func mountPodLogs(r chi.Router, reg *kube.Registry) {
 		}
 		(&podLogProxy{k: k}).handle(w, req)
 	})
+	r.Get("/servers/{name}/logs/pod/history", func(w http.ResponseWriter, req *http.Request) {
+		k, ok := streamClient(w, req, reg)
+		if !ok {
+			return
+		}
+		(&podLogProxy{k: k}).history(w, req)
+	})
 }
 
 type podLogProxy struct {
@@ -74,6 +84,12 @@ func (h *podLogProxy) handle(w http.ResponseWriter, req *http.Request) {
 	}
 	podName := name + "-0"
 	fromEnd := req.URL.Query().Get("from") == "end"
+	tail, tailErr := strconv.ParseInt(req.URL.Query().Get("tail"), 10, 32)
+	tailed := tailErr == nil && tail > 0
+	if !tailed {
+		tail = 200
+	}
+	tail = min(tail, maxPodLogLines)
 
 	conn, err := websocket.Accept(w, req, nil)
 	if err != nil {
@@ -103,11 +119,11 @@ func (h *podLogProxy) handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	h.podUID = pod.UID
+	gameStarted, _ := containerLogState(pod, gameContainer, false)
 
-	if fromEnd {
+	if fromEnd || (tailed && gameStarted) {
 		// Tail the running game container only — replaying setup logs makes
 		// no sense for "follow a running server".
-		tail := int64(200)
 		if serr := h.streamContainer(ctx, conn, ns, podName, gameContainer, &tail); serr != nil && ctx.Err() == nil {
 			_ = conn.Close(websocket.StatusTryAgainLater, "pod logs unavailable")
 		}
@@ -242,7 +258,11 @@ func (h *podLogProxy) readPod(ctx context.Context, ns, name string) (*corev1.Pod
 // writeMarker emits a thin section header so the user can tell the setup
 // phases apart in the stitched stream.
 func (h *podLogProxy) writeMarker(ctx context.Context, conn *websocket.Conn, name string) {
-	_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf("── %s ──\n", name)))
+	_ = conn.Write(ctx, websocket.MessageText, []byte(phaseMarker(name)+"\n"))
+}
+
+func phaseMarker(name string) string {
+	return fmt.Sprintf("── %s ──", name)
 }
 
 // containerLogState reports whether the named container's logs are
@@ -266,4 +286,92 @@ func containerLogState(pod *corev1.Pod, name string, isInit bool) (started, fail
 		}
 	}
 	return false, false
+}
+
+func (h *podLogProxy) history(w http.ResponseWriter, req *http.Request) {
+	name := chi.URLParam(req, "name")
+	ns, err := scope.Resolve(req)
+	if err != nil {
+		httperr.Write(w, req, err)
+		return
+	}
+	if len(validation.IsDNS1123Subdomain(name)) != 0 {
+		http.Error(w, "invalid server name", http.StatusBadRequest)
+		return
+	}
+	skip, skipErr := strconv.ParseInt(req.URL.Query().Get("skip"), 10, 32)
+	limit, limitErr := strconv.ParseInt(req.URL.Query().Get("limit"), 10, 32)
+	if skipErr != nil || limitErr != nil || skip < 0 || limit < 1 || limit > maxPodLogLines {
+		http.Error(w, "invalid skip or limit", http.StatusBadRequest)
+		return
+	}
+	pod, err := serverPod(req.Context(), h.k, ns, name)
+	if err != nil {
+		httperr.Write(w, req, err)
+		return
+	}
+	var steps []string
+	for i := range pod.Spec.InitContainers {
+		if started, _ := containerLogState(pod, pod.Spec.InitContainers[i].Name, true); started {
+			steps = append(steps, pod.Spec.InitContainers[i].Name)
+		}
+	}
+	if started, _ := containerLogState(pod, gameContainer, false); started {
+		steps = append(steps, gameContainer)
+	}
+	read := func(container string, tail, keep int64) ([]string, int64, error) {
+		return h.readTail(req.Context(), ns, pod.Name, container, tail, keep)
+	}
+	lines, err := logPage(steps, len(pod.Spec.InitContainers) > 0, skip, limit, read)
+	if err != nil {
+		httperr.Write(w, req, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, lines)
+}
+
+func logPage(steps []string, marked bool, skip, limit int64, read func(container string, tail, keep int64) ([]string, int64, error)) ([]string, error) {
+	page := []string{}
+	for i := len(steps) - 1; i >= 0 && limit > 0; i-- {
+		want := skip + limit
+		lines, total, err := read(steps[i], want, limit)
+		if err != nil {
+			return nil, err
+		}
+		if marked && total < want {
+			lines = append([]string{phaseMarker(steps[i])}, lines...)
+			total++
+		}
+		if total <= skip {
+			skip -= total
+			continue
+		}
+		page = append(lines[:total-skip], page...)
+		limit -= total - skip
+		skip = 0
+	}
+	return page, nil
+}
+
+func (h *podLogProxy) readTail(ctx context.Context, ns, podName, container string, tail, keep int64) ([]string, int64, error) {
+	opts := &corev1.PodLogOptions{Container: container, TailLines: &tail}
+	stream, err := h.k.Typed.CoreV1().Pods(ns).GetLogs(podName, opts).Stream(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("stream %s logs: %w", container, err)
+	}
+	defer func() { _ = stream.Close() }()
+	sc := bufio.NewScanner(stream)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	var lines []string
+	var total int64
+	for sc.Scan() {
+		if total < keep {
+			lines = append(lines, sc.Text())
+		}
+		total++
+	}
+	if err := sc.Err(); err != nil {
+		return nil, 0, fmt.Errorf("read %s logs: %w", container, err)
+	}
+	return lines, total, nil
 }

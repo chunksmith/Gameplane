@@ -288,6 +288,27 @@ paths:
       responses:
         "101": { description: Switching Protocols }
 
+  /logs/history:
+    get:
+      summary: Page of the game log file, counted back from the end
+      parameters:
+        - in: query
+          name: skip
+          required: true
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: limit
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 20000 }
+      responses:
+        "200":
+          description: Lines, oldest first
+          content:
+            application/json:
+              schema: { type: array, items: { type: string } }
+        "400": { description: Invalid skip or limit }
+        "404": { description: Log file not found }
+
   /players:
     get:
       summary: Current online player count and names

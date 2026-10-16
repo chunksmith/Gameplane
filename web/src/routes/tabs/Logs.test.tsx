@@ -1,6 +1,8 @@
 import { ResourceTargetProvider } from "@/lib/resourceTarget";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/server";
 import userEvent from "@testing-library/user-event";
 
 // Each call to openWS pushes a new fake socket onto sockets[]; tests
@@ -54,6 +56,14 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
 });
+
+function scrollToTop() {
+  const scroller = screen.getByTestId("log-scroller");
+  Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 5000 });
+  Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 500 });
+  scroller.scrollTop = 0;
+  fireEvent.scroll(scroller);
+}
 
 describe("LogsTab", () => {
   it("keeps filters independent and clears output when its resource route changes", async () => {
@@ -138,16 +148,62 @@ describe("LogsTab", () => {
     expect(sockets).toHaveLength(2);
   });
 
+  it("loads older container output when scrolled to the top", async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get("/servers/alpha/logs/pod/history", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        requests.push(`${params.get("skip")}/${params.get("limit")}`);
+        return HttpResponse.json(["older one", "older two"]);
+      }),
+    );
+    render(<LogsTab name="alpha" />);
+    act(() => sockets[0].sendMsg("newest line\n"));
+    await waitFor(() => expect(screen.getByText(/^1 lines$/)).toBeInTheDocument());
+    scrollToTop();
+    await waitFor(() => expect(screen.getByText(/^3 lines$/)).toBeInTheDocument());
+    expect(requests).toEqual(["1/1000"]);
+  });
+
+  it("pages the game log 100 lines at a time", async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get("/servers/alpha/logs/history", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        requests.push(`${params.get("skip")}/${params.get("limit")}`);
+        return HttpResponse.json(Array.from({ length: 100 }, (_, index) => `older ${index}`));
+      }),
+    );
+    render(<LogsTab name="alpha" logPath="/data/logs/latest.log" />);
+    await userEvent.click(screen.getByRole("tab", { name: /game log/i }));
+    const sock = sockets[sockets.length - 1];
+    act(() => sock.sendMsg("newest line\n"));
+    await waitFor(() => expect(screen.getByText(/^1 lines$/)).toBeInTheDocument());
+    scrollToTop();
+    await waitFor(() => expect(screen.getByText(/^101 lines$/)).toBeInTheDocument());
+    scrollToTop();
+    await waitFor(() => expect(screen.getByText(/^201 lines$/)).toBeInTheDocument());
+    expect(requests).toEqual(["1/100", "101/100"]);
+  });
+
+  it("starts over when the stream reconnects", async () => {
+    render(<LogsTab name="alpha" />);
+    act(() => sockets[0].sendMsg("before reconnect\n"));
+    await waitFor(() => expect(screen.getByText(/^1 lines$/)).toBeInTheDocument());
+    act(() => sockets[0].open());
+    await waitFor(() => expect(screen.getByText(/^0 lines$/)).toBeInTheDocument());
+  });
+
   it("defaults to the container-output (pod) stream so startup logs show", () => {
     render(<LogsTab name="alpha" />);
-    expect(sockets[0].path).toBe("/ws/servers/alpha/logs/pod?from=start");
+    expect(sockets[0].path).toBe("/ws/servers/alpha/logs/pod?from=start&tail=1000");
   });
 
   it("switches to the game-log file stream when toggled (template has a logPath)", async () => {
     render(<LogsTab name="alpha" logPath="/data/logs/latest.log" />);
     await userEvent.click(screen.getByRole("tab", { name: /game log/i }));
     expect(sockets[0].close).toHaveBeenCalled();
-    expect(sockets[sockets.length - 1].path).toBe("/ws/servers/alpha/logs?tail=500");
+    expect(sockets[sockets.length - 1].path).toBe("/ws/servers/alpha/logs?tail=100");
   });
 
   it("offers only container output (no toggle) when the template has no logPath", () => {
@@ -155,7 +211,7 @@ describe("LogsTab", () => {
     // The "Game log" tab is absent and only the pod stream is opened.
     expect(screen.queryByRole("tab", { name: /game log/i })).not.toBeInTheDocument();
     expect(sockets).toHaveLength(1);
-    expect(sockets[0].path).toBe("/ws/servers/alpha/logs/pod?from=start");
+    expect(sockets[0].path).toBe("/ws/servers/alpha/logs/pod?from=start&tail=1000");
   });
 
   it("shows the provisioning placeholder with the operator message while starting", () => {
@@ -200,7 +256,7 @@ describe("LogsTab", () => {
     // Switch from container output to the agent-backed game-log file stream.
     await userEvent.click(screen.getByRole("tab", { name: /game log/i }));
     const sock = sockets[sockets.length - 1];
-    expect(sock.path).toBe("/ws/servers/alpha/logs?tail=500");
+    expect(sock.path).toBe("/ws/servers/alpha/logs?tail=100");
     // Repeated reconnect attempts mean the agent is unreachable: show the
     // actionable notice instead of an endless spinner.
     sock.statusEv("reconnecting", { attempt: 2, nextRetryMs: 2000 });
@@ -208,7 +264,7 @@ describe("LogsTab", () => {
     // The fallback returns to the always-available container output stream.
     await userEvent.click(screen.getByRole("button", { name: /use container output/i }));
     await waitFor(() =>
-      expect(sockets[sockets.length - 1].path).toBe("/ws/servers/alpha/logs/pod?from=start"),
+      expect(sockets[sockets.length - 1].path).toBe("/ws/servers/alpha/logs/pod?from=start&tail=1000"),
     );
   });
 });

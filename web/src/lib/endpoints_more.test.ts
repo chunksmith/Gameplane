@@ -197,8 +197,8 @@ describe("Modules / ModuleSources / Logs", () => {
     expect(last().url).toBe("/modules/sources/up/upload");
   });
   it("Logs stream paths are server-encoded", () => {
-    expect(Logs.fileStreamPath("a b")).toBe("/ws/servers/a%20b/logs?tail=500");
-    expect(Logs.podStreamPath("a b")).toBe("/ws/servers/a%20b/logs/pod?from=start");
+    expect(Logs.fileStreamPath("a b")).toBe("/ws/servers/a%20b/logs?tail=100");
+    expect(Logs.podStreamPath("a b")).toBe("/ws/servers/a%20b/logs/pod?from=start&tail=1000");
   });
 });
 

@@ -601,6 +601,8 @@ export const handlers = [
   // Pod/StatefulSet/GameServer Kubernetes events (Overview events feed).
   http.get("/servers/:name/events", () => HttpResponse.json([])),
   http.get("/servers/:name/mods", () => HttpResponse.json([])),
+  http.get("/servers/:name/logs/pod/history", () => HttpResponse.json([])),
+  http.get("/servers/:name/logs/history", () => HttpResponse.json([])),
   http.get("/servers/:name/mods/updates", () => HttpResponse.json({ updates: [], checkedAt: new Date().toISOString() })),
   http.post("/servers/:name/mods/install", async ({ request }) => {
     const body = (await request.json().catch(() => null)) as { url?: string; name?: string } | null;
@@ -848,6 +850,16 @@ export function buildSsoOnlyHandlers() {
  * localStorage.getItem("gameplane-e2e-dataset") === "screenshots".
  */
 const wsOrigin = typeof window !== "undefined" ? window.location.origin.replace(/^http/, "ws") : "ws://localhost:5173";
+
+function mockLogHistory(request: Request): string[] {
+  const params = new URL(request.url).searchParams;
+  const end = Math.max(0, 2500 - Number(params.get("skip")));
+  const start = Math.max(0, end - Number(params.get("limit")));
+  return Array.from(
+    { length: end - start },
+    (_, index) => `[11:58:00] [Server thread/INFO]: Earlier log line ${start + index + 1}`,
+  );
+}
 
 export function buildScreenshotHandlers() {
   const data = getScreenshotData();
@@ -1849,6 +1861,9 @@ export function buildScreenshotHandlers() {
         }
       });
     }),
+
+    http.get("/servers/:name/logs/pod/history", ({ request }) => HttpResponse.json(mockLogHistory(request))),
+    http.get("/servers/:name/logs/history", ({ request }) => HttpResponse.json(mockLogHistory(request))),
 
     // WebSocket: Pod Logs
     ws.link(`${wsOrigin}/ws/servers/*/logs/pod*`).addEventListener("connection", ({ client }) => {

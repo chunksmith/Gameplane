@@ -170,6 +170,7 @@ Resource usage env vars (set by the operator):
 | `/files/mkdir` | POST | Create directory (recursive); query param `path` |
 | `/files/delete` | DELETE | Delete file or directory; query param `path`, optional `recursive` (boolean) |
 | `/logs/tail` | GET | Tail game log over WebSocket; query params `from` (enum: `start`, `end`, default `end`) and `tail` (optional positive integer, capped at 20000 lines and 4 MiB bytes; replays last N lines before following; no replay after rotation) |
+| `/logs/history` | GET | Page of the game log file as a JSON array of lines, oldest first; query params `skip` (lines already held, counted back from the end, ≥ 0) and `limit` (1–20000); returns lines `[total-skip-limit, total-skip)` |
 | `/console` | GET | Duplex console over WebSocket; client sends `{ kind: "cmd", body: "<command>" }` (JSON), server replies `{ kind: "out"\|"err", body: "<response>" }` |
 | `/players` | GET | Current online player count and names; response: `{ online, max, players[], asOf, capabilities }`. `online`/`max` are `-1` when unknown (RCON disabled, or no recognized player-list format) — the sole "unknown" representation, never `0`. |
 | `/players/kick` | POST | Kick a player; request: `{ name, reason? }`; response: `{ ok, raw? }`; 501 if unsupported; reason is validated with the gameaction input policy (no control characters, no ``; & \| $ ` \ " '``), max 256 bytes (excess truncated); 400 on violation |

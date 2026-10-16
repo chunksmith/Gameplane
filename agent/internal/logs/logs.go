@@ -7,6 +7,7 @@ package logs
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -32,6 +34,7 @@ func Mount(r chi.Router, root, path string) {
 	h := newHandler(root, path)
 	r.Get("/logs/tail", h.tail)
 	r.Get("/logs/download", h.download)
+	r.Get("/logs/history", h.history)
 }
 
 func (h *handler) download(w http.ResponseWriter, req *http.Request) {
@@ -251,5 +254,85 @@ func sleep(ctx context.Context, d time.Duration) error {
 		return ctx.Err()
 	case <-t.C:
 		return nil
+	}
+}
+
+func (h *handler) history(w http.ResponseWriter, req *http.Request) {
+	if h.path == "" {
+		http.Error(w, "log history not configured (set --game-log-path)", http.StatusServiceUnavailable)
+		return
+	}
+	skip, skipErr := strconv.ParseInt(req.URL.Query().Get("skip"), 10, 32)
+	limit, limitErr := strconv.ParseInt(req.URL.Query().Get("limit"), 10, 32)
+	if skipErr != nil || limitErr != nil || skip < 0 || limit < 1 || limit > maxTailLines {
+		http.Error(w, "invalid skip or limit", http.StatusBadRequest)
+		return
+	}
+	source, err := h.openSource()
+	if err != nil {
+		http.Error(w, "log file unavailable", http.StatusInternalServerError)
+		return
+	}
+	defer source.close()
+	f, err := source.open()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "log file not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "log file unavailable", http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = f.Close() }()
+	lines, err := historyPage(f, skip, limit)
+	if err != nil {
+		http.Error(w, "log file unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(lines)
+}
+
+func historyPage(f io.ReadSeeker, skip, limit int64) ([]string, error) {
+	total, err := countLines(f)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("rewind log: %w", err)
+	}
+	end := total - skip
+	start := max(end-limit, 0)
+	lines := []string{}
+	reader := bufio.NewReader(f)
+	for index := int64(0); index < end; index++ {
+		line, err := reader.ReadString('\n')
+		if index >= start && line != "" {
+			lines = append(lines, strings.TrimRight(line, "\r\n"))
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read log: %w", err)
+		}
+	}
+	return lines, nil
+}
+
+func countLines(r io.Reader) (int64, error) {
+	reader := bufio.NewReader(r)
+	var total int64
+	for {
+		line, err := reader.ReadString('\n')
+		if line != "" {
+			total++
+		}
+		if errors.Is(err, io.EOF) {
+			return total, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("count log lines: %w", err)
+		}
 	}
 }

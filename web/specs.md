@@ -286,11 +286,12 @@ Six of the nine ServerDetail tabs are rebuilt in this slice:
    - Interactive RCON/PTY terminal (xterm.js, lazy-loaded, NOT rebuilt — uses existing engine)
    - LoadingCard during template resolution (line 28); ErrorCard if no console available (line 35)
    - Uses ui/ LoadingCard, ErrorCard only (lines 4–5); console I/O engine unchanged
+   - Before opening its socket the terminal writes the last 100 container-output lines (`GET /servers/{name}/logs/pod/history?skip=0&limit=100`) so it never opens blank
    - Command bar under the terminal (`ConsoleShell.tsx`): Send or Enter submits; ArrowUp/ArrowDown recall the last 100 commands sent from this tab (consecutive repeats collapsed), and ArrowDown past the newest restores the unsent line. History lives per mount and is not persisted
 
 4. **Logs** (`web/src/routes/tabs/Logs.tsx`, 299 lines)
    - Pod stdout or configured game log file stream (WebSocket, NOT rebuilt — uses existing engine)
-   - Requests last 500 lines of history via `?tail=500` query parameter before streaming new output
+   - Container output opens with the last 1000 lines (`?from=start&tail=1000`), the game log with the last 100 (`?tail=100`); scrolling to the top loads older pages of the same size via `Logs.history` (`GET /servers/{name}/logs/pod/history` and `/servers/{name}/logs/history`). Autoscroll follows only while the view is at the bottom; a reconnect starts the view over
    - Search/filter input via HeroUI Input; download button
    - Virtualized log viewer (TanStack Virtual, NOT rebuilt)
    - Uses HeroUI Button, Input only (line 4); log streaming engine unchanged
