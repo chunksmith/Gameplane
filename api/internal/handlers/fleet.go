@@ -661,6 +661,9 @@ func (h fleetHandler) serverAccess(w http.ResponseWriter, req *http.Request) {
 
 func fleetPermissions(u *auth.User, cl, ns string) []string {
 	permissions := make([]string, 0)
+	if u.Can("*", true, cl, ns) {
+		permissions = append(permissions, "*")
+	}
 	for _, group := range rbac.Catalog {
 		for _, p := range group.Permissions {
 			if p.Namespaced && u.Can(p.Key, true, cl, ns) {

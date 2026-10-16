@@ -494,7 +494,15 @@ func allow(u *auth.User, method, path, cluster, ns string) bool {
 		// or the wildcard cluster, never grants scoped to a game namespace.
 		return u.Can(r.perm, true, cluster, "")
 	}
+	if adminOnlyBackupOperation(method, path) {
+		return u.Can("*", true, cluster, ns)
+	}
 	return u.Can(r.perm, Namespaced(r.perm), cluster, ns)
+}
+
+func adminOnlyBackupOperation(method, path string) bool {
+	segment := firstSegment(path)
+	return (segment == "backups" && method == http.MethodDelete) || (segment == "restores" && method != http.MethodGet)
 }
 
 func clusterInventoryRead(method, path string) bool {

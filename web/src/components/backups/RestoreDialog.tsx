@@ -218,7 +218,7 @@ export function RestoreDialog({ backup, defaultServer, ns, onClose, target: expl
               size="sm"
               variant={isVolumeSnapshot ? "primary" : "danger"}
               className="text-xs"
-              isDisabled={invalid || create.isPending || !resourceCan(permissions, "backups:restore")}
+              isDisabled={invalid || create.isPending || !resourceCan(permissions, "*")}
               onPress={() => create.mutate()}
             >
               {create.isPending

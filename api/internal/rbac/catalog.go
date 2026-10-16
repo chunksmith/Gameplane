@@ -29,8 +29,8 @@ var Catalog = []PermGroup{
 	}},
 	{Resource: "backups", Label: "Backups", Permissions: []Permission{
 		{Key: "backups:read", Label: "View backups and restores", Namespaced: true},
-		{Key: "backups:write", Label: "Create and delete backups", Namespaced: true},
-		{Key: "backups:restore", Label: "Restore from a backup", Namespaced: true},
+		{Key: "backups:write", Label: "Create backups (deleting needs an admin)", Namespaced: true},
+		{Key: "backups:restore", Label: "Restore from a backup (admins only)", Namespaced: true},
 	}},
 	{Resource: "schedules", Label: "Backup schedules", Permissions: []Permission{
 		{Key: "schedules:read", Label: "View schedules", Namespaced: true},

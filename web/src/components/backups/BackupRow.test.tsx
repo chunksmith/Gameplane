@@ -34,7 +34,7 @@ describe("BackupRow", () => {
     const onSelect = vi.fn();
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({ metadata: { name: "alpha-1" } })}
           showServer={true}
           onSelect={onSelect}
@@ -49,7 +49,7 @@ describe("BackupRow", () => {
   it("renders the backup name and server", async () => {
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({
             metadata: { name: "alpha-1" },
             spec: { serverRef: { name: "alpha" } }
@@ -70,7 +70,7 @@ describe("BackupRow", () => {
     const onRestore = vi.fn();
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({
             metadata: { name: "alpha-1" },
             status: { phase: "Succeeded", snapshotID: "abc123" },
@@ -90,7 +90,7 @@ describe("BackupRow", () => {
   it("Restore button is disabled when no snapshotID", () => {
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({ status: { phase: "Succeeded" } })}
           showServer={false}
           onSelect={() => {}}
@@ -104,7 +104,7 @@ describe("BackupRow", () => {
   it("Restore button is disabled when phase is not Succeeded", () => {
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({ status: { phase: "Running", snapshotID: "x" } })}
           showServer={false}
           onSelect={() => {}}
@@ -118,7 +118,7 @@ describe("BackupRow", () => {
   it("hides server column when showServer=false", () => {
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({ spec: { serverRef: { name: "srv-x" } } })}
           showServer={false}
           onSelect={() => {}}
@@ -132,7 +132,7 @@ describe("BackupRow", () => {
   it("shows the server name when showServer=true", () => {
     render(
       tableWrap(
-        <BackupRow permissions={["backups:restore"]}
+        <BackupRow permissions={["*"]}
           backup={makeBackup({ spec: { serverRef: { name: "srv-x" } } })}
           showServer={true}
           onSelect={() => {}}
