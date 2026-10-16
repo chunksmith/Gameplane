@@ -38,7 +38,7 @@ import { BackupRow } from "@/components/backups/BackupRow";
 import { BackupFilters } from "@/components/backups/BackupFilters";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatCard } from "@/components/ui/StatCard";
-import { ActiveBackups, isActiveBackup } from "@/components/backups/ActiveBackups";
+import { ActiveBackups, isActiveBackup, newestBackupFirst } from "@/components/backups/ActiveBackups";
 import { BackupGroupsPanel, groupMembers } from "@/components/backups/BackupGroupsPanel";
 import type { Backup, BackupSchedule } from "@/types";
 
@@ -227,7 +227,7 @@ function BackupsTabPanel({ location, onLocationChange, locations }: LocationFilt
         if (!hay.includes(q)) return false;
       }
       return true;
-    });
+    }).sort(newestBackupFirst);
   }, [items, search, server, phase, serversList.items]);
 
   return (
