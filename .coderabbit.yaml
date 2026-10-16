@@ -93,7 +93,8 @@ reviews:
         - operator/api/v1alpha1/zz_generated.deepcopy.go (regenerated)
         - operator/config/crd/*.yaml (regenerated)
         - operator/config/rbac/*.yaml (regenerated)
-        - charts/gameplane/crds/*.yaml (regenerated and synced)
+        - charts/gameplane/charts/gameplane-crds/crds/*.yaml (regenerated and synced)
+        - charts/gameplane/crd-manifests/*.yaml (regenerated hook copy)
 
         If a CRD type changed but these regenerated files are absent, the PR is incomplete.
         Run: make generate && make manifests

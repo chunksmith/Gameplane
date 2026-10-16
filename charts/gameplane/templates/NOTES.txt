@@ -12,8 +12,8 @@ Back up the database and matching encryption key separately. SQLite uses the
 API data PVC; generated keys use the separate API key PVC mounted at /keys.
 If using api.panelKey.existingSecret, protect and back up that Secret instead.
 Restrict access to key backups; do not include them in database backup jobs.
-Always pass --skip-crds when installing this profile; Helm's native crds/
-installation happens before chart values can disable resources.
+operator.enabled=false excludes bundled native CRDs. Standalone mode also
+skips the CRD apply hook and its RBAC; no --skip-crds argument is required.
 {{- end }}
 {{- $receiverDeployed := and (eq (include "gameplane.apiEnabled" .) "true") $r.enabled (not .Values.api.telemetry.endpoint) }}
 {{- $persistence := $r.persistence | default dict }}

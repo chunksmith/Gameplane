@@ -158,7 +158,7 @@ Primary reconcilers register with the manager in `cmd/main.go` and handle CRD li
   - `gameserver_modcreds.go`: mount mod credentials Secrets.
   - `gameserver_rcon.go`: RCON port exposure, lifecycle sequences.
   - `gameserver_restart.go`: restart action, pod deletion.
-  - `gameserver_wipe.go`: data wipe sequence. Request idempotency: token-based (request token acked once Job succeeds, same token never re-runs). Wipe gate: requires spec.suspend=true (API sets this); waits for StatefulSet scaled to 0 replicas AND game pod object deleted (pod by name `<gs>-0`) before starting the destructive Job. Restart: ackWipe sets spec.suspend=false after successful Job completion to resume the server on the fresh world. Job: runs rm against the existing PVC (never deleted/recreated); carries BackoffLimit 2 and no ActiveDeadlineSeconds.
+  - `gameserver_wipe.go` / `gameserver_wipe_guard.go`: data wipe sequence. Request idempotency is token-based: the current request is acknowledged only after its Job succeeds and all live/terminating workers drain. A durable `gameplane.local/wipe-owner` guard is acquired with a resourceVersion-checked GameServer update that also sets suspend=true for pending wipes; workload creates and updates honor the live guard even after a direct start request. Before launching, the operator fences the owned StatefulSet, requires both desired and observed replica counts to be zero with observedGeneration current, and waits for game/target-mounting pods and writer Jobs to drain. Cancellation or token replacement foreground-deletes owned Jobs with UID preconditions and retains exclusion until Jobs and independently inventoried orphan/terminating worker pods disappear; a replacement then acquires the guard for its own token. Success is recorded under the guard in `gameplane.local/wipe-succeeded` before foreground cleanup, so restart during drain cannot recreate the worker. Matching success clears the guard/proof, acknowledges the token, and resumes automatically in one checked update after Job and pod cleanup. Recovery of an already-acknowledged success keeps the current power intent while fencing remaining cleanup. Failure retains suspension, the guard, the DataWipe failure condition, and the Job/logs until canceled or replaced. Restore cannot acquire the volume while a wipe guard, pending request, or attributable live worker remains, even if the request annotation was removed. Active wipe and worker-drain waits poll at most every five seconds. A retained failed Job for the current guarded request drops this extra poll only after attributable workers drain; its guard, failure status and logs remain. Owned Job and GameServer watches, the ordinary status refresh and any graceful-stop deadline still apply. The Job empties and verifies the existing PVC (never deleted/recreated), carries BackoffLimit 2 and no ActiveDeadlineSeconds, and labels both Job and worker pods with the server UID and request token.
   - `gameserver_version.go`: track/propagate game version.
   - `gameserver_node.go`: node affinity, pod anti-affinity.
   - `gameserver_status.go`: phase computation from StatefulSet/Pod state + agent heartbeat, AddressAssignment condition.
@@ -431,7 +431,8 @@ Regenerates and commits atomically:
 - `operator/api/v1alpha1/zz_generated.deepcopy.go` — struct deepcopy methods (includes CaptureConfiguration, CaptureStatus, NetworkCapture, NetworkCaptureList, NetworkCaptureSpec, NetworkCaptureStatus deepcopy functions).
 - `operator/config/crd/gameplane.local_*.yaml` — 10 CRD manifests (includes gameplane.local_gameserversets.yaml, gameplane.local_networkcaptures.yaml; gameplane.local_gameservers.yaml extended with capture spec/status schemas).
 - `operator/config/rbac/*.yaml` — ServiceAccount, Roles, RoleBindings, ClusterRoles, ClusterRoleBindings (includes pods/ephemeralcontainers and networkcaptures CRUD permissions).
-- `charts/gameplane/crds/*.yaml` — copy of CRDs for Helm integration (Helm `crds/` directory + pre-upgrade hook for `kubectl apply --server-side`).
+- `charts/gameplane/charts/gameplane-crds/crds/*.yaml` — native Helm CRDs in the bundled subchart, gated by `operator.enabled`.
+- `charts/gameplane/crd-manifests/*.yaml` — CRD copies used by the pre-upgrade hook for `kubectl apply --server-side`.
 
 Forgetting codegen leaves the YAML out of sync with types — CI's `make manifests` verify gate will catch it, but envtest runs will fail mysteriously first.
 
@@ -443,7 +444,7 @@ Forgetting codegen leaves the YAML out of sync with types — CI's `make manifes
 
 3. **Codegen is mandatory after CRD type edits.** Generated deepcopy + YAML must ship in the same commit as type changes.
 
-4. **CRDs are owned by the control plane, not Helm.** Helm's `crds/` is applied only on first install; updates come from a pre-upgrade hook running `kubectl apply --server-side --server-side-apply-manager=gameplane` on every `helm upgrade`, which also fires on a `helm install` over leftover CRDs whose `gameplane.local/crd-bundle-sha256` stamp (written by `make manifests` via `hack/sync-chart-crds.sh`) differs from the chart's (F-218). CRDs are never owned or deleted by Helm.
+4. **CRDs use Helm's native lifecycle.** The bundled CRD subchart is enabled by `operator.enabled`. Helm 3 installs missing native CRDs and skips existing ones; Helm 4 server-side applies native CRDs with field manager `helm`. When `crds.autoApply.enabled=true` and `api.standalone=false`, the pre-upgrade hook updates CRDs using `kubectl apply --server-side --force-conflicts --field-manager=helm`. The hook also runs on installs with leftover CRDs whose `gameplane.local/crd-bundle-sha256` stamp (written by `make manifests` via `hack/sync-chart-crds.sh`) differs from the chart's (F-218). Native CRDs remain outside Helm's release-owned resources and survive uninstall.
 
 5. **Agent mTLS is optional but recommended.** Operator boots without `--agent-ca-bundle`/`--agent-client-cert`/`--agent-client-key` (client.Disabled=true); Agent methods silently no-op. Production installs should supply all three.
 
@@ -546,4 +547,4 @@ CI run: `make cover` generates merged profile (unit + envtest), `make cover-ratc
 - **`go.mod` / `go.sum`** — dependency lock files.
 - **CRD YAML:** `operator/config/crd/gameplane.local_*.yaml` (generated from types).
 - **RBAC YAML:** `operator/config/rbac/*.yaml` (generated, defines operator ServiceAccount + permissions).
-- **Helm integration:** `charts/gameplane/crds/` + `charts/gameplane/templates/crd-apply-hook.yaml` (pre-upgrade CRD sync).
+- **Helm integration:** `charts/gameplane/charts/gameplane-crds/crds/` (native CRDs) + `charts/gameplane/crd-manifests/` and `charts/gameplane/templates/crd-apply-hook.yaml` (pre-upgrade CRD sync).

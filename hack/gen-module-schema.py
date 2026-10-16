@@ -21,7 +21,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
-CRD = REPO / "charts/gameplane/crds/gameplane.local_gametemplates.yaml"
+CRD = REPO / "charts/gameplane/crd-manifests/gameplane.local_gametemplates.yaml"
 OUT = REPO / "modules/.schema/gametemplate.schema.json"
 
 

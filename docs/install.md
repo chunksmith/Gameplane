@@ -111,9 +111,9 @@ Open `https://<ingress.host>` and log in.
 Top-level knobs (see `values.yaml` for the full list):
 
 - `image.registry` / `image.tag` — container image pinning
-- `operator.enabled` — enable the workload operator (default `true`). Set to `false` for a standalone central panel.
+- `operator.enabled` — enable the workload operator and bundled native CRDs (default `true`). Set to `false` for a standalone central panel; the CRD subchart is excluded before Helm installs CRDs.
 - `api.enabled` — enable the central API and dashboard (default `true`). Set to `false` on a remote operator/gateway installation.
-- `api.standalone` — store management records and encrypted credentials in SQL without a local cluster (default `false`). Requires `operator.enabled=false`, one API replica, and `--skip-crds` when installing the panel. See the [standalone guide](standalone-panel.md).
+- `api.standalone` — store management records and encrypted credentials in SQL without a local cluster (default `false`). Requires `operator.enabled=false` and one API replica. The standalone profile omits native CRDs and the CRD apply hook/RBAC without an additional CLI flag. See the [standalone guide](standalone-panel.md).
 - `operator.replicas` — leader-elected, safe at 2+
 - `operator.configInitImage` / `operator.resticImage` — the two images the operator
   injects into workloads it creates: the config-init container on game pods
@@ -769,8 +769,17 @@ remote workloads running. Keep cookie jars and kubeconfig files private.
 ### Helm CRD caveat
 
 This section applies to combined and remote workload installations. A standalone
-central Helm release skips CRDs and their apply hook; follow its
+central Helm release uses `operator.enabled=false` to exclude the bundled
+`gameplane-crds` subchart and `api.standalone=true` to skip the CRD apply hook and
+its RBAC. No `--skip-crds` argument is needed; follow its
 [panel profile](standalone-panel.md#central-panel-on-kubernetes).
+
+With the default `operator.enabled=true`, the subchart supplies CRDs through
+Helm's native `crds/` phase before the release's custom resources are installed.
+CRDs already present on the cluster remain in place when switching to a profile
+that omits them; this setting does not delete CRDs or their custom resources.
+Combined API-only installs retain the existing apply hook when
+`api.standalone=false` and `crds.autoApply.enabled=true`.
 
 **`helm upgrade` never updates CRDs.** That is a documented Helm limitation,
 not a Gameplane one: files under a chart's `crds/` directory are installed on
@@ -788,7 +797,7 @@ hook:
 
 ```sh
 # only when crds.autoApply.enabled=false
-kubectl apply --server-side -f charts/gameplane/crds/
+kubectl apply --server-side -f charts/gameplane/crd-manifests/
 ```
 
 The hook fires on pre-upgrade always. On `helm install` it fires only when

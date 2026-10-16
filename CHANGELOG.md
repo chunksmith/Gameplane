@@ -7,6 +7,13 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Standalone Helm CRD isolation:** the central panel profile excludes bundled
+  native CRDs and their apply hook/RBAC without requiring `--skip-crds`.
+  Default operator installations keep Helm's native CRD lifecycle; existing
+  CRDs and their custom resources are retained when a profile omits them.
+
 ### Upgrade Notes
 
 - **Standalone panel/API:** run the central panel with Docker Compose or the

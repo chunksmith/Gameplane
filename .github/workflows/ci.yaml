@@ -163,7 +163,7 @@ jobs:
               - 'Makefile'
               - 'hack/sync-chart-crds.sh'
               - 'operator/config/**'
-              - 'charts/gameplane/crds/**'
+              - 'charts/gameplane/charts/gameplane-crds/**'
               - 'charts/gameplane/crd-manifests/**'
               - 'hack/check-codegen-drift_test.sh'
             ci:
@@ -897,7 +897,7 @@ jobs:
           trap 'cp /tmp/values.yaml.orig charts/gameplane/values.yaml' EXIT
           cp charts/gameplane/values.yaml /tmp/values.yaml.orig
           cp charts/gameplane/testdata/upgrade-from-v0.2.0-beta.8-values.yaml charts/gameplane/values.yaml
-          helm template gameplane charts/gameplane > /tmp/rendered-reuse-values.yaml
+          helm template gameplane charts/gameplane --include-crds > /tmp/rendered-reuse-values.yaml
           python3 - <<'PY'
           import yaml
           docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values.yaml')) if d]
@@ -905,6 +905,8 @@ jobs:
           required = {('Deployment', 'gameplane-api'), ('Deployment', 'gameplane-web'),
                       ('PersistentVolumeClaim', 'gameplane-api-data')}
           assert required <= resources, f"reuse-values removed existing resources: {required - resources}"
+          crds = {name for kind, name in resources if kind == 'CustomResourceDefinition'}
+          assert len(crds) == 10, f"reuse-values disabled the bundled CRDs: {crds}"
           assert ('Deployment', 'gameplane-gateway') not in resources
           assert ('NetworkPolicy', 'allow-api-to-agent') in resources
           assert ('NetworkPolicy', 'allow-api-to-capture') not in resources, "legacy values without capture enabled its ingress"
@@ -940,7 +942,7 @@ jobs:
         # The CRD-apply hook serves CRDs from crd-manifests/ (crds/ isn't
         # readable by Helm .Files). make manifests keeps both in sync; guard
         # against a drift that would apply stale CRDs on upgrade.
-        run: diff -r charts/gameplane/crds charts/gameplane/crd-manifests
+        run: diff -r charts/gameplane/charts/gameplane-crds/crds charts/gameplane/crd-manifests
       - name: chart CRDs carry the current bundle-hash stamp (F-218)
         # crd-apply-hook.yaml fires on pre-install only when the live CRDs'
         # gameplane.local/crd-bundle-sha256 differs from the chart's. A stale
@@ -950,7 +952,7 @@ jobs:
         # difference.
         run: |
           hack/sync-chart-crds.sh
-          git diff --exit-code -- charts/gameplane/crds charts/gameplane/crd-manifests
+          git diff --exit-code -- charts/gameplane/charts/gameplane-crds/crds charts/gameplane/crd-manifests
       - name: chart cosign key matches signing/cosign.pub
         # values.yaml embeds a copy of the signing public key so the operator
         # can verify official module bundles. Nothing regenerates it, so a key
