@@ -16,6 +16,7 @@ import { AdminSettingsPage } from "@/routes/AdminSettings";
 import { ThemeSettingsPage } from "@/routes/ThemeSettings";
 import { CreateServerWizard } from "@/routes/CreateServer";
 import { BackupsPage } from "@/routes/Backups";
+import { AssistantPage } from "@/routes/Assistant";
 import { AuditLogPage } from "@/routes/AuditLog";
 import { AdminLogsPage } from "@/routes/AdminLogs";
 import { NotFoundPage } from "@/routes/NotFound";
@@ -177,6 +178,12 @@ const backupsRoute = new Route({
   }),
 });
 
+const assistantRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/assistant",
+  component: AssistantPage,
+});
+
 // Catch-all: any URL no other route claims renders the 404 page inside the
 // authenticated shell. AppLayout owns the auth guard (401 -> /login), and
 // /login and /share/$token are siblings that match first, so neither ever
@@ -204,6 +211,7 @@ export const routeTree = rootRoute.addChildren([
     auditLogRoute,
     adminLogsRoute,
     backupsRoute,
+    assistantRoute,
     notFoundRoute,
   ]),
 ]);

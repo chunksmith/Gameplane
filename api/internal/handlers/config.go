@@ -469,6 +469,7 @@ func newValidators(helmOIDCPresent bool) map[string]func([]byte) (json.RawMessag
 		"notifications":                     validateNotifications,
 		"telemetry":                         validateTelemetry,
 		registry.ConfigSectionModRegistries: validateModRegistries,
+		aiConfigSection:                     validateAI,
 	}
 }
 

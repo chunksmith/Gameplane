@@ -16,6 +16,7 @@ import (
 // registered non-local cluster never reaches the home-cluster client
 // through any of its routes.
 var homeClientMounts = []string{
+	"handlers.MountAISecret",
 	"handlers.MountAuthProviderSecrets",
 	"handlers.MountClusterActions",
 	"handlers.MountClusters",

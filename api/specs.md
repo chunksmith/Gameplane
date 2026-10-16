@@ -500,6 +500,15 @@ audit:read, config:read, config:manage (cluster-scoped)
   - Tests: `TestMiddleware_OwnerOnlyOperationsNeedOwnerOrAdmin`, `TestMiddleware_ServerWithoutOwnerIsAdminOnlyForOwnerOnlyOperations`, `TestMiddleware_OtherServerWritesUnchangedForServersWriteHolders`, `TestMiddleware_OwnerOnlyOperationOnMissingServer`, `TestMiddleware_OwnerOnlyOperationWithoutFetcherFailsClosed` (`rbac/owner_only_test.go`); `TestOwnership_TransferRequiresOwnerOrAdmin`, `TestOwnership_SetCollaboratorsRequiresOwnerOrAdmin`, `TestLifecycle_WipeDataRequiresOwnerOrAdmin` (`handlers/owner_only_ops_test.go`); e2e `TestAPI_OwnerOnlyServerOperations_RequireOwnerOrAdmin` (bucket `api-mods`)
 - Fetch GameServer from `?cluster=` (cluster-gated in middleware)
 
+### AI assistant (feature 027)
+
+Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md). Handlers `handlers/ai.go` (routes, records) and `handlers/ai_run.go` (Claude loop, scope policy).
+
+- `GET /ai/status`, `GET|POST /ai/conversations`, `GET /ai/conversations/{id}`, `POST /ai/conversations/{id}/messages|approval|cancel`: any authenticated user; only the owner writes; `scope=all` lists need `audit:read`.
+- `PUT|DELETE /admin/ai/secret`: `config:manage`; the key lives in the labelled Secret `gameplane-ai` (`gameplane.local/ai=true`, key `apiKey`). Config section `ai`: `{enabled, defaultModel, defaultEffort, apiKeySet}`.
+- Each tool call replays through the API router with the caller's cookie, CSRF header and client IP, so authentication, rate limits, RBAC and audit apply unchanged. Server conversations force the server's namespace and cluster and reach only that server, `GET /templates` and its own backups, schedules and restores. `DELETE`, `:wipe-data` and `POST /restores` wait for the user's approval.
+- Tables `ai_conversations` and `ai_messages` (migration `common/020_ai_assistant.sql`). Runs execute in the background; runs left `running` by a restart become `error` at startup.
+
 ## Key invariants
 
 1. **Operator-authoritative:** every mutating request goes through K8s API (Create/Patch/Delete on CRDs); API waits for operator to reconcile status

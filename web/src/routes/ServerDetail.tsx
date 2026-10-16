@@ -16,6 +16,7 @@ import {
   RotateCw,
   ScrollText,
   Settings as SettingsIcon,
+  Sparkles,
   Square,
   Sunrise,
   Terminal,
@@ -26,6 +27,8 @@ import { createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
 import { useGameCodes } from "@/lib/useGameCodes";
 import { resolveConsoleMode, serverHasMods, serverHasModpacks } from "@/lib/capabilities";
 import { useMe } from "@/lib/auth";
+import { useAssistantStatus } from "@/lib/assistant";
+import { AssistantPanel } from "@/components/assistant/AssistantPanel";
 import { PhaseChip } from "@/components/ui/PhaseChip";
 import { GameIcon } from "@/components/ui/GameIcon";
 import { capitalize, formatUptime, ignoreRejection } from "@/lib/utils";
@@ -55,10 +58,11 @@ const FilesTab = lazy(() =>
 );
 
 type TabKey =
-  | "overview" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
+  | "overview" | "assistant" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
 
 const tabs: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "assistant", label: "Assistant", icon: Sparkles },
   { key: "events",   label: "Events",   icon: History },
   { key: "console",  label: "Console",  icon: Terminal },
   { key: "logs",     label: "Logs",     icon: ScrollText },
@@ -123,6 +127,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   const qc = useQueryClient();
   const nav = useNavigate();
   const { data: me } = useMe();
+  const assistant = useAssistantStatus();
   const { _splat: filesSplat } = useParams({ strict: false });
   const filesPath = filesSplat === undefined ? null : `/${filesSplat}`;
   const activeTab = filesPath === null ? tab : "files";
@@ -214,6 +219,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   // the capture controls still closed.
   const captureTabVisible = !me || resourceCan(access?.permissions ?? [], "captures:manage");
   const visibleTabs = tabs.filter((t) => {
+    if (t.key === "assistant") return assistant.data?.enabled === true;
     if (t.key === "console") return consoleAvailable;
     if (t.key === "mods") return modsAvailable;
     if (t.key === "modpacks") return modpacksAvailable;
@@ -365,6 +371,11 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               onViewAllEvents={() => setTab("events")}
               onOpenConsole={consoleAvailable ? () => setTab("console") : undefined}
             />
+          )}
+          {activeTab === "assistant" && (
+            <div className="p-4 sm:p-6">
+              <AssistantPanel scope={{ server: name, namespace: ns, cluster: clusterId }} />
+            </div>
           )}
           {activeTab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
           {activeTab === "console"  && <ConsoleTab name={name} ns={ns} />}

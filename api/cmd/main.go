@@ -399,6 +399,8 @@ func main() {
 		handlers.MountSystemLogs(p, k8s, cfg.namespace)
 		handlers.MountModulesWithRegistry(p, reg, cfg.namespace)
 		handlers.MountRegistrySecrets(p, k8s, cfg.namespace)
+		handlers.MountAISecret(p, k8s, cfg.namespace)
+		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace))
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over
 		// the startup --curseforge-api-key flag, so adding/rotating a key

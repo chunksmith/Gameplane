@@ -8,12 +8,14 @@ import {
   ScrollText,
   Server,
   Settings,
+  Sparkles,
   Terminal,
   Users,
 } from "lucide-react";
 import { APIError } from "@/lib/api";
 import { Clusters, Auth } from "@/lib/endpoints";
 import { useMe, can } from "@/lib/auth";
+import { useAssistantStatus } from "@/lib/assistant";
 import { useInstallation } from "@/lib/useInstallation";
 import type { User } from "@/types";
 import { useEffect, useState } from "react";
@@ -96,6 +98,7 @@ export function AppLayout() {
   const { data: registry } = useQuery({ queryKey: ["clusters"], queryFn: () => Clusters.list() });
   const canViewInventory = registry?.items.some((item) => item.canViewInventory === true) === true;
   const canManageInfrastructure = can(me, "cluster:manage") || canViewInventory;
+  const assistant = useAssistantStatus();
   const { pathname } = useLocation();
   const matches = useMatches();
   const navigate = useNavigate();
@@ -171,6 +174,7 @@ export function AppLayout() {
         { to: "/servers", label: "Servers", icon: Server },
         { to: "/modules", label: "Modules", icon: Package },
         { to: "/backups", label: "Backups", icon: Archive },
+        ...(assistant.data?.enabled ? [{ to: "/assistant", label: "Assistant", icon: Sparkles }] : []),
       ],
     },
     {
