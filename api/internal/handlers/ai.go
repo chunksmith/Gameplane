@@ -8,12 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -40,7 +42,7 @@ const (
 	aiIdle     = "idle"
 	aiFailed   = "error"
 
-	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at`
+	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id`
 	aiFrom    = ` FROM ai_conversations c LEFT JOIN users u ON u.id = c.user_id`
 	aiListOwn = `SELECT ` + aiColumns + aiFrom + ` WHERE c.user_id = ? AND c.server = ? AND c.namespace = ? AND c.cluster = ? ORDER BY c.updated_at DESC LIMIT 200`
 	aiListAll = `SELECT ` + aiColumns + aiFrom + ` ORDER BY c.updated_at DESC LIMIT 200`
@@ -54,10 +56,11 @@ var (
 )
 
 type aiSettings struct {
-	Enabled       bool   `json:"enabled"`
-	DefaultModel  string `json:"defaultModel"`
-	DefaultEffort string `json:"defaultEffort"`
-	APIKeySet     bool   `json:"apiKeySet"`
+	Enabled         bool   `json:"enabled"`
+	DefaultModel    string `json:"defaultModel"`
+	DefaultEffort   string `json:"defaultEffort"`
+	APIKeySet       bool   `json:"apiKeySet"`
+	SubscriptionSet bool   `json:"subscriptionSet,omitempty"`
 }
 
 type aiConversation struct {
@@ -76,6 +79,7 @@ type aiConversation struct {
 	OutputTokens int64  `json:"outputTokens"`
 	CreatedAt    string `json:"createdAt"`
 	UpdatedAt    string `json:"updatedAt"`
+	SessionID    string `json:"-"`
 }
 
 type aiCreds struct {
@@ -85,33 +89,39 @@ type aiCreds struct {
 }
 
 type aiHandler struct {
-	store  *db.Store
-	router http.Handler
-	key    func(context.Context) string
-	send   func(context.Context, string, anthropic.BetaMessageNewParams) (*anthropic.BetaMessage, error)
+	store   *db.Store
+	router  http.Handler
+	key     func(context.Context) (string, bool)
+	send    func(context.Context, string, anthropic.BetaMessageNewParams) (*anthropic.BetaMessage, error)
+	spawn   func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
+	mcpOnce sync.Once
+	mcpURL  string
+	mu      sync.Mutex
+	live    map[string]*aiLive
 }
 
 // MountAI wires the AI assistant routes; its tool calls replay through router with the caller's own session.
-func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) string) {
-	(&aiHandler{store: store, router: router, key: key, send: sendClaude}).mount(r)
+func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool)) {
+	(&aiHandler{store: store, router: router, key: key, send: sendClaude, spawn: spawnClaude}).mount(r)
 }
 
-// MountAISecret wires the admin routes that store and remove the assistant's Claude API key.
+// MountAISecret wires the admin routes that store and remove the assistant's Claude credential.
 func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 	r.Put("/admin/ai/secret", func(w http.ResponseWriter, req *http.Request) {
 		var body struct {
-			APIKey string `json:"apiKey"`
+			APIKey     string `json:"apiKey"`
+			OAuthToken string `json:"oauthToken"`
 		}
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid json", http.StatusBadRequest)
 			return
 		}
-		key := strings.TrimSpace(body.APIKey)
-		if key == "" {
-			http.Error(w, "apiKey is required", http.StatusUnprocessableEntity)
+		key, token := strings.TrimSpace(body.APIKey), strings.TrimSpace(body.OAuthToken)
+		if (key == "") == (token == "") {
+			http.Error(w, "exactly one of apiKey or oauthToken is required", http.StatusUnprocessableEntity)
 			return
 		}
-		err := upsertLabelledSecret(req.Context(), k, controlNS, aiSecretName, aiSecretLabel, map[string]string{"apiKey": key})
+		err := upsertLabelledSecret(req.Context(), k, controlNS, aiSecretName, aiSecretLabel, map[string]string{"apiKey": key, "oauthToken": token})
 		if errors.Is(err, errNotManagedSecret) {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
@@ -120,7 +130,7 @@ func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 			httperr.Write(w, req, err)
 			return
 		}
-		writeJSON(w, map[string]any{"name": aiSecretName, "keys": []string{"apiKey"}})
+		writeJSON(w, map[string]any{"name": aiSecretName, "keys": []string{"apiKey", "oauthToken"}})
 	})
 	r.Delete("/admin/ai/secret", func(w http.ResponseWriter, req *http.Request) {
 		if err := deleteManagedSecret(req.Context(), k, controlNS, aiSecretName, aiSecretLabel); err != nil {
@@ -131,24 +141,27 @@ func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 	})
 }
 
-// AIKeyReader returns a lookup of the assistant's Claude API key in its labelled Secret; the lookup yields "" when none is set.
-func AIKeyReader(k *kube.Client, controlNS string) func(context.Context) string {
-	return func(ctx context.Context) string {
+// AIKeyReader returns a lookup of the assistant's Claude credential in its labelled Secret: the subscription token (true) when one is set, otherwise the API key; the lookup yields "" when neither is set.
+func AIKeyReader(k *kube.Client, controlNS string) func(context.Context) (string, bool) {
+	return func(ctx context.Context) (string, bool) {
 		secrets := k.Secrets(controlNS)
 		if secrets == nil {
-			return ""
+			return "", false
 		}
 		sec, err := secrets.Get(ctx, aiSecretName, metav1.GetOptions{})
 		if err != nil || sec.Labels[aiSecretLabel] != "true" {
-			return ""
+			return "", false
 		}
-		return string(sec.Data["apiKey"])
+		if token := string(sec.Data["oauthToken"]); token != "" {
+			return token, true
+		}
+		return string(sec.Data["apiKey"]), false
 	}
 }
 
 func (h *aiHandler) mount(r chi.Router) {
-	if _, err := h.store.DB.ExecContext(context.Background(), `UPDATE ai_conversations SET status = ?, error = ? WHERE status = ?`,
-		aiFailed, "Interrupted by an API restart.", aiRunning); err != nil {
+	if _, err := h.store.DB.ExecContext(context.Background(), `UPDATE ai_conversations SET status = ?, error = ? WHERE status = ? OR (status = ? AND session_id <> '')`,
+		aiFailed, "Interrupted by an API restart.", aiRunning, aiAwaiting); err != nil {
 		slog.Warn("reset interrupted ai runs", "err", err)
 	}
 	r.Get("/ai/status", h.status)
@@ -206,25 +219,26 @@ func (h *aiHandler) settings(ctx context.Context) aiSettings {
 	return s.withDefaults()
 }
 
-func (h *aiHandler) ready(w http.ResponseWriter, req *http.Request) (aiSettings, string, bool) {
+func (h *aiHandler) ready(w http.ResponseWriter, req *http.Request) (aiSettings, string, bool, bool) {
 	s := h.settings(req.Context())
 	if !s.Enabled {
 		http.Error(w, "the AI assistant is disabled", http.StatusForbidden)
-		return s, "", false
+		return s, "", false, false
 	}
-	key := h.key(req.Context())
+	key, sub := h.key(req.Context())
 	if key == "" {
 		http.Error(w, "the AI assistant has no API key configured", http.StatusServiceUnavailable)
-		return s, "", false
+		return s, "", false, false
 	}
-	return s, key, true
+	return s, key, sub, true
 }
 
 func (h *aiHandler) status(w http.ResponseWriter, req *http.Request) {
+	key, _ := h.key(req.Context())
 	s := h.settings(req.Context())
 	writeJSON(w, map[string]any{
 		"enabled":       s.Enabled,
-		"configured":    h.key(req.Context()) != "",
+		"configured":    key != "",
 		"defaultModel":  s.DefaultModel,
 		"defaultEffort": s.DefaultEffort,
 	})
@@ -279,7 +293,7 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
-	s, key, ok := h.ready(w, req)
+	s, key, sub, ok := h.ready(w, req)
 	if !ok {
 		return
 	}
@@ -321,7 +335,7 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		httperr.Write(w, req, err)
 		return
 	}
-	go h.run(ctx, conv, creds, key, runID, nil)
+	h.begin(ctx, conv, creds, key, sub, runID, prompt)
 	writeJSONCreated(w, conv)
 }
 
@@ -336,7 +350,9 @@ func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	pending := []map[string]string{}
-	if conv.Status == aiAwaiting {
+	if in := h.waitingInput(conv.ID); conv.Status == aiAwaiting && in != nil {
+		pending = append(pending, map[string]string{"id": aiPendingID(msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
+	} else if conv.Status == aiAwaiting {
 		for _, use := range aiToolUses(msgs) {
 			if use.input.needsApproval() {
 				pending = append(pending, map[string]string{"id": use.id, "method": strings.ToUpper(use.input.Method), "path": use.input.Path})
@@ -363,7 +379,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	_, key, ok := h.ready(w, req)
+	_, key, sub, ok := h.ready(w, req)
 	if !ok {
 		return
 	}
@@ -388,7 +404,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	conv.Status, conv.Error = aiRunning, ""
-	go h.run(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, runID, nil)
+	h.begin(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, sub, runID, prompt)
 	writeJSON(w, conv)
 }
 
@@ -404,8 +420,17 @@ func (h *aiHandler) approval(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
-	_, key, ok := h.ready(w, req)
+	_, key, sub, ok := h.ready(w, req)
 	if !ok {
+		return
+	}
+	if sub {
+		if !h.decide(req.Context(), conv.ID, body.Approve) {
+			http.Error(w, "the conversation is busy or not waiting for this action", http.StatusConflict)
+			return
+		}
+		conv.Status, conv.Error = aiRunning, ""
+		writeJSON(w, conv)
 		return
 	}
 	runID, ok := h.start(w, req, conv.ID, aiAwaiting, aiAwaiting)
@@ -433,6 +458,7 @@ func (h *aiHandler) cancel(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "the assistant is not running", http.StatusConflict)
 		return
 	}
+	h.stop(conv.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -492,6 +518,10 @@ func (h *aiHandler) appendMessage(ctx context.Context, id, runID string, msg ant
 	if err != nil {
 		return fmt.Errorf("encode ai message: %w", err)
 	}
+	return h.appendRaw(ctx, id, runID, data)
+}
+
+func (h *aiHandler) appendRaw(ctx context.Context, id, runID string, data []byte) error {
 	tx, err := h.store.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin ai message: %w", err)
@@ -547,7 +577,7 @@ func (h *aiHandler) addUsage(ctx context.Context, id string, usage anthropic.Bet
 func scanAIConversation(row interface{ Scan(...any) error }) (aiConversation, error) {
 	var c aiConversation
 	err := row.Scan(&c.ID, &c.UserID, &c.Username, &c.Title, &c.Cluster, &c.Namespace, &c.Server,
-		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt)
+		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID)
 	return c, err
 }
 

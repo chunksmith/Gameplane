@@ -1186,8 +1186,9 @@ const defaultAI: AICfg = { enabled: false, defaultModel: "claude-opus-5-5", defa
 function AISection({ initial }: { initial?: AICfg }) {
   const f = useSectionForm<AICfg>(initial ?? defaultAI, "ai");
   const qc = useQueryClient();
-  const [editingKey, setEditingKey] = useState(false);
+  const [editing, setEditing] = useState<"key" | "token" | null>(null);
   const [apiKey, setApiKey] = useState("");
+  const token = editing === "token";
 
   useEffect(() => {
     if (f.saved) void qc.invalidateQueries({ queryKey: ["ai"] });
@@ -1195,24 +1196,24 @@ function AISection({ initial }: { initial?: AICfg }) {
 
   const closeKeyForm = () => {
     setApiKey("");
-    setEditingKey(false);
+    setEditing(null);
   };
   const stageKey = () => {
     const key = apiKey.trim();
-    f.stageSecret("ai:key", { kind: "write", run: () => AssistantAdmin.putSecret(key) });
-    f.update({ apiKeySet: true });
+    f.stageSecret("ai:key", { kind: "write", run: () => (token ? AssistantAdmin.putToken(key) : AssistantAdmin.putSecret(key)) });
+    f.update({ apiKeySet: true, subscriptionSet: token || undefined });
     closeKeyForm();
   };
   const removeKey = () => {
     f.stageSecret("ai:key", { kind: "remove", run: () => AssistantAdmin.deleteSecret() });
-    f.update({ apiKeySet: false });
+    f.update({ apiKeySet: false, subscriptionSet: undefined });
   };
 
   return (
     <SectionCard
       icon={Sparkles}
       title="AI assistant"
-      subtitle="One Claude API key for the whole panel. Every action the assistant takes runs with the signed-in user's own permissions."
+      subtitle="One Claude credential for the whole panel. Every action the assistant takes runs with the signed-in user's own permissions."
       footer={
         <>
           <SaveStatus pending={f.pending} error={f.error} saved={f.saved} />
@@ -1229,8 +1230,14 @@ function AISection({ initial }: { initial?: AICfg }) {
       </div>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3">
         <div className="min-w-0 flex-1">
-          <div className="text-sm">Claude API key</div>
-          <div className="text-xs text-muted">Create one in the Claude Console (platform.claude.com). Claude.ai Pro and Max subscriptions cannot be used here.</div>
+          <div className="text-sm">Claude credential</div>
+          <div className="text-xs text-muted">
+            {!f.draft.apiKeySet
+              ? "A Claude Console API key (platform.claude.com), or a Pro or Max subscription token for your own use."
+              : f.draft.subscriptionSet
+                ? "Claude subscription token. The assistant runs Claude Code on your plan's usage limits."
+                : "Claude Console API key, billed per use."}
+          </div>
         </div>
         <span
           className={cn(
@@ -1241,30 +1248,38 @@ function AISection({ initial }: { initial?: AICfg }) {
           <span className="h-1.5 w-1.5 rounded-full bg-current" />
           {f.draft.apiKeySet ? "Configured" : "Not configured"}
         </span>
-        {!editingKey && (
-          <Button variant="primary" size="sm" onPress={() => setEditingKey(true)}>
+        {!editing && (
+          <Button variant="primary" size="sm" onPress={() => setEditing(f.draft.subscriptionSet ? "token" : "key")}>
             {f.draft.apiKeySet ? "Replace" : "Set API key"}
           </Button>
         )}
-        {!editingKey && f.draft.apiKeySet && (
+        {!editing && !f.draft.apiKeySet && (
+          <Button variant="ghost" size="sm" onPress={() => setEditing("token")}>Set subscription token</Button>
+        )}
+        {!editing && f.draft.apiKeySet && (
           <Button variant="danger" size="sm" onPress={removeKey}>Remove</Button>
         )}
       </div>
-      {editingKey && (
+      {editing && (
         <div className="space-y-3 rounded-xl border border-border bg-surface/40 p-4">
-          <Field label="API key">
+          <Field label={token ? "Subscription token" : "API key"}>
             <HeroInput
               type="password"
               autoFocus
               value={apiKey}
-              placeholder="sk-ant-…"
+              placeholder={token ? "sk-ant-oat01-…" : "sk-ant-…"}
               onChange={(e) => setApiKey(e.target.value)}
               spellCheck={false}
             />
           </Field>
+          {token && (
+            <p className="text-xs text-muted">
+              Run <code className="font-mono">claude setup-token</code> on a computer where you are signed in to Claude; the token lasts a year. Keep it to yourself: Anthropic does not allow sharing subscription access with other people.
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onPress={closeKeyForm}>Cancel</Button>
-            <Button isDisabled={apiKey.trim() === ""} onPress={stageKey}>Use this key</Button>
+            <Button isDisabled={apiKey.trim() === ""} onPress={stageKey}>{token ? "Use this token" : "Use this key"}</Button>
           </div>
         </div>
       )}

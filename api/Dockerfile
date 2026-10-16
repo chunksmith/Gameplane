@@ -32,9 +32,19 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
 
 RUN mkdir -p /out/data /out/keys && chmod 0700 /out/keys && chown 65532:65532 /out/data /out/keys
 
-FROM gcr.io/distroless/static:nonroot
+FROM debian:13-slim AS claude
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG CLAUDE_CODE_VERSION=2.1.301
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" \
+    && cp -L /root/.local/bin/claude /claude
+
+FROM gcr.io/distroless/cc:nonroot
 WORKDIR /
 COPY --from=build /out/api /api
+COPY --from=claude /claude /usr/local/bin/claude
 # Seed named Docker volumes with a directory writable by the runtime user.
 COPY --from=build --chown=65532:65532 /out/data /data
 COPY --from=build --chown=65532:65532 /out/keys /keys

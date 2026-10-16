@@ -34,19 +34,22 @@ var (
 	errAIEndpoint    = errors.New("this endpoint is not available to the assistant")
 )
 
-var aiTool = anthropic.BetaToolUnionParam{OfTool: &anthropic.BetaToolParam{
-	Name:        "gameplane_api",
-	Description: anthropic.String("Call the Gameplane REST API as the signed-in user. Returns the HTTP status line and the response body."),
-	InputSchema: anthropic.BetaToolInputSchemaParam{
-		Properties: map[string]any{
-			"method": map[string]any{"type": "string", "enum": aiMethods},
-			"path":   map[string]any{"type": "string", "description": "API path without a query string, for example /servers/lobby/files/read"},
-			"query":  map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Query parameters"},
-			"body":   map[string]any{"description": "JSON request body; for files/write and files/create, the raw file content as a string"},
-		},
-		Required: []string{"method", "path"},
-	},
-}}
+const aiToolDescription = "Call the Gameplane REST API as the signed-in user. Returns the HTTP status line and the response body."
+
+var (
+	aiToolProperties = map[string]any{
+		"method": map[string]any{"type": "string", "enum": aiMethods},
+		"path":   map[string]any{"type": "string", "description": "API path without a query string, for example /servers/lobby/files/read"},
+		"query":  map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Query parameters"},
+		"body":   map[string]any{"description": "JSON request body; for files/write and files/create, the raw file content as a string"},
+	}
+	aiToolRequired = []string{"method", "path"}
+	aiTool         = anthropic.BetaToolUnionParam{OfTool: &anthropic.BetaToolParam{
+		Name:        "gameplane_api",
+		Description: anthropic.String(aiToolDescription),
+		InputSchema: anthropic.BetaToolInputSchemaParam{Properties: aiToolProperties, Required: aiToolRequired},
+	}}
+)
 
 type aiToolInput struct {
 	Method string            `json:"method"`

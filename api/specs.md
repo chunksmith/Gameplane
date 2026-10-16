@@ -500,12 +500,13 @@ audit:read, config:read, config:manage (cluster-scoped)
 
 ### AI assistant (feature 027)
 
-Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md). Handlers `handlers/ai.go` (routes, records) and `handlers/ai_run.go` (Claude loop, scope policy).
+Spec: [`specs/027-ai-assistant/`](../specs/027-ai-assistant/spec.md). Handlers `handlers/ai.go` (routes, records), `handlers/ai_run.go` (Claude loop, scope policy) and `handlers/ai_cli.go` (Claude Code runner for subscription tokens).
 
 - `GET /ai/status`, `GET|POST /ai/conversations`, `GET /ai/conversations/{id}`, `POST /ai/conversations/{id}/messages|approval|cancel`: any authenticated user; only the owner writes; `scope=all` lists need `audit:read`.
-- `PUT|DELETE /admin/ai/secret`: `config:manage`; the key lives in the labelled Secret `gameplane-ai` (`gameplane.local/ai=true`, key `apiKey`). Config section `ai`: `{enabled, defaultModel, defaultEffort, apiKeySet}`.
+- `PUT|DELETE /admin/ai/secret`: `config:manage`; the credential lives in the labelled Secret `gameplane-ai` (`gameplane.local/ai=true`) as key `apiKey` or `oauthToken` (a `claude setup-token` subscription token; `PUT` takes exactly one and clears the other). Config section `ai`: `{enabled, defaultModel, defaultEffort, apiKeySet, subscriptionSet?}`.
 - Each tool call replays through the API router with the caller's cookie, CSRF header and client IP, so authentication, rate limits, RBAC and audit apply unchanged. Server conversations force the server's namespace and cluster and reach only that server, `GET /templates` and its own backups, schedules and restores. `DELETE`, `:wipe-data` and `POST /restores` wait for the user's approval.
-- Tables `ai_conversations` and `ai_messages` (migration `common/020_ai_assistant.sql`). Runs execute in the background; runs left `running` by a restart become `error` at startup.
+- With an `oauthToken`, runs spawn the bundled Claude Code CLI (`claude -p`, stream-json) instead of calling the Messages API. `gameplane_api` reaches it as an MCP tool on a `127.0.0.1` listener with a per-run bearer token; approvals block the tool call (30 minutes at most); `ai_conversations.session_id` (migration `common/021_ai_session.sql`) resumes the CLI session. The CLI runs in the API container, so it needs at least 1Gi of API memory.
+- Tables `ai_conversations` and `ai_messages` (migration `common/020_ai_assistant.sql`). Runs execute in the background; runs left `running` (or `awaiting_approval` with a CLI session) by a restart become `error` at startup.
 
 ## Key invariants
 

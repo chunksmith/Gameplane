@@ -135,6 +135,7 @@ export interface AICfg {
   defaultModel: string;
   defaultEffort: string;
   apiKeySet: boolean;
+  subscriptionSet?: boolean;
 }
 
 // AllConfig is the shape of GET /admin/config — every section is optional

@@ -91,4 +91,33 @@ describe("AdminSettings AI assistant", () => {
     expect(screen.queryByLabelText(/API key/i)).not.toBeInTheDocument();
     expect(screen.getByText("Configured")).toBeInTheDocument();
   });
+
+  it("stores a subscription token", async () => {
+    let secretBody: unknown;
+    let saved: unknown;
+    server.use(
+      http.put("/admin/ai/secret", async ({ request }) => {
+        secretBody = await request.json();
+        return HttpResponse.json({ name: "gameplane-ai", keys: ["apiKey", "oauthToken"] });
+      }),
+      http.put("/admin/config/ai", async ({ request }) => {
+        saved = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await gotoAI();
+    await userEvent.click(await screen.findByRole("button", { name: /Set subscription token/i }));
+    expect(screen.getByRole("button", { name: /Use this token/i })).toBeDisabled();
+    await userEvent.type(screen.getByLabelText(/Subscription token/i), "sk-ant-oat01-test");
+    await userEvent.click(screen.getByRole("button", { name: /Use this token/i }));
+    expect(await screen.findByText("Configured")).toBeInTheDocument();
+    expect(screen.getByText(/Claude subscription token\./)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Replace$/i }));
+    expect(screen.getByLabelText(/Subscription token/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save changes$/i }));
+    await waitFor(() => expect(saved).toBeDefined());
+    expect(secretBody).toEqual({ oauthToken: "sk-ant-oat01-test" });
+    expect(saved).toEqual({ enabled: false, defaultModel: "claude-opus-5-5", defaultEffort: "medium", apiKeySet: true, subscriptionSet: true });
+  });
 });
