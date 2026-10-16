@@ -12,7 +12,7 @@ import { ErrorBanner } from "@/components/backups/ErrorBanner";
 import { ScheduleForm } from "@/components/backups/ScheduleForm";
 import { RestoreDialog } from "@/components/backups/RestoreDialog";
 import { BackupDetailDrawer } from "@/components/backups/BackupDetailDrawer";
-import { BackupProgressBar, isActiveBackup } from "@/components/backups/ActiveBackups";
+import { BackupProgressBar, isActiveBackup, newestBackupFirst } from "@/components/backups/ActiveBackups";
 import type { Backup } from "@/types";
 
 export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
@@ -65,7 +65,7 @@ export function BackupsTab({ name, ns }: { name: string; ns?: string }) {
         ? "Multiple destinations configured — use the Backups page to pick one."
         : undefined;
 
-  const serverBackups = backups?.items.filter((b) => b.spec.serverRef.name === name) ?? [];
+  const serverBackups = backups?.items.filter((b) => b.spec.serverRef.name === name).sort(newestBackupFirst) ?? [];
   const serverSchedules = schedules?.items.filter((s) => s.spec.serverRef?.name === name) ?? [];
   const serverRestores = restores?.items.filter((r) => r.spec.serverRef.name === name) ?? [];
 

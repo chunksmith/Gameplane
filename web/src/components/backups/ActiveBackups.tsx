@@ -11,6 +11,10 @@ export function isActiveBackup(backup: Backup): boolean {
   return !phase || phase === "Queued" || phase === "Pending" || phase === "Running";
 }
 
+const takenAt = (backup: Backup) => Date.parse(backup.metadata.creationTimestamp ?? "") || 0;
+
+export const newestBackupFirst = (a: Backup, b: Backup) => takenAt(b) - takenAt(a);
+
 export function BackupProgressBar({ backup, compact = false }: { backup: Backup; compact?: boolean }) {
   const progress = backup.status?.progress;
   const phase = backup.status?.phase;
