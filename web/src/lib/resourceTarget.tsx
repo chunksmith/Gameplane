@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import * as endpoints from "./endpoints";
 import { type ResourceScope } from "./api";
+import { targetSearch } from "./fleet";
 import type { ResourceClient } from "./endpoints";
 
 export type { ResourceScope } from "./api";
@@ -28,7 +29,7 @@ export function serverLink(target: ResourceTarget) {
   return {
     to: "/servers/$name" as const,
     params: { name: target.name },
-    search: { cluster: target.cluster, ns: target.namespace },
+    search: targetSearch(target),
   };
 }
 

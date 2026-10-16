@@ -4,7 +4,8 @@
 import { useSyncExternalStore } from "react";
 
 const CLUSTER_KEY = "gameplane.cluster";
-const DEFAULT_CLUSTER = "local";
+export const DEFAULT_CLUSTER = "local";
+export const DEFAULT_NAMESPACE = "gameplane-games";
 
 // Subscribers for cluster changes
 const subscribers = new Set<() => void>();

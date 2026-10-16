@@ -49,7 +49,7 @@ describe("unified fleet pages", () => {
     renderWithQuery(<ServersPage />);
     const links = await screen.findAllByRole("link", { name: "same" });
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
-      "/servers/same?cluster=local&ns=games", "/servers/same?cluster=remote&ns=games", "/servers/same?cluster=remote&ns=other",
+      "/servers/same?ns=games", "/servers/same?cluster=remote&ns=games", "/servers/same?cluster=remote&ns=other",
     ]);
     const rows = screen.getAllByRole("row");
     const local = rows.find((row) => row.textContent?.includes("local / games"))!;

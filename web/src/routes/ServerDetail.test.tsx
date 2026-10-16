@@ -363,7 +363,7 @@ describe("ServerDetailPage", () => {
     expect(requestUrl).toContain("namespace=other-ns");
   });
 
-  it("resolves a legacy local link before recording its canonical namespace", async () => {
+  it("resolves a link without a namespace in the default namespace", async () => {
     const requestURLs: string[] = [];
     server.use(
       http.get("/servers/:name", ({ request }) => {
@@ -374,8 +374,8 @@ describe("ServerDetailPage", () => {
     searchParams = {};
     renderWithQuery(<ServerDetailPage />);
     await screen.findByRole("heading", { level: 1, name: "alpha" });
-    expect(requestURLs[0]).not.toContain("namespace=");
-    expect(navigate).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: { cluster: "local", ns: "gameplane-games" }, replace: true });
+    expect(requestURLs[0]).toContain("namespace=gameplane-games");
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
 
@@ -506,7 +506,7 @@ describe("ServerDetailPage clone action", () => {
       expect(navigate).toHaveBeenCalledWith({
         to: "/servers/$name",
         params: { name: "alpha-copy" },
-        search: { cluster: "local", ns: "gameplane-games" },
+        search: {},
       }),
     );
     expect(screen.queryByLabelText("New name")).not.toBeInTheDocument();

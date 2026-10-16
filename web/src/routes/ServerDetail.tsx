@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Tab, Tabs } from "@heroui/react";
@@ -35,8 +35,9 @@ import { capitalize, formatUptime, ignoreRejection } from "@/lib/utils";
 import { ServerActionsMenu } from "@/components/server/ServerActionsMenu";
 import { CaptureWidget } from "@/components/CaptureWidget";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { ResourceTargetProvider, useResourceClient, useResourceTarget, useResourceAccess, resourceCan, resourceKey, serverLink, type ResourceTarget, type ServerAccessResponse } from "@/lib/resourceTarget";
+import { ResourceTargetProvider, useResourceClient, useResourceTarget, useResourceAccess, resourceCan, resourceKey, type ResourceTarget, type ServerAccessResponse } from "@/lib/resourceTarget";
 import { createRequestClient } from "@/lib/api";
+import { DEFAULT_NAMESPACE } from "@/lib/cluster";
 import { ErrorCard } from "@/components/ui/ErrorCard";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 
@@ -77,12 +78,11 @@ const tabs: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
 
 export function ServerDetailPage() {
   const { name } = useParams({ from: "/app-layout/servers/$name" });
-  const { ns, cluster = "local" } = useSearch({ from: "/app-layout/servers/$name" });
+  const { ns = DEFAULT_NAMESPACE, cluster = "local" } = useSearch({ from: "/app-layout/servers/$name" });
   return <ResolveServerDetail key={JSON.stringify([cluster, ns, name])} target={{ cluster, namespace: ns, name }} />;
 }
 
 function ResolveServerDetail({ target }: { target: ResourceTarget }) {
-  const navigate = useNavigate();
   const server = useQuery({
     queryKey: resourceKey(target, "server"),
     queryFn: ({ signal }) => createResourceClient(target, signal).Servers.get(target.name, target.namespace),
@@ -95,11 +95,6 @@ function ResolveServerDetail({ target }: { target: ResourceTarget }) {
     ),
     enabled: !!server.data,
   });
-  useEffect(() => {
-    if (!target.namespace && server.data?.metadata.namespace) {
-      void navigate({ ...serverLink({ cluster: target.cluster, name: target.name, namespace: server.data.metadata.namespace }), replace: true });
-    }
-  }, [target.cluster, target.namespace, target.name, server.data?.metadata.namespace, navigate]);
   const retry = () => { void server.refetch(); void access.refetch(); };
   if (server.error || access.error) return <div className="p-6"><ErrorCard message="This server could not be loaded at its recorded location. Check your access and the site's connection." onRetry={retry} /></div>;
   if (!server.data || !access.data) return <div className="p-6"><LoadingCard message="Loading server…" /></div>;

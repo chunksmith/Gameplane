@@ -1,7 +1,8 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { api } from "@/lib/api";
+import { api, type ResourceScope } from "@/lib/api";
+import { DEFAULT_CLUSTER, DEFAULT_NAMESPACE } from "@/lib/cluster";
 import { Templates } from "@/lib/endpoints";
 import { assignGameCodesForTemplates } from "@/lib/gameIcon";
 import type { Backup, BackupSchedule, ClusterNode, ClusterStats, ClusterView, GameServer, GameServerSet, GameTemplate, Restore } from "@/types";
@@ -129,8 +130,16 @@ export function targetKey(target: FleetTarget): string {
   return JSON.stringify([target.cluster, target.namespace, target.name, target.uid]);
 }
 
-export function targetSearch(target: FleetTarget): { cluster: string; ns: string } {
-  return { cluster: target.cluster, ns: target.namespace };
+export function targetSearch(target: ResourceScope): { cluster?: string; ns?: string } {
+  return {
+    ...(target.cluster === DEFAULT_CLUSTER ? {} : { cluster: target.cluster }),
+    ...(target.namespace === DEFAULT_NAMESPACE ? {} : { ns: target.namespace }),
+  };
+}
+
+export function targetHref(target: FleetTarget): string {
+  const query = new URLSearchParams(targetSearch(target) as Record<string, string>).toString();
+  return `/servers/${encodeURIComponent(target.name)}${query && `?${query}`}`;
 }
 
 export function targetLabel(target: Pick<FleetTarget, "cluster" | "namespace">): string {

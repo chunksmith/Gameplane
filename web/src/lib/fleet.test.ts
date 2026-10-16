@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inventoryTotals, sumNodeUsage, targetKey, targetSearch } from "./fleet";
+import { inventoryTotals, sumNodeUsage, targetHref, targetKey, targetSearch } from "./fleet";
 import { makeClusterStats, makeClusterView } from "@/test/factories";
 
 describe("fleet identities and resource totals", () => {
@@ -7,6 +7,9 @@ describe("fleet identities and resource totals", () => {
     const target = { cluster: "west", namespace: "games", name: "same", uid: "old" };
     expect(new Set([target, { ...target, cluster: "east" }, { ...target, namespace: "other" }, { ...target, uid: "new" }].map(targetKey)).size).toBe(4);
     expect(targetSearch(target)).toEqual({ cluster: "west", ns: "games" });
+    expect(targetHref(target)).toBe("/servers/same?cluster=west&ns=games");
+    expect(targetSearch({ cluster: "local", namespace: "gameplane-games" })).toEqual({});
+    expect(targetHref({ ...target, cluster: "local", namespace: "gameplane-games" })).toBe("/servers/same");
   });
 
   it("weights measured CPU usage by capacity rather than averaging percentages", () => {
