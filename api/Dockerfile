@@ -36,13 +36,21 @@ RUN mkdir -p /out/data /out/keys && chmod 0700 /out/keys && chown 65532:65532 /o
 FROM buildpack-deps:trixie-curl AS claude
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG CLAUDE_CODE_VERSION=2.1.301
+ARG KUBECTL_VERSION=1.37.1
+ARG TARGETARCH
 RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" \
-    && cp -L /root/.local/bin/claude /claude
+    && cp -L /root/.local/bin/claude /claude \
+    && curl -fsSLo /kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
+    && echo "$(curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256")  /kubectl" | sha256sum -c - \
+    && chmod 0755 /kubectl
 
-FROM gcr.io/distroless/cc:nonroot
+FROM debian:trixie-slim
+RUN useradd --no-log-init --uid 65532 --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin nonroot
 WORKDIR /
 COPY --from=build /out/api /api
 COPY --from=claude /claude /usr/local/bin/claude
+COPY --from=claude /kubectl /usr/local/bin/kubectl
+COPY --from=claude /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # Seed named Docker volumes with a directory writable by the runtime user.
 COPY --from=build --chown=65532:65532 /out/data /data
 COPY --from=build --chown=65532:65532 /out/keys /keys

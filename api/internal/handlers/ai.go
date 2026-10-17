@@ -28,6 +28,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
 
@@ -86,6 +87,7 @@ type aiCreds struct {
 	cookie     string
 	csrf       string
 	remoteAddr string
+	admin      bool
 }
 
 type aiHandler struct {
@@ -599,10 +601,12 @@ func aiCredentials(req *http.Request) aiCreds {
 	if ip == "" {
 		ip, _, _ = net.SplitHostPort(req.RemoteAddr)
 	}
+	u := auth.UserFromContext(req.Context())
 	return aiCreds{
 		cookie:     strings.Join(req.Header.Values("Cookie"), "; "),
 		csrf:       req.Header.Get("X-Gameplane-CSRF"),
 		remoteAddr: net.JoinHostPort(ip, "0"),
+		admin:      u != nil && u.Role == rbac.RoleAdmin,
 	}
 }
 

@@ -32,6 +32,10 @@ const (
 	aiApprovalWait = 30 * time.Minute
 )
 
+const aiShellPrompt = `
+
+Shell (admins only): you also have a Bash tool with kubectl. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Shell commands run without approval, so ask the user before anything destructive.`
+
 type aiLive struct {
 	conv   aiConversation
 	creds  aiCreds
@@ -76,7 +80,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	run := &aiLive{conv: conv, creds: creds, runID: runID, token: rand.Text(), done: runCtx.Done(), cancel: cancel}
 	h.track(run)
 	defer h.untrack(run)
-	out, wait, err := h.spawn(runCtx, aiCLIEnv(token), prompt, aiCLIArgs(conv, h.mcpURL, run.token)...)
+	out, wait, err := h.spawn(runCtx, aiCLIEnv(token, creds.admin), prompt, aiCLIArgs(conv, h.mcpURL, run.token, creds.admin)...)
 	if err != nil {
 		slog.Warn("start claude", "err", err)
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code could not be started.")
@@ -174,23 +178,27 @@ func aiCLIDelta(raw json.RawMessage) string {
 	return ev.Delta.Text
 }
 
-func aiCLIArgs(conv aiConversation, mcpURL, token string) []string {
+func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool) []string {
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
+	tools, allowed, system := "", aiMCPTool, aiSystemPrompt(conv)
+	if admin {
+		tools, allowed, system = "Bash", aiMCPTool+",Bash", system+aiShellPrompt
+	}
 	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--model", conv.Model, "--effort", conv.Effort, "--max-turns", strconv.Itoa(aiMaxSteps),
-		"--system-prompt", aiSystemPrompt(conv),
+		"--system-prompt", system,
 		"--strict-mcp-config", "--mcp-config", string(servers),
-		"--permission-mode", "dontAsk", "--allowedTools", aiMCPTool, "--tools", ""}
+		"--permission-mode", "dontAsk", "--allowedTools", allowed, "--tools", tools}
 	if conv.SessionID != "" {
 		args = append(args, "--resume", conv.SessionID)
 	}
 	return args
 }
 
-func aiCLIEnv(token string) []string {
-	return []string{
+func aiCLIEnv(token string, admin bool) []string {
+	env := []string{
 		"PATH=/usr/local/bin:/usr/bin:/bin",
 		"HOME=" + aiClaudeHome,
 		"CLAUDE_CONFIG_DIR=" + filepath.Join(aiClaudeHome, "config"),
@@ -200,6 +208,12 @@ func aiCLIEnv(token string) []string {
 		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
 		"MCP_TOOL_TIMEOUT=" + strconv.FormatInt((aiApprovalWait+5*time.Minute).Milliseconds(), 10),
 	}
+	if admin {
+		env = append(env, "SHELL=/bin/bash",
+			"KUBERNETES_SERVICE_HOST="+os.Getenv("KUBERNETES_SERVICE_HOST"),
+			"KUBERNETES_SERVICE_PORT="+os.Getenv("KUBERNETES_SERVICE_PORT"))
+	}
+	return env
 }
 
 func spawnClaude(ctx context.Context, env []string, stdin string, args ...string) (io.ReadCloser, func() error, error) {

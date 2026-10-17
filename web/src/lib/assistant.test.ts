@@ -67,4 +67,8 @@ describe("assistant helpers", () => {
       "DELETE /admin/ai/secret",
     ]);
   });
+
+  it("labels shell commands", () => {
+    expect(callLabel({ type: "tool_use", input: { command: "kubectl get pods -A" } })).toBe("BASH kubectl get pods -A");
+  });
 });

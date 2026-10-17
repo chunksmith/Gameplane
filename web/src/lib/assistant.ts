@@ -54,7 +54,7 @@ export interface AssistantBlock {
   type: string;
   text?: string;
   id?: string;
-  input?: { method?: string; path?: string; query?: unknown; body?: unknown };
+  input?: { method?: string; path?: string; query?: unknown; body?: unknown; command?: unknown };
   tool_use_id?: string;
   content?: string | Array<{ type: string; text?: string }>;
   is_error?: boolean;
@@ -163,6 +163,7 @@ function queryString(query: unknown): string {
 
 export function callLabel(block: AssistantBlock): string {
   const input = block.input ?? {};
+  if (typeof input.command === "string") return `BASH ${input.command}`;
   const query = queryString(input.query);
   return `${String(input.method ?? "").toUpperCase()} ${String(input.path ?? "")}${query ? `?${query}` : ""}`.trim();
 }
