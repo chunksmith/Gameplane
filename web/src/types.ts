@@ -342,7 +342,15 @@ export interface GameTemplate {
       maxLength?: number;
     }>;
   };
-  status?: { inUseCount?: number };
+  status?: {
+    inUseCount?: number;
+    conditions?: Array<{
+      type: string;
+      status: string;
+      reason?: string;
+      message?: string;
+    }>;
+  };
 }
 
 export type GameServerPhase =
@@ -628,6 +636,11 @@ export interface GameServer {
       message?: string;
       lastTransitionTime?: string;
     }>;
+    // Per condition type, the values interpolated into that condition's
+    // English message. Pair it with the condition's reason to render the
+    // localized message (id condition.<type>.<reason>, lower-cased); the
+    // condition's message stays the fallback.
+    conditionArgs?: Record<string, Record<string, string>>;
     startedAt?: string;
     lastBackupTime?: string;
     // Observed state of the capture sidecar for this server.
@@ -795,6 +808,9 @@ export interface UserThemePreferences {
   customCssEnabled: boolean;
   customCss?: string | null;
   updatedAt?: string;
+  // Saved dashboard language (BCP 47 tag). null or absent means no saved
+  // choice: the app falls back to the browser, then the instance default.
+  language?: string | null;
 }
 
 // Portable export document (FR-014, data-model.md §2.4; full schema in

@@ -108,6 +108,9 @@ export const handlers = [
       ],
     }),
   ),
+  // Pre-auth instance default language (spec 019). The dashboard asks for it
+  // on every page load; mock mode reports English.
+  http.get("/auth/locale", () => HttpResponse.json({ defaultLanguage: "en" })),
 
   // Cluster
   // Server-sent events stream the layout opens. Browser mock mode has a
@@ -869,6 +872,8 @@ export function buildScreenshotHandlers() {
     http.get("/admin/installation", () => HttpResponse.json({ standalone: false, localCluster: true })),
     // The Servers page asks which namespaces to list before listing servers.
     http.get("/namespaces", () => HttpResponse.json({ namespaces: ["gameplane-games"] })),
+    // Pre-auth instance default language (spec 019).
+    http.get("/auth/locale", () => HttpResponse.json({ defaultLanguage: "en" })),
     // Auth: reuse default login/logout (screenshot demos don't test auth edge cases)
     http.get("/users/me", ({ cookies }) => {
       if (cookies.e2e_force_401 === "1") {

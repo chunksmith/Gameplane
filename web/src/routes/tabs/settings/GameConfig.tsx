@@ -6,6 +6,7 @@ import { ConfigFields } from "@/components/server/ConfigFields";
 import { useResourceAccess } from "@/lib/resourceTarget";
 import { CONFIG_REDACTED_MARKER, validateConfig } from "@/lib/validation";
 import type { SectionProps } from "./types";
+import { useOptionalIntl } from "@/lib/i18n/format";
 
 // The operator reports a rejected spec.config as a Ready=False condition whose
 // message starts with this prefix (gameserver_controller.go).
@@ -18,13 +19,14 @@ const INVALID_CONFIG_PREFIX = "invalid config:";
 // draft until the user types, and the PUT then keeps the stored value. An
 // optional stored password is cleared only through the explicit Remove button
 // (spec 021 OD-2); emptying a typed value still returns to "unchanged".
-export function GameConfigSection({ draft, onChange, template, storedConfig, onValidityChange }: SectionProps) {
+export function GameConfigSection({ draft, onChange, template, moduleText, storedConfig, onValidityChange }: SectionProps) {
+  const intl = useOptionalIntl();
   const access = useResourceAccess();
   const canWrite = access?.canWrite === true;
   const schema = useMemo(() => template?.spec.configSchema ?? [], [template]);
   const values = useMemo(() => draft.spec.config ?? {}, [draft.spec.config]);
 
-  const errors = useMemo(() => validateConfig(schema, values), [schema, values]);
+  const errors = useMemo(() => validateConfig(schema, values, intl), [schema, values, intl]);
   const errorText = useMemo(
     () => Object.fromEntries(errors.map((e) => [e.name, e.text])),
     [errors],
@@ -130,10 +132,8 @@ export function GameConfigSection({ draft, onChange, template, storedConfig, onV
   return (
     <div className="max-w-3xl space-y-5">
       <div>
-        <h2 className="text-lg font-semibold">Game configuration</h2>
-        <p className="pt-1 text-[13px] text-muted">
-          Settings from this server&apos;s game template. Saving restarts the server.
-        </p>
+        <h2 className="text-lg font-semibold">{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.game_configuration", defaultMessage: "Game configuration", description: "Game config: heading of the game configuration section, shown at the top of the section" })}</h2>
+        <p className="pt-1 text-[13px] text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.settings_from_this_server_s_game", defaultMessage: "Settings from this server's game template. Saving restarts the server.", description: "Game config: hint under the heading saying these settings come from the game template and that saving restarts the server" })}</p>
       </div>
 
       {invalidMessage && (
@@ -142,7 +142,7 @@ export function GameConfigSection({ draft, onChange, template, storedConfig, onV
             <AlertCircle className="h-5 w-5 shrink-0" />
           </Alert.Indicator>
           <Alert.Content>
-            <div className="font-medium">The operator rejected this configuration</div>
+            <div className="font-medium">{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.the_operator_rejected_this_configuration", defaultMessage: "The operator rejected this configuration", description: "Game config: title of the danger alert shown when the operator rejects the configuration; the detail line below gives the reason" })}</div>
             <div className="pt-1 text-xs">{invalidMessage}</div>
           </Alert.Content>
         </Alert>
@@ -153,12 +153,12 @@ export function GameConfigSection({ draft, onChange, template, storedConfig, onV
           <Alert.Indicator>
             <AlertTriangle className="h-5 w-5 shrink-0" />
           </Alert.Indicator>
-          <Alert.Content>Saving changes restarts the server so they apply.</Alert.Content>
+          <Alert.Content>{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.saving_changes_restarts_the_server_so", defaultMessage: "Saving changes restarts the server so they apply.", description: "Game config: warning note saying that saving changes restarts the server so they apply; shown to users who can write the settings" })}</Alert.Content>
         </Alert>
       )}
 
       {schema.length === 0 && orphans.length === 0 && (
-        <p className="text-sm text-muted">This template has no configurable settings.</p>
+        <p className="text-sm text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.this_template_has_no_configurable", defaultMessage: "This template has no configurable settings.", description: "Game config: empty-state text shown when the game template has no configurable settings" })}</p>
       )}
 
       <div className="space-y-5">
@@ -168,6 +168,7 @@ export function GameConfigSection({ draft, onChange, template, storedConfig, onV
           onChange={setValue}
           variant="settings"
           disabled={!canWrite}
+          text={moduleText}
           errors={errorText}
           removing={removing}
           onRemove={removePassword}
@@ -186,7 +187,7 @@ export function GameConfigSection({ draft, onChange, template, storedConfig, onV
                   aria-label={key}
                   readOnly
                   value={values[key] === CONFIG_REDACTED_MARKER ? "" : values[key]}
-                  placeholder={values[key] === CONFIG_REDACTED_MARKER ? "Hidden" : undefined}
+                  placeholder={values[key] === CONFIG_REDACTED_MARKER ? intl.formatMessage({ id: "web.routes.tabs.settings.gameconfig.hidden", defaultMessage: "Hidden", description: "GameConfig: placeholder of a redacted config value input that is hidden from view" }) : undefined}
                   className="flex-1"
                 />
                 <Button
@@ -194,11 +195,9 @@ export function GameConfigSection({ draft, onChange, template, storedConfig, onV
                   size="sm"
                   onPress={() => removeOrphan(key)}
                   isDisabled={!canWrite}
-                >
-                  Remove
-                </Button>
+                >{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.remove", defaultMessage: "Remove", description: "Button that removes this config value override" })}</Button>
               </div>
-              <p className="text-xs text-muted">No longer in the template</p>
+              <p className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.no_longer_in_the_template", defaultMessage: "No longer in the template", description: "Game config: note on a saved setting that the game template no longer offers; shown next to a Remove button" })}</p>
             </div>
           </div>
         ))}

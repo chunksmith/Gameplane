@@ -1216,7 +1216,18 @@ type GameTemplateStatus struct {
 	// this template.
 	// +optional
 	InUseCount int32 `json:"inUseCount,omitempty"`
+
+	// Conditions carry detailed state. LocalesValid reports whether the
+	// translations shipped with the module bundle were all valid.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
+
+// GameTemplateConditionLocalesValid is the GameTemplate condition that reports
+// the validity of the module's translations.
+const GameTemplateConditionLocalesValid = "LocalesValid"
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster,shortName=gtmpl;gametmpl

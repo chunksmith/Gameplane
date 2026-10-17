@@ -48,6 +48,7 @@ api/
 │   ├── steam/            # Steam Workshop ID resolver: cache + singleflight-deduped upstream lookups
 │   ├── scope/            # namespace + cluster resolution from request context
 │   ├── telemetry/        # optional anonymous usage metrics collection
+│   ├── messages/         # localizable error registry (ids, English ICU, status)
 │   ├── httperr/          # error -> HTTP status classification (safe message for client, full error logged)
 │   └── [test files]
 └── go.mod, go.sum
@@ -61,7 +62,7 @@ api/
 - **db:** driver-selectable (modernc.org/sqlite or pgx/v5 via postgres build tag), migrations (001-012 per dialect in `migrations/sqlite/` and `migrations/postgres/`; 013+ shared and portable in `migrations/common/`), Store (query interface); queries use `?` placeholders, rebound to `$n` by the Postgres connection (`db.Rebind`); migration 015 (`migrations/common/015_telemetry_state.sql`) adds `telemetry_state` (singleton row: consent source, install ID, notice shown time, report schedule `next_due_at`/`last_attempt_at`/`last_success_at`, `last_outcome`, `consecutive_failures`, extended-fallback fields `ext_unsupported_until`/`ext_unsupported_endpoint`, `signing_secret`, `last_id_rotation_at`; seeded in Go by `Store.Migrate` from the existing `telemetry` config value) and `telemetry_notice_acks` (one row per admin who dismissed the notice: `user_id`, `acked_at`, `action`; rows are removed in Go when the user is deleted)
 - **kube:** Client (K8s API wrapper), Registry (per-cluster clients from Cluster CRDs), watch (cluster-config sync)
 - **audit:** Auditor (insert to DB + distribute to sinks), webhook sink (POST JSON to URL), S3 sink (object storage), hash-chain (detect tampering)
-- **notify:** Notifier (watch GameServer/Backup/Restore status, format + deliver to sinks), sinks (Discord, Slack, SMTP, webhook)
+- **notify:** Notifier (watch GameServer/Backup/Restore status, format + deliver to sinks), sinks (Discord, Slack, SMTP, webhook, ntfy); per-sink `language` (BCP 47, optional), rendered from the `notify.*` entries of the language packs; webhook payloads add `language`, `title`, `text`
 - **ws:** Mount (WebSocket router), agent-client (JSON agent reads), transport (shared HTTP/WebSocket agent connection), actions (RCON/PTY execution), attach (SPDY proxy), podlogs (live pod logs)
 - **registry:** provider types (each implements Search, Details, Manifest, Download), Set (versioned provider pool with key fallback)
 - **scope:** ResolveNamespace (extract from path or default), ResolveCluster (validate `?cluster=` against registry)
@@ -95,6 +96,7 @@ The HTTP server listens on `:8000` (configurable) with these route groups. Prome
 
 **Public (pre-auth):**
 - `/auth/providers` — GET: list enabled login methods (no version/host/count, login privacy)
+- `/auth/locale` — GET: the instance default language tag for the login page, `{"defaultLanguage": "<tag>"}` and nothing else (spec 019; see [Language and localizable errors](#language-and-localizable-errors-spec-019))
 - `/auth/login` — POST: argon2id auth + session creation (rate-limited per IP + user)
 - `/auth/logout` — POST: session deletion
 - `/auth/oidc/{provider}/start` — GET: IdP authorization flow start
@@ -151,6 +153,7 @@ The HTTP server listens on `:8000` (configurable) with these route groups. Prome
 - `/modules/sources/{name}` — GET, PUT, DELETE: manage ModuleSource CRDs (cluster-scoped)
 - `/modules/sources/{name}/upload`, `/modules/sources/{name}/upload/{module}` — bundle upload/delete
 - `/modules/catalog` — GET: merged catalog across sources, with installation state
+- `/modules/{name}/locales/{tag}` — GET: the module's translated messages for a language as a flat id → message map, read from the operator-written `<name>-locales` ConfigMap. The tag falls back to its base language; an unknown or malformed tag, or a module without translations, returns `200 {}`; values are the validated ICU message strings, uncompiled. 404 only when the Module does not exist. Requires `modules:read`.
 - `/modules/builder/{archetypes,scaffold,validate,preview,export}` — module builder workflow
 - `/registry/{provider}/search`, `/{id}` — live mod registry queries (CurseForge, Modrinth, Spigot, etc.)
 - `/mod-updates/{name}` — GET: available updates for a mod
@@ -165,6 +168,7 @@ The HTTP server listens on `:8000` (configurable) with these route groups. Prome
 - `/networks` — GET (users:read): networks with members; POST `{"name"}` (users:manage, identifier rules, 409 on duplicate); DELETE `/networks/{name}` removes the network and its memberships; PUT/DELETE `/networks/{name}/members/{userId}` add (idempotent) / remove a member. Membership is read on every request, so changes apply without re-login.
 - `/users/me/preferences` — GET/PUT: own theme/styling preferences (feature 016)
 - `/users/me/preferences/reset` — POST: reset own theme preferences to defaults (feature 016)
+- `/users/me/language` — PUT: set or clear own language choice (spec 019; see below)
 - `/users` — GET, POST: list and create users
 - `/users/{id}` — PATCH, DELETE: manage users (admin only). DELETE runs `db.Store.DeleteUser`: one transaction deletes the user's `oidc_links`, `user_preferences`, `sessions`, `api_tokens` and role bindings, revokes the share links the user created (sets `revoked_at`), then deletes the `users` row. It does not rely on FK cascades (off on SQLite). An SSO subject whose user was deleted is provisioned as a new user on its next login
 - **User list, lookup and create (`POST /users`) responses** include a `createdAt` field: `db.NormalizeTimestamp` passes RFC3339 values through unchanged, converts the legacy "YYYY-MM-DD HH:MM:SS" format from older migrations to RFC3339 UTC, and passes through unrecognized stored values unchanged.
@@ -180,7 +184,7 @@ The HTTP server listens on `:8000` (configurable) with these route groups. Prome
 - `/admin/telemetry/install-id` — POST (`config:manage`): replace the install ID, keep the signing secret and schedule; returns `{"installId"}`; 409 when extended is off or the operator disabled telemetry
 - `/admin/telemetry/notice` — GET (`config:read`; returns `{"pending":false}` unless the caller also holds `config:manage`): whether the first-login notice is pending for the caller, with destination host and the exact basic/extended field lists; POST (`config:manage`) `{"action": "seen"|"keep"|"extended-off"|"all-off"}` records the caller's dismissal (`seen` only sets the notice-shown time and opens the report schedule, recording no ack), 204 on success, 409 when not pending (except `seen`) or the operator disabled telemetry. RBAC entries sit before the `/admin/*` fallback in `rbac.go`
 - The telemetry consent itself is saved through `PUT /admin/config/telemetry` (`{"sendMetrics": bool, "extended": bool}`; `sendMetrics:false` forces `extended:false`; 409 when the operator disabled telemetry). The save runs in one transaction with the consent source, install ID and schedule updates
-- `/admin/notifications` — PATCH config + test-send to sinks
+- `/admin/notifications` — PATCH config + test-send to sinks; per-sink `language` (BCP 47, optional), rendered from the `notify.*` entries of the language packs; webhook payloads add `language`, `title`, `text`
 - `/admin/auth` — PATCH identity-provider secrets
 - `/admin/registries/{provider}/secret` — PATCH mod-registry API keys
 - `/admin/system-logs` — GET: control-plane pod logs
@@ -289,7 +293,7 @@ trust assumptions, rotation behavior and surfaces outside this protocol.
 
 - **DELETE `/servers/{name}:capture`** — Remove a completed or failed capture. Remote deletion confirms sidecar file cleanup before deleting the NetworkCapture with its UID precondition; gateway failure retains the resource for retry. A stale or replaced capture cannot delete another capture's bytes.
 
-- **Error responses:** All errors are plain text via `httperr.WriteCode()`, no JSON envelope. Status codes include 400 (validation), 404 (not found or stale identity), 409 (conflict/wrong state), 501 (capture feature or required gateway capability unavailable), 502/504 (gateway transport failure), 503 (sidecar unavailable), and 500 (internal error).
+- **Error responses:** All errors are plain text via `httperr.WriteCode()`, no JSON envelope; callers that send `Accept: application/problem+json` get RFC 9457 documents (see Problem document negotiation). Status codes include 400 (validation), 404 (not found or stale identity), 409 (conflict/wrong state), 501 (capture feature or required gateway capability unavailable), 502/504 (gateway transport failure), 503 (sidecar unavailable), and 500 (internal error).
 
 **Fully implemented endpoints (all routing registered, RBAC gated, handlers complete):**
 
@@ -692,6 +696,24 @@ Foreign keys are enforced only on Postgres (modernc-sqlite runs with FK OFF); th
 
 ### Upload limits
 - **Module bundle upload** (`POST /modules/sources/{name}/upload`): the compressed body is capped at 900 KiB (413 above it). Extraction caps each member at 900 KiB, the archive at 256 distinct paths, the running total of extracted bytes at 4 MiB (`maxUploadExtractedBytes`, repeated member names included), and the whole decompressed tar stream (including headers and entries extraction skips) at 5 MiB (`maxUploadDecompressedBytes`, covering tar framing). Extraction stops at the first member that crosses a limit, and the request gets 400. The four kept bundle files must together stay under 900 KiB.
+
+### Language and localizable errors (spec 019)
+
+**Storage (migration `018_user_language.sql`):** `user_preferences.language` is a nullable BCP 47 tag. `NULL` means the user has no saved choice and follows the instance default. Preference writes never touch the column: `UpsertPreferences` and `ResetPreferences` leave it alone, and `db.Store.SetLanguage` owns it. `SetLanguage` inserts a default row when the user has none.
+
+**Endpoints:**
+- **PUT `/users/me/language`** — body `{"language": "<tag>" | null}`. A tag must be one `catalog.IsListed` reports for this release (`i18n/catalog`). `null` clears the choice. Success is `204 No Content`. A missing `language` key is `400 language is required`. An unlisted tag is `400` with the message `server.i18n.unknown_language`, so `args.language` carries the tag sent. 401 when unauthenticated.
+- **GET/PUT `/users/me/preferences`** — the preferences object always carries `language` (`string | null`, `null` when unset). `PUT /users/me/preferences` accepts and ignores a `language` key, so it cannot change the saved language.
+- **POST `/users/me/preferences/reset`** — clears the styling only; the saved language is kept.
+- **GET `/auth/locale`** — public and pre-auth, so it returns only the tag. It reads the config section `i18n`. An absent, unparsable or unlisted default, or a database read failure (logged at warn, never echoed), gives `"en"`.
+
+**Config section `i18n`** (`PUT /admin/config/i18n`): body `{"defaultLanguage": "<tag>"}`. Unknown keys and an empty tag are `422`. A tag that is not offered (missing, or below the completeness threshold) is `400` with `server.i18n.unlisted_language` (`args.language` is the tag). Together with the `notifications` validator below, this is one of the config validators that return a localizable `httperr.Message`; the `put` handler checks `errors.As(*httperr.Message)` before its generic `422` line.
+
+**Config section `notifications`, sink `language`:** optional per sink; validated with `catalog.IsListed`; an unknown tag is `400` with `server.i18n.unknown_language` (`args.language`). Rendering order is sink language, then the instance default language (config section `i18n`), then `en`. `Event` carries the resolved language in an unexported field so the formatter signatures are unchanged.
+
+**Localizable error ids (`api/internal/messages`):** `server.i18n.unknown_language` (`unknown language: {language}`, 400) and `server.i18n.unlisted_language` (`language is not available: {language}`, 400). The registry lives in `internal/messages/messages.go` and `entries_server.go`; the `notify.*` entries live in `internal/notify/messages.go`. Both reach `i18n/locales/en/app.json` through `make i18n-sync`, which runs `messages-export` (both sets) into `i18n-check --sync-server`. Every 4xx `http.Error` in `internal/handlers`, `internal/auth`, `internal/ws` and `internal/rbac` now goes through `httperr.WriteMessage` (registry id) or `httperr.WriteCode` (`server.generic.<status>`, used on the unauthenticated login and OIDC paths and for dynamic messages). Plain-text bodies are byte-identical, and 5xx responses stay `http.Error`. The only 4xx exceptions are the three calls in the `secretName` helper (auth_provider_secret.go, registry_secret.go), which have no request. The migrated ids are in `internal/messages/entries_server.go`, and `internal/messages/usage_test.go` fails when a `messages.New("...")` literal is not registered.
+
+**Problem document negotiation:** a caller that sends `Accept: application/problem+json` gets an RFC 9457 document from `httperr.WriteMessage` / `httperr.WriteCode` with `messageId` (the registry id) and `args`. Every other caller gets the byte-identical plain-text body (`text/plain`, `http.Error` form) that the endpoint has always returned. 5xx responses never carry internal text. The `Message.English` text is the plain body.
 
 ### Error handling
 - **httperr package:** internal errors (K8s 404, DB constraint, FS path) mapped to safe HTTP status + generic message

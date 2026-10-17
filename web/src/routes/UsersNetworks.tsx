@@ -19,15 +19,23 @@ import { Network as NetworkIcon, Plus, Trash2, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useMe, can } from "@/lib/auth";
 import { Networks, Users } from "@/lib/endpoints";
-import { errorText } from "@/lib/errors";
+import { errorTextIntl } from "@/lib/errors";
 import type { ExtendedUser, Network } from "@/types";
+import { useOptionalIntl } from "@/lib/i18n/format";
+import { defineMessages, type IntlShape } from "react-intl";
+
+const NETWORK_PERMISSION_MESSAGES = defineMessages({
+  console: { id: "web.routes.users_networks.permission_console", defaultMessage: "Console", description: "Users networks: name of the console permission, shown as a checkbox and in the member summary; keep it short" },
+  manage: { id: "web.routes.users_networks.permission_manage", defaultMessage: "Manage", description: "Users networks: name of the permission that lets a member start, stop, change files, mods and players of a server, shown as a checkbox and in the member summary; keep it short" },
+});
 
 const NETWORK_PERMISSIONS = [
-  { key: "servers:console", label: "Console" },
-  { key: "servers:write", label: "Manage" },
+  { key: "servers:console", label: NETWORK_PERMISSION_MESSAGES.console },
+  { key: "servers:write", label: NETWORK_PERMISSION_MESSAGES.manage },
 ];
 
 export function NetworksTab() {
+  const intl = useOptionalIntl();
   const { data: me } = useMe();
   const canManage = can(me, "users:manage");
   const [creating, setCreating] = useState(false);
@@ -38,18 +46,17 @@ export function NetworksTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <p className="max-w-2xl text-xs text-muted">
-          Members can view every server assigned to their network. Console and Manage (start, stop, files, mods and
-          players) are granted per member. Delete, transfer and wipe stay with the owner.
+          {intl.formatMessage({ id: "web.routes.users_networks.members_can_view_every_server_assigned", defaultMessage: "Members can view every server assigned to their network. Console and Manage (start, stop, files, mods and players) are granted per member. Delete, transfer and wipe stay with the owner.", description: "Users networks: explanation at the top of the networks tab saying what members can view and which permissions are granted per member, and that only the owner can delete, transfer or wipe" })}
         </p>
         {canManage && (
           <Button variant="primary" onPress={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> New network
+            <Plus className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.users_networks.new_network", defaultMessage: "New network", description: "Users networks: button and dialog heading for creating a new network; keep it short" })}
           </Button>
         )}
       </div>
       <ErrorText error={error} />
       {networks.length === 0 ? (
-        <Card className="border border-border"><EmptyState icon={<NetworkIcon />} title="No networks yet." /></Card>
+        <Card className="border border-border"><EmptyState icon={<NetworkIcon />} title={intl.formatMessage({ id: "web.routes.users_networks.no_networks_yet", defaultMessage: "No networks yet.", description: "Users networks: title of the empty state shown when there are no networks" })} /></Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {networks.map((network) => (
@@ -63,6 +70,7 @@ export function NetworksTab() {
 }
 
 function CreateNetworkDialog({ onClose }: { onClose: () => void }) {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const create = useMutation({
@@ -82,15 +90,15 @@ function CreateNetworkDialog({ onClose }: { onClose: () => void }) {
         <ModalContainer>
           <ModalDialog className="w-full max-w-[420px]">
             <ModalHeader>
-              <ModalHeading>New network</ModalHeading>
+              <ModalHeading>{intl.formatMessage({ id: "web.routes.users_networks.new_network", defaultMessage: "New network", description: "Users networks: button and dialog heading for creating a new network; keep it short" })}</ModalHeading>
             </ModalHeader>
             <ModalBody className="gap-1.5">
               <Label htmlFor="network-name" className="text-xs">
-                Network name
+                {intl.formatMessage({ id: "web.routes.users_networks.network_name", defaultMessage: "Network name", description: "Users networks: label of the input for the name of the new network" })}
               </Label>
               <Input
                 id="network-name"
-                placeholder="e.g. survival"
+                placeholder={intl.formatMessage({ id: "web.routes.users_networks.e_g_survival", defaultMessage: "e.g. survival", description: "Users networks: example network name shown as the placeholder of the network name input" })}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
@@ -101,10 +109,10 @@ function CreateNetworkDialog({ onClose }: { onClose: () => void }) {
             </ModalBody>
             <ModalFooter className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onPress={onClose} isDisabled={create.isPending}>
-                Cancel
+                {intl.formatMessage({ id: "web.routes.users_networks.cancel", defaultMessage: "Cancel", description: "Users networks: button that closes the dialog without creating the network; keep it short" })}
               </Button>
               <Button variant="primary" size="sm" onPress={submit} isDisabled={!name.trim() || create.isPending}>
-                Create
+                {intl.formatMessage({ id: "web.routes.users_networks.create", defaultMessage: "Create", description: "Users networks: button that creates the network named in the dialog; keep it short" })}
               </Button>
             </ModalFooter>
           </ModalDialog>
@@ -115,6 +123,7 @@ function CreateNetworkDialog({ onClose }: { onClose: () => void }) {
 }
 
 function NetworkCard({ network, users, canManage }: { network: Network; users: ExtendedUser[]; canManage: boolean }) {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const [username, setUsername] = useState("");
   const [permissions, setPermissions] = useState(NETWORK_PERMISSIONS.map((permission) => permission.key));
@@ -123,7 +132,7 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
   const add = useMutation({
     mutationFn: async () => {
       const user = users.find((candidate) => candidate.username === username.trim());
-      if (!user) throw new Error(`User ${username.trim()} not found`);
+      if (!user) throw new Error(intl.formatMessage({ id: "web.routes.users_networks.user_not_found", defaultMessage: "User {username} not found", description: "Users networks: error shown when the username typed to add a member matches no user; {username} is the typed name" }, { username: username.trim() }));
       return Networks.addMember(network.name, user.id, permissions);
     },
     onSuccess: () => {
@@ -152,7 +161,7 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><NetworkIcon className="h-4 w-4" /></span>
           <span className="truncate font-mono text-sm font-medium">{network.name}</span>
           <span className="shrink-0 rounded-full bg-default/60 px-2 py-0.5 text-[11px] text-muted">
-            {count} member{count === 1 ? "" : "s"}
+            {intl.formatMessage({ id: "web.routes.users_networks.count_member", defaultMessage: "{count, plural, one {# member} other {# members}}", description: "Users networks: member count badge on a network card; {count} is the number of members" }, { count: count })}
           </span>
         </div>
         {canManage && (
@@ -162,7 +171,9 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
             onPress={() => (confirming ? remove.mutate() : setConfirming(true))}
             isDisabled={remove.isPending}
           >
-            <Trash2 className="h-3.5 w-3.5" /> {confirming ? "Confirm delete" : "Delete"}
+            <Trash2 className="h-3.5 w-3.5" /> {confirming
+              ? intl.formatMessage({ id: "web.routes.users_networks.confirm_delete", defaultMessage: "Confirm delete", description: "Users networks: label of the delete button after the first click, asking the owner to confirm; keep it short" })
+              : intl.formatMessage({ id: "web.routes.users_networks.delete", defaultMessage: "Delete", description: "Users networks: button that starts deleting the network; the next click confirms it; keep it short" })}
           </Button>
         )}
       </div>
@@ -174,13 +185,13 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
               <div className="flex items-center gap-2">
                 {canManage ? (
                   <PermissionPicker
-                    label={`${member.username} permissions in ${network.name}`}
+                    label={intl.formatMessage({ id: "web.routes.users_networks.member_permissions_in_network", defaultMessage: "{username} permissions in {network}", description: "Users networks: accessible name of the group of permission checkboxes for one member of a network; {username} is the member and {network} the network name" }, { username: member.username, network: network.name })}
                     value={member.permissions}
                     onChange={(granted) => update.mutate({ id: member.id, granted })}
                     isDisabled={update.isPending}
                   />
                 ) : (
-                  <span className="text-xs text-muted">{permissionSummary(member.permissions)}</span>
+                  <span className="text-xs text-muted">{permissionSummary(member.permissions, intl)}</span>
                 )}
                 {canManage && (
                   <Button
@@ -188,7 +199,7 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
                     variant="ghost"
                     size="sm"
                     className="text-danger"
-                    aria-label={`Remove ${member.username} from ${network.name}`}
+                    aria-label={intl.formatMessage({ id: "web.routes.users_networks.remove_member_from_network", defaultMessage: "Remove {username} from {network}", description: "Users networks: accessible name of the icon button that removes a member from the network; {username} is the member and {network} the network name" }, { username: member.username, network: network.name })}
                     onPress={() => removeMember.mutate(member.id)}
                     isDisabled={removeMember.isPending}
                   >
@@ -200,14 +211,14 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
           ))}
         </ul>
       ) : (
-        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted">No members yet</p>
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted">{intl.formatMessage({ id: "web.routes.users_networks.no_members_yet", defaultMessage: "No members yet", description: "Users networks: text shown in a network card when the network has no members" })}</p>
       )}
       {canManage && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Input
-              aria-label={`Add member to ${network.name}`}
-              placeholder="Add member by username…"
+              aria-label={intl.formatMessage({ id: "web.routes.users_networks.add_member_to_network", defaultMessage: "Add member to {network}", description: "Users networks: accessible name of the input that adds a member to the network; {network} is the network name" }, { network: network.name })}
+              placeholder={intl.formatMessage({ id: "web.routes.users_networks.add_member_by_username", defaultMessage: "Add member by username…", description: "Users networks: placeholder of the input that takes the username of a member to add to the network" })}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => {
@@ -216,11 +227,11 @@ function NetworkCard({ network, users, canManage }: { network: Network; users: E
               className="flex-1"
             />
             <Button size="sm" variant="outline" onPress={() => add.mutate()} isDisabled={!username.trim() || add.isPending}>
-              <Plus className="h-3.5 w-3.5" /> Add
+              <Plus className="h-3.5 w-3.5" /> {intl.formatMessage({ id: "web.routes.users_networks.add", defaultMessage: "Add", description: "Users networks: button that adds the typed username as a member of the network; keep it short" })}
             </Button>
           </div>
           <PermissionPicker
-            label={`New member permissions in ${network.name}`}
+            label={intl.formatMessage({ id: "web.routes.users_networks.new_member_permissions_in_network", defaultMessage: "New member permissions in {network}", description: "Users networks: accessible name of the permission checkboxes for a member about to be added to the network; {network} is the network name" }, { network: network.name })}
             value={permissions}
             onChange={setPermissions}
           />
@@ -242,6 +253,7 @@ function PermissionPicker({
   onChange: (next: string[]) => void;
   isDisabled?: boolean;
 }) {
+  const intl = useOptionalIntl();
   return (
     <div role="group" aria-label={label} className="flex items-center gap-3">
       {NETWORK_PERMISSIONS.map((permission) => (
@@ -258,7 +270,7 @@ function PermissionPicker({
             <Checkbox.Indicator />
           </Checkbox.Control>
           <Checkbox.Content>
-            <span className="text-xs">{permission.label}</span>
+            <span className="text-xs">{intl.formatMessage(permission.label)}</span>
           </Checkbox.Content>
         </Checkbox>
       ))}
@@ -266,19 +278,20 @@ function PermissionPicker({
   );
 }
 
-function permissionSummary(granted: string[]) {
+function permissionSummary(granted: string[], intl: IntlShape) {
   return (
     NETWORK_PERMISSIONS.filter((permission) => granted.includes(permission.key))
-      .map((permission) => permission.label)
-      .join(", ") || "View only"
+      .map((permission) => intl.formatMessage(permission.label))
+      .join(", ") || intl.formatMessage({ id: "web.routes.users_networks.view_only", defaultMessage: "View only", description: "Users networks: summary of a member with no permissions on the network, so the member can only view it; keep it short" })
   );
 }
 
 function ErrorText({ error }: { error: unknown }) {
+  const intl = useOptionalIntl();
   if (!error) return null;
   return (
     <p role="alert" className="text-xs text-danger">
-      {errorText(error, "Request failed")}
+      {errorTextIntl(intl, error, intl.formatMessage({ id: "web.routes.users_networks.request_failed", defaultMessage: "Request failed", description: "Users networks: fallback error shown when a network request fails without a readable message" }))}
     </p>
   );
 }

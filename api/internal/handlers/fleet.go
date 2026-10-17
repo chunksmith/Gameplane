@@ -21,6 +21,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
@@ -364,7 +365,7 @@ func (h fleetHandler) resources(kind string) http.HandlerFunc {
 func (h fleetHandler) start(w http.ResponseWriter, req *http.Request) (*auth.User, fleetFilter, bool) {
 	u := auth.UserFromContext(req.Context())
 	if u == nil {
-		http.Error(w, "unauthenticated", http.StatusUnauthorized)
+		httperr.WriteMessage(w, req, messages.New("server.common.unauthenticated", nil))
 		return nil, fleetFilter{}, false
 	}
 	f, err := parseFleetFilter(req)
@@ -629,7 +630,7 @@ func (h fleetHandler) readInventory(ctx context.Context, c fleetCluster) (*fleet
 func (h fleetHandler) serverAccess(w http.ResponseWriter, req *http.Request) {
 	u := auth.UserFromContext(req.Context())
 	if u == nil {
-		http.Error(w, "unauthenticated", http.StatusUnauthorized)
+		httperr.WriteMessage(w, req, messages.New("server.common.unauthenticated", nil))
 		return
 	}
 	k, ok := resolveCluster(w, req, h.reg)
@@ -649,7 +650,7 @@ func (h fleetHandler) serverAccess(w http.ResponseWriter, req *http.Request) {
 	}
 	access := serverFleetAccess(u, cl, ns, obj)
 	if !u.Can("servers:read", true, cl, ns) && !access.IsOwner && !access.IsCollaborator {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		httperr.WriteMessage(w, req, messages.New("server.forbidden", nil))
 		return
 	}
 	writeJSON(w, struct {

@@ -224,7 +224,7 @@ func main() {
 		"Log level (debug, info, warn, or error) injected into agent sidecars as GAMEPLANE_LOG_LEVEL. "+
 			"Empty injects nothing (the agent defaults to info) and avoids rolling existing pods.")
 	flag.StringVar(&moduleNamespace, "module-namespace", "gameplane-system",
-		"Namespace where ModuleSource credential Secrets live.")
+		"Namespace where ModuleSource credential Secrets, uploaded module bundles and module translation ConfigMaps live.")
 	flag.StringVar(&moduleLocalRoot, "module-local-root", "",
 		"Base directory that local-type ModuleSources resolve their paths under. Empty disables local sources.")
 	flag.StringVar(&agentCABundle, "agent-ca-bundle", "",
@@ -501,6 +501,7 @@ func main() {
 		Namespace:       moduleNamespace,
 		OperatorVersion: Version,
 		FetchOptions:    fetchOptions,
+		EventRecorder:   mgr.GetEventRecorder("module-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "Module")
 		os.Exit(1)

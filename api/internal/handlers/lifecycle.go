@@ -13,6 +13,7 @@ import (
 
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
 
@@ -108,11 +109,11 @@ func wipeDataHandler(reg *kube.Registry) http.HandlerFunc {
 		}
 		var body wipeDataReq
 		if err := json.NewDecoder(io.LimitReader(req.Body, 1<<16)).Decode(&body); err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
+			httperr.WriteMessage(w, req, messages.New("server.bad_request", nil))
 			return
 		}
 		if body.Confirm != name {
-			http.Error(w, "confirmation does not match server name", http.StatusBadRequest)
+			httperr.WriteMessage(w, req, messages.New("server.lifecycle.confirmation_mismatch", nil))
 			return
 		}
 		token := strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
@@ -243,7 +244,7 @@ func cloneHandler(reg *kube.Registry) http.HandlerFunc {
 		}
 		var body cloneReq
 		if err := json.NewDecoder(io.LimitReader(req.Body, 1<<16)).Decode(&body); err != nil || body.NewName == "" {
-			http.Error(w, "newName required", http.StatusBadRequest)
+			httperr.WriteMessage(w, req, messages.New("server.lifecycle.new_name_required", nil))
 			return
 		}
 		src, ok := authorizedServer(w, req, k, ns, name)

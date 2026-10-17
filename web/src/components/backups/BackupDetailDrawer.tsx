@@ -10,6 +10,7 @@ import { PhaseChip } from "@/components/ui/PhaseChip";
 import { ErrorBanner } from "./ErrorBanner";
 import { BackupProgressBar, isActiveBackup } from "./ActiveBackups";
 import { SCHEDULE_LABEL } from "@/lib/backupGroups";
+import { useOptionalIntl } from "@/lib/i18n/format";
 
 interface Props {
   target?: ResourceTarget;
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: explicitTarget, permissions: explicitPermissions }: Props) {
+  const intl = useOptionalIntl();
   const resourceTarget = useResourceTarget({ name: name ?? "", namespace: ns }, explicitTarget);
   const resourceClient = useResourceClient(resourceTarget);
   const { Backups } = resourceClient;
@@ -61,7 +63,7 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                 <Archive className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1 space-y-1">
-                <Drawer.Heading className="text-base font-semibold">Backup details</Drawer.Heading>
+                <Drawer.Heading className="text-base font-semibold">{intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.backup_details", defaultMessage: "Backup details", description: "Backup details drawer: heading at the top of the side panel for one backup; the backup name is shown below it" })}</Drawer.Heading>
                 <div className="truncate font-mono text-xs text-muted" title={name ?? undefined}>{name}</div>
               </div>
               {backup && <PhaseChip phase={backup.status?.phase} className="shrink-0" />}
@@ -82,21 +84,21 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                     </div>
                   )}
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
-                    <Field icon={<ServerIcon />} label="Server">{backup.spec.serverRef.name}</Field>
-                    <Field icon={<CalendarClock />} label="Schedule">{backup.metadata.labels?.[SCHEDULE_LABEL] ?? "manual"}</Field>
-                    <Field icon={<HardDrive />} label="Size">
+                    <Field icon={<ServerIcon />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.server", defaultMessage: "Server", description: "Backup details drawer: field label above the name of the server the backup belongs to" })}>{backup.spec.serverRef.name}</Field>
+                    <Field icon={<CalendarClock />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.schedule", defaultMessage: "Schedule", description: "Backup details drawer: field label above the schedule that made the backup; shows manual when it was made by hand" })}>{backup.metadata.labels?.[SCHEDULE_LABEL] ?? intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.manual", defaultMessage: "manual", description: "Backup details drawer: shown in the schedule field when the backup was made by hand instead of by a schedule; keep it short" })}</Field>
+                    <Field icon={<HardDrive />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.size", defaultMessage: "Size", description: "Backup details drawer: field label above the backup's size; a dash is shown when the size is unknown" })}>
                       <span className="font-mono">{formatSize(backup.status?.size)}</span>
                     </Field>
-                    <Field icon={<HardDriveUpload />} label="Added">
+                    <Field icon={<HardDriveUpload />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.added", defaultMessage: "Added", description: "Backup details drawer: field label above how much new data the backup added to the repository" })}>
                       <span className="font-mono">{formatSize(backup.status?.dataAdded)}</span>
                     </Field>
-                    <Field icon={<Hash />} label="Snapshot ID">
-                      <span className="break-all font-mono text-xs">{backup.status?.snapshotID ?? "—"}</span>
+                    <Field icon={<Hash />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.snapshot_id", defaultMessage: "Snapshot ID", description: "Backup details drawer: field label above the snapshot identifier of the backup; a dash is shown when there is none" })}>
+                      <span className="break-all font-mono text-xs">{backup.status?.snapshotID ?? intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })}</span>
                     </Field>
-                    <Field icon={<Clock />} label="Started">
+                    <Field icon={<Clock />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.started", defaultMessage: "Started", description: "Backup details drawer: field label above the time the backup started, shown in relative time" })}>
                       <Timestamp iso={backup.status?.startTime} />
                     </Field>
-                    <Field icon={<CheckCircle2 />} label="Completed">
+                    <Field icon={<CheckCircle2 />} label={intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.completed", defaultMessage: "Completed", description: "Backup details drawer: field label above the time the backup completed, shown in relative time" })}>
                       <Timestamp iso={backup.status?.completionTime} />
                     </Field>
                   </dl>
@@ -113,7 +115,7 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                 onPress={() => remove.mutate()}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                {remove.isPending ? "Deleting…" : "Delete"}
+                {remove.isPending ? intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.deleting", defaultMessage: "Deleting…", description: "Backup detail drawer: delete button label while the delete request is pending" }) : intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.delete", defaultMessage: "Delete", description: "Backup detail drawer: delete button label" })}
               </Button>
               <Button
                 variant="primary"
@@ -122,7 +124,7 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
                 onPress={() => backup && onRestore(backup)}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Restore
+                {intl.formatMessage({ id: "web.components.backups.backup_detail_drawer.restore", defaultMessage: "Restore", description: "Backup details drawer: visible text of the restore button in the drawer header and of the primary restore button in the footer; keep it short" })}
               </Button>
             </Drawer.Footer>
           </Drawer.Dialog>
@@ -145,9 +147,10 @@ function Field({ icon, label, children }: { icon: ReactNode; label: string; chil
 }
 
 function Timestamp({ iso }: { iso?: string }) {
+  const intl = useOptionalIntl();
   return (
     <>
-      {formatRelative(iso)}
+      {formatRelative(iso, intl)}
       {iso && <div className="font-mono text-[11px] text-muted">{iso}</div>}
     </>
   );

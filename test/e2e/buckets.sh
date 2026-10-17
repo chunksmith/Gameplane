@@ -124,8 +124,12 @@ TestAPI_PasswordResetInvalidatesSession
 TestAPI_OIDCHelmSeeded_AdminOnFirstLogin
 TestAPI_OIDCHelmSeeded_DefaultRoleOnNoMapping
 TestAPI_OIDCHelmSeeded_RoleReevaluatedOnGroupChange
+TestAPI_I18n_AuthLocale
 EOF
 }
+
+# TestAPI_I18n_AuthLocale (spec 019, T036) reads the pre-auth GET /auth/locale
+# on a fresh install. It never logs in, so it spends no admin-login budget.
 
 # The three TestAPI_OIDCHelmSeeded_* tests above spend 0 of this bucket's
 # admin-login budget: they authenticate entirely as OIDC users against a
@@ -327,15 +331,21 @@ EOF
 # multicluster_e2e_test.go's package doc. Its own dedicated CI job
 # (e2e-multicluster) brings up both clusters before running it.
 #
-# TestAPI_AccountRemoval_RevokesSharesAndAllowsSSOReprovision and
-# TestAPI_ModuleUpload_ExtractionStaysWithinBudget live here for the login
-# budget, not by subject: api-mods is at its ~7 e2e-admin-login ceiling. Each
-# costs +1 e2e-admin login (account removal also uses fake-OIDC sign-ins,
-# which every e2e.sh cluster deploys), bringing this job to 3; both run
-# against the primary cluster.
+# TestAPI_AccountRemoval_RevokesSharesAndAllowsSSOReprovision,
+# TestAPI_ModuleUpload_ExtractionStaysWithinBudget, TestAPI_I18n_ProblemJSON
+# and TestAPI_I18n_ModuleLocales live here for the login budget, not by
+# subject: api-mods is at its ~7 e2e-admin-login ceiling. Each costs +1
+# e2e-admin login (account removal also uses fake-OIDC sign-ins, which every
+# e2e.sh cluster deploys), and TestAPI_I18n_ProblemJSON costs one admin login,
+# one viewer login and one failed-login pair, bringing this job to 5 admin
+# logins (ceiling ~7). All run against the primary cluster. api-auth,
+# api-roles, api-mods, api-rbac and api-agent are at their ceilings (see their
+# comments); do not add to them.
 bucket_multicluster() { cat <<'EOF'
 TestAPI_AccountRemoval_RevokesSharesAndAllowsSSOReprovision
 TestAPI_ModuleUpload_ExtractionStaysWithinBudget
+TestAPI_I18n_ProblemJSON
+TestAPI_I18n_ModuleLocales
 TestMultiCluster_ClusterDispatchAndScopedRBAC
 TestMultiCluster_GatewayParity
 EOF

@@ -23,6 +23,7 @@ type Sink struct {
 	Enabled   bool     `json:"enabled"`
 	ConfigRef string   `json:"configRef"`
 	Events    []string `json:"events"`
+	Language  string   `json:"language,omitempty"` // BCP 47 tag of a listed language; empty = instance default
 }
 
 // loadSinks reads the persisted notifications config. A missing row means

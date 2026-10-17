@@ -275,6 +275,10 @@ export const Users = {
     api<UserThemePreferences>("/users/me/preferences", { method: "PUT", body }),
   resetPreferences: (body?: UserPreferencesReset) =>
     api<UserThemePreferences>("/users/me/preferences/reset", { method: "POST", body }),
+  // Saved dashboard language (spec 019): a listed BCP 47 tag, or null to clear
+  // the choice and fall back to the browser and instance default.
+  setLanguage: (language: string | null) =>
+    api<void>("/users/me/language", { method: "PUT", body: { language } }),
 };
 
 export interface RoleWrite {
@@ -317,6 +321,8 @@ export const Auth = {
       : "/auth/oidc/start",
   // Public, pre-auth: which login methods are enabled + their labels.
   providers: () => api<LoginProvidersResp>("/auth/providers"),
+  // Public, pre-auth: the instance default language tag only (spec 019).
+  locale: () => api<{ defaultLanguage: string }>("/auth/locale"),
 };
 
 // Managed clientSecret Secrets behind dashboard-added identity providers
@@ -475,6 +481,13 @@ export const Modules = {
     api<Module>(`/modules/${name}`, { cluster, method: "PATCH", body: { version } }),
   uninstall: (name: string, cluster = "local") =>
     api<void>(`/modules/${name}`, { cluster, method: "DELETE" }),
+  // locales returns the module's translated messages for a language as a
+  // flat id -> message map ({} when there are none).
+  locales: (name: string, tag: string, cluster = "local") =>
+    api<Record<string, string>>(
+      `/modules/${name}/locales/${encodeURIComponent(tag)}`,
+      { cluster },
+    ),
 };
 
 // UploadedModule is the parsed-metadata echo from a bundle upload

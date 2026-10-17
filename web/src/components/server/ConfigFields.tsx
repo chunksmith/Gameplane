@@ -3,6 +3,8 @@ import { Button, Input } from "@heroui/react";
 
 import { cn } from "@/lib/utils";
 import { CONFIG_REDACTED_MARKER, type ConfigField } from "@/lib/validation";
+import { useOptionalIntl } from "@/lib/i18n/format";
+import { identityText, moduleIds, type ModuleText } from "@/lib/i18n/moduleText";
 
 // ConfigFields renders a template's configSchema as form fields. It is the
 // single implementation shared by the Create wizard (variant "wizard", the
@@ -13,6 +15,9 @@ import { CONFIG_REDACTED_MARKER, type ConfigField } from "@/lib/validation";
 
 export type ConfigFieldVariant = "wizard" | "settings";
 
+// The constants below are the English reference for messages rendered through
+// intl. Each must stay equal to the defaultMessage of its intl descriptor; the
+// tests import them.
 export const STORED_PASSWORD_PLACEHOLDER = "Unchanged — type to replace";
 export const REMOVING_PASSWORD_PLACEHOLDER = "Password will be removed";
 export const REMOVING_PASSWORD_NOTE = "Removed when you save. Undo to keep the stored password.";
@@ -30,6 +35,8 @@ export interface ConfigFieldInputProps {
   onChange: (value: string) => void;
   variant?: ConfigFieldVariant;
   disabled?: boolean;
+  /** Module-translated text accessor; the template's own text when omitted. */
+  text?: ModuleText;
   /** Inline error text (rendered by the settings variant only). */
   error?: string;
   /**
@@ -52,12 +59,14 @@ export function ConfigFieldInput({
   removing = false,
   onRemove,
   onUndo,
+  text = identityText,
 }: ConfigFieldInputProps) {
+  const intl = useOptionalIntl();
   const id = useId();
   const errorId = `${id}-error`;
   const noteId = `${id}-note`;
   const labelId = `${id}-label`;
-  const label = field.displayName ?? field.name;
+  const label = text(moduleIds.configDisplayName(field.name), field.displayName ?? field.name);
   const settings = variant === "settings";
   const invalid = settings && error !== undefined && error !== "";
   // While the API reports a stored value (the redaction marker: always for a
@@ -87,11 +96,11 @@ export function ConfigFieldInput({
         onChange={(e) => onChange(e.target.value)}
       >
         {current === "" && (
-          <option value="">{stored ? UNCHANGED_OPTION_LABEL : UNSET_OPTION_LABEL}</option>
+          <option value="">{stored ? intl.formatMessage({ id: "web.components.server.config_fields.option_unchanged", defaultMessage: "Unchanged", description: "Config fields: option label of an empty select whose stored value is kept as unchanged" }) : intl.formatMessage({ id: "web.components.server.config_fields.option_select", defaultMessage: "Select…", description: "Config fields: option label of an empty select with no value and no default, shown until a value is picked" })}</option>
         )}
         {field.enum?.map((v) => (
           <option key={v} value={v}>
-            {v}
+            {text(moduleIds.configOption(field.name, v), v)}
           </option>
         ))}
       </select>
@@ -109,20 +118,20 @@ export function ConfigFieldInput({
         onChange={(e) => onChange(e.target.value)}
       >
         {current === "" && (
-          <option value="">{stored ? UNCHANGED_OPTION_LABEL : UNSET_OPTION_LABEL}</option>
+          <option value="">{stored ? intl.formatMessage({ id: "web.components.server.config_fields.option_unchanged", defaultMessage: "Unchanged", description: "Config fields: option label of an empty select whose stored value is kept as unchanged" }) : intl.formatMessage({ id: "web.components.server.config_fields.option_select", defaultMessage: "Select…", description: "Config fields: option label of an empty select with no value and no default, shown until a value is picked" })}</option>
         )}
-        <option value="true">true</option>
-        <option value="false">false</option>
+        <option value="true">{intl.formatMessage({ id: "web.components.server.config_fields.true", defaultMessage: "true", description: "Config fields: dropdown option meaning the setting is on, the value true; keep it short" })}</option>
+        <option value="false">{intl.formatMessage({ id: "web.components.server.config_fields.false", defaultMessage: "false", description: "Config fields: dropdown option meaning the setting is off, the value false; keep it short" })}</option>
       </select>
     );
   } else {
     const shown = stored || removing ? "" : (value ?? field.default ?? "");
     const placeholder = removing
-      ? REMOVING_PASSWORD_PLACEHOLDER
+      ? intl.formatMessage({ id: "web.components.server.config_fields.password_will_be_removed", defaultMessage: "Password will be removed", description: "Config fields: placeholder of a stored password field that is marked for removal" })
       : stored
-        ? STORED_PASSWORD_PLACEHOLDER
+        ? intl.formatMessage({ id: "web.components.server.config_fields.unchanged_type_to_replace", defaultMessage: "Unchanged — type to replace", description: "Config fields: placeholder of a stored password field; typing replaces the stored value" })
         : field.autoFromMemoryLimit
-        ? `Auto: ${field.autoFromMemoryLimit.percent}% of the memory limit`
+        ? intl.formatMessage({ id: "web.components.server.config_fields.auto_of_memory_limit", defaultMessage: "Auto: {percent}% of the memory limit", description: "Config fields: placeholder of a field derived from the memory limit; {percent} is the percentage of the limit" }, { percent: String(field.autoFromMemoryLimit.percent) })
         : undefined;
     control = (
       <Input
@@ -145,9 +154,7 @@ export function ConfigFieldInput({
         size="sm"
         aria-describedby={labelId}
         onPress={onUndo}
-      >
-        Undo
-      </Button>
+      >{intl.formatMessage({ id: "web.components.server.config_fields.undo", defaultMessage: "Undo", description: "Config fields: button under a password field that cancels the pending removal of the stored password; keep it short" })}</Button>
     );
   } else if (settings && stored && field.type === "password" && !field.required && onRemove && !disabled) {
     removeAction = (
@@ -156,9 +163,7 @@ export function ConfigFieldInput({
         size="sm"
         aria-describedby={labelId}
         onPress={onRemove}
-      >
-        Remove password
-      </Button>
+      >{intl.formatMessage({ id: "web.components.server.config_fields.remove_password", defaultMessage: "Remove password", description: "Config fields: button under a stored password field that marks the password for removal; keep it short" })}</Button>
     );
   }
 
@@ -167,7 +172,7 @@ export function ConfigFieldInput({
       <label className="space-y-1.5 block">
         <div className="text-xs text-muted">{label}</div>
         {control}
-        {field.description && <span className="text-[11px] text-muted">{field.description}</span>}
+        {field.description && <span className="text-[11px] text-muted">{text(moduleIds.configDescription(field.name), field.description)}</span>}
       </label>
     );
   }
@@ -178,7 +183,7 @@ export function ConfigFieldInput({
         {label}
         {field.required && (
           <span aria-hidden="true" className="text-danger">
-            {" *"}
+            {intl.formatMessage({ id: "web.common.required_marker", defaultMessage: " *", description: "Asterisk shown after the label of a required field" })}
           </span>
         )}
       </label>
@@ -187,16 +192,16 @@ export function ConfigFieldInput({
           <div className="flex-1">{control}</div>
           {removeAction}
         </div>
-        {field.description && <p className="text-xs text-muted">{field.description}</p>}
+        {field.description && <p className="text-xs text-muted">{text(moduleIds.configDescription(field.name), field.description)}</p>}
         {field.type === "password" &&
           (removing ? (
             <p id={noteId} className="text-xs text-danger">
-              {REMOVING_PASSWORD_NOTE}
+              {intl.formatMessage({ id: "web.components.server.config_fields.removing_password_note", defaultMessage: "Removed when you save. Undo to keep the stored password.", description: "Config fields: note under a stored password field marked for removal; explains that the stored value is removed on save and Undo keeps it" })}
             </p>
           ) : (
-            <p className="text-xs text-muted">Write-only</p>
+            <p className="text-xs text-muted">{intl.formatMessage({ id: "web.components.server.config_fields.write_only", defaultMessage: "Write-only", description: "Config fields: small note under a password field saying the stored value is write-only and cannot be shown again" })}</p>
           ))}
-        {field.target === "file" && <p className="text-xs text-muted">Written to file</p>}
+        {field.target === "file" && <p className="text-xs text-muted">{intl.formatMessage({ id: "web.components.server.config_fields.written_to_file", defaultMessage: "Written to file", description: "Config fields: small note under a setting saying its value is written to a file rather than set directly" })}</p>}
         {invalid && (
           <p id={errorId} role="alert" className="text-xs text-danger">
             {error}
@@ -213,6 +218,8 @@ export interface ConfigFieldsProps {
   onChange: (name: string, value: string) => void;
   variant?: ConfigFieldVariant;
   disabled?: boolean;
+  /** Module-translated text accessor; the template's own text when omitted. */
+  text?: ModuleText;
   errors?: Record<string, string>;
   /** Settings variant: names of stored optional passwords marked for removal. */
   removing?: ReadonlySet<string>;
@@ -226,6 +233,7 @@ export function ConfigFields({
   onChange,
   variant = "wizard",
   disabled = false,
+  text = identityText,
   errors,
   removing,
   onRemove,
@@ -241,6 +249,7 @@ export function ConfigFields({
           onChange={(v) => onChange(f.name, v)}
           variant={variant}
           disabled={disabled}
+          text={text}
           error={errors?.[f.name]}
           removing={removing?.has(f.name)}
           onRemove={onRemove && (() => onRemove(f.name))}

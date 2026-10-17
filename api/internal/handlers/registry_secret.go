@@ -9,6 +9,7 @@ import (
 
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/registry"
 )
 
@@ -51,17 +52,17 @@ func (h registrySecretHandler) put(w http.ResponseWriter, req *http.Request) {
 		APIKey string `json:"apiKey"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.common.invalid_json", nil))
 		return
 	}
 	if body.APIKey == "" {
-		http.Error(w, "apiKey is required", http.StatusUnprocessableEntity)
+		httperr.WriteMessage(w, req, messages.New("server.registry.api_key_required", nil))
 		return
 	}
 	data := map[string]string{"apiKey": body.APIKey}
 	if err := upsertLabelledSecret(req.Context(), h.k, h.ns, secretName, registry.RegistryKeySecretLabel, data); err != nil {
 		if errors.Is(err, errNotManagedSecret) {
-			http.Error(w, err.Error(), http.StatusConflict)
+			httperr.WriteCode(w, req, http.StatusConflict, err)
 			return
 		}
 		httperr.Write(w, req, err)

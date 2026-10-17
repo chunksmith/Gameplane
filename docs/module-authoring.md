@@ -196,6 +196,41 @@ A module bundle is a single OCI artifact:
 | `template.yaml`  | yes      | `application/vnd.gameplane.module.template.v1+yaml`     |
 | `README.md`      | no       | `application/vnd.gameplane.module.readme.v1+md`         |
 | `icon.png`       | no       | `image/png`                                           |
+| `locales/<tag>.json` | no   | `application/vnd.gameplane.module.locale.v1+json`       |
+
+Translations live in a `locales/` directory next to `module.yaml`. Each
+`locales/<tag>.json` (for example `fr.json` or `pt-BR.json`) maps message ids to
+`{"defaultMessage": "..."}` entries and becomes one layer titled
+`locales/<tag>.json`. Run `gp-module i18n extract` to write the English
+reference `locales/en.json` (every id with a translator description); it is
+not shipped. `gp-module validate` checks translations against it. On install
+the operator keeps the valid entries, drops invalid ones, and reports them on
+the GameTemplate as the `LocalesValid` condition and a Warning event; they never
+fail the install.
+
+Every module source carries the same files:
+
+| Source | Where `locales/<tag>.json` lives |
+| --- | --- |
+| OCI | one layer per file (title `locales/<tag>.json`) |
+| directory, local, git, HTTP archive | `locales/<tag>.json` in the module directory |
+| upload | ConfigMap key `locales.<tag>.json`; an uploaded archive may contain `locales/<tag>.json`, counted in the 900 KiB bundle limit |
+| `gp-module package --output` | the `.tar.gz` contains `locales/<tag>.json` (`en.json` excluded) |
+
+A translation file larger than 900 KiB is not read, and neither is a
+language that would take all of a bundle's translation files past 4 MiB
+together (languages count in file-name order); the install still
+succeeds and the `LocalesValid` condition shows `LocalesTooLarge` naming the
+language. The condition reasons are `Valid`, `InvalidEntries`,
+`LocalesTooLarge` and `WriteFailed`; when several apply, `WriteFailed` wins,
+then `LocalesTooLarge`, then `InvalidEntries`. Warning
+events fire only when the list of problems changes, not on every re-pull.
+
+Message ids may contain upper case letters (for example
+`config.MAX_PLAYERS.displayName`) and `~` as the reversible escapes `~0` and
+`~1`. Run `gp-module i18n stamp` after translating to record the English text
+each entry was made from (`sourceHash`); if the English text changes later,
+`gp-module validate` warns with `locale-needs-review`.
 
 Manifest:
 
@@ -241,7 +276,8 @@ oras push \
   module.yaml:application/vnd.gameplane.module.metadata.v1+yaml \
   template.yaml:application/vnd.gameplane.module.template.v1+yaml \
   README.md:application/vnd.gameplane.module.readme.v1+md \
-  icon.png:image/png
+  icon.png:image/png \
+  locales/fr.json:application/vnd.gameplane.module.locale.v1+json
 ```
 
 Private registries: log in once with `oras login <registry>`. The cluster

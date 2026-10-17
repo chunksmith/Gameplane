@@ -453,6 +453,11 @@ func (r *GameServerReconciler) setTunnelCredentialRefused(ctx context.Context, g
 		Message:            fmt.Sprintf("tunnel credentials secret %q is not owned by this GameServer (no ownerReference matching its name and UID); %s", secretName, remedy),
 		ObservedGeneration: gs.Generation,
 	})
+	remedyKind := "other"
+	if secretName == gs.Name+"-tunnel-auth" {
+		remedyKind = "defaultName"
+	}
+	setConditionArgs(&gs.Status, "TunnelReady", map[string]string{"secret": secretName, "remedy": remedyKind})
 	if err := r.Status().Patch(ctx, gs, client.MergeFrom(base)); err != nil {
 		return fmt.Errorf("patch TunnelReady condition for %s/%s: %w", gs.Namespace, gs.Name, err)
 	}
@@ -470,6 +475,7 @@ func (r *GameServerReconciler) clearTunnelCredentialRefused(ctx context.Context,
 	}
 	base := gs.DeepCopy()
 	gs.Status.Conditions = removeCondition(gs.Status.Conditions, "TunnelReady")
+	setConditionArgs(&gs.Status, "TunnelReady", nil)
 	// A GameServer that no longer exists has no status left to clear.
 	if err := r.Status().Patch(ctx, gs, client.MergeFrom(base)); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("clear TunnelCredentialRefused condition for %s/%s: %w", gs.Namespace, gs.Name, err)

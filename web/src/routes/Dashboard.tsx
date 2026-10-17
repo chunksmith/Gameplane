@@ -48,10 +48,11 @@ import type {
   GameServer,
   GameTemplate,
 } from "@/types";
-
-const ALLOCATION_HINT = "Requests are reserved by the scheduler; limits are the most pods may burst to and can exceed capacity.";
+import { useOptionalIntl } from "@/lib/i18n/format";
+import { defineMessages } from "react-intl";
 
 export function DashboardPage() {
+  const intl = useOptionalIntl();
   const { data: placements } = useFleetPlacements();
   const canCreate = (placements?.items.length ?? 0) > 0;
   const [location, setLocation] = useFleetLocation();
@@ -88,26 +89,31 @@ export function DashboardPage() {
     () => sortBackups(backupsData?.items ?? []).slice(0, 6),
     [backupsData?.items],
   );
-  const scopeLabel = location ? `in ${location}` : "across all locations";
+  const scopeLabel = location
+    ? intl.formatMessage({ id: "web.routes.dashboard.scope_in_location", defaultMessage: "in {location}", description: "Dashboard: phrase ending the fleet status line that names the selected location; {location} is the location name" }, { location })
+    : intl.formatMessage({ id: "web.routes.dashboard.scope_all_locations", defaultMessage: "across all locations", description: "Dashboard: phrase ending the fleet status line when no location is selected" });
 
   const nodes = clusterError ? [] : clusterView.nodes;
   const nodesReady = clusterView.ready;
   const nodesTotal = clusterView.total;
   const nodesKnown = !clusterError && nodesTotal > 0;
-  const cpu = inventory?.partial ? { known: false, pct: 0 } : sumUsage(nodes, "cpu");
-  const mem = inventory?.partial ? { known: false, pct: 0 } : sumUsage(nodes, "memory");
-  const cpuAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(nodes, "cpu");
-  const memAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(nodes, "memory");
+  const cpu = inventory?.partial ? { known: false, pct: 0 } : sumUsage(intl, nodes, "cpu");
+  const mem = inventory?.partial ? { known: false, pct: 0 } : sumUsage(intl, nodes, "memory");
+  const cpuAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(intl, nodes, "cpu");
+  const memAllocation = inventory?.partial ? UNKNOWN_ALLOCATION : sumAllocation(intl, nodes, "memory");
   const network = sumNetwork(servers);
-  const storage = clusterView.usedStorageBytes === undefined ? { valueText: "—", subText: "inventory unavailable", overcommitted: false } : describeStorageProvisioned(clusterView.usedStorageBytes, clusterView.totalStorageBytes);
+  const emptyValue = intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
+  const inventoryUnavailable = intl.formatMessage({ id: "web.routes.dashboard.inventory_unavailable", defaultMessage: "inventory unavailable", description: "Dashboard: sub-label on the storage and nodes cards when inventory cannot be read" });
+  const storage = clusterView.usedStorageBytes === undefined ? { valueText: emptyValue, subText: inventoryUnavailable, overcommitted: false } : describeStorageProvisioned(clusterView.usedStorageBytes, clusterView.totalStorageBytes, intl);
+  const storageKnown = clusterView.usedStorageBytes !== undefined;
   const storagePct = clusterView.totalStorageBytes ? ((clusterView.usedStorageBytes ?? 0) / clusterView.totalStorageBytes) * 100 : 0;
   const isLoading = serversLoading || clusterLoading || backupsLoading || (canAudit && auditLoading);
 
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
       <PageHeader
-        title="Dashboard"
-        subtitle="Your game servers and resources across authorized locations."
+        title={intl.formatMessage({ id: "web.routes.dashboard.dashboard", defaultMessage: "Dashboard", description: "Dashboard: page title at the top of the dashboard; keep it short" })}
+        subtitle={intl.formatMessage({ id: "web.routes.dashboard.your_game_servers_and_resources_across", defaultMessage: "Your game servers and resources across authorized locations.", description: "Dashboard: subtitle under the page title saying the page shows game servers and resources in the locations the user may access" })}
         actions={
           <>
             <div className="min-w-0 flex-1 sm:w-56 sm:flex-none">
@@ -119,82 +125,87 @@ export function DashboardPage() {
                 className="rounded-full"
                 onPress={() => void navigate({ to: "/servers/new" })}
               >
-                <Plus className="h-4 w-4" /> Create server
+                <Plus className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.dashboard.create_server", defaultMessage: "Create server", description: "Dashboard: button at the top right that opens the form to create a new game server; keep it short" })}
               </Button>
             )}
           </>
         }
       />
 
-      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={serversError} label="Server totals" />
-      <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={clusterError} label="Inventory" />
-      <FleetCoverage partial={backupsFleet?.partial} issues={backupsFleet?.issues} error={backupsError} label="Backups" />
+      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={serversError} label={intl.formatMessage({ id: "web.routes.dashboard.server_totals", defaultMessage: "Server totals", description: "Dashboard: label naming the server data in the coverage status line; that line warns when server data is partial or failed" })} />
+      <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={clusterError} label={intl.formatMessage({ id: "web.routes.dashboard.inventory", defaultMessage: "Inventory", description: "Dashboard: label naming the cluster inventory data in the coverage status line; that line warns when inventory is partial or failed" })} />
+      <FleetCoverage partial={backupsFleet?.partial} issues={backupsFleet?.issues} error={backupsError} label={intl.formatMessage({ id: "web.routes.dashboard.backups", defaultMessage: "Backups", description: "Dashboard: label naming the backup data in the coverage status line; that line warns when backup data is partial or failed" })} />
 
       {isLoading ? (
-        <LoadingCard message="Loading dashboard…" />
+        <LoadingCard message={intl.formatMessage({ id: "web.routes.dashboard.loading_dashboard", defaultMessage: "Loading dashboard…", description: "Dashboard: loading text shown in place of the dashboard cards while the data loads" })} />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
             <KpiCard
-              label="Servers running"
+              label={intl.formatMessage({ id: "web.routes.dashboard.servers_running", defaultMessage: "Servers running", description: "Dashboard: label of the KPI card counting running game servers against all servers" })}
               icon={Activity}
               accent="text-success"
-              value={countsUnavailable ? "—" : counts.running}
+              value={countsUnavailable ? emptyValue : counts.running}
               suffix={countsUnavailable ? undefined : `/ ${groups.total}`}
               sub={
                 countsUnavailable
-                  ? "server status unavailable"
+                  ? intl.formatMessage({ id: "web.routes.dashboard.server_status_unavailable", defaultMessage: "server status unavailable", description: "Dashboard: sub-label on the Running card when server data cannot be read" })
                   : fleet?.partial
-                    ? "returned servers only"
+                    ? intl.formatMessage({ id: "web.routes.dashboard.returned_servers_only", defaultMessage: "returned servers only", description: "Dashboard: sub-label on the Servers running card when only returned servers are counted" })
                     : groups.total === 0
-                      ? "no servers"
+                      ? intl.formatMessage({ id: "web.routes.dashboard.no_servers", defaultMessage: "no servers", description: "Dashboard: sub-label on the Servers running card when there are no servers" })
                     : counts.running === groups.total
-                      ? "all servers running"
-                      : `${groups.total - counts.running} not running`
+                      ? intl.formatMessage({ id: "web.routes.dashboard.all_servers_running", defaultMessage: "all servers running", description: "Dashboard: sub-label on the Servers running card when every server is running" })
+                      : intl.formatMessage({ id: "web.routes.dashboard.servers_not_running", defaultMessage: "{count} not running", description: "Dashboard: sub-label on the Servers running card with the number of servers that are not running; {count} is that number" }, { count: groups.total - counts.running })
               }
             />
             <KpiCard
-              label="Players online"
+              label={intl.formatMessage({ id: "web.routes.dashboard.players_online", defaultMessage: "Players online", description: "Dashboard: label of the summary card for players online; the line under the number shows the peak or a note when counts are unavailable" })}
               icon={UsersIcon}
               accent="text-accent"
-              value={countsUnavailable || !players.known ? "—" : counts.players}
-              sub={countsUnavailable || !players.known ? "player status unavailable" : players.unknown ? `${players.unknown} server player counts unavailable` : `peak ${counts.playersMax}`}
+              value={countsUnavailable || !players.known ? emptyValue : counts.players}
+              sub={countsUnavailable || !players.known
+                ? intl.formatMessage({ id: "web.routes.dashboard.player_status_unavailable", defaultMessage: "player status unavailable", description: "Dashboard: sub-label on the Players online card when player counts cannot be read" })
+                : players.unknown
+                  ? intl.formatMessage({ id: "web.routes.dashboard.player_counts_unavailable", defaultMessage: "{count} server player counts unavailable", description: "Dashboard: sub-label on the Players online card when some servers report no player count; {count} is how many" }, { count: players.unknown })
+                  : intl.formatMessage({ id: "web.routes.dashboard.peak_players", defaultMessage: "peak {count}", description: "Dashboard: sub-label on the Players online card with the peak player count; {count} is the peak" }, { count: counts.playersMax })}
             />
             <KpiCard
-              label="Nodes ready"
+              label={intl.formatMessage({ id: "web.routes.dashboard.nodes_ready", defaultMessage: "Nodes ready", description: "Dashboard: label of the summary card counting ready nodes; the value shows ready nodes out of all nodes" })}
               icon={ServerIcon}
               accent="text-warning"
-              value={nodesKnown ? nodesReady : "—"}
+              value={nodesKnown ? nodesReady : emptyValue}
               suffix={nodesKnown ? `/ ${nodesTotal}` : undefined}
               sub={
                 clusterError
-                  ? "inventory unavailable"
+                  ? inventoryUnavailable
                   : nodesTotal === 0
-                  ? "no node data"
+                  ? intl.formatMessage({ id: "web.routes.dashboard.no_node_data", defaultMessage: "no node data", description: "Dashboard: sub-label on the Nodes ready card when no nodes are reported" })
                   : inventory?.partial
-                    ? "returned nodes only"
+                    ? intl.formatMessage({ id: "web.routes.dashboard.returned_nodes_only", defaultMessage: "returned nodes only", description: "Dashboard: sub-label on the Nodes ready card when the inventory is partial" })
                   : nodesReady === nodesTotal
-                    ? "all healthy"
-                    : "needs attention"
+                    ? intl.formatMessage({ id: "web.routes.dashboard.all_healthy", defaultMessage: "all healthy", description: "Dashboard: sub-label on the Nodes ready card when every node is ready" })
+                    : intl.formatMessage({ id: "web.routes.dashboard.nodes_need_attention", defaultMessage: "needs attention", description: "Dashboard: sub-label on the Nodes ready card when some nodes are not ready" })
               }
             />
             <KpiCard
-              label="Storage provisioned"
+              label={intl.formatMessage({ id: "web.routes.dashboard.storage_provisioned", defaultMessage: "Storage provisioned", description: "Dashboard: label of the summary card with the total provisioned storage; the line under it says whether the figure covers returned or all authorized inventory" })}
               icon={HardDrive}
               accent={storage.overcommitted ? "text-warning" : "text-chart-stat"}
               value={storage.valueText}
-              sub={storage.subText ?? "—"}
+              sub={storage.subText ?? emptyValue}
             />
           </div>
 
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             {countsUnavailable
-              ? <ErrorCard message={"Couldn't load servers. Status and player totals are unavailable."} />
+              ? <ErrorCard message={intl.formatMessage({ id: "web.routes.dashboard.servers_load_failed", defaultMessage: "Couldn't load servers. Status and player totals are unavailable.", description: "Dashboard: error card when the server list cannot be loaded" })} />
               : <FleetStatusCard complete={!fleet?.partial} groups={groups} busiest={busiest} scope={scopeLabel} gameCodes={gameCodes} byName={byName} />}
             <ClusterResourcesCard
               cpu={cpu}
               mem={mem}
               storage={storage}
+              storageKnown={storageKnown}
               storagePct={storagePct}
               nodes={nodes}
               nodesReady={nodesReady}
@@ -210,7 +221,7 @@ export function DashboardPage() {
             {canAudit && <RecentActivityCard events={audit ?? []} />}
             <div className={cn("grid min-w-0", !canAudit && "lg:col-span-2")}>
               {backupsError
-                ? <ErrorCard message={"Couldn't load backups. Backup status is unavailable."} />
+                ? <ErrorCard message={intl.formatMessage({ id: "web.routes.dashboard.backups_load_failed", defaultMessage: "Couldn't load backups. Backup status is unavailable.", description: "Dashboard: error card when the backup list cannot be loaded" })} />
                 : <RecentBackupsCard complete={!backupsFleet?.partial} backups={recentBackups} gameCodes={gameCodes} byName={byName} servers={serversData?.items} />}
             </div>
           </div>
@@ -305,6 +316,7 @@ function FleetStatusCard({
   gameCodes: Map<string, string>;
   byName: Map<string, GameTemplate>;
 }) {
+  const intl = useOptionalIntl();
   const stopped = groups.stopped + groups.other;
   const segments = [
     { n: groups.running, cls: "bg-success" },
@@ -312,18 +324,20 @@ function FleetStatusCard({
     { n: groups.failed, cls: "bg-danger" },
   ].filter((s) => s.n > 0);
   const tiles = [
-    { label: "Running", n: groups.running, cls: "bg-success" },
-    { label: "Stopped", n: stopped, cls: "bg-muted" },
-    { label: "Failed", n: groups.failed, cls: "bg-danger" },
+    { label: intl.formatMessage({ id: "web.routes.dashboard.running", defaultMessage: "Running", description: "Dashboard: label of the summary card counting running game servers" }), n: groups.running, cls: "bg-success" },
+    { label: intl.formatMessage({ id: "web.routes.dashboard.stopped", defaultMessage: "Stopped", description: "Dashboard: label of the fleet status tile counting stopped game servers" }), n: stopped, cls: "bg-muted" },
+    { label: intl.formatMessage({ id: "web.routes.dashboard.failed", defaultMessage: "Failed", description: "Dashboard: label of the fleet status tile counting failed game servers" }), n: groups.failed, cls: "bg-danger" },
   ];
   const attention = groups.attention.slice(0, 4);
 
   return (
     <Card className="min-w-0 gap-5 border border-border p-5">
       <CardHeader
-        title="Fleet status"
-        sub={`${groups.total} ${complete ? "" : "returned "}${groups.total === 1 ? "server" : "servers"} ${scope}`}
-        action={<CardLink to="/servers">View servers</CardLink>}
+        title={intl.formatMessage({ id: "web.routes.dashboard.fleet_status", defaultMessage: "Fleet status", description: "Dashboard: heading of the card showing how many game servers are running, stopped or failed and which ones need attention" })}
+        sub={complete
+          ? intl.formatMessage({ id: "web.routes.dashboard.fleet_status_servers", defaultMessage: "{count, plural, one {# server} other {# servers}} {scope}", description: "Dashboard: subtitle of the Fleet status card with the number of servers and the scope; {count} is the number of servers and {scope} names the selected location or says all locations" }, { count: groups.total, scope })
+          : intl.formatMessage({ id: "web.routes.dashboard.fleet_status_returned_servers", defaultMessage: "{count, plural, one {# returned server} other {# returned servers}} {scope}", description: "Dashboard: subtitle of the Fleet status card when only some servers were returned; {count} is the number of returned servers and {scope} names the selected location or says all locations" }, { count: groups.total, scope })}
+        action={<CardLink to="/servers">{intl.formatMessage({ id: "web.routes.dashboard.view_servers", defaultMessage: "View servers", description: "Dashboard: link in the Fleet status card to the server list; keep it short" })}</CardLink>}
       />
 
       <div className="flex h-2 overflow-hidden rounded-full bg-border">
@@ -347,7 +361,7 @@ function FleetStatusCard({
 
       {busiest.length > 0 && (
         <div className="space-y-3">
-          <SectionLabel>Most players</SectionLabel>
+          <SectionLabel>{intl.formatMessage({ id: "web.routes.dashboard.most_players", defaultMessage: "Most players", description: "Dashboard: label above the list of the servers with the most online players in the Fleet status card" })}</SectionLabel>
           {busiest.map((gs) => (
             <PlayerRow key={targetKey(resourceTarget(gs))} gs={gs} gameCodes={gameCodes} byName={byName} />
           ))}
@@ -355,14 +369,16 @@ function FleetStatusCard({
       )}
 
       <div className="space-y-3 border-t border-border pt-5">
-        <SectionLabel>Needs attention</SectionLabel>
+        <SectionLabel>{intl.formatMessage({ id: "web.routes.dashboard.needs_attention", defaultMessage: "Needs attention", description: "Dashboard: small uppercase label above the list of up to four servers that need attention in the fleet status card" })}</SectionLabel>
         {attention.length === 0 ? (
           <div className="flex items-center gap-3 rounded-lg bg-success-soft p-3">
             <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
             <div className="min-w-0">
-              <div className="text-sm font-medium text-success-soft-foreground">Everything looks healthy</div>
+              <div className="text-sm font-medium text-success-soft-foreground">{intl.formatMessage({ id: "web.routes.dashboard.everything_looks_healthy", defaultMessage: "Everything looks healthy", description: "Dashboard: heading of the Needs attention box in the fleet status card when no server needs attention" })}</div>
               <div className="text-xs text-muted">
-                {complete ? "No failed servers or stale agents." : "No issues among returned servers; some locations are unavailable."}
+                {complete
+                  ? intl.formatMessage({ id: "web.routes.dashboard.no_failed_servers_or_stale_agents", defaultMessage: "No failed servers or stale agents.", description: "Dashboard: line under Everything looks healthy when the fleet is complete and no server failed or has a stale agent" })
+                  : intl.formatMessage({ id: "web.routes.dashboard.no_issues_partial", defaultMessage: "No issues among returned servers; some locations are unavailable.", description: "Dashboard: Needs attention message when the fleet is partial and no returned server needs attention" })}
               </div>
             </div>
           </div>
@@ -385,6 +401,7 @@ function PlayerRow({
   gameCodes: Map<string, string>;
   byName: Map<string, GameTemplate>;
 }) {
+  const intl = useOptionalIntl();
   const target = resourceTarget(gs);
   const template = templateKey(target.cluster, gs.spec.templateRef.name);
   const max = gs.status?.agent?.playersMax;
@@ -403,7 +420,7 @@ function PlayerRow({
       <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-foreground">
         <UsersIcon className="h-3.5 w-3.5 text-muted" />
         {gs.status?.agent?.playersOnline}
-        {max ? <span className="text-muted">/ {max}</span> : null}
+        {max ? <span className="text-muted">{intl.formatMessage({ id: "web.routes.dashboard.of_max", defaultMessage: "/ {max}", description: "Dashboard: player slot limit shown after the online player count on a server row, such as / 20; {max} is the maximum player count" }, { max })}</span> : null}
       </span>
     </Link>
   );
@@ -418,11 +435,14 @@ function AttentionRow({
   gameCodes: Map<string, string>;
   byName: Map<string, GameTemplate>;
 }) {
+  const intl = useOptionalIntl();
   const phase = gs.status?.phase;
   // phaseGroups.attention only ever holds Failed-phase or stale-agent
   // (excluding expected-down) servers, so the reason is one of exactly
   // these two.
-  const reason = phase === "Failed" ? "Failed — check logs" : "Agent heartbeat stale";
+  const reason = phase === "Failed"
+    ? intl.formatMessage({ id: "web.routes.dashboard.reason_failed", defaultMessage: "Failed — check logs", description: "Dashboard: reason shown on a server that needs attention because it failed" })
+    : intl.formatMessage({ id: "web.routes.dashboard.reason_agent_stale", defaultMessage: "Agent heartbeat stale", description: "Dashboard: reason shown on a server whose agent heartbeat is stale" });
   return (
     <Link
       to="/servers/$name"
@@ -440,7 +460,7 @@ function AttentionRow({
         <div className="truncate font-mono text-sm text-foreground group-hover:text-primary">
           {gs.metadata.name}
         </div>
-        <div className="truncate text-[11px] text-muted">{targetLabel(resourceTarget(gs))} · {reason}</div>
+        <div className="truncate text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.dashboard.target_and_reason", defaultMessage: "{target} · {reason}", description: "Dashboard: line under a server that needs attention; {target} is the cluster and namespace label, {reason} the problem" }, { target: targetLabel(resourceTarget(gs)), reason })}</div>
       </div>
       <PhaseChip phase={phase} asleep={gs.status?.idle?.asleep === true} />
     </Link>
@@ -476,6 +496,7 @@ function ClusterResourcesCard({
   cpu,
   mem,
   storage,
+  storageKnown,
   storagePct,
   nodes,
   nodesReady,
@@ -488,6 +509,7 @@ function ClusterResourcesCard({
   cpu: Usage;
   mem: Usage;
   storage: StorageReading;
+  storageKnown: boolean;
   storagePct: number;
   nodes: ClusterNode[];
   nodesReady: number;
@@ -497,23 +519,26 @@ function ClusterResourcesCard({
   cpuAllocation: Allocation;
   memAllocation: Allocation;
 }) {
+  const intl = useOptionalIntl();
+  const emptyValue = intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
+  const allocationHint = intl.formatMessage({ id: "web.routes.dashboard.allocation_hint", defaultMessage: "Requests are reserved by the scheduler; limits are the most pods may burst to and can exceed capacity.", description: "Dashboard: tooltip and screen-reader text of the info icon next to the Allocation label, explaining that requests are reserved and limits can exceed capacity" });
   return (
     <Card className="min-w-0 gap-5 border border-border p-5">
       <CardHeader
-        title="Cluster resources"
+        title={intl.formatMessage({ id: "web.routes.dashboard.cluster_resources", defaultMessage: "Cluster resources", description: "Dashboard: heading of the card showing CPU, memory and storage use across the clusters the user can see" })}
         badge={
           <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-soft-foreground">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
-            Live
+            {intl.formatMessage({ id: "web.routes.dashboard.live", defaultMessage: "Live", description: "Dashboard: badge in the Cluster resources card header showing that the figures update live" })}
           </span>
         }
-        sub={nodesTotal > 0 ? `Usage and scheduler allocation across ${nodesTotal} ${nodesTotal === 1 ? "node" : "nodes"}` : "Usage and scheduler allocation"}
+        sub={nodesTotal > 0 ? intl.formatMessage({ id: "web.routes.dashboard.usage_and_allocation_across", defaultMessage: "Usage and scheduler allocation across {count, plural, one {# node} other {# nodes}}", description: "Dashboard: subtitle of the Cluster resources card with the number of nodes; {count} is the number of nodes" }, { count: nodesTotal }) : intl.formatMessage({ id: "web.routes.dashboard.usage_and_allocation", defaultMessage: "Usage and scheduler allocation", description: "Dashboard: subtitle of the Cluster resources card when no nodes are reported" })}
         action={
           canViewCluster ? (
-            <CardLink to="/clusters">View clusters</CardLink>
+            <CardLink to="/clusters">{intl.formatMessage({ id: "web.routes.dashboard.view_clusters", defaultMessage: "View clusters", description: "Dashboard: link at the top right of the cluster resources card that opens the clusters page; keep it short" })}</CardLink>
           ) : (
             <span className="shrink-0 text-xs text-muted">
-              {nodesTotal > 0 ? `${nodesReady}/${nodesTotal} nodes ready` : "—"}
+              {nodesTotal > 0 ? intl.formatMessage({ id: "web.routes.dashboard.nodes_ready_of_total", defaultMessage: "{ready}/{total} nodes ready", description: "Dashboard: node readiness in the Cluster resources card; {ready} and {total} are counts" }, { ready: nodesReady, total: nodesTotal }) : emptyValue}
             </span>
           )
         }
@@ -521,47 +546,47 @@ function ClusterResourcesCard({
 
       <div className="grid gap-5 md:grid-cols-2 md:gap-6">
         <div className="min-w-0 space-y-4">
-          <SectionLabel>Usage</SectionLabel>
-          <Meter label="CPU" pct={cpu.pct} sub={cpu.sub} unknown={!cpu.known} accent="primary" />
-          <Meter label="Memory" pct={mem.pct} sub={mem.sub} unknown={!mem.known} accent="violet" />
+          <SectionLabel>{intl.formatMessage({ id: "web.routes.dashboard.usage", defaultMessage: "Usage", description: "Dashboard: small uppercase label above the usage meters in the Cluster resources card" })}</SectionLabel>
+          <Meter label={intl.formatMessage({ id: "web.routes.dashboard.cpu", defaultMessage: "CPU", description: "Dashboard: label of the CPU usage bar in the cluster resources card; CPU is a technical term, usually left untranslated" })} pct={cpu.pct} sub={cpu.sub} unknown={!cpu.known} accent="primary" />
+          <Meter label={intl.formatMessage({ id: "web.routes.dashboard.memory", defaultMessage: "Memory", description: "Dashboard: label of the memory usage bar in the cluster resources card" })} pct={mem.pct} sub={mem.sub} unknown={!mem.known} accent="violet" />
           <Meter
-            label="Storage"
+            label={intl.formatMessage({ id: "web.routes.dashboard.storage", defaultMessage: "Storage", description: "Dashboard: label of the storage usage bar in the cluster resources card" })}
             pct={storagePct}
             sub={storage.subText}
-            unknown={storage.valueText === "—"}
+            unknown={!storageKnown}
             accent={storage.overcommitted ? "warning" : "success"}
           />
           <div>
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-muted">Network</span>
+              <span className="text-muted">{intl.formatMessage({ id: "web.routes.dashboard.network", defaultMessage: "Network", description: "Dashboard: label of the network throughput line in the cluster resources card" })}</span>
               <span className={cn("font-mono", network.known ? "text-foreground" : "text-muted")}>
-                {network.known ? `${formatBytes(network.rx + network.tx)}/s` : "—"}
+                {network.known ? intl.formatMessage({ id: "web.routes.dashboard.network_rate", defaultMessage: "{rate}/s", description: "Dashboard: total network throughput of the cluster in the cluster resources card, such as 1.2 MB/s; {rate} is the formatted byte rate" }, { rate: formatBytes(network.rx + network.tx) }) : emptyValue}
               </span>
             </div>
             <div className="pt-1 text-[10px] text-muted">
               {network.known
-                ? `In ${formatBytes(network.rx)}/s · Out ${formatBytes(network.tx)}/s · ${network.servers} game ${network.servers === 1 ? "server" : "servers"}`
-                : "no game server traffic reported"}
+                ? intl.formatMessage({ id: "web.routes.dashboard.network_detail", defaultMessage: "In {rx}/s · Out {tx}/s · {count, plural, one {# game server} other {# game servers}}", description: "Dashboard: network throughput detail in the cluster resources card; {rx} and {tx} are formatted byte rates, {count} is the number of game servers reporting traffic" }, { rx: formatBytes(network.rx), tx: formatBytes(network.tx), count: network.servers })
+                : intl.formatMessage({ id: "web.routes.dashboard.no_game_server_traffic", defaultMessage: "no game server traffic reported", description: "Dashboard: network line in the cluster resources card when no game server reports traffic" })}
             </div>
           </div>
         </div>
         <div className="min-w-0 space-y-4 border-t border-border pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
           <div className="flex items-center gap-1 text-muted">
-            <SectionLabel>Allocation</SectionLabel>
-            <span role="img" aria-label={ALLOCATION_HINT} title={ALLOCATION_HINT}>
+            <SectionLabel>{intl.formatMessage({ id: "web.routes.dashboard.allocation", defaultMessage: "Allocation", description: "Dashboard: small uppercase label above the scheduler allocation meters in the Cluster resources card" })}</SectionLabel>
+            <span role="img" aria-label={allocationHint} title={allocationHint}>
               <Info className="h-3 w-3" />
             </span>
           </div>
-          <Meter label="CPU requested" pct={cpuAllocation.requestPct} sub={cpuAllocation.requestSub} unknown={!cpuAllocation.known} accent="primary" />
-          <Meter label="CPU limits" pct={cpuAllocation.limitPct} sub={cpuAllocation.limitSub} unknown={!cpuAllocation.known} accent={cpuAllocation.limitPct > 100 ? "warning" : "primary"} />
-          <Meter label="Memory requested" pct={memAllocation.requestPct} sub={memAllocation.requestSub} unknown={!memAllocation.known} accent="violet" />
-          <Meter label="Memory limits" pct={memAllocation.limitPct} sub={memAllocation.limitSub} unknown={!memAllocation.known} accent={memAllocation.limitPct > 100 ? "warning" : "violet"} />
+          <Meter label={intl.formatMessage({ id: "web.routes.dashboard.cpu_requested", defaultMessage: "CPU requested", description: "Dashboard: label of the CPU requested meter in the Allocation section" })} pct={cpuAllocation.requestPct} sub={cpuAllocation.requestSub} unknown={!cpuAllocation.known} accent="primary" />
+          <Meter label={intl.formatMessage({ id: "web.routes.dashboard.cpu_limits", defaultMessage: "CPU limits", description: "Dashboard: label of the CPU limits meter in the Allocation section" })} pct={cpuAllocation.limitPct} sub={cpuAllocation.limitSub} unknown={!cpuAllocation.known} accent={cpuAllocation.limitPct > 100 ? "warning" : "primary"} />
+          <Meter label={intl.formatMessage({ id: "web.routes.dashboard.memory_requested", defaultMessage: "Memory requested", description: "Dashboard: label of the memory requested meter in the Allocation section" })} pct={memAllocation.requestPct} sub={memAllocation.requestSub} unknown={!memAllocation.known} accent="violet" />
+          <Meter label={intl.formatMessage({ id: "web.routes.dashboard.memory_limits", defaultMessage: "Memory limits", description: "Dashboard: label of the memory limits meter in the Allocation section" })} pct={memAllocation.limitPct} sub={memAllocation.limitSub} unknown={!memAllocation.known} accent={memAllocation.limitPct > 100 ? "warning" : "violet"} />
         </div>
       </div>
 
       {nodes.length > 0 && (
         <div className="mt-auto space-y-2 border-t border-border pt-4">
-          <SectionLabel>Nodes</SectionLabel>
+          <SectionLabel>{intl.formatMessage({ id: "web.routes.dashboard.nodes", defaultMessage: "Nodes", description: "Dashboard: small uppercase label above the list of up to four nodes in the cluster resources card" })}</SectionLabel>
           {nodes.slice(0, 4).map((n) => (
             <NodeRow key={n.name} node={n} />
           ))}
@@ -572,34 +597,36 @@ function ClusterResourcesCard({
 }
 
 function NodeRow({ node }: { node: ClusterNode }) {
+  const intl = useOptionalIntl();
   const ready = node.status === "Ready";
   const cpuKnown = node.cpu?.used !== undefined;
   const cpuPct = pctOf(node.cpu?.used, node.cpu?.capacity);
   const meta = [
-    node.pods?.used !== undefined ? `${node.pods.used} pods` : null,
-    cpuKnown && node.cpu?.capacity ? `cpu ${Math.round(cpuPct)}%` : null,
+    node.pods?.used !== undefined ? intl.formatMessage({ id: "web.routes.dashboard.node_pods", defaultMessage: "{count} pods", description: "Dashboard: pod count on a node row; {count} is the number of pods" }, { count: node.pods.used }) : null,
+    cpuKnown && node.cpu?.capacity ? intl.formatMessage({ id: "web.routes.dashboard.node_cpu", defaultMessage: "cpu {percent}%", description: "Dashboard: CPU usage on a node row; {percent} is the rounded percentage" }, { percent: Math.round(cpuPct) }) : null,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(` ${intl.formatMessage({ id: "web.routes.dashboard.meta_separator", defaultMessage: "·", description: "Separator between items on one line of metadata" })} `);
   return (
     <div className="flex min-w-0 items-center gap-2 text-xs">
       <span className={cn("h-2 w-2 shrink-0 rounded-full", ready ? "bg-success" : "bg-danger")} />
       <span className="min-w-0 flex-1 break-all font-mono text-foreground">{node.name}</span>
-      <span className="shrink-0 text-muted">{meta || "—"}</span>
+      <span className="shrink-0 text-muted">{meta || intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })}</span>
     </div>
   );
 }
 
 function RecentActivityCard({ events }: { events: AuditEvent[] }) {
+  const intl = useOptionalIntl();
   return (
     <Card className="min-w-0 gap-5 border border-border p-5">
       <CardHeader
-        title="Recent activity"
-        sub="Central audit log · not filtered by location"
-        action={<CardLink to="/admin/audit">View all</CardLink>}
+        title={intl.formatMessage({ id: "web.routes.dashboard.recent_activity", defaultMessage: "Recent activity", description: "Dashboard: heading of the card listing the latest audit events; a link to the full audit log sits beside it" })}
+        sub={intl.formatMessage({ id: "web.routes.dashboard.central_audit_log_not_filtered", defaultMessage: "Central audit log · not filtered by location", description: "Dashboard: subtitle of the Recent activity card saying it lists the central audit log, which is not filtered by location" })}
+        action={<CardLink to="/admin/audit">{intl.formatMessage({ id: "web.routes.dashboard.view_all", defaultMessage: "View all", description: "Dashboard: link in the recent activity card to the full audit log, and in the recent backups card to the backups page; keep it short" })}</CardLink>}
       />
       {events.length === 0 ? (
-        <div className="py-6 text-center text-sm text-muted">No recent activity.</div>
+        <div className="py-6 text-center text-sm text-muted">{intl.formatMessage({ id: "web.routes.dashboard.no_recent_activity", defaultMessage: "No recent activity.", description: "Dashboard: empty-state text in the recent activity card shown when there are no audit events" })}</div>
       ) : (
         <div className="space-y-4">
           {events.map((e) => (
@@ -612,6 +639,7 @@ function RecentActivityCard({ events }: { events: AuditEvent[] }) {
 }
 
 function ActivityRow({ event }: { event: AuditEvent }) {
+  const intl = useOptionalIntl();
   const { icon: Icon, accent } = actionIcon(event);
   return (
     <div className="flex items-center gap-3">
@@ -619,12 +647,12 @@ function ActivityRow({ event }: { event: AuditEvent }) {
         <Icon className={cn("h-4 w-4", accent)} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-foreground">{describeAudit(event)}</div>
+        <div className="truncate text-sm text-foreground">{describeAudit(intl, event)}</div>
         <div className="truncate font-mono text-[11px] text-muted">
           {event.method} {event.path}
         </div>
       </div>
-      <span className="shrink-0 text-xs text-muted">{formatRelative(event.ts)}</span>
+      <span className="shrink-0 text-xs text-muted">{formatRelative(event.ts, intl)}</span>
     </div>
   );
 }
@@ -642,15 +670,18 @@ function RecentBackupsCard({
   byName: Map<string, GameTemplate>;
   servers?: GameServer[];
 }) {
+  const intl = useOptionalIntl();
   return (
     <Card className="min-w-0 gap-5 border border-border p-5">
       <CardHeader
-        title="Recent backups"
-        sub="Latest snapshots in the selected locations"
-        action={<CardLink to="/backups">View all</CardLink>}
+        title={intl.formatMessage({ id: "web.routes.dashboard.recent_backups", defaultMessage: "Recent backups", description: "Dashboard: heading of the card listing the latest backups; a link to the backups page sits beside it" })}
+        sub={intl.formatMessage({ id: "web.routes.dashboard.latest_snapshots_in_the_selected", defaultMessage: "Latest snapshots in the selected locations", description: "Dashboard: subtitle of the Recent backups card saying it lists the latest snapshots in the selected locations" })}
+        action={<CardLink to="/backups">{intl.formatMessage({ id: "web.routes.dashboard.view_all", defaultMessage: "View all", description: "Dashboard: link in the recent activity card to the full audit log, and in the recent backups card to the backups page; keep it short" })}</CardLink>}
       />
       {backups.length === 0 ? (
-        <div className="py-6 text-center text-sm text-muted">{complete ? "No backups yet." : "No backup data available."}</div>
+        <div className="py-6 text-center text-sm text-muted">{complete
+          ? intl.formatMessage({ id: "web.routes.dashboard.no_backups_yet", defaultMessage: "No backups yet.", description: "Dashboard: empty Recent backups card when the backup list is complete" })
+          : intl.formatMessage({ id: "web.routes.dashboard.no_backup_data", defaultMessage: "No backup data available.", description: "Dashboard: empty Recent backups card when the backup list is partial" })}</div>
       ) : (
         <div className="space-y-4">
           {backups.map((b) => (
@@ -673,6 +704,7 @@ function BackupRow({
   byName: Map<string, GameTemplate>;
   servers?: GameServer[];
 }) {
+  const intl = useOptionalIntl();
   // Resolve backup server ref to template ref
   const target = resourceTarget(backup);
   const server = servers?.find((s) => s.metadata.name === backup.spec.serverRef.name && resourceTarget(s).cluster === target.cluster && resourceTarget(s).namespace === target.namespace);
@@ -688,7 +720,7 @@ function BackupRow({
       />
       <div className="min-w-0 flex-1">
         <div className="truncate font-mono text-sm text-foreground">{backup.spec.serverRef.name}</div>
-        <div className="truncate text-[11px] text-muted">{targetLabel(target)} · {formatRelative(when)}</div>
+        <div className="truncate text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.dashboard.target_and_time", defaultMessage: "{target} · {when}", description: "Dashboard: line under a backup; {target} is the cluster and namespace label, {when} the relative time" }, { target: targetLabel(target), when: formatRelative(when, intl) })}</div>
       </div>
       {backup.status?.size && (
         <span className="shrink-0 font-mono text-xs text-foreground">{formatSize(backup.status.size)}</span>
@@ -711,28 +743,29 @@ function mostPlayers(servers: GameServer[]): GameServer[] {
 // CPU). `known` is false when not a single node reported a `used` reading
 // (no metrics-server anywhere in the cluster) — callers must render that as
 // "—", not a 0% bar that implies a measured idle cluster.
-function sumUsage(nodes: ClusterNode[], key: "cpu" | "memory"): Usage {
+function sumUsage(intl: ReturnType<typeof useOptionalIntl>, nodes: ClusterNode[], key: "cpu" | "memory"): Usage {
   const reading = sumNodeUsage(nodes, key);
   if (!reading.known) return { pct: 0, known: false };
   const sub = key === "memory"
-    ? `${formatBytes(reading.used)} / ${formatBytes(reading.capacity)}`
-    : `${formatCores(reading.used)} / ${formatCores(reading.capacity)} cores`;
+    ? intl.formatMessage({ id: "web.routes.dashboard.memory_used_of_capacity", defaultMessage: "{used} / {capacity}", description: "Dashboard: memory usage sub-label on the Cluster resources card; both are formatted byte sizes" }, { used: formatBytes(reading.used), capacity: formatBytes(reading.capacity) })
+    : intl.formatMessage({ id: "web.routes.dashboard.cpu_used_of_capacity", defaultMessage: "{used} / {capacity} cores", description: "Dashboard: CPU usage sub-label on the Cluster resources card; both are formatted core counts" }, { used: formatCores(reading.used), capacity: formatCores(reading.capacity) });
   return { pct: reading.pct, sub, known: true };
 }
 
-function sumAllocation(nodes: ClusterNode[], key: "cpu" | "memory"): Allocation {
+function sumAllocation(intl: ReturnType<typeof useOptionalIntl>, nodes: ClusterNode[], key: "cpu" | "memory"): Allocation {
   const known = nodes.length > 0 && nodes.every((node) => typeof node[key]?.requests === "number" && (node[key]?.capacity ?? 0) > 0);
   if (!known) return UNKNOWN_ALLOCATION;
   const capacity = nodes.reduce((sum, node) => sum + (node[key]?.capacity ?? 0), 0);
   const requests = nodes.reduce((sum, node) => sum + (node[key]?.requests ?? 0), 0);
   const limits = nodes.reduce((sum, node) => sum + (node[key]?.limits ?? 0), 0);
-  const format = (value: number) => (key === "memory" ? formatBytes(value) : `${formatCores(value)} cores`);
+  const format = (value: number) => (key === "memory" ? formatBytes(value) : intl.formatMessage({ id: "web.routes.dashboard.cores_value", defaultMessage: "{cores} cores", description: "Dashboard: CPU amount in the Allocation meters, such as 4 cores; {cores} is the core count" }, { cores: formatCores(value) }));
+  const allocationOf = (value: number, total: number) => intl.formatMessage({ id: "web.routes.dashboard.allocation_of_total", defaultMessage: "{value} of {total}", description: "Dashboard: amount under an Allocation meter; {value} is the amount requested or limited and {total} is the capacity, both already formatted" }, { value: format(value), total: format(total) });
   return {
     known: true,
     requestPct: (requests / capacity) * 100,
     limitPct: (limits / capacity) * 100,
-    requestSub: `${format(requests)} of ${format(capacity)}`,
-    limitSub: `${format(limits)} of ${format(capacity)}`,
+    requestSub: allocationOf(requests, capacity),
+    limitSub: allocationOf(limits, capacity),
   };
 }
 
@@ -761,25 +794,34 @@ function sortBackups(items: Backup[]): Backup[] {
 // describeAudit turns an audit row into a one-line human summary. Lifecycle
 // sub-resource paths (":start" etc.) and sign-ins get specific verbs; otherwise the verb
 // derives from the HTTP method.
-function describeAudit(e: AuditEvent): string {
+const auditVerbs = defineMessages({
+  deleted: { id: "web.routes.dashboard.audit_verb_deleted", defaultMessage: "deleted", description: "Dashboard: action word in an activity line for a DELETE request" },
+  created: { id: "web.routes.dashboard.audit_verb_created", defaultMessage: "created", description: "Dashboard: action word in an activity line for a POST request" },
+  updated: { id: "web.routes.dashboard.audit_verb_updated", defaultMessage: "updated", description: "Dashboard: action word in an activity line for a PUT or PATCH request" },
+});
+
+function describeAudit(intl: ReturnType<typeof useOptionalIntl>, e: AuditEvent): string {
   const target = e.target ? ` ${e.target}` : "";
+  const actor = e.actor;
   if (e.path.endsWith("/auth/login")) {
-    return e.status >= 200 && e.status < 300 ? `${e.actor} signed in` : `${e.actor} failed to sign in`;
+    return e.status >= 200 && e.status < 300
+      ? intl.formatMessage({ id: "web.routes.dashboard.audit_signed_in", defaultMessage: "{actor} signed in", description: "Dashboard: activity line for a successful sign-in; {actor} is the username" }, { actor })
+      : intl.formatMessage({ id: "web.routes.dashboard.audit_failed_sign_in", defaultMessage: "{actor} failed to sign in", description: "Dashboard: activity line for a failed sign-in; {actor} is the username" }, { actor });
   }
-  if (e.path.includes(":start")) return `${e.actor} started${target}`;
-  if (e.path.includes(":stop")) return `${e.actor} stopped${target}`;
-  if (e.path.includes(":restart")) return `${e.actor} restarted${target}`;
-  if (e.path.includes("/backups")) return `${e.actor} backed up${target}`;
-  if (e.path.includes("/users")) return `${e.actor} updated a user${target}`;
+  if (e.path.includes(":start")) return intl.formatMessage({ id: "web.routes.dashboard.audit_started", defaultMessage: "{actor} started{target}", description: "Dashboard: activity line for a server start; {actor} is the username, {target} is the audited object preceded by a space, or empty" }, { actor, target });
+  if (e.path.includes(":stop")) return intl.formatMessage({ id: "web.routes.dashboard.audit_stopped", defaultMessage: "{actor} stopped{target}", description: "Dashboard: activity line for a server stop; {actor} is the username, {target} is the audited object preceded by a space, or empty" }, { actor, target });
+  if (e.path.includes(":restart")) return intl.formatMessage({ id: "web.routes.dashboard.audit_restarted", defaultMessage: "{actor} restarted{target}", description: "Dashboard: activity line for a server restart; {actor} is the username, {target} is the audited object preceded by a space, or empty" }, { actor, target });
+  if (e.path.includes("/backups")) return intl.formatMessage({ id: "web.routes.dashboard.audit_backed_up", defaultMessage: "{actor} backed up{target}", description: "Dashboard: activity line for a backup; {actor} is the username, {target} is the audited object preceded by a space, or empty" }, { actor, target });
+  if (e.path.includes("/users")) return intl.formatMessage({ id: "web.routes.dashboard.audit_updated_user", defaultMessage: "{actor} updated a user{target}", description: "Dashboard: activity line for a user change; {actor} is the username, {target} is the audited object preceded by a space, or empty" }, { actor, target });
   const verb =
     e.method === "DELETE"
-      ? "deleted"
+      ? intl.formatMessage(auditVerbs.deleted)
       : e.method === "POST"
-        ? "created"
+        ? intl.formatMessage(auditVerbs.created)
         : e.method === "PUT" || e.method === "PATCH"
-          ? "updated"
+          ? intl.formatMessage(auditVerbs.updated)
           : e.method.toLowerCase();
-  return `${e.actor} ${verb}${target}`.trim();
+  return intl.formatMessage({ id: "web.routes.dashboard.audit_generic", defaultMessage: "{actor} {verb}{target}", description: "Dashboard: fallback activity line; {actor} is the username, {verb} the action word, {target} the audited object preceded by a space, or empty" }, { actor, verb, target }).trim();
 }
 
 function actionIcon(e: AuditEvent): { icon: LucideIcon; accent: string } {

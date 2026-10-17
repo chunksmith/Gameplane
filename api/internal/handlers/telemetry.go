@@ -14,6 +14,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/telemetry"
 	"github.com/GameplanePanel/gameplane/telemetryschema"
 )
@@ -207,7 +208,7 @@ func (h *telemetryHandler) postInstallID(w http.ResponseWriter, req *http.Reques
 	})
 	switch {
 	case errors.Is(err, telemetry.ErrOperatorDisabled), errors.Is(err, errExtendedOff):
-		http.Error(w, err.Error(), http.StatusConflict)
+		httperr.WriteCode(w, req, http.StatusConflict, err)
 	case err != nil:
 		httperr.Write(w, req, err)
 	default:
@@ -273,20 +274,20 @@ func (h *telemetryHandler) postNotice(w http.ResponseWriter, req *http.Request) 
 	ctx := req.Context()
 	u := auth.UserFromContext(ctx)
 	if u == nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		httperr.WriteMessage(w, req, messages.New("server.unauthorized", nil))
 		return
 	}
 	var body struct {
 		Action string `json:"action"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, req.Body, 1<<10)).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.common.invalid_json", nil))
 		return
 	}
 	switch body.Action {
 	case noticeSeen, noticeKeep, noticeExtendedOff, noticeAllOff:
 	default:
-		http.Error(w, "action must be one of seen|keep|extended-off|all-off", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.telemetry.invalid_notice_action", nil))
 		return
 	}
 	pending, err := h.pending(ctx, u)
@@ -299,7 +300,7 @@ func (h *telemetryHandler) postNotice(w http.ResponseWriter, req *http.Request) 
 			w.WriteHeader(http.StatusNoContent) // a no-op, not an error
 			return
 		}
-		http.Error(w, "telemetry notice is not pending", http.StatusConflict)
+		httperr.WriteMessage(w, req, messages.New("server.telemetry.notice_not_pending", nil))
 		return
 	}
 	err = inTx(ctx, h.db, func(tx *sql.Tx) error {
@@ -307,7 +308,7 @@ func (h *telemetryHandler) postNotice(w http.ResponseWriter, req *http.Request) 
 	})
 	switch {
 	case errors.Is(err, telemetry.ErrOperatorDisabled):
-		http.Error(w, err.Error(), http.StatusConflict)
+		httperr.WriteCode(w, req, http.StatusConflict, err)
 	case err != nil:
 		httperr.Write(w, req, err)
 	default:

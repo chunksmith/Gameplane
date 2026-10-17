@@ -56,19 +56,72 @@ export function csrfHeaders(): Record<string, string> {
   return { [CSRF_HEADER]: csrfToken() };
 }
 
+// ProblemFields is the subset of an RFC 9457 problem+json body the dashboard
+// reads: the English detail plus the stable message identifier and its args.
+interface ProblemFields {
+  detail: string;
+  messageId?: string;
+  args?: Record<string, string | number>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// parseProblem returns the problem fields when the response is an
+// application/problem+json body with a string detail; anything else (other
+// content types, unparsable JSON, missing detail) yields null.
+function parseProblem(body: string, contentType?: string): ProblemFields | null {
+  if (!contentType?.toLowerCase().includes("application/problem+json")) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (!isRecord(parsed) || typeof parsed.detail !== "string") return null;
+  const fields: ProblemFields = { detail: parsed.detail };
+  if (typeof parsed.messageId === "string") fields.messageId = parsed.messageId;
+  if (isRecord(parsed.args)) {
+    const args: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(parsed.args)) {
+      if (typeof value === "string" || typeof value === "number") args[key] = value;
+    }
+    fields.args = args;
+  }
+  return fields;
+}
+
 export class APIError extends Error {
   status: number;
   body: string;
   isHTML: boolean;
   retryAfter: string | null;
+  /** English detail from a problem+json body; undefined for other responses. */
+  detail?: string;
+  /** Stable message identifier (problem+json `messageId`), used for translation. */
+  messageId?: string;
+  /** Interpolation arguments for `messageId` (problem+json `args`). */
+  args?: Record<string, string | number>;
   constructor(status: number, body: string, statusText?: string, contentType?: string, retryAfter: string | null = null) {
     const isHTML = body.trimStart().startsWith("<") || (contentType?.includes("text/html") ?? false);
-    const message = isHTML ? `${status} ${statusText || ""}`.trim() : `${status}: ${body}`;
+    const problem = parseProblem(body, contentType);
+    const message = problem
+      ? `${status}: ${problem.detail}`
+      : isHTML ? `${status} ${statusText || ""}`.trim() : `${status}: ${body}`;
     super(message);
     this.status = status;
     this.body = body;
     this.isHTML = isHTML;
     this.retryAfter = retryAfter;
+    if (problem) {
+      // body carries the English sentence so existing callers that display
+      // err.body keep showing the same text they showed before problem+json.
+      this.body = problem.detail;
+      this.detail = problem.detail;
+      this.messageId = problem.messageId;
+      this.args = problem.args;
+    }
   }
 }
 
@@ -84,7 +137,7 @@ export interface Options {
 export async function api<T>(path: string, opts: Options = {}): Promise<T> {
   const method = opts.method ?? "GET";
   const headers: Record<string, string> = {
-    Accept: "application/json",
+    Accept: "application/json, application/problem+json",
     "Content-Type": "application/json",
     ...(opts.headers ?? {}),
   };

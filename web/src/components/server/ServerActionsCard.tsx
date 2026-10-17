@@ -60,8 +60,10 @@ import type { ActionParamDecl, GameServer, GameTemplate, ServerActionDecl, Statu
 import { type LifecycleVerb } from "@/lib/endpoints";
 import { rconAvailable, resolveConsoleMode } from "@/lib/capabilities";
 import { APIError } from "@/lib/api";
-import { errorText } from "@/lib/errors";
+import { errorTextIntl } from "@/lib/errors";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { useOptionalIntl } from "@/lib/i18n/format";
+import type { IntlShape } from "react-intl";
 
 // Curated icon map for the lucide names modules declare. Unknown names
 // fall back to a generic bolt so a typo never breaks the row.
@@ -135,6 +137,7 @@ export function ServerActionsCard({
   ns?: string;
   onOpenConsole?: () => void;
 }) {
+  const intl = useOptionalIntl();
   const resourceTarget = useResourceTarget({ name, namespace: ns });
   const resourceClient = useResourceClient(resourceTarget);
   const { Servers } = resourceClient;
@@ -185,19 +188,19 @@ export function ServerActionsCard({
       // stdin action truly returns nothing because the output goes to the
       // Console stream.
       if (resolveTransport(vars.action, hasRcon) === "stdin") {
-        setStatus({ kind: "ok", type: "sent", text: `${vars.action.displayName} sent` });
+        setStatus({ kind: "ok", type: "sent", text: intl.formatMessage({ id: "web.components.server.server_actions_card.action_sent", defaultMessage: "{name} sent", description: "Server actions card: status line after a fire-and-forget action is sent; {name} is the action name" }, { name: vars.action.displayName }) });
       } else {
         setStatus({
           kind: "ok",
           type: "output",
-          text: resp.raw ? truncate(resp.raw, 200) : `${vars.action.displayName} ran`,
+          text: resp.raw ? truncate(resp.raw, 200) : intl.formatMessage({ id: "web.components.server.server_actions_card.action_ran", defaultMessage: "{name} ran", description: "Server actions card: status line after an action returns no output; {name} is the action name" }, { name: vars.action.displayName }),
         });
       }
       return qc.invalidateQueries({ queryKey: resourceKey(resourceTarget, "server-status", name) });
     },
     onError: (err) => {
       setActive(null);
-      setStatus({ kind: "err", text: errMsg(err) });
+      setStatus({ kind: "err", text: errMsg(err, intl) });
     },
   });
 
@@ -212,7 +215,7 @@ export function ServerActionsCard({
     return (
       <Card className="border border-border bg-card p-0">
         <CardHeader className="flex flex-col gap-0 px-6 pt-5 pb-2">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[1px] text-muted">Quick actions</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[1px] text-muted">{intl.formatMessage({ id: "web.components.server.server_actions_card.quick_actions", defaultMessage: "Quick actions", description: "Server actions card: heading of the card that holds the server's quick action buttons" })}</h2>
         </CardHeader>
         <CardContent className="space-y-1 px-0 py-2">
           {lifecycle.error && (
@@ -222,20 +225,20 @@ export function ServerActionsCard({
           )}
           <LifecycleButton
             icon={RotateCw}
-            label="Restart"
+            label={intl.formatMessage({ id: "web.components.server.server_actions_card.restart", defaultMessage: "Restart", description: "Server actions card: button that restarts the server; keep it short" })}
             onClick={() => lifecycle.mutate("restart")}
             disabled={!canRun || !running || lifecycle.isPending}
           />
           <LifecycleButton
             icon={Square}
-            label="Stop"
+            label={intl.formatMessage({ id: "web.components.server.server_actions_card.stop", defaultMessage: "Stop", description: "Server actions card: button that stops the running server; keep it short" })}
             onClick={() => lifecycle.mutate("stop")}
             disabled={!canRun || (!running && !asleep) || lifecycle.isPending}
           />
           {asleep && (
             <LifecycleButton
               icon={Sunrise}
-              label="Wake"
+              label={intl.formatMessage({ id: "web.components.server.server_actions_card.wake", defaultMessage: "Wake", description: "Server actions card: button that wakes a sleeping server; keep it short" })}
               onClick={() => lifecycle.mutate("wake")}
               disabled={!canRun || lifecycle.isPending}
             />
@@ -243,13 +246,13 @@ export function ServerActionsCard({
           {canStart && (
             <LifecycleButton
               icon={Play}
-              label="Start"
+              label={intl.formatMessage({ id: "web.components.server.server_actions_card.start", defaultMessage: "Start", description: "Server actions card: button that starts a stopped server; keep it short" })}
               onClick={() => lifecycle.mutate("start")}
               disabled={!canRun || lifecycle.isPending}
             />
           )}
           {onOpenConsole && (
-            <LifecycleButton icon={Terminal} label="Open console" onClick={onOpenConsole} />
+            <LifecycleButton icon={Terminal} label={intl.formatMessage({ id: "web.components.server.server_actions_card.open_console", defaultMessage: "Open console", description: "Server actions card: button that opens the server's console; keep it short" })} onClick={onOpenConsole} />
           )}
         </CardContent>
       </Card>
@@ -282,7 +285,7 @@ export function ServerActionsCard({
       <button
         key={a.id}
         disabled={disabled}
-        title={!canRun ? "Requires operator role" : a.description}
+        title={!canRun ? intl.formatMessage({ id: "web.components.server.server_actions_card.requires_operator_role", defaultMessage: "Requires operator role", description: "Server actions card: tooltip when the user lacks the operator role" }) : a.description}
         onClick={() =>
           needsDialog ? setActive(a) : run.mutate({ action: a })
         }
@@ -306,14 +309,14 @@ export function ServerActionsCard({
   return (
     <Card className="border border-border bg-card p-0">
       <CardHeader className="flex flex-col gap-0 px-6 pt-5 pb-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[1px] text-muted">Quick actions</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-[1px] text-muted">{intl.formatMessage({ id: "web.components.server.server_actions_card.quick_actions", defaultMessage: "Quick actions", description: "Server actions card: heading of the card that holds the server's quick action buttons" })}</h2>
       </CardHeader>
       <CardContent className="space-y-3.5 px-3 pt-1 pb-3">
         {actions.some((a) => !transportReady(a)) && (
           <p className="px-6 pb-2 text-xs text-muted">
             {consoleAttachable
-              ? "Some actions need RCON; this game has none."
-              : "Actions need a live console; this game has none."}
+              ? intl.formatMessage({ id: "web.components.server.server_actions_card.no_rcon", defaultMessage: "Some actions need RCON; this game has none.", description: "Server actions card: note when this game has no RCON console" })
+              : intl.formatMessage({ id: "web.components.server.server_actions_card.no_console", defaultMessage: "Actions need a live console; this game has none.", description: "Server actions card: note when this game has no live console" })}
           </p>
         )}
         {status && (
@@ -342,9 +345,7 @@ export function ServerActionsCard({
                   ? "shrink-0 text-xs text-success hover:text-success/80"
                   : "shrink-0 text-xs text-muted hover:text-foreground"
               }
-            >
-              dismiss
-            </button>
+            >{intl.formatMessage({ id: "web.components.server.server_actions_card.dismiss", defaultMessage: "dismiss", description: "Server actions card: small button that clears the status message shown after an action; keep it short" })}</button>
           </div>
         )}
         {groupOrder.length > 0 ? (
@@ -359,9 +360,7 @@ export function ServerActionsCard({
             ))}
             {ungrouped.length > 0 && (
               <div className="space-y-0.5">
-                <div className="px-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-[1px] text-muted">
-                  Actions
-                </div>
+                <div className="px-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-[1px] text-muted">{intl.formatMessage({ id: "web.components.server.server_actions_card.actions", defaultMessage: "Actions", description: "Server actions card: small heading above the actions that do not belong to a group" })}</div>
                 {ungrouped.map(renderActionButton)}
               </div>
             )}
@@ -401,6 +400,7 @@ function ActionDialog({
   onCancel: () => void;
   onRun: (params: Record<string, string>) => void;
 }) {
+  const intl = useOptionalIntl();
   const params = action.params ?? [];
   // Only the user's edits are state. Everything else is derived per render,
   // so a reading that lands after the dialog opened still pre-fills its
@@ -414,7 +414,7 @@ function ActionDialog({
   );
 
   const errors = params
-    .map((p) => validate(p, values[p.name] ?? ""))
+    .map((p) => validate(p, values[p.name] ?? "", intl))
     .filter((e): e is string => e !== null);
   const valid = errors.length === 0;
 
@@ -440,20 +440,18 @@ function ActionDialog({
                   />
                 ))}
                 {params.length === 0 && (
-                  <p className="text-sm text-muted">Run this action now?</p>
+                  <p className="text-sm text-muted">{intl.formatMessage({ id: "web.components.server.server_actions_card.run_this_action_now", defaultMessage: "Run this action now?", description: "Server actions card: question in the confirmation dialog asking whether to run the action; shown when the action has no parameters to fill in" })}</p>
                 )}
               </div>
             </ModalBody>
             <ModalFooter>
-              <Button variant="ghost" onPress={onCancel} isDisabled={pending}>
-                Cancel
-              </Button>
+              <Button variant="ghost" onPress={onCancel} isDisabled={pending}>{intl.formatMessage({ id: "web.components.server.server_actions_card.cancel", defaultMessage: "Cancel", description: "Server actions card: button that closes the action confirmation dialog without running the action; keep it short" })}</Button>
               <Button
                 variant={action.danger ? "danger" : "primary"}
                 isDisabled={!valid || pending}
                 onPress={() => onRun(collect(params, values))}
               >
-                {pending ? "Running…" : "Run"}
+                {pending ? intl.formatMessage({ id: "web.components.server.server_actions_card.running", defaultMessage: "Running…", description: "Server actions card: run button label while an action runs" }) : intl.formatMessage({ id: "web.components.server.server_actions_card.run", defaultMessage: "Run", description: "Server actions card: button label to run an action" })}
               </Button>
             </ModalFooter>
           </ModalDialog>
@@ -474,7 +472,8 @@ function ParamField({
 }) {
   const label = param.displayName || param.name;
   const id = `action-param-${param.name}`;
-  const err = validate(param, value);
+  const intl = useOptionalIntl();
+  const err = validate(param, value, intl);
   return (
     <div className="space-y-2">
       {param.type === "enum" ? (
@@ -485,7 +484,7 @@ function ParamField({
           >
             <Label className="text-sm">
               {label}
-              {param.required && <span className="text-danger"> *</span>}
+              {param.required && <span className="text-danger">{intl.formatMessage({ id: "web.common.required_marker", defaultMessage: " *", description: "Asterisk shown after the label of a required field" })}</span>}
             </Label>
             <Select.Trigger id={id} className="w-full rounded border border-border bg-surface px-3 py-2 text-sm hover:bg-surface/80">
               <Select.Value />
@@ -518,7 +517,7 @@ function ParamField({
             </Checkbox.Control>
             <Checkbox.Content className="text-sm">
               {label}
-              {param.required && <span className="text-danger"> *</span>}
+              {param.required && <span className="text-danger">{intl.formatMessage({ id: "web.common.required_marker", defaultMessage: " *", description: "Asterisk shown after the label of a required field" })}</span>}
             </Checkbox.Content>
           </Checkbox>
         </div>
@@ -526,7 +525,7 @@ function ParamField({
         <div className="space-y-1">
           <Label htmlFor={id} className="text-sm">
             {label}
-            {param.required && <span className="text-danger"> *</span>}
+            {param.required && <span className="text-danger">{intl.formatMessage({ id: "web.common.required_marker", defaultMessage: " *", description: "Asterisk shown after the label of a required field" })}</span>}
           </Label>
           <Input
             id={id}
@@ -577,15 +576,15 @@ function currentValue(p: ActionParamDecl, readings?: StatusReading[]): string | 
 // validate returns an error string or null. Mirrors the agent's
 // server-side checks so the UI fails fast, but the agent remains the
 // source of truth (it also rejects control characters etc.).
-function validate(p: ActionParamDecl, value: string): string | null {
+function validate(p: ActionParamDecl, value: string, intl: IntlShape): string | null {
   const v = value.trim();
-  if (p.required && v === "") return `${p.displayName || p.name} is required`;
+  if (p.required && v === "") return intl.formatMessage({ id: "web.components.server.server_actions_card.param_required", defaultMessage: "{name} is required", description: "Server actions card: validation error for a required action parameter; {name} is the parameter's display name" }, { name: p.displayName || p.name });
   if (v === "") return null;
-  if (p.type === "int" && !/^-?\d+$/.test(v)) return "Must be a whole number";
-  if (p.type === "enum" && p.enum && !p.enum.includes(value)) return "Pick a valid option";
+  if (p.type === "int" && !/^-?\d+$/.test(v)) return intl.formatMessage({ id: "web.components.server.server_actions_card.must_be_whole_number", defaultMessage: "Must be a whole number", description: "Server actions card: validation error for an integer parameter that is not a whole number" });
+  if (p.type === "enum" && p.enum && !p.enum.includes(value)) return intl.formatMessage({ id: "web.components.server.server_actions_card.pick_valid_option", defaultMessage: "Pick a valid option", description: "Server actions card: validation error for an enum parameter with a value that is not offered" });
   // Mirror the agent's control-character rejection (notably CR/LF, which
   // could chain a second console command). Spaces are fine.
-  if (hasControl(value)) return "No control characters";
+  if (hasControl(value)) return intl.formatMessage({ id: "web.components.server.server_actions_card.no_control_characters", defaultMessage: "No control characters", description: "Server actions card: validation error for a parameter containing control characters" });
   return null;
 }
 
@@ -644,7 +643,7 @@ function LifecycleButton({
   );
 }
 
-function errMsg(err: unknown): string {
+function errMsg(err: unknown, intl: IntlShape): string {
   if (err instanceof APIError) {
     try {
       const parsed = JSON.parse(err.body) as { error?: string };
@@ -652,8 +651,8 @@ function errMsg(err: unknown): string {
     } catch {
       // fall through
     }
-    if (err.status === 403) return "Your role does not allow running actions.";
-    return err.body || `request failed (${err.status})`;
+    if (err.status === 403) return intl.formatMessage({ id: "web.components.server.server_actions_card.forbidden_run", defaultMessage: "Your role does not allow running actions.", description: "Server actions card: error when the user's role may not run actions" });
+    return err.body || intl.formatMessage({ id: "web.components.server.server_actions_card.request_failed_status", defaultMessage: "request failed ({status})", description: "Server actions card: fallback error with the HTTP status; {status} is the status code" }, { status: String(err.status) });
   }
-  return errorText(err, "action failed");
+  return errorTextIntl(intl, err, intl.formatMessage({ id: "web.components.server.server_actions_card.action_failed", defaultMessage: "action failed", description: "Server actions card: fallback error when a server action fails without a message" }));
 }

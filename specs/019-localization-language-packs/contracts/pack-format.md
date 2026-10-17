@@ -65,7 +65,7 @@ modules/<name>/locales/
 └── fr.json
 ```
 
-Same Format.JS JSON rules; ids per [module-locales.md](./module-locales.md). No `meta.json` (language metadata comes from the app pack).
+Same Format.JS JSON rules; ids per [module-locales.md](./module-locales.md). No `meta.json` (language metadata comes from the app pack). `sourceHash` works as in app packs (first 12 hex characters of the SHA-256 of the English text) and is written by `gp-module i18n stamp`.
 
 ## 4. Generated runtime artifacts (not committed)
 

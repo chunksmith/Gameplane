@@ -76,7 +76,7 @@ log "fetching envtest binaries for K8s 1.36.2"
 # ---------- Go module cache warmup ----------
 # Go modules from go.work. Derived from 'use' entries in go.work.
 # Keep in sync with go.work when adding/removing modules.
-for m in agent api audit-syslog-bridge capture-sidecar gameaction gameproto mcp-server netguard operator sentinel svcutil telemetry-receiver telemetryschema test/e2e tunnel; do
+for m in agent api audit-syslog-bridge capture-sidecar gameaction gameproto i18n mcp-server netguard operator sentinel svcutil telemetry-receiver telemetryschema test/e2e tunnel; do
 	log "go mod download ($m)"
 	( cd "$m" && go mod download )
 done

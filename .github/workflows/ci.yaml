@@ -113,6 +113,7 @@ jobs:
               - 'audit-syslog-bridge/**'
               - 'telemetry-receiver/**'
               - 'telemetryschema/**'
+              - 'i18n/**'
               - 'sentinel/**'
               - 'mcp-server/**'
               - 'capture-sidecar/**'
@@ -129,7 +130,9 @@ jobs:
               - 'hack/check-govulncheck_test.sh'
               - 'hack/testdata/govulncheck/**'
             web:
+              # Language packs feed the dashboard build and the i18n checks in the web job.
               - 'web/**'
+              - 'i18n/**'
             charts:
               - 'charts/**'
               # The chart embeds a copy of the root signing key; the drift
@@ -395,7 +398,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [netguard, gameaction, gameproto, telemetryschema, operator, agent, api, sentinel, audit-syslog-bridge, telemetry-receiver, mcp-server, capture-sidecar, svcutil, tunnel, gp-module, test/e2e]
+        module: [netguard, gameaction, gameproto, telemetryschema, i18n, operator, agent, api, sentinel, audit-syslog-bridge, telemetry-receiver, mcp-server, capture-sidecar, svcutil, tunnel, gp-module, test/e2e]
         exclude: ${{ fromJSON(needs.changes.outputs.lint-exclude) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -471,7 +474,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [netguard, gameaction, gameproto, telemetryschema, operator, api, agent, audit-syslog-bridge, telemetry-receiver, sentinel, mcp-server, capture-sidecar, svcutil, tunnel, gp-module]
+        module: [netguard, gameaction, gameproto, telemetryschema, i18n, operator, api, agent, audit-syslog-bridge, telemetry-receiver, sentinel, mcp-server, capture-sidecar, svcutil, tunnel, gp-module]
         exclude: ${{ fromJSON(needs.changes.outputs.go-exclude) }}
         arch: [amd64]
     steps:
@@ -584,6 +587,67 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: "24", cache: "npm", cache-dependency-path: web/package-lock.json }
       - run: npm ci
+      - uses: ./.github/actions/go-cache
+        with:
+          key-suffix: web-i18n
+      - name: i18n language manifest
+        # The listing rule (80% complete, ltr, not en-XA) lives in the shared
+        # Go checker, so the manifest the dashboard build reads comes from it.
+        run: npm run i18n:manifest
+      - name: i18n checks
+        working-directory: .
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          (cd web && npm run i18n:extract-only)
+          (cd api && go run ./cmd/messages-export > "$RUNNER_TEMP/registry.json")
+          (cd operator && go run ./hack/condition-ids -check -app ../i18n/locales/en/app.json -ids "$RUNNER_TEMP/condition-ids.txt")
+          {
+            jq -r 'keys[]' web/src/generated/i18n/extracted.json
+            jq -r '.[].id' "$RUNNER_TEMP/registry.json"
+            cat "$RUNNER_TEMP/condition-ids.txt"
+          } | sort -u > "$RUNNER_TEMP/used-ids.txt"
+          base_flag=()
+          if [ -n "${BASE_SHA:-}" ] && [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            if git fetch --no-tags --depth=1 origin "$BASE_SHA" 2>/dev/null \
+              && git cat-file -e "$BASE_SHA:i18n/locales" 2>/dev/null; then
+              mkdir -p "$RUNNER_TEMP/base"
+              git archive "$BASE_SHA" i18n/locales | tar -x -C "$RUNNER_TEMP/base"
+              base_flag=(--base "$RUNNER_TEMP/base/i18n/locales")
+            fi
+          fi
+          cd i18n
+          go run ./cmd/i18n-check \
+            --extracted ../web/src/generated/i18n/extracted.json \
+            --registry "$RUNNER_TEMP/registry.json" --check-server \
+            --used-ids "$RUNNER_TEMP/used-ids.txt" \
+            "${base_flag[@]}" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            locales
+      - name: i18n-check self-test on seeded defective packs
+        # SC-007: every fixture must make the checker fail with exactly its
+        # own finding code (needs-review is a notice, so it passes).
+        working-directory: i18n
+        run: |
+          set -euo pipefail
+          go build -o "$RUNNER_TEMP/i18n-check" ./cmd/i18n-check
+          for dir in testdata/defective/*/; do
+            code=$(basename "$dir")
+            args=()
+            if [ -f "$dir/args" ]; then
+              read -r -a args < <(sed "s#{dir}#${dir%/}#g" "$dir/args")
+            fi
+            set +e
+            out=$("$RUNNER_TEMP/i18n-check" "${args[@]}" "${dir%/}")
+            status=$?
+            set -e
+            want=1; [ "$code" = needs-review ] && want=0
+            if [ "$status" -ne "$want" ] || ! grep -q "\[$code\]" <<<"$out"; then
+              echo "::error::fixture $code: exit $status (want $want), output:"; echo "$out"; exit 1
+            fi
+            echo "ok $code"
+          done
       - name: eslint
         run: npm run lint
       - run: npm run build

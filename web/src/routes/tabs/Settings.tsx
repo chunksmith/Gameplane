@@ -22,7 +22,7 @@ import {
 
 import type { GameServer } from "@/types";
 import { APIError } from "@/lib/api";
-import { errorText } from "@/lib/errors";
+import { errorTextIntl } from "@/lib/errors";
 import { mergeDraftOntoLatest, SettingsConflictError } from "@/lib/settingsMerge";
 import { validateConfig } from "@/lib/validation";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,9 @@ import { NetworkCaptureSection } from "./settings/NetworkCapture";
 import { AccessSection } from "./settings/Access";
 import { ShareLinksSection } from "./settings/ShareLinks";
 import { DangerSection } from "./settings/Danger";
+import { useOptionalIntl } from "@/lib/i18n/format";
+import { useModuleText } from "@/lib/i18n/moduleText";
+import { defineMessages, type IntlShape, type MessageDescriptor } from "react-intl";
 const PlacementSection = lazy(() =>
   import("./settings/Placement").then((m) => ({ default: m.PlacementSection })),
 );
@@ -61,27 +64,56 @@ type SectionKey =
 
 interface Section {
   key: SectionKey;
-  label: string;
+  label: MessageDescriptor;
   icon: LucideIcon;
-  description?: string;
+  description?: MessageDescriptor;
   framed?: boolean;
   divider?: boolean;
 }
 
+const SECTION_LABELS = defineMessages({
+  general: { id: "web.routes.tabs.settings.section_general", defaultMessage: "General", description: "Settings: name of the General section in the settings tab list" },
+  version: { id: "web.routes.tabs.settings.section_version", defaultMessage: "Version", description: "Settings: name of the Version section in the settings tab list" },
+  config: { id: "web.routes.tabs.settings.section_game_configuration", defaultMessage: "Game configuration", description: "Settings: name of the Game configuration section in the settings tab list" },
+  resources: { id: "web.routes.tabs.settings.section_resources", defaultMessage: "Resources", description: "Settings: name of the Resources section in the settings tab list" },
+  networking: { id: "web.routes.tabs.settings.section_networking", defaultMessage: "Networking", description: "Settings: name of the Networking section in the settings tab list" },
+  env: { id: "web.routes.tabs.settings.section_environment", defaultMessage: "Environment", description: "Settings: name of the Environment section in the settings tab list" },
+  lifecycle: { id: "web.routes.tabs.settings.section_lifecycle", defaultMessage: "Lifecycle", description: "Settings: name of the Lifecycle section in the settings tab list" },
+  backups: { id: "web.routes.tabs.settings.section_scheduled_backups", defaultMessage: "Scheduled backups", description: "Settings: name of the Scheduled backups section in the settings tab list" },
+  capture: { id: "web.routes.tabs.settings.section_network_capture", defaultMessage: "Network capture", description: "Settings: name of the Network capture section in the settings tab list" },
+  placement: { id: "web.routes.tabs.settings.section_placement", defaultMessage: "Placement", description: "Settings: name of the Placement section in the settings tab list" },
+  access: { id: "web.routes.tabs.settings.section_rbac_access", defaultMessage: "RBAC & access", description: "Settings: name of the RBAC and access section in the settings tab list" },
+  sharelinks: { id: "web.routes.tabs.settings.section_share_links", defaultMessage: "Share links", description: "Settings: name of the Share links section in the settings tab list" },
+  danger: { id: "web.routes.tabs.settings.section_danger_zone", defaultMessage: "Danger zone", description: "Settings: name of the Danger zone section in the settings tab list" },
+});
+
+const SECTION_DESCRIPTIONS = defineMessages({
+  general: { id: "web.routes.tabs.settings.section_description_general", defaultMessage: "Identity, description, container image and labels.", description: "Settings: one-line description under the General section heading" },
+  resources: { id: "web.routes.tabs.settings.section_description_resources", defaultMessage: "CPU, memory and storage reserved for the game container.", description: "Settings: one-line description under the Resources section heading" },
+  networking: { id: "web.routes.tabs.settings.section_description_networking", defaultMessage: "Service exposure, tunnels and ports that players connect through.", description: "Settings: one-line description under the Networking section heading" },
+  env: { id: "web.routes.tabs.settings.section_description_environment", defaultMessage: "Environment variables passed to the game container.", description: "Settings: one-line description under the Environment section heading" },
+  lifecycle: { id: "web.routes.tabs.settings.section_description_lifecycle", defaultMessage: "Auto-restart, graceful shutdown, health probes and idle auto-sleep.", description: "Settings: one-line description under the Lifecycle section heading" },
+  backups: { id: "web.routes.tabs.settings.section_description_scheduled_backups", defaultMessage: "Recurring backups of this server's data volume.", description: "Settings: one-line description under the Scheduled backups section heading" },
+  capture: { id: "web.routes.tabs.settings.section_description_network_capture", defaultMessage: "Packet capture for debugging connection problems.", description: "Settings: one-line description under the Network capture section heading" },
+  placement: { id: "web.routes.tabs.settings.section_description_placement", defaultMessage: "Kubernetes scheduling rules: node tolerations and affinity.", description: "Settings: one-line description under the Placement section heading" },
+  access: { id: "web.routes.tabs.settings.section_description_rbac_access", defaultMessage: "The owner and collaborators who can manage this server.", description: "Settings: one-line description under the RBAC and access section heading" },
+  danger: { id: "web.routes.tabs.settings.section_description_danger_zone", defaultMessage: "Irreversible actions for this server. Proceed with care.", description: "Settings: one-line description under the Danger zone section heading" },
+});
+
 const SECTIONS: Section[] = [
-  { key: "general",    label: "General",            icon: SettingsIcon,      framed: true, description: "Identity, description, container image and labels." },
-  { key: "version",    label: "Version",            icon: Layers },
-  { key: "config",     label: "Game configuration", icon: SlidersHorizontal },
-  { key: "resources",  label: "Resources",          icon: HardDrive,         framed: true, divider: true, description: "CPU, memory and storage reserved for the game container." },
-  { key: "networking", label: "Networking",         icon: Network,           framed: true, description: "Service exposure, tunnels and ports that players connect through." },
-  { key: "env",        label: "Environment",        icon: Variable,          framed: true, description: "Environment variables passed to the game container." },
-  { key: "lifecycle",  label: "Lifecycle",          icon: Sliders,           framed: true, divider: true, description: "Auto-restart, graceful shutdown, health probes and idle auto-sleep." },
-  { key: "backups",    label: "Scheduled backups",  icon: CalendarClock,     framed: true, description: "Recurring backups of this server's data volume." },
-  { key: "capture",    label: "Network capture",    icon: RadioTower,        framed: true, description: "Packet capture for debugging connection problems." },
-  { key: "placement",  label: "Placement",          icon: MapPin,            framed: true, description: "Kubernetes scheduling rules: node tolerations and affinity." },
-  { key: "access",     label: "RBAC & access",      icon: ShieldCheck,       divider: true, description: "The owner and collaborators who can manage this server." },
-  { key: "sharelinks", label: "Share links",        icon: Link2 },
-  { key: "danger",     label: "Danger zone",        icon: AlertTriangle,     divider: true, description: "Irreversible actions for this server. Proceed with care." },
+  { key: "general",    label: SECTION_LABELS.general,    icon: SettingsIcon,      framed: true, description: SECTION_DESCRIPTIONS.general },
+  { key: "version",    label: SECTION_LABELS.version,    icon: Layers },
+  { key: "config",     label: SECTION_LABELS.config,     icon: SlidersHorizontal },
+  { key: "resources",  label: SECTION_LABELS.resources,  icon: HardDrive,         framed: true, divider: true, description: SECTION_DESCRIPTIONS.resources },
+  { key: "networking", label: SECTION_LABELS.networking, icon: Network,           framed: true, description: SECTION_DESCRIPTIONS.networking },
+  { key: "env",        label: SECTION_LABELS.env,        icon: Variable,          framed: true, description: SECTION_DESCRIPTIONS.env },
+  { key: "lifecycle",  label: SECTION_LABELS.lifecycle,  icon: Sliders,           framed: true, divider: true, description: SECTION_DESCRIPTIONS.lifecycle },
+  { key: "backups",    label: SECTION_LABELS.backups,    icon: CalendarClock,     framed: true, description: SECTION_DESCRIPTIONS.backups },
+  { key: "capture",    label: SECTION_LABELS.capture,    icon: RadioTower,        framed: true, description: SECTION_DESCRIPTIONS.capture },
+  { key: "placement",  label: SECTION_LABELS.placement,  icon: MapPin,            framed: true, description: SECTION_DESCRIPTIONS.placement },
+  { key: "access",     label: SECTION_LABELS.access,     icon: ShieldCheck,       divider: true, description: SECTION_DESCRIPTIONS.access },
+  { key: "sharelinks", label: SECTION_LABELS.sharelinks, icon: Link2 },
+  { key: "danger",     label: SECTION_LABELS.danger,     icon: AlertTriangle,     divider: true, description: SECTION_DESCRIPTIONS.danger },
 ];
 
 export interface SettingsTabProps {
@@ -92,6 +124,7 @@ export interface SettingsTabProps {
 }
 
 export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
+  const intl = useOptionalIntl();
   const resourceTarget = useResourceTarget({ name, namespace: ns });
   const access = useResourceAccess();
   const resourceClient = useResourceClient(resourceTarget);
@@ -157,27 +190,28 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
     queryFn: ({ signal }) => resourceClient.withSignal(signal).Templates.forServer(draft!.spec.templateRef.name, draft!.metadata.name, draft!.metadata.namespace),
     enabled: !!draft?.spec.templateRef.name,
   });
+  const moduleText = useModuleText(draft?.spec.templateRef.name, resourceTarget.cluster);
 
   // Validate config from the shared draft even when its section is unmounted.
   // Other sections retain their reported validity across navigation, including
   // invalid editor text that has not yet been committed into the draft.
   const draftValid = !!template &&
-    validateConfig(template.spec.configSchema ?? [], draft?.spec.config ?? {}).length === 0 &&
+    validateConfig(template.spec.configSchema ?? [], draft?.spec.config ?? {}, intl).length === 0 &&
     Object.values(sectionValidity).every(Boolean);
 
   const save = useMutation({
     onMutate: () => { savingRef.current = true; },
     onSettled: () => { savingRef.current = false; },
     mutationFn: async (next: GameServer) => {
-      if (!template || validateConfig(template.spec.configSchema ?? [], next.spec.config ?? {}).length > 0 ||
+      if (!template || validateConfig(template.spec.configSchema ?? [], next.spec.config ?? {}, intl).length > 0 ||
         !Object.values(sectionValidity).every(Boolean)) {
-        throw new Error("Correct invalid settings before saving.");
+        throw new Error(intl.formatMessage({ id: "web.routes.tabs.settings.correct_invalid_before_saving", defaultMessage: "Correct invalid settings before saving.", description: "Settings: error shown when saving is attempted while some settings are invalid" }));
       }
       // Re-fetch latest to merge edits onto the freshest copy. This
       // keeps fields the UI doesn't model (e.g. operator-managed status,
       // newly-added spec keys) from being clobbered.
       const latest = await Servers.get(name, ns);
-      const merged = mergeDraftOntoLatest(next, baselineRef.current!, latest);
+      const merged = mergeDraftOntoLatest(next, baselineRef.current!, latest, intl);
       return Servers.update(name, merged, ns);
     },
     onSuccess: (saved) => {
@@ -199,13 +233,13 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
         setConflict(true);
         setError(null);
       } else {
-        setError(errMsg(err));
+        setError(errMsg(err, intl));
       }
     },
   });
 
   if (!draft) {
-    return <div className="p-6 text-sm text-muted">Loading…</div>;
+    return <div className="p-6 text-sm text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.loading", defaultMessage: "Loading…", description: "Settings tab: loading text shown while the settings are fetched or a settings section is still loading" })}</div>;
   }
 
   const reset = () => {
@@ -233,7 +267,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
       setDraftRevision((revision) => revision + 1);
       qc.setQueryData(resourceKey(resourceTarget, "server", name, ns), fresh);
     } catch (err) {
-      setError(errMsg(err));
+      setError(errMsg(err, intl));
     }
   };
 
@@ -274,7 +308,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
           orientation="vertical"
           className="server-settings-nav"
         >
-          <Tabs.List aria-label="Settings sections">
+          <Tabs.List aria-label={intl.formatMessage({ id: "web.routes.tabs.settings.settings_sections", defaultMessage: "Settings sections", description: "Settings: accessible label of the list of settings sections; not shown as text" })}>
             {sections.map(({ key, label, icon: Icon, divider }) => (
               <Tabs.Tab
                 key={key}
@@ -283,7 +317,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
                 data-danger={key === "danger" || undefined}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{label}</span>
+                <span className="truncate">{intl.formatMessage(label)}</span>
                 <Tabs.Indicator />
               </Tabs.Tab>
             ))}
@@ -299,8 +333,8 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
             {active?.description && <SectionHeader section={active} />}
             <div className={cn(active?.framed && "rounded-xl border border-border bg-card p-6")}>
               {section === "general"    && <GeneralSection    draft={draft} onChange={onChangeDraft} template={template} />}
-              {section === "version"    && <VersionSection    draft={draft} onChange={onChangeDraft} template={template} />}
-              {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
+              {section === "version"    && <VersionSection    draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} />}
+              {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
               {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "networking" && <NetworkingSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.networking} />}
               {section === "env"        && <EnvVarsSection    draft={draft} onChange={onChangeDraft} template={template} />}
@@ -308,7 +342,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
               {section === "backups"    && <BackupsSection    draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "capture"    && <NetworkCaptureSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.capture} />}
               {section === "placement"  && (
-                <Suspense fallback={<div className="text-sm text-muted">Loading…</div>}>
+                <Suspense fallback={<div className="text-sm text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.loading", defaultMessage: "Loading…", description: "Settings tab: loading text shown while the settings are fetched or a settings section is still loading" })}</div>}>
                   <PlacementSection
                     draft={draft}
                     onChange={onChangeDraft}
@@ -328,23 +362,13 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
           <footer className="flex items-center justify-between gap-4 border-t border-border bg-background px-6 py-3 lg:px-10">
             <div className="min-w-0 text-xs">
               {conflict && !error && (
-                <span className="text-warning">
-                  Server changed since you opened this page.{" "}
-                  <button onClick={() => void reload()} className="underline hover:text-fg">
-                    Reload
-                  </button>{" "}
-                  to discard your edits and load the latest.
-                </span>
+                <span className="text-warning">{intl.formatMessage({ id: "web.routes.tabs.settings.server_changed_since_you_opened_this", defaultMessage: "Server changed since you opened this page.", description: "Settings tab: warning in the footer saying the server changed after the page was opened; followed by a Reload button and the sentence after it" })} <button onClick={() => void reload()} className="underline hover:text-fg">{intl.formatMessage({ id: "web.routes.tabs.settings.reload", defaultMessage: "Reload", description: "Settings tab: inline button in the footer warning that reloads the latest server settings; keep it short" })}</button> {intl.formatMessage({ id: "web.routes.tabs.settings.to_discard_your_edits_and_load_the", defaultMessage: "to discard your edits and load the latest.", description: "Settings tab: sentence after the Reload button in the footer warning, saying reloading discards edits and loads the latest settings" })}</span>
               )}
               {error && (
                 <span className="text-danger">
                   {error}
                   {conflict && (
-                    <>
-                      {" "}
-                      <button onClick={() => void reload()} className="underline hover:text-fg">
-                        Retry reload
-                      </button>
+                    <> <button onClick={() => void reload()} className="underline hover:text-fg">{intl.formatMessage({ id: "web.routes.tabs.settings.retry_reload", defaultMessage: "Retry reload", description: "Settings tab: inline button shown after a failed reload that tries the reload again; keep it short" })}</button>
                     </>
                   )}
                 </span>
@@ -352,19 +376,17 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
               {!conflict && !error && dirty && (
                 <span className="inline-flex items-center gap-2 text-warning">
                   <span className="h-2 w-2 rounded-full bg-warning" />
-                  Unsaved changes
+                  {intl.formatMessage({ id: "web.routes.tabs.settings.unsaved_changes", defaultMessage: "Unsaved changes", description: "Settings tab: footer status text shown when the settings form has edits that are not saved yet" })}
                 </span>
               )}
               {!conflict && !error && !dirty && savedAt && (
                 <span className="inline-flex items-center gap-1.5 text-success">
                   <Check className="h-3.5 w-3.5" />
-                  Saved.
+                  {intl.formatMessage({ id: "web.routes.tabs.settings.saved", defaultMessage: "Saved.", description: "Settings tab: footer status text shown briefly after the settings are saved" })}
                 </span>
               )}
               {readOnlyConfig && (
-                <span className="text-muted">
-                  You need permission to change this server&apos;s settings.
-                </span>
+                <span className="text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.you_need_permission_to_change_this", defaultMessage: "You need permission to change this server's settings.", description: "Settings tab: footer text shown to users who can view but not change this server's settings" })}</span>
               )}
             </div>
             {!readOnlyConfig && (
@@ -374,15 +396,15 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
                 size="sm"
                 onPress={reset}
                 isDisabled={!dirty || save.isPending}
-              >
-                Discard
-              </Button>
+              >{intl.formatMessage({ id: "web.routes.tabs.settings.discard", defaultMessage: "Discard", description: "Settings tab: footer button that throws away unsaved settings edits; disabled when nothing changed; keep it short" })}</Button>
               <Button
                 size="sm"
                 onPress={() => save.mutate(draft)}
                 isDisabled={!access?.canWrite || !dirty || !draftValid || save.isPending}
               >
-                {save.isPending ? "Saving…" : "Save changes"}
+                {save.isPending
+                  ? intl.formatMessage({ id: "web.routes.tabs.settings.saving", defaultMessage: "Saving…", description: "Settings: label of the save button while the save is running" })
+                  : intl.formatMessage({ id: "web.routes.tabs.settings.save_changes", defaultMessage: "Save changes", description: "Settings: label of the button that saves the server settings" })}
               </Button>
             </div>
             )}
@@ -394,6 +416,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
 }
 
 function SectionHeader({ section }: { section: Section }) {
+  const intl = useOptionalIntl();
   const Icon = section.icon;
   return (
     <div className="flex items-start gap-3 pb-6">
@@ -406,8 +429,8 @@ function SectionHeader({ section }: { section: Section }) {
         <Icon className="h-[18px] w-[18px]" />
       </span>
       <div className="min-w-0">
-        <h2 className="text-lg font-semibold leading-tight text-fg">{section.label}</h2>
-        <p className="pt-1 text-[13px] text-muted">{section.description}</p>
+        <h2 className="text-lg font-semibold leading-tight text-fg">{intl.formatMessage(section.label)}</h2>
+        <p className="pt-1 text-[13px] text-muted">{section.description && intl.formatMessage(section.description)}</p>
       </div>
     </div>
   );
@@ -425,6 +448,6 @@ function serializeForDiff(gs: GameServer) {
   return { metadata: meta, spec: gs.spec };
 }
 
-function errMsg(err: unknown): string {
-  return errorText(err, "save failed");
+function errMsg(err: unknown, intl: IntlShape): string {
+  return errorTextIntl(intl, err, intl.formatMessage({ id: "web.routes.tabs.settings.save_failed", defaultMessage: "save failed", description: "Settings: error shown when saving the server settings fails and the error has no message" }));
 }

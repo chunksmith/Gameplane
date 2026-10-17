@@ -327,6 +327,10 @@ func main() {
 		// registry per request so config saves apply without a restart.
 		// No version/host/count — login-privacy.
 		r.Get("/providers", handlers.AuthProvidersHandler(authRegistry))
+		// Pre-auth: the instance default language for the login page. Only the
+		// tag is returned, never more (login privacy); not rate-limited, like
+		// /providers.
+		r.Get("/locale", handlers.AuthLocaleHandler(store))
 		// Rate-limit /login specifically — argon2id is ~200 ms of
 		// single-core CPU per attempt, so an unlimited path invites a
 		// trivial DoS.

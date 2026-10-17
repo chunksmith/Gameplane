@@ -35,6 +35,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import type { FileEntry } from "@/lib/endpoints";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
+import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
+import { defineMessages } from "react-intl";
 
 const ROOT = "/";
 const ROOT_ENTRY: FileEntry = { name: "", path: ROOT, size: 0, dir: true };
@@ -44,6 +46,52 @@ const LIST_REFRESH_MS = 5_000;
 const MAX_UPLOAD_FILES = 64;
 const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
 const SIZE_CACHE_MS = 60_000;
+
+const FILES_MESSAGES = defineMessages({
+  root_folder: { id: "web.routes.tabs.files.root_folder", defaultMessage: "root folder", description: "Files: lowercase name of the server data root, used in the open-folder button when the parent of a missing path is the root" },
+  root_folder_label: { id: "web.routes.tabs.files.root_folder_label", defaultMessage: "Root folder", description: "Files: accessible label of the breadcrumb button that jumps to the server data root" },
+  nothing_exists: { id: "web.routes.tabs.files.nothing_exists_at_this_path", defaultMessage: "Nothing exists at this path.", description: "Files tab: text shown when nothing exists at the current path" },
+  refresh: { id: "web.routes.tabs.files.refresh", defaultMessage: "Refresh", description: "Files tab: icon-only button that reloads the file list; read by screen readers; keep it short" },
+  new_folder: { id: "web.routes.tabs.files.new_folder", defaultMessage: "New folder", description: "Files tab: button that opens the prompt to create a new folder, and the title of that prompt dialog; keep it short" },
+  new_file: { id: "web.routes.tabs.files.new_file", defaultMessage: "New file", description: "Files tab: button that opens the prompt to create a new file, and the title of that prompt dialog; keep it short" },
+  uploading: { id: "web.routes.tabs.files.uploading", defaultMessage: "Uploading…", description: "Files tab: status shown beside the folder buttons while files are being uploaded" },
+  selection_actions: { id: "web.routes.tabs.files.selection_actions", defaultMessage: "Selection actions", description: "Files tab: accessible label of the toolbar with actions for the selected files; not shown as text" },
+  clear: { id: "web.routes.tabs.files.clear", defaultMessage: "Clear", description: "Files tab: button that clears the current file selection; keep it short" },
+  download: { id: "web.routes.tabs.files.download", defaultMessage: "Download", description: "Files tab: button that downloads the selected file to the user's computer; keep it short" },
+  zip: { id: "web.routes.tabs.files.zip", defaultMessage: "Zip", description: "Files tab: button that packs the selected files and folders into a zip archive; keep it short" },
+  delete: { id: "web.routes.tabs.files.delete", defaultMessage: "Delete", description: "Files tab: red button that deletes the selected file or folder, and the confirm button of the delete dialog; keep it short" },
+  select_all: { id: "web.routes.tabs.files.select_all", defaultMessage: "Select all", description: "Files tab: checkbox in the list header that selects every entry; read by screen readers" },
+  column_name: { id: "web.routes.tabs.files.column_name", defaultMessage: "Name", description: "Files tab: column heading of the file name in the file list" },
+  column_size: { id: "web.routes.tabs.files.column_size", defaultMessage: "Size", description: "Files tab: column heading of the file size in the file list" },
+  column_modified: { id: "web.routes.tabs.files.column_modified", defaultMessage: "Modified", description: "Files tab: column heading of the last modified time in the file list" },
+  this_folder_is_empty: { id: "web.routes.tabs.files.this_folder_is_empty", defaultMessage: "This folder is empty.", description: "Files tab: text shown in the file list when the current folder has no entries" },
+  delete_file_body: { id: "web.routes.tabs.files.delete_file_body", defaultMessage: "This permanently removes the file from the server's data volume. This action cannot be undone.", description: "Files: body of the confirm dialog for deleting a file" },
+  delete_folder_body: { id: "web.routes.tabs.files.delete_folder_body", defaultMessage: "This permanently removes the folder and everything inside it from the server's data volume. This action cannot be undone.", description: "Files: body of the confirm dialog for deleting a folder" },
+  delete_selected_body: { id: "web.routes.tabs.files.delete_selected_body", defaultMessage: "This permanently removes the selected files and folders, including everything inside the folders, from the server's data volume. This action cannot be undone.", description: "Files: body of the confirm dialog for deleting the selected files and folders" },
+  drop_files_to_upload: { id: "web.routes.tabs.files.drop_files_to_upload", defaultMessage: "Drop files to upload", description: "Files tab: text shown over the file list while files are dragged onto it" },
+  drag_files_hint: { id: "web.routes.tabs.files.drag_files_hint", defaultMessage: "Drag files or folders onto the list to upload them here.", description: "Files tab: hint under the file list saying files or folders can be dragged in to upload them" },
+  folder_name: { id: "web.routes.tabs.files.folder_name", defaultMessage: "Folder name", description: "Files tab: field label for the name of a new folder in the new folder prompt" },
+  file_name: { id: "web.routes.tabs.files.file_name", defaultMessage: "File name", description: "Files tab: field label for the name of a new file in the new file prompt" },
+  my_folder: { id: "web.routes.tabs.files.my_folder", defaultMessage: "my-folder", description: "Files tab: example placeholder in the new folder name field; an example name, not a default" },
+  config_yaml: { id: "web.routes.tabs.files.config_yaml", defaultMessage: "config.yaml", description: "Files tab: example placeholder in the new file name field; an example name, not a default" },
+  create: { id: "web.routes.tabs.files.create", defaultMessage: "Create", description: "Files tab: confirm button of the new file and new folder prompts that creates the item; keep it short" },
+  create_zip_archive: { id: "web.routes.tabs.files.create_zip_archive", defaultMessage: "Create zip archive", description: "Files tab: title of the prompt for naming a zip archive of the selected items" },
+  archive_name: { id: "web.routes.tabs.files.archive_name", defaultMessage: "Archive name", description: "Files tab: field label for the name of a new zip archive in the zip prompt" },
+  archive_zip: { id: "web.routes.tabs.files.archive_zip", defaultMessage: "archive.zip", description: "Files tab: example placeholder in the archive name field; an example name, not a default" },
+  cancel: { id: "web.routes.tabs.files.cancel", defaultMessage: "Cancel", description: "Files tab: button in the name prompt dialog that closes it without creating anything; keep it short" },
+  working: { id: "web.routes.tabs.files.working", defaultMessage: "Working…", description: "Files: label of the dialog submit button while the request is running" },
+  names_invalid: { id: "web.routes.tabs.files.names_can_t_contain_or_be_or", defaultMessage: "Names can't contain \"/\" or be \".\" or \"..\".", description: "Files tab: validation error under a file or folder name field when the name contains a slash or is a single or double dot" },
+  path: { id: "web.routes.tabs.files.path", defaultMessage: "Path", description: "Files tab: accessible label of the breadcrumb path navigation; not shown as text" },
+  calculating_size: { id: "web.routes.tabs.files.calculating_size", defaultMessage: "Calculating size", description: "Files tab: accessible label of the spinner shown while a folder size is being calculated" },
+  empty_value: { id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" },
+});
+
+const SAVE_STATES = defineMessages({
+  read_only: { id: "web.routes.tabs.files.read_only", defaultMessage: "Read only", description: "Files tab: status beside the open file when the user cannot edit it" },
+  failed: { id: "web.routes.tabs.files.save_failed", defaultMessage: "Save failed", description: "Files tab: status beside the open file when the last save failed" },
+  saving: { id: "web.routes.tabs.files.saving", defaultMessage: "Saving…", description: "Files tab: status beside the open file while changes are being saved" },
+  saved: { id: "web.routes.tabs.files.saved", defaultMessage: "Saved", description: "Files tab: status beside the open file when all changes are saved" },
+});
 
 interface ViewProps {
   resourceTarget: ResourceTarget;
@@ -57,6 +105,7 @@ export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: st
 }
 
 function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
+  const intl = useOptionalIntl();
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
   const parent = parentOf(path);
@@ -84,9 +133,9 @@ function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
           ) : (
             <div className="grid flex-1 place-items-center rounded-lg border border-border bg-surface/50 p-10 text-center">
               <div className="space-y-3">
-                <p className="text-sm text-muted">Nothing exists at this path.</p>
+                <p className="text-sm text-muted">{intl.formatMessage(FILES_MESSAGES.nothing_exists)}</p>
                 <Button variant="secondary" size="sm" onPress={() => onNavigate(parent)}>
-                  Open {parent === ROOT ? "root folder" : baseName(parent)}
+                  {intl.formatMessage({ id: "web.routes.tabs.files.open_folder", defaultMessage: "Open {folder}", description: "Files tab: button that opens the parent folder of a missing path; {folder} is the folder name or the root folder text" }, { folder: parent === ROOT ? intl.formatMessage(FILES_MESSAGES.root_folder) : baseName(parent) })}
                 </Button>
               </div>
             </div>
@@ -98,6 +147,8 @@ function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
 }
 
 function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
+  const intl = useOptionalIntl();
+  const fmt = useFormat();
   const canControl = useResourceAccess()?.canControl === true;
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
@@ -232,7 +283,7 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
             isIconOnly
             variant="ghost"
             size="sm"
-            aria-label="Refresh"
+            aria-label={intl.formatMessage(FILES_MESSAGES.refresh)}
             onPress={() => {
               void qc.invalidateQueries({ queryKey: sizeKey(resourceTarget) });
               void listing.refetch();
@@ -241,15 +292,15 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
             <RefreshCw className={cn("h-4 w-4", listing.isFetching && "animate-spin")} />
           </Button>
           <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("folder")}>
-            <FolderPlus className="h-4 w-4" /> New folder
+            <FolderPlus className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.new_folder)}
           </Button>
           {upload.isPending && (
             <span role="status" className="inline-flex items-center gap-1.5 text-xs text-muted">
-              <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+              <Loader2 className="h-4 w-4 animate-spin" /> {intl.formatMessage(FILES_MESSAGES.uploading)}
             </span>
           )}
           <Button variant="primary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("file")}>
-            <FilePlus className="h-4 w-4" /> New file
+            <FilePlus className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.new_file)}
           </Button>
         </div>
       </div>
@@ -259,22 +310,22 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
       {selection.length > 0 && (
         <div
           role="toolbar"
-          aria-label="Selection actions"
+          aria-label={intl.formatMessage(FILES_MESSAGES.selection_actions)}
           className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-2"
         >
-          <span className="text-sm font-medium text-foreground">{selection.length.toLocaleString()} selected</span>
+          <span className="text-sm font-medium text-foreground">{intl.formatMessage({ id: "web.routes.tabs.files.selected_count", defaultMessage: "{count, plural, one {# selected} other {# selected}}", description: "Files tab: how many files and folders are selected, shown above the selection actions; {count} is the number selected" }, { count: selection.length })}</span>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" size="sm" onPress={() => setSelected(new Set())}>
-              Clear
+              {intl.formatMessage(FILES_MESSAGES.clear)}
             </Button>
             <Button variant="secondary" size="sm" onPress={downloadSelection}>
-              <Download className="h-4 w-4" /> Download
+              <Download className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.download)}
             </Button>
             <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("zip")}>
-              <FileArchive className="h-4 w-4" /> Zip
+              <FileArchive className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.zip)}
             </Button>
             <Button variant="danger" size="sm" isDisabled={!canControl} onPress={() => setConfirmBulkDelete(true)}>
-              <Trash2 className="h-4 w-4" /> Delete
+              <Trash2 className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.delete)}
             </Button>
           </div>
         </div>
@@ -292,15 +343,15 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
       >
         <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-xs font-medium text-muted">
           <SelectBox
-            label="Select all"
+            label={intl.formatMessage(FILES_MESSAGES.select_all)}
             isSelected={allSelected}
             isIndeterminate={selection.length > 0 && !allSelected}
             isDisabled={!entries?.length}
             onChange={() => setSelected(allSelected ? new Set() : new Set(entries?.map((entry) => entry.path)))}
           />
-          <span className="flex-1 pl-7">Name</span>
-          <span className="w-24 text-right">Size</span>
-          <span className="hidden w-28 text-right md:block">Modified</span>
+          <span className="flex-1 pl-7">{intl.formatMessage(FILES_MESSAGES.column_name)}</span>
+          <span className="w-24 text-right">{intl.formatMessage(FILES_MESSAGES.column_size)}</span>
+          <span className="hidden w-28 text-right md:block">{intl.formatMessage(FILES_MESSAGES.column_modified)}</span>
           <span className="w-[4.5rem]" />
         </div>
         {listing.error ? (
@@ -310,7 +361,7 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
         ) : !entries ? (
           <Spinner />
         ) : entries.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-muted">This folder is empty.</p>
+          <p className="px-4 py-10 text-center text-sm text-muted">{intl.formatMessage(FILES_MESSAGES.this_folder_is_empty)}</p>
         ) : (
           <ul>
             {entries.map((entry) => (
@@ -321,25 +372,25 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
                   selected.has(entry.path) && "bg-surface",
                 )}
               >
-                <SelectBox label={`Select ${entry.name}`} isSelected={selected.has(entry.path)} onChange={() => toggle(entry.path)} />
+                <SelectBox label={intl.formatMessage({ id: "web.routes.tabs.files.select_entry", defaultMessage: "Select {name}", description: "Files tab: accessible label of the checkbox on a file or folder row; {name} is the file or folder name" }, { name: entry.name })} isSelected={selected.has(entry.path)} onChange={() => toggle(entry.path)} />
                 <button
                   type="button"
                   onClick={() => onNavigate(entry.path)}
                   className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 text-left text-sm"
                 >
                   <EntryIcon entry={entry} />
-                  <span className="min-w-0 flex-1 truncate text-foreground">{entry.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-foreground" title={entry.name}>{entry.name}</span>
                   <span className="w-24 shrink-0 text-right text-xs text-muted">
                     {entry.dir ? <DirSize resourceTarget={resourceTarget} path={entry.path} /> : formatBytes(entry.size)}
                   </span>
-                  <span className="hidden w-28 shrink-0 text-right text-xs text-muted md:block">{formatRelative(entry.modTime)}</span>
+                  <span className="hidden w-28 shrink-0 text-right text-xs text-muted md:block">{formatRelative(entry.modTime, intl)}</span>
                 </button>
                 <div className="flex w-[4.5rem] shrink-0 justify-end gap-1 pr-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
                   <Button
                     isIconOnly
                     variant="ghost"
                     size="sm"
-                    aria-label={`Download ${entry.name}`}
+                    aria-label={intl.formatMessage({ id: "web.routes.tabs.files.download_entry_aria", defaultMessage: "Download {name}", description: "Files: aria-label of the download button on a file or folder row; {name} is the file or folder name" }, { name: entry.name })}
                     onPress={() =>
                       download(
                         entry.dir
@@ -354,7 +405,7 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
                     isIconOnly
                     variant="ghost"
                     size="sm"
-                    aria-label={`Delete ${entry.name}`}
+                    aria-label={intl.formatMessage({ id: "web.routes.tabs.files.delete_entry_aria", defaultMessage: "Delete {name}", description: "Files: aria-label of the delete button on a file or folder row; {name} is the file or folder name" }, { name: entry.name })}
                     isDisabled={!canControl}
                     onPress={() => setConfirmDelete(entry)}
                     className="text-danger"
@@ -368,18 +419,18 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
         )}
         {entries && total > entries.length && (
           <p role="status" className="border-t border-border px-4 py-3 text-center text-xs text-muted">
-            Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries. The file list limit is set in Settings → General.
+            {intl.formatMessage({ id: "web.routes.tabs.files.showing_entries", defaultMessage: "Showing {shown} of {total} entries. The file list limit is set in Settings → General.", description: "Files tab: note under a large folder listing saying only part of the entries is shown and where the limit is set; {shown} is the shown count and {total} the total count" }, { shown: fmt.number(entries.length), total: fmt.number(total) })}
           </p>
         )}
         {dragging && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-sm font-medium text-primary">
-            <Upload className="h-4 w-4" /> Drop files to upload
+            <Upload className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.drop_files_to_upload)}
           </div>
         )}
       </div>
       {canControl && (
         <p className="flex items-center gap-1.5 text-xs text-muted">
-          <Upload className="h-3.5 w-3.5" /> Drag files or folders onto the list to upload them here.
+          <Upload className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.drag_files_hint)}
         </p>
       )}
 
@@ -399,10 +450,10 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
         <ConfirmDialog
           open
           onOpenChange={(open) => !open && setConfirmBulkDelete(false)}
-          title={`Delete ${selection.length.toLocaleString()} ${selection.length === 1 ? "item" : "items"}?`}
-          description="This permanently removes the selected files and folders, including everything inside the folders, from the server's data volume. This action cannot be undone."
+          title={intl.formatMessage({ id: "web.routes.tabs.files.delete_items_title", defaultMessage: "Delete {count, plural, one {# item} other {# items}}?", description: "Files tab: title of the confirm dialog for deleting the selected items; {count} is the number of items" }, { count: selection.length })}
+          description={intl.formatMessage(FILES_MESSAGES.delete_selected_body)}
           destructive
-          confirmLabel="Delete"
+          confirmLabel={intl.formatMessage(FILES_MESSAGES.delete)}
           busy={removeSelected.isPending}
           onConfirm={() => removeSelected.mutate(selection)}
         />
@@ -410,31 +461,31 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
       <NamePromptDialog
         open={prompt === "folder"}
         onOpenChange={(open) => setPrompt(open ? "folder" : null)}
-        title="New folder"
-        label="Folder name"
-        placeholder="my-folder"
-        confirmLabel="Create"
+        title={intl.formatMessage(FILES_MESSAGES.new_folder)}
+        label={intl.formatMessage(FILES_MESSAGES.folder_name)}
+        placeholder={intl.formatMessage(FILES_MESSAGES.my_folder)}
+        confirmLabel={intl.formatMessage(FILES_MESSAGES.create)}
         busy={create.isPending}
         onSubmit={(entryName) => create.mutate({ kind: "folder", entryName })}
       />
       <NamePromptDialog
         open={prompt === "file"}
         onOpenChange={(open) => setPrompt(open ? "file" : null)}
-        title="New file"
-        label="File name"
-        placeholder="config.yaml"
-        confirmLabel="Create"
+        title={intl.formatMessage(FILES_MESSAGES.new_file)}
+        label={intl.formatMessage(FILES_MESSAGES.file_name)}
+        placeholder={intl.formatMessage(FILES_MESSAGES.config_yaml)}
+        confirmLabel={intl.formatMessage(FILES_MESSAGES.create)}
         busy={create.isPending}
         onSubmit={(entryName) => create.mutate({ kind: "file", entryName })}
       />
       <NamePromptDialog
         open={prompt === "zip"}
         onOpenChange={(open) => setPrompt(open ? "zip" : null)}
-        title="Create zip archive"
-        label="Archive name"
-        placeholder="archive.zip"
+        title={intl.formatMessage(FILES_MESSAGES.create_zip_archive)}
+        label={intl.formatMessage(FILES_MESSAGES.archive_name)}
+        placeholder={intl.formatMessage(FILES_MESSAGES.archive_zip)}
         initialValue={archiveName(entries ?? [], selection)}
-        confirmLabel="Create"
+        confirmLabel={intl.formatMessage(FILES_MESSAGES.create)}
         busy={zip.isPending}
         onSubmit={(entryName) => zip.mutate({ entryName, paths: selectionPaths })}
       />
@@ -443,6 +494,7 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
 }
 
 function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { entry: FileEntry }) {
+  const intl = useOptionalIntl();
   const canControl = useResourceAccess()?.canControl === true;
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
@@ -497,11 +549,11 @@ function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { e
     return () => window.removeEventListener("beforeunload", warn);
   }, [canControl, dirty]);
 
-  const saveState = !canControl
-    ? "Read only"
+  const saveState: SaveState = !canControl
+    ? "read_only"
     : failed && failed.body === draft?.value
-      ? "Save failed"
-      : dirty || saving ? "Saving…" : "Saved";
+      ? "failed"
+      : dirty || saving ? "saving" : "saved";
 
   return (
     <>
@@ -510,14 +562,14 @@ function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { e
         <div className="flex items-center gap-2">
           {draft && (
             <span role="status" className="flex items-center gap-1.5 pr-1 text-xs text-muted">
-              {SAVE_ICONS[saveState]} {saveState}
+              {SAVE_ICONS[saveState]} {intl.formatMessage(SAVE_STATES[saveState])}
             </span>
           )}
           <Button variant="secondary" size="sm" onPress={() => download(client.Files.downloadURL(name, path, ns))}>
-            <Download className="h-4 w-4" /> Download
+            <Download className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.download)}
           </Button>
           <Button variant="danger" size="sm" isDisabled={!canControl} onPress={() => setConfirmDelete(true)}>
-            <Trash2 className="h-4 w-4" /> Delete
+            <Trash2 className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.delete)}
           </Button>
         </div>
       </div>
@@ -564,11 +616,13 @@ function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { e
   );
 }
 
-const SAVE_ICONS: Record<string, ReactNode> = {
-  "Read only": null,
-  "Save failed": <CircleAlert className="h-3.5 w-3.5 text-danger" />,
-  "Saving…": <Loader2 className="h-3.5 w-3.5 animate-spin" />,
-  Saved: <CircleCheck className="h-3.5 w-3.5 text-success" />,
+type SaveState = keyof typeof SAVE_STATES;
+
+const SAVE_ICONS: Record<SaveState, ReactNode> = {
+  read_only: null,
+  failed: <CircleAlert className="h-3.5 w-3.5 text-danger" />,
+  saving: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+  saved: <CircleCheck className="h-3.5 w-3.5 text-success" />,
 };
 
 function DeleteDialog({
@@ -584,6 +638,7 @@ function DeleteDialog({
   onDeleted: () => void;
   onError: (err: Error) => void;
 }) {
+  const intl = useOptionalIntl();
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
   const qc = useQueryClient();
@@ -600,14 +655,14 @@ function DeleteDialog({
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && onClose()}
-      title={`Delete ${entry.name}?`}
+      title={intl.formatMessage({ id: "web.routes.tabs.files.delete_entry_title", defaultMessage: "Delete {name}?", description: "Files: title of the confirm dialog for deleting a file or folder; {name} is the file or folder name" }, { name: entry.name })}
       description={
         entry.dir
-          ? "This permanently removes the folder and everything inside it from the server's data volume. This action cannot be undone."
-          : "This permanently removes the file from the server's data volume. This action cannot be undone."
+          ? intl.formatMessage(FILES_MESSAGES.delete_folder_body)
+          : intl.formatMessage(FILES_MESSAGES.delete_file_body)
       }
       destructive
-      confirmLabel="Delete"
+      confirmLabel={intl.formatMessage(FILES_MESSAGES.delete)}
       busy={remove.isPending}
       onConfirm={() => remove.mutate()}
     />
@@ -615,12 +670,13 @@ function DeleteDialog({
 }
 
 function Breadcrumbs({ path, onNavigate }: { path: string; onNavigate: (path: string) => void }) {
+  const intl = useOptionalIntl();
   const segments = path.split("/").filter(Boolean);
   return (
-    <nav aria-label="Path" className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
+    <nav aria-label={intl.formatMessage(FILES_MESSAGES.path)} className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
       <button
         type="button"
-        aria-label="Root folder"
+        aria-label={intl.formatMessage(FILES_MESSAGES.root_folder_label)}
         onClick={() => onNavigate(ROOT)}
         className="rounded p-1 text-muted hover:bg-surface hover:text-foreground"
       >
@@ -696,6 +752,7 @@ function SelectBox({
 }
 
 function DirSize({ resourceTarget, path }: { resourceTarget: ResourceTarget; path: string }) {
+  const intl = useOptionalIntl();
   const client = useResourceClient(resourceTarget);
   const size = useQuery({
     queryKey: sizeKey(resourceTarget, path),
@@ -703,8 +760,8 @@ function DirSize({ resourceTarget, path }: { resourceTarget: ResourceTarget; pat
     staleTime: SIZE_CACHE_MS,
     retry: false,
   });
-  if (size.isPending) return <Loader2 aria-label="Calculating size" className="ml-auto h-3.5 w-3.5 animate-spin" />;
-  return size.data === undefined ? "—" : formatBytes(size.data);
+  if (size.isPending) return <Loader2 aria-label={intl.formatMessage(FILES_MESSAGES.calculating_size)} className="ml-auto h-3.5 w-3.5 animate-spin" />;
+  return size.data === undefined ? intl.formatMessage(FILES_MESSAGES.empty_value) : formatBytes(size.data);
 }
 
 interface NamePromptProps {
@@ -730,6 +787,7 @@ function NamePromptDialog({
   busy,
   onSubmit,
 }: NamePromptProps) {
+  const intl = useOptionalIntl();
   const [value, setValue] = useState("");
   // Clear the input whenever the dialog transitions to open. Adjusted
   // directly during render (not in an effect), gated on the previous
@@ -773,7 +831,7 @@ function NamePromptDialog({
                   />
                   {showError && (
                     <p id="name-prompt-error" className="pt-1 text-xs text-danger">
-                      {'Names can\'t contain "/" or be "." or "..".'}
+                      {intl.formatMessage(FILES_MESSAGES.names_invalid)}
                     </p>
                   )}
                 </div>
@@ -785,7 +843,7 @@ function NamePromptDialog({
                 onPress={() => onOpenChange(false)}
                 isDisabled={busy}
               >
-                Cancel
+                {intl.formatMessage(FILES_MESSAGES.cancel)}
               </Button>
               <Button
                 variant="primary"
@@ -794,7 +852,7 @@ function NamePromptDialog({
                   if (valid && !busy) onSubmit(trimmed);
                 }}
               >
-                {busy ? "Working…" : confirmLabel}
+                {busy ? intl.formatMessage(FILES_MESSAGES.working) : confirmLabel}
               </Button>
             </ModalFooter>
           </ModalDialog>
