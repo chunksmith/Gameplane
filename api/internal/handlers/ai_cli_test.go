@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,7 +18,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 )
 
 const (
@@ -388,5 +391,29 @@ func TestAISecretSubscription(t *testing.T) {
 	syncSecretData(t, k, notifNS, aiSecretName)
 	if got, sub := key(t.Context()); got != "sk-live" || sub {
 		t.Errorf("key = %q %v", got, sub)
+	}
+}
+
+func TestAICLIAdminShell(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	conv := aiConversation{Model: "claude-opus-5-5", Effort: "medium"}
+	user := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", false)
+	if !hasArg(user, "--tools", "") || !hasArg(user, "--allowedTools", aiMCPTool) || strings.Contains(user[slices.Index(user, "--system-prompt")+1], "kubectl") {
+		t.Errorf("user args = %v", user)
+	}
+	admin := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
+	if !hasArg(admin, "--tools", "Bash") || !hasArg(admin, "--allowedTools", aiMCPTool+",Bash") || !strings.Contains(admin[slices.Index(admin, "--system-prompt")+1], "kubectl") {
+		t.Errorf("admin args = %v", admin)
+	}
+	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") {
+		t.Errorf("user env = %v", env)
+	}
+	if env := aiCLIEnv("oat", true); !slices.Contains(env, "SHELL=/bin/bash") || !slices.Contains(env, "KUBERNETES_SERVICE_HOST=10.0.0.1") {
+		t.Errorf("admin env = %v", env)
+	}
+	adminReq := httptest.NewRequestWithContext(auth.WithUser(t.Context(), &auth.User{Role: rbac.RoleAdmin}), http.MethodPost, "/ai/conversations", nil)
+	userReq := httptest.NewRequestWithContext(auth.WithUser(t.Context(), &auth.User{Role: "viewer"}), http.MethodPost, "/ai/conversations", nil)
+	if !aiCredentials(adminReq).admin || aiCredentials(userReq).admin {
+		t.Error("admin flag follows the built-in admin role")
 	}
 }

@@ -75,6 +75,19 @@ subjects:
   - kind: ServiceAccount
     name: gameplane-api
     namespace: {{ .Release.Namespace }}
+{{- with dig "ai" "clusterRole" "" .Values.api }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $.Release.Name }}-api-ai
+  labels: {{- include "gameplane.labels" $ | nindent 4 }}
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ . }} }
+subjects:
+  - kind: ServiceAccount
+    name: gameplane-api
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
 ---
 # Namespace-scoped WRITE access: limited to the games namespace(s) the
 # API is allowed to mutate. Expanding this to additional namespaces
