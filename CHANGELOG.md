@@ -7,6 +7,14 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Backups no longer pause world saves by default:** `quiesce` now defaults
+  to `false` on Backups and BackupSchedules, schedules materialized from a
+  GameServer backup policy and the group schedule dialog always send `false`,
+  and the dialog no longer offers the option. Long backups no longer leave the
+  game with auto-save off (which also stops chunk unloads on Minecraft).
+
 ### Fixed
 
 - **Standalone Helm CRD isolation:** the central panel profile excludes bundled

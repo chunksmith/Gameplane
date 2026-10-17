@@ -371,7 +371,7 @@ func TestBackup_PassesTagsToRestic(t *testing.T) {
 }
 
 // TestBackup_QuiesceAnnotationSetBeforeJob verifies that with a real
-// agent client (faked) and spec.quiesce=true (the default), the
+// agent client (faked) and spec.quiesce=true, the
 // controller calls Quiesce and stamps the quiesced-at annotation
 // before the restic Job appears.
 func TestBackup_QuiesceAnnotationSetBeforeJob(t *testing.T) {

@@ -1735,10 +1735,6 @@
     "defaultMessage": "Every {count, plural, one {# hour} other {# hours}}",
     "description": "Group schedule dialog: frequency option that runs the schedule every few hours; {count} is the number of hours between runs"
   },
-  "web.components.backups.group_schedule_dialog.flush_and_pause_world_saves_during_the": {
-    "defaultMessage": "Flush and pause world saves during the backup",
-    "description": "Group schedule dialog: label of the checkbox that flushes and pauses world saves while the backup runs"
-  },
   "web.components.backups.group_schedule_dialog.frequency": {
     "defaultMessage": "Frequency",
     "description": "Group schedule dialog: label of the frequency picker that sets how often the schedule runs; keep it short"

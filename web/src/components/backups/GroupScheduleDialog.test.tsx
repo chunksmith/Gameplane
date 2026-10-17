@@ -13,7 +13,6 @@ import type { BackupSchedule } from "@/types";
 const gamesScope: Scope = { cluster: "local", namespace: "gameplane-games" };
 const stagingScope: Scope = { cluster: "edge", namespace: "gameplane-staging" };
 const dailyCron = presetCron({ every: 24, time: "04:00" });
-const quiesceLabel = "Flush and pause world saves during the backup";
 
 const existingSchedule = (spec: Partial<BackupSchedule["spec"]> = {}) =>
   located({
@@ -77,7 +76,6 @@ describe("GroupScheduleDialog", () => {
       expect(screen.getByText(dailyCron, { selector: "span" }).parentElement).toHaveTextContent(describeCron(dailyCron));
       expect(screen.getByLabelText("Retain (per server)")).toHaveValue(7);
       expect(screen.getByLabelText("Concurrency")).toHaveValue(1);
-      expect(screen.getByRole("checkbox", { name: quiesceLabel })).toBeChecked();
       expect(createButton()).toBeDisabled();
       expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
     });
@@ -123,7 +121,7 @@ describe("GroupScheduleDialog", () => {
         spec: {
           groups: ["default"],
           concurrency: 1,
-          quiesce: true,
+          quiesce: false,
           schedule: dailyCron,
           repoRef: { name: "default", key: "repo" },
           retention: { keepLast: 7 },
@@ -177,7 +175,7 @@ describe("GroupScheduleDialog", () => {
       expect(createButton()).toBeDisabled();
     });
 
-    it("posts edited retention, concurrency and quiesce values", async () => {
+    it("posts edited retention and concurrency values", async () => {
       const user = userEvent.setup();
       const { write, handle } = captureWrite();
       server.use(http.post("/schedules", ({ request }) => handle(request)));
@@ -189,7 +187,6 @@ describe("GroupScheduleDialog", () => {
       const concurrency = screen.getByLabelText("Concurrency");
       await user.clear(concurrency);
       await user.type(concurrency, "3");
-      await user.click(screen.getByRole("checkbox", { name: quiesceLabel }));
       await user.type(nameInput(), "nightly");
       await waitFor(() => {
         expect(createButton()).toBeEnabled();
@@ -425,7 +422,7 @@ describe("GroupScheduleDialog", () => {
       expect(screen.getByLabelText("Starting at (local time)")).toHaveValue("04:00");
       expect(screen.getByLabelText("Retain (per server)")).toHaveValue(14);
       expect(screen.getByLabelText("Concurrency")).toHaveValue(3);
-      expect(screen.getByRole("checkbox", { name: quiesceLabel })).not.toBeChecked();
+      expect(screen.queryByRole("checkbox", { name: "Flush and pause world saves during the backup" })).not.toBeInTheDocument();
       expect(saveButton()).toBeEnabled();
     });
 
@@ -445,7 +442,6 @@ describe("GroupScheduleDialog", () => {
       const retain = screen.getByLabelText("Retain (per server)");
       await user.clear(retain);
       await user.type(retain, "14");
-      await user.click(screen.getByRole("checkbox", { name: quiesceLabel }));
       await user.click(saveButton());
       await waitFor(() => {
         expect(onClose).toHaveBeenCalledTimes(1);
