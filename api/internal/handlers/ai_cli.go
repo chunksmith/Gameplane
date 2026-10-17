@@ -34,7 +34,7 @@ const (
 
 const aiShellPrompt = `
 
-Shell (admins only): you also have a Bash tool with kubectl. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Shell commands run without approval, so ask the user before anything destructive.`
+Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Shell commands run without approval, so ask the user before anything destructive.`
 
 type aiLive struct {
 	conv   aiConversation
