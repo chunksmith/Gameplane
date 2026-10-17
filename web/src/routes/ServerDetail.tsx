@@ -16,6 +16,7 @@ import {
   RotateCw,
   ScrollText,
   Settings as SettingsIcon,
+  Skull,
   Sparkles,
   Square,
   Sunrise,
@@ -188,6 +189,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   // still shutting down, not actually asleep yet.
   const asleep = gs?.status?.idle?.asleep === true && phase !== "Stopping";
   const running = phase === "Running";
+  const stopping = phase === "Stopping";
   // While provisioning, the operator refines the Progressing condition
   // with what the pod is doing (pulling image, installing server files,
   // waiting for the agent) — surface it under the phase badge.
@@ -317,12 +319,15 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             >
               <RotateCw className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.restart", defaultMessage: "Restart", description: "Server detail: header button that restarts the running server; disabled without control access; keep it short" })}</Button>
             <Button
-              variant="outline"
+              variant={stopping ? "danger" : "outline"}
               className="rounded-full"
-              onPress={() => act.mutate("stop")}
-              isDisabled={!access?.canControl || (!running && !asleep) || act.isPending}
+              onPress={() => act.mutate(stopping ? "kill" : "stop")}
+              isDisabled={!access?.canControl || (!running && !asleep && !stopping) || act.isPending}
             >
-              <Square className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.stop", defaultMessage: "Stop", description: "Server detail: header button that stops the running server, or puts a sleeping server to sleep fully; keep it short" })}</Button>
+              {stopping
+                ? <><Skull className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.kill", defaultMessage: "Kill", description: "Server detail: header button that force-kills a server that is still stopping; keep it short" })}</>
+                : <><Square className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.stop", defaultMessage: "Stop", description: "Server detail: header button that stops the running server, or puts a sleeping server to sleep fully; keep it short" })}</>}
+            </Button>
             {asleep && (
               <Button
                 variant="primary"

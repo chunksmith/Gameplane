@@ -1257,6 +1257,9 @@ func (r *GameServerReconciler) desiredReplicas(
 		// Running: drop any stale soft-stop bookkeeping from a prior stop.
 		return 1, 0, r.clearStopAnnotation(ctx, gs)
 	}
+	if gs.Annotations[KillRequestedAnnotation] != "" {
+		return 0, 0, r.forceKill(ctx, gs)
+	}
 
 	replicas, requeue, err := r.softStop(ctx, gs, tmpl)
 	// While a restart drains, keep requeuing until the pod is actually gone —
@@ -1421,10 +1424,16 @@ func (r *GameServerReconciler) setStopAnnotation(ctx context.Context, gs *gamepl
 
 // clearStopAnnotation removes the stop request annotation from the GameServer.
 func (r *GameServerReconciler) clearStopAnnotation(ctx context.Context, gs *gameplanev1alpha1.GameServer) error {
-	if _, ok := gs.Annotations[stopRequestedAtAnnotation]; !ok {
+	stale := false
+	for _, key := range []string{stopRequestedAtAnnotation, KillRequestedAnnotation, KillCompletedAnnotation} {
+		if _, ok := gs.Annotations[key]; ok {
+			delete(gs.Annotations, key)
+			stale = true
+		}
+	}
+	if !stale {
 		return nil
 	}
-	delete(gs.Annotations, stopRequestedAtAnnotation)
 	return r.Update(ctx, gs)
 }
 

@@ -26,6 +26,7 @@ import {
   RotateCcw,
   RotateCw,
   Save,
+  Skull,
   Square,
   Sun,
   Sunrise,
@@ -211,6 +212,7 @@ export function ServerActionsCard({
     // "not asleep yet" (players may be connected during the drain window).
     const asleep = gs.status?.idle?.asleep === true && phase !== "Stopping";
     const running = phase === "Running";
+    const stopping = phase === "Stopping";
     const canStart = (phase === "Stopped" || phase === "Suspended" || phase === "Failed") && !asleep;
     return (
       <Card className="border border-border bg-card p-0">
@@ -230,10 +232,12 @@ export function ServerActionsCard({
             disabled={!canRun || !running || lifecycle.isPending}
           />
           <LifecycleButton
-            icon={Square}
-            label={intl.formatMessage({ id: "web.components.server.server_actions_card.stop", defaultMessage: "Stop", description: "Server actions card: button that stops the running server; keep it short" })}
-            onClick={() => lifecycle.mutate("stop")}
-            disabled={!canRun || (!running && !asleep) || lifecycle.isPending}
+            icon={stopping ? Skull : Square}
+            label={stopping
+              ? intl.formatMessage({ id: "web.components.server.server_actions_card.kill", defaultMessage: "Kill", description: "Server actions card: button that force-kills a server that is still stopping; keep it short" })
+              : intl.formatMessage({ id: "web.components.server.server_actions_card.stop", defaultMessage: "Stop", description: "Server actions card: button that stops the running server; keep it short" })}
+            onClick={() => lifecycle.mutate(stopping ? "kill" : "stop")}
+            disabled={!canRun || (!running && !asleep && !stopping) || lifecycle.isPending}
           />
           {asleep && (
             <LifecycleButton

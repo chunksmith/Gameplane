@@ -52,7 +52,7 @@ import type {
 // shape is declared here once; callers reference these instead of restating
 // path strings. The generic api<T>() remains available as an escape hatch.
 
-export type LifecycleVerb = "start" | "stop" | "restart" | "wake";
+export type LifecycleVerb = "start" | "stop" | "restart" | "wake" | "kill";
 export type ModerateAction = "kick" | "ban" | "unban";
 
 // Helper to append namespace query param when provided.

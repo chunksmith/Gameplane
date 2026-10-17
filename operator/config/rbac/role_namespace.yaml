@@ -66,6 +66,9 @@ rules:
   - apiGroups: [""]
     resources: ["pods/attach"]
     verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
   # Network capture sidecar injection (reconcileCapture); mirrors the
   # chart's manage Role. Namespace-scoped only: a cluster-wide grant would
   # let the operator inject a container into any pod in any namespace.

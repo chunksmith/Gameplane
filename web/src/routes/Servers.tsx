@@ -20,6 +20,7 @@ import {
   Search,
   Server as ServerIcon,
   SlidersHorizontal,
+  Skull,
   Square,
   Sunrise,
   Trash2,
@@ -664,6 +665,7 @@ function ServerLifecycleActions({
   const qc = useQueryClient();
   const running = phase === "Running" || phase === "Starting";
   const stopped = !asleep && (phase === "Stopped" || phase === "Suspended");
+  const stopping = phase === "Stopping";
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["fleet", "servers"] });
   };
@@ -689,15 +691,17 @@ function ServerLifecycleActions({
       {!(compact > 1 && stopped) && (
         <>
           <ActionButton
-            title={intl.formatMessage({ id: "web.routes.servers.stop", defaultMessage: "Stop", description: "Servers: tooltip of the icon button that stops a running server; keep it short" })}
+            title={stopping
+              ? intl.formatMessage({ id: "web.routes.servers.kill", defaultMessage: "Kill", description: "Servers: tooltip of the icon button that force-kills a server that is still stopping; keep it short" })
+              : intl.formatMessage({ id: "web.routes.servers.stop", defaultMessage: "Stop", description: "Servers: tooltip of the icon button that stops a running server; keep it short" })}
             // An asleep server is phase Suspended, but :stop is still a real
             // action there — it patches spec.suspend=true, which the operator
             // honors immediately, distinct from an idle sleep a wake window
             // would otherwise resurrect.
             disabled={pending || !gs.fleetAccess?.canControl || stopped}
-            onClick={() => onAct({ target: gs.fleetTarget, verb: "stop" })}
+            onClick={() => onAct({ target: gs.fleetTarget, verb: stopping ? "kill" : "stop" })}
           >
-            <Square className="h-4 w-4" />
+            {stopping ? <Skull className="h-4 w-4 text-danger" /> : <Square className="h-4 w-4" />}
           </ActionButton>
           <ActionButton
             title={intl.formatMessage({ id: "web.routes.servers.restart", defaultMessage: "Restart", description: "Servers: tooltip of the icon button that restarts a server; keep it short" })}
