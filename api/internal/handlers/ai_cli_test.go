@@ -339,6 +339,38 @@ func TestAICLICancel(t *testing.T) {
 	}
 }
 
+func TestAICLIApprovalKeepsStreaming(t *testing.T) {
+	awaiting, emitted := make(chan struct{}), make(chan struct{})
+	f, _ := newCLIFixture(t, func(call aiSpawn, emit func(string)) {
+		emit(cliInit)
+		emit(cliToolUse("tu1", `{"method":"DELETE","path":"/servers/lobby/files/delete","query":{"path":"/a.jar"}}`))
+		emit(cliBarrier)
+		result := make(chan string, 1)
+		go func() {
+			result <- cliTool(t, call.args, map[string]any{"method": "DELETE", "path": "/servers/lobby/files/delete", "query": map[string]string{"path": "/a.jar"}})
+		}()
+		<-awaiting
+		emit(cliToolUse("tu2", `{"method":"DELETE","path":"/servers/lobby/files/delete","query":{"path":"/b.jar"}}`))
+		emit(cliBarrier)
+		close(emitted)
+		emit(cliToolResult("tu1", <-result))
+		emit(cliDone)
+	})
+	f.routes["DELETE /servers/lobby/files/delete"] = func() (int, string) { return http.StatusOK, `{}` }
+	conv := f.create(map[string]any{"prompt": "delete a and b", "server": "lobby", "namespace": "games"})
+	f.wait(conv.ID, aiAwaiting)
+	close(awaiting)
+	<-emitted
+	got, msgs, pending := f.detail(conv.ID, "")
+	if got.Status != aiAwaiting || len(msgs) != 3 || len(pending) != 1 || pending[0]["id"] != "tu1" {
+		t.Fatalf("status=%s messages=%d pending=%v", got.Status, len(msgs), pending)
+	}
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/approval", "", map[string]bool{"approve": true}); rr.Code != http.StatusOK {
+		t.Fatalf("approval = %d %s", rr.Code, rr.Body.String())
+	}
+	f.wait(conv.ID, aiIdle)
+}
+
 func TestAICLIRestartResetsWaiting(t *testing.T) {
 	f, _ := newCLIFixture(t, func(_ aiSpawn, emit func(string)) {
 		emit(cliInit)

@@ -537,7 +537,7 @@ func (h *aiHandler) appendRaw(ctx context.Context, id, runID string, data []byte
 	if err := tx.QueryRowContext(ctx, `SELECT status, run_id FROM ai_conversations WHERE id = ?`, id).Scan(&status, &current); err != nil {
 		return fmt.Errorf("load ai run: %w", err)
 	}
-	if status != aiRunning || current != runID {
+	if (status != aiRunning && status != aiAwaiting) || current != runID {
 		return errAIStopped
 	}
 	var seq int64
