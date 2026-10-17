@@ -158,6 +158,9 @@ rules:
   - apiGroups: [""]
     resources: [pods/attach]
     verbs: [create]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]
   # Network capture sidecar injection via ephemeral containers (reconcileCapture
   # in gameserver_controller.go). Namespace-scoped to gamesNamespace only.
   - apiGroups: [""]

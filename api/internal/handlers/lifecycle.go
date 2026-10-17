@@ -31,6 +31,8 @@ const restartRequestedAnnotation = "gameplane.local/restart-requested"
 // controller.IdleWakeRequestedAnnotation (duplicated for the same reason).
 const idleWakeRequestedAnnotation = "gameplane.local/idle-wake-requested"
 
+const killRequestedAnnotation = "gameplane.local/kill-requested"
+
 const priorityAnnotation = "gameplane.local/priority"
 
 // MountLifecycle wires start/stop/restart/wake/clone verbs on GameServers.
@@ -44,6 +46,7 @@ func MountLifecycle(r chi.Router, reg *kube.Registry) {
 	r.Post("/servers/{name}:stop", patchSuspend(reg, true))
 	r.Post("/servers/{name}:restart", restartHandler(reg))
 	r.Post("/servers/{name}:wake", wakeHandler(reg))
+	r.Post("/servers/{name}:kill", killHandler(reg))
 	r.Post("/servers/{name}:clone", cloneHandler(reg))
 	r.Post("/servers/{name}:wipe-data", wipeDataHandler(reg))
 	r.Put("/servers/{name}:priority", priorityHandler(reg))
@@ -150,6 +153,34 @@ func patchSuspend(reg *kube.Registry, suspend bool) http.HandlerFunc {
 		}
 		if err := patchServerSuspend(req.Context(), k, obj, suspend); err != nil {
 			httperr.Write(w, req, err)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}
+}
+
+func killHandler(reg *kube.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		k, ok := resolveCluster(w, req, reg)
+		if !ok {
+			return
+		}
+		name := chi.URLParam(req, "name")
+		ns, ok := resolveNS(w, req)
+		if !ok {
+			return
+		}
+		obj, ok := authorizedServer(w, req, k, ns, name)
+		if !ok {
+			return
+		}
+		token := strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
+		if !patchAuthorizedServer(w, req, k, obj, map[string]any{
+			"metadata": map[string]any{
+				"annotations": map[string]any{killRequestedAnnotation: token},
+			},
+			"spec": map[string]any{"suspend": true},
+		}) {
 			return
 		}
 		w.WriteHeader(http.StatusAccepted)

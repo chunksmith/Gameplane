@@ -3575,6 +3575,10 @@
     "defaultMessage": "Your role does not allow running actions.",
     "description": "Server actions card: error when the user's role may not run actions"
   },
+  "web.components.server.server_actions_card.kill": {
+    "defaultMessage": "Kill",
+    "description": "Server actions card: button that force-kills a server that is still stopping; keep it short"
+  },
   "web.components.server.server_actions_card.must_be_whole_number": {
     "defaultMessage": "Must be a whole number",
     "description": "Server actions card: validation error for an integer parameter that is not a whole number"
@@ -7983,6 +7987,10 @@
     "defaultMessage": "The page you're looking for doesn't exist or has moved.",
     "description": "Not found: explanation under the heading saying the page does not exist or has moved"
   },
+  "web.routes.server_detail.kill": {
+    "defaultMessage": "Kill",
+    "description": "Server detail: header button that force-kills a server that is still stopping; keep it short"
+  },
   "web.routes.server_detail.loading": {
     "defaultMessage": "Loading…",
     "description": "Server detail: loading text shown in the body of a tab while that tab's content is still loading"
@@ -8178,6 +8186,10 @@
   "web.routes.servers.inventory_unavailable": {
     "defaultMessage": "inventory unavailable",
     "description": "Servers: sub-label on the storage and inventory-nodes cards when inventory cannot be read"
+  },
+  "web.routes.servers.kill": {
+    "defaultMessage": "Kill",
+    "description": "Servers: tooltip of the icon button that force-kills a server that is still stopping; keep it short"
   },
   "web.routes.servers.loading": {
     "defaultMessage": "Loading…",
