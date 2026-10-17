@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
+import { useOptionalIntl } from "@/lib/i18n/format";
 
 const INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|~~([^~]+)~~|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 
@@ -28,6 +29,7 @@ function inline(text: string): ReactNode[] {
 }
 
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const intl = useOptionalIntl();
   const [copied, setCopied] = useState(false);
   const copy = () => {
     void navigator.clipboard?.writeText(code);
@@ -37,11 +39,13 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface-secondary">
       <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted">{lang || "text"}</span>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted">{lang || intl.formatMessage({ id: "web.components.assistant.markdown.plain_text", defaultMessage: "text", description: "Markdown code block: label above a code block that has no language, shown in uppercase; keep it short" })}</span>
         <button
           type="button"
           onClick={copy}
-          aria-label={copied ? "Copied" : "Copy code"}
+          aria-label={copied
+            ? intl.formatMessage({ id: "web.components.assistant.markdown.copied", defaultMessage: "Copied", description: "Markdown code block: accessible name of the copy button after the code was copied; keep it short" })
+            : intl.formatMessage({ id: "web.components.assistant.markdown.copy_code", defaultMessage: "Copy code", description: "Markdown code block: accessible name of the button that copies the code to the clipboard; keep it short" })}
           className="rounded-md p-1 text-muted transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
         >
           {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}

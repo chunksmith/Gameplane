@@ -19,6 +19,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/notify"
 	"github.com/GameplanePanel/gameplane/api/internal/registry"
 	"github.com/GameplanePanel/gameplane/api/internal/telemetry"
@@ -116,21 +117,26 @@ func (h *configHandler) put(w http.ResponseWriter, req *http.Request) {
 	section := chi.URLParam(req, "section")
 	validate, ok := h.validators[section]
 	if !ok {
-		http.Error(w, "unknown section", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.config.unknown_section", nil))
 		return
 	}
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.config.read_body", nil))
 		return
 	}
 	if len(body) == 0 {
-		http.Error(w, "empty body", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.empty_body", nil))
 		return
 	}
 	canon, err := validate(body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		var m *httperr.Message
+		if errors.As(err, &m) {
+			httperr.WriteMessage(w, req, m)
+			return
+		}
+		httperr.WriteCode(w, req, http.StatusUnprocessableEntity, err)
 		return
 	}
 
@@ -148,7 +154,7 @@ func (h *configHandler) put(w http.ResponseWriter, req *http.Request) {
 		// transaction as the config write (see saveTelemetry).
 		if err := h.saveTelemetry(req.Context(), canon); err != nil {
 			if errors.Is(err, telemetry.ErrOperatorDisabled) {
-				http.Error(w, err.Error(), http.StatusConflict)
+				httperr.WriteCode(w, req, http.StatusConflict, err)
 				return
 			}
 			httperr.Write(w, req, err)
@@ -468,6 +474,7 @@ func newValidators(helmOIDCPresent bool) map[string]func([]byte) (json.RawMessag
 		"auth":                              validateAuth(helmOIDCPresent),
 		"notifications":                     validateNotifications,
 		"telemetry":                         validateTelemetry,
+		"i18n":                              validateI18n,
 		registry.ConfigSectionModRegistries: validateModRegistries,
 		aiConfigSection:                     validateAI,
 	}
@@ -721,6 +728,7 @@ type notifSink struct {
 	Enabled   bool     `json:"enabled"`
 	ConfigRef string   `json:"configRef,omitempty"` // K8s Secret name holding the sink's credentials
 	Events    []string `json:"events,omitempty"`    // subset of notify.AllEvents; empty = notify.DefaultOn
+	Language  string   `json:"language,omitempty"`  // BCP 47 tag of a listed language; empty = instance default
 }
 
 type notifCfg struct {
@@ -745,6 +753,9 @@ func validateNotifications(body []byte) (json.RawMessage, error) {
 		seen[s.Name] = true
 		if !validSinkKinds[s.Kind] {
 			return nil, fmt.Errorf("sinks[%d].kind must be one of discord|slack|smtp|webhook|ntfy", i)
+		}
+		if s.Language != "" && !languageListed(s.Language) {
+			return nil, messages.New("server.i18n.unknown_language", map[string]any{"language": s.Language})
 		}
 		// configRef stays optional so sink rows persisted before the
 		// delivery pipeline existed keep loading; the dispatcher skips
@@ -780,6 +791,31 @@ func validateTelemetry(body []byte) (json.RawMessage, error) {
 	// (FR-003, spec Q7).
 	if !c.SendMetrics {
 		c.Extended = false
+	}
+	return json.Marshal(c)
+}
+
+// i18nCfg is the instance language section: the default language for users
+// who have not chosen one, and the login page before sign-in.
+type i18nCfg struct {
+	DefaultLanguage string `json:"defaultLanguage"`
+}
+
+// validateI18n requires defaultLanguage to be a tag this release offers. An
+// unlisted tag returns a localizable *httperr.Message, so the save reports the
+// same error id to the dashboard in either language.
+func validateI18n(body []byte) (json.RawMessage, error) {
+	dec := json.NewDecoder(strings.NewReader(string(body)))
+	dec.DisallowUnknownFields()
+	var c i18nCfg
+	if err := dec.Decode(&c); err != nil {
+		return nil, fmt.Errorf("invalid json: %w", err)
+	}
+	if c.DefaultLanguage == "" {
+		return nil, fmt.Errorf("defaultLanguage is required")
+	}
+	if !languageListed(c.DefaultLanguage) {
+		return nil, messages.New("server.i18n.unlisted_language", map[string]any{"language": c.DefaultLanguage})
 	}
 	return json.Marshal(c)
 }

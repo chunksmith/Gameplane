@@ -29,6 +29,7 @@ on:
       - "gameaction/**"
       - "gameproto/**"
       - "telemetryschema/**"
+      - "i18n/**"
       - "svcutil/**"
       - "gp-module/**"
       - "audit-syslog-bridge/**"

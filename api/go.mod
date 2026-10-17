@@ -29,7 +29,12 @@ require github.com/GameplanePanel/gameplane/telemetryschema v0.0.0
 // `go build ./api/...`.
 replace github.com/GameplanePanel/gameplane/telemetryschema => ../telemetryschema
 
+// i18n is an in-repo module (no published version); resolve it locally
+// both inside the go.work workspace and for standalone `go build ./api/...`.
+replace github.com/GameplanePanel/gameplane/i18n => ../i18n
+
 require (
+	github.com/GameplanePanel/gameplane/i18n v0.0.0
 	github.com/anthropics/anthropic-sdk-go v1.78.0
 	github.com/coder/websocket v1.8.15
 	github.com/coreos/go-oidc/v3 v3.21.0
@@ -45,6 +50,7 @@ require (
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
+	golang.org/x/text v0.42.0
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.1
@@ -126,7 +132,6 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect

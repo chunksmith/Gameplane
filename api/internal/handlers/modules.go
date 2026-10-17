@@ -5,6 +5,7 @@
 //                                         across sources, with installation state
 //   - GET    /modules                   — list installed Module CRs
 //   - POST   /modules                   — install: create a Module CR
+//   - GET    /modules/{name}/locales/{tag} — module translations for a language
 //   - PATCH  /modules/{name}            — upgrade: patch spec.version
 //   - DELETE /modules/{name}            — uninstall: delete the Module CR
 //
@@ -52,6 +53,7 @@ func MountModules(r chi.Router, k *kube.Client, namespace string) {
 			r.Post("/preview", h.builderPreview)
 			r.Post("/export", h.builderExport)
 		})
+		r.Get("/{name}/locales/{tag}", h.getLocales)
 		r.Get("/{name}", h.getInstalled)
 		r.Patch("/{name}", h.upgrade)
 		r.Delete("/{name}", h.uninstall)

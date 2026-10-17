@@ -7,6 +7,7 @@ import {
 import type { User } from "@/types";
 import { cn } from "@/lib/utils";
 import { AppearanceToggle, type AppearanceMode } from "./AppearanceToggle";
+import { useOptionalIntl } from "@/lib/i18n/format";
 
 export interface SidebarNavItem {
   to: string;
@@ -60,6 +61,7 @@ export function Sidebar({
   version,
   buildDate,
 }: SidebarProps) {
+  const intl = useOptionalIntl();
   const { pathname } = useLocation();
   const release = version ? versionLink(version) : undefined;
 
@@ -77,7 +79,7 @@ export function Sidebar({
 
   const sidebarContent = (
     <aside
-      aria-label="Sidebar"
+      aria-label={intl.formatMessage({ id: "web.components.ui.sidebar.sidebar", defaultMessage: "Sidebar", description: "Sidebar: screen-reader name of the side navigation panel; not visible on screen" })}
       className={cn(
         "flex flex-col border-r border-border bg-surface/60",
         variant === "fixed" ? "h-full w-[220px] shrink-0" : "w-full h-full"
@@ -88,13 +90,13 @@ export function Sidebar({
           <ShieldCheck className="h-4 w-4 text-primary" />
         </div>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="font-mono text-base font-semibold text-fg">gameplane</div>
-          <div className="text-[11px] text-muted truncate">{clusterName || "—"}</div>
+          <div className="font-mono text-base font-semibold text-fg">{intl.formatMessage({ id: "web.components.ui.sidebar.gameplane", defaultMessage: "gameplane", description: "Sidebar: product name shown at the top of the side navigation, with the cluster name beneath it; keep the name as written" })}</div>
+          <div className="text-[11px] text-muted truncate">{clusterName || intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })}</div>
         </div>
         {variant === "drawer" && onClose && (
           <button
             type="button"
-            aria-label="Close navigation"
+            aria-label={intl.formatMessage({ id: "web.components.ui.sidebar.close_navigation", defaultMessage: "Close navigation", description: "Sidebar: icon-only button that closes the navigation drawer on small screens; screen-reader name, not visible on screen" })}
             onClick={onClose}
             // Auto-focus so the drawer's own Escape-to-dismiss handling
             // (attached to the modal content, not a global listener) has
@@ -116,7 +118,7 @@ export function Sidebar({
           indistinguishable "Primary" navigation landmarks. */}
       <nav
         className="flex-1 overflow-auto px-3 py-2 scrollbar-thin"
-        aria-label={variant === "drawer" ? "Mobile navigation" : "Primary"}
+        aria-label={variant === "drawer" ? intl.formatMessage({ id: "web.components.ui.sidebar.mobile_navigation", defaultMessage: "Mobile navigation", description: "Sidebar: accessible name of the navigation landmark in the mobile drawer" }) : intl.formatMessage({ id: "web.components.ui.sidebar.primary", defaultMessage: "Primary", description: "Sidebar: accessible name of the main navigation landmark" })}
       >
         {navItems.map((group) => (
           group.items.length > 0 && (
@@ -152,7 +154,7 @@ export function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-border px-3 py-3 space-y-2" aria-label="Sidebar footer">
+      <div className="border-t border-border px-3 py-3 space-y-2" aria-label={intl.formatMessage({ id: "web.components.ui.sidebar.sidebar_footer", defaultMessage: "Sidebar footer", description: "Sidebar: screen-reader name of the footer area at the bottom of the side navigation; not visible on screen" })}>
         {/* Appearance toggle row */}
         {onThemeChange && (
           <div className="flex items-center justify-center">
@@ -171,14 +173,14 @@ export function Sidebar({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm text-fg">
-              {user?.displayName || user?.username || "guest"}
+              {user?.displayName || user?.username || intl.formatMessage({ id: "web.components.ui.sidebar.guest", defaultMessage: "guest", description: "Sidebar: name shown for a user with no display name or username" })}
             </div>
             <div className="truncate text-[11px] text-muted">
-              {user?.role ?? "—"}
+              {user?.role ?? intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })}
             </div>
           </div>
           <button
-            aria-label="Sign out"
+            aria-label={intl.formatMessage({ id: "web.components.ui.sidebar.sign_out", defaultMessage: "Sign out", description: "Sidebar: icon-only button that signs the user out; screen-reader name, not visible on screen; keep it short" })}
             className="rounded p-1 text-muted hover:bg-border/60 hover:text-fg transition-colors"
             onClick={() => void onLogout()}
           >

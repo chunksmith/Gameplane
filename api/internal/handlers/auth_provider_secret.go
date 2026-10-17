@@ -11,6 +11,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 )
 
 // authProviderPrefix mirrors the registry's default configRef naming
@@ -54,17 +55,17 @@ func (h authProviderSecretHandler) put(w http.ResponseWriter, req *http.Request)
 		ClientSecret string `json:"clientSecret"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.common.invalid_json", nil))
 		return
 	}
 	if body.ClientSecret == "" {
-		http.Error(w, "clientSecret is required", http.StatusUnprocessableEntity)
+		httperr.WriteMessage(w, req, messages.New("server.auth_providers.client_secret_required", nil))
 		return
 	}
 	data := map[string]string{"clientSecret": body.ClientSecret}
 	if err := upsertLabelledSecret(req.Context(), h.k, h.ns, secretName, auth.ProviderSecretLabel, data); err != nil {
 		if errors.Is(err, errNotManagedSecret) {
-			http.Error(w, err.Error(), http.StatusConflict)
+			httperr.WriteCode(w, req, http.StatusConflict, err)
 			return
 		}
 		httperr.Write(w, req, err)

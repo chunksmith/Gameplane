@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button, Checkbox, Input } from "@heroui/react";
 import { Plus } from "lucide-react";
 import { GROUP_NAME } from "@/lib/backupGroups";
+import { useOptionalIntl } from "@/lib/i18n/format";
 
 export function GroupPicker({ known, value, onChange }: { known: string[]; value: string[]; onChange: (groups: string[]) => void }) {
+  const intl = useOptionalIntl();
   const [draft, setDraft] = useState("");
   const options = [...new Set([...known, ...value])].sort();
   const valid = GROUP_NAME.test(draft);
@@ -34,8 +36,8 @@ export function GroupPicker({ known, value, onChange }: { known: string[]; value
       </div>
       <div className="flex gap-2">
         <Input
-          aria-label="New group"
-          placeholder="new-group"
+          aria-label={intl.formatMessage({ id: "web.components.backups.group_picker.new_group", defaultMessage: "New group", description: "Group picker: accessible name of the input where a new backup group name is typed" })}
+          placeholder={intl.formatMessage({ id: "web.components.backups.group_picker.new_group_2", defaultMessage: "new-group", description: "Group picker: example group name shown as the placeholder of the new group input; keep it as a lowercase slug" })}
           value={draft}
           onChange={(e) => setDraft(e.target.value.toLowerCase())}
           onKeyDown={(e) => {
@@ -47,7 +49,7 @@ export function GroupPicker({ known, value, onChange }: { known: string[]; value
           className="h-9 flex-1 font-mono"
         />
         <Button size="sm" variant="outline" isDisabled={!valid} onPress={add}>
-          <Plus className="h-4 w-4" /> Add
+          <Plus className="h-4 w-4" /> {intl.formatMessage({ id: "web.components.backups.group_picker.add", defaultMessage: "Add", description: "Group picker: button that adds the typed group name to the selected groups; keep it short" })}
         </Button>
       </div>
     </div>

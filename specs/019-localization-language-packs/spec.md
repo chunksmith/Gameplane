@@ -281,6 +281,15 @@ Decided by valgul; recorded as settled in OPEN-DECISIONS.md.
 - **Q7 (Notification language, OD-004)**: Per destination or instance-wide only?
   - **Decision**: Per notification destination, defaulting to the instance default language.
 
+### Session 2026-10-12
+
+Decided by valgul; recorded as settled in OPEN-DECISIONS.md (OD-005 to OD-017).
+
+- **Q8 (Module translations, US6)**: Where do they live and how are they reported?
+  - **Decision**: ConfigMap in the operator namespace; ids derived in `i18n/modlocale`; module id rule allows upper case and `~0`/`~1` escapes; `i18n-check --module` requires `en.json` to equal the derived ids; `LocalesValid` reports Valid, InvalidEntries, LocalesTooLarge and WriteFailed, with oversized files named by language; every module source (OCI, directory, git, HTTP, upload, tarball) carries `locales/*.json`; the locales endpoint returns `200 {}` for a malformed tag with ICU message strings; module translations carry `sourceHash`; Warning events fire only when the problem list changes.
+- **Q9 (Design placement, OD-015 to OD-017)**: Where do the language controls sit?
+  - **Decision**: A sink's language is edited in the Add sink form and on each sink row; the Language card is the first card of the personal settings page; the compact picker sits in the top-right corner of the card on the login and share pages.
+
 Existence check 2026-09-23: Confirmed no localization exists in the dashboard, server, modules, website, design source, specifications, issues or pull requests.
 
 ## Assumptions

@@ -25,6 +25,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 )
 
 // MountClusters wires /clusters onto the supplied router.
@@ -112,7 +113,7 @@ type clustersListResp struct {
 func (h clustersHandler) list(w http.ResponseWriter, req *http.Request) {
 	u := auth.UserFromContext(req.Context())
 	if u == nil {
-		http.Error(w, "unauthenticated", http.StatusUnauthorized)
+		httperr.WriteMessage(w, req, messages.New("server.common.unauthenticated", nil))
 		return
 	}
 	out := clustersListResp{Items: make([]clusterRegistryView, 0)}

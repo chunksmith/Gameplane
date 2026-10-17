@@ -45,7 +45,9 @@ const queueSize = 256
 
 // Event is one notifiable occurrence. It is also the exact JSON payload
 // shipped to generic webhook sinks, so field renames are a breaking change
-// for webhook consumers.
+// for webhook consumers. Webhook payloads add three fields after these
+// (language, title, text); they are additive and every field above keeps its
+// name and value.
 type Event struct {
 	Cluster   string    `json:"cluster,omitempty"`
 	Type      EventType `json:"type"`
@@ -57,6 +59,7 @@ type Event struct {
 	Message   string    `json:"message,omitempty"`
 	Instance  string    `json:"instance,omitempty"`
 	Test      bool      `json:"test,omitempty"`
+	lang      string    // BCP 47 rendering language; "" renders English. Never serialized.
 }
 
 // Notifier watches CRD status transitions and delivers matching events to
@@ -125,6 +128,7 @@ func (n *Notifier) fanOut(ctx context.Context, e Event) {
 	if err == nil {
 		e.Instance = n.instanceName(loadCtx)
 	}
+	def := n.defaultLanguage(loadCtx)
 	cancel()
 	if err != nil {
 		slog.Warn("notification fan-out: loading sinks failed", "err", err)
@@ -147,7 +151,9 @@ func (n *Notifier) fanOut(ctx context.Context, e Event) {
 			slog.Warn("notification sink secret unavailable", "sink", s.Name, "err", err)
 			continue
 		}
-		n.deliverWithRetry(ctx, s, secret, e)
+		ev := e
+		ev.lang = resolveLanguage(s.Language, def)
+		n.deliverWithRetry(ctx, s, secret, ev)
 	}
 }
 
@@ -177,6 +183,7 @@ func (n *Notifier) DeliverTest(ctx context.Context, sinkName string) error {
 			Instance: n.instanceName(ctx),
 			Test:     true,
 		}
+		e.lang = resolveLanguage(s.Language, n.defaultLanguage(ctx))
 		if err := n.deliver(ctx, s, secret, e); err != nil {
 			deliveries.WithLabelValues(s.Kind, "failed").Inc()
 			return fmt.Errorf("deliver test to %q: %w", sinkName, err)

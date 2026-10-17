@@ -19,6 +19,7 @@ import (
 
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
 
@@ -79,7 +80,7 @@ func (h *podLogProxy) handle(w http.ResponseWriter, req *http.Request) {
 	// StatefulSet replica naming — the operator pins replicas=1, so -0 is
 	// the only pod that ever exists for a given GameServer.
 	if len(validation.IsDNS1123Subdomain(name)) != 0 {
-		http.Error(w, "invalid server name", http.StatusBadRequest)
+		httperr.WriteMessage(w, req, messages.New("server.ws.invalid_server_name", nil))
 		return
 	}
 	podName := name + "-0"

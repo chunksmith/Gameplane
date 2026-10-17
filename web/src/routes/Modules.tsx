@@ -16,9 +16,10 @@ import { LoadingCard } from "@/components/ui/LoadingCard";
 import { Modules, ModuleSources } from "@/lib/endpoints";
 import { APIError } from "@/lib/api";
 import { verifyForEntry } from "@/lib/verify";
-import { resolveCategories, categoryFilters, matchesAllCategories } from "@/lib/games";
+import { categoryFilters, categoryLabel, matchesAllCategories, resolveCategories } from "@/lib/games";
 import type { CatalogEntry } from "@/types";
 import { cn } from "@/lib/utils";
+import { useOptionalIntl } from "@/lib/i18n/format";
 
 // ModulesPage renders the catalog merged across every ModuleSource. The
 // install/upgrade/uninstall actions all hit /modules — install creates
@@ -29,6 +30,7 @@ export function ModulesPage() {
 }
 
 function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: string; clusterDisplayName: string; canManage: boolean }) {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["modules-catalog", cluster],
@@ -136,34 +138,31 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
     onError: (err: Error) => setPageError(formatErr(err)),
   });
 
-  if (isLoading) return <LoadingCard message="Loading module catalog…" />;
-  if (isError && !data) return <ErrorCard message="Failed to load module catalog." onRetry={() => void refetch()} />;
+  if (isLoading) return <LoadingCard message={intl.formatMessage({ id: "web.routes.modules.loading_module_catalog", defaultMessage: "Loading module catalog…", description: "Modules: loading text shown in place of the catalog while the module list is fetched" })} />;
+  if (isError && !data) return <ErrorCard message={intl.formatMessage({ id: "web.routes.modules.failed_to_load_module_catalog", defaultMessage: "Failed to load module catalog.", description: "Modules: error text shown when the module catalog fails to load; a retry button sits next to it" })} onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-4 p-6">
       <PageHeader
-        title="Modules"
-        subtitle="Pre-packaged game-server templates pulled from your configured module sources."
+        title={intl.formatMessage({ id: "web.routes.modules.modules", defaultMessage: "Modules", description: "Modules: page title at the top of the modules screen; keep it short" })}
+        subtitle={intl.formatMessage({ id: "web.routes.modules.pre_packaged_game_server_templates", defaultMessage: "Pre-packaged game-server templates pulled from your configured module sources.", description: "Modules: subtitle under the title: pre-packaged game-server templates pulled from your configured module sources" })}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" isDisabled={!canManage} onClick={() => setBuildOpen(true)}>
-              <Plus className="h-4 w-4" /> Create module
-            </Button>
+              <Plus className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.modules.create_module", defaultMessage: "Create module", description: "Modules: button that opens the dialog to build a new module; keep it short" })}</Button>
             {uploadSources.length > 0 && (
               <Button variant="outline" isDisabled={!canManage} onPress={() => setUploadOpen(true)}>
-                <Upload className="h-4 w-4" /> Upload module
-              </Button>
+                <Upload className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.modules.upload_module", defaultMessage: "Upload module", description: "Modules: button that opens the dialog to upload a module bundle; keep it short" })}</Button>
             )}
             <Button variant="outline" onPress={() => setSourcesOpen((open) => !open)} aria-expanded={sourcesOpen}>
-              <Settings2 className="h-4 w-4" /> Manage sources
-            </Button>
+              <Settings2 className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.modules.manage_sources", defaultMessage: "Manage sources", description: "Modules: button that shows or hides the module sources panel; keep it short" })}</Button>
           </div>
         }
       />
 
-      {isError && <ErrorCard message="Failed to load module catalog." onRetry={() => void refetch()} />}
+      {isError && <ErrorCard message={intl.formatMessage({ id: "web.routes.modules.failed_to_load_module_catalog", defaultMessage: "Failed to load module catalog.", description: "Modules: error text shown when the module catalog fails to load; a retry button sits next to it" })} onRetry={() => void refetch()} />}
       {sourcesOpen ? <ClusterModuleSources cluster={cluster} canManage={canManage} />
-        : sourcesError && <ErrorCard message="Failed to load module sources." onRetry={() => void refetchSources()} />}
+        : sourcesError && <ErrorCard message={intl.formatMessage({ id: "web.routes.modules.failed_to_load_module_sources", defaultMessage: "Failed to load module sources.", description: "Modules: error text shown when the module sources panel fails to load; a retry button sits next to it" })} onRetry={() => void refetchSources()} />}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex gap-1 rounded-md border border-border bg-card p-1">
@@ -179,7 +178,7 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
                   : "text-muted hover:text-fg",
               )}
             >
-              {s === "all" ? "All sources" : s}
+              {s === "all" ? intl.formatMessage({ id: "web.routes.modules.all_sources", defaultMessage: "All sources", description: "Modules: source filter chip that shows every source" }) : s}
             </Button>
           ))}
         </div>
@@ -197,7 +196,7 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
                     : "text-muted hover:text-fg",
                 )}
               >
-                {c === "all" ? "All categories" : c}
+                {c === "all" ? intl.formatMessage({ id: "web.routes.modules.all_categories", defaultMessage: "All categories", description: "Modules: category filter chip that shows every category" }) : categoryLabel(c, intl)}
               </Button>
             ))}
           </div>
@@ -207,8 +206,8 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
             className="pl-9"
-            placeholder="Search modules…"
-            aria-label="Search modules"
+            placeholder={intl.formatMessage({ id: "web.routes.modules.search_modules", defaultMessage: "Search modules…", description: "Modules: grey placeholder of the search field that filters the module list by name" })}
+            aria-label={intl.formatMessage({ id: "web.routes.modules.search_modules_2", defaultMessage: "Search modules", description: "Modules: accessible name of the module search field" })}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -246,8 +245,8 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
         {visible.length === 0 && (
           <div className="col-span-full rounded-lg border border-dashed border-border bg-card/40 p-12 text-center text-sm text-muted">
             {items.length === 0
-              ? "No modules in any catalog yet — open Manage sources to add a source or check its sync status."
-              : "No modules match the current filter."}
+              ? intl.formatMessage({ id: "web.routes.modules.no_modules_in_any_catalog_yet", defaultMessage: "No modules in any catalog yet — open Manage sources to add a source or check its sync status.", description: "Modules: empty state when no catalog has any module" })
+              : intl.formatMessage({ id: "web.routes.modules.no_modules_match_the_current_filter", defaultMessage: "No modules match the current filter.", description: "Modules: empty state when the search or filters hide every module" })}
           </div>
         )}
       </div>
@@ -293,16 +292,13 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
       <ConfirmDialog
         open={!!uninstallTarget}
         onOpenChange={(o) => !o && setUninstallTarget(null)}
-        title={`Uninstall ${uninstallTarget?.displayName ?? uninstallTarget?.name ?? ""}?`}
+        title={intl.formatMessage({ id: "web.routes.modules.uninstall_title", defaultMessage: "Uninstall {name}?", description: "Modules: title of the uninstall ConfirmDialog; {name} is the module display name" }, { name: uninstallTarget?.displayName ?? uninstallTarget?.name ?? "" })}
         description={
           <>
-            <p>
-              Deletes the Module resource and its managed GameTemplate. Game
-              servers using this template must be removed first.
-            </p>
+            <p>{intl.formatMessage({ id: "web.routes.modules.deletes_the_module_resource_and_its", defaultMessage: "Deletes the Module resource and its managed GameTemplate. Game servers using this template must be removed first.", description: "Modules: explanation in the uninstall dialog: deletes the Module resource and its managed GameTemplate, and game servers using it must be removed first" })}</p>
           </>
         }
-        confirmLabel="Uninstall"
+        confirmLabel={intl.formatMessage({ id: "web.routes.modules.uninstall", defaultMessage: "Uninstall", description: "Modules: confirm button of the uninstall dialog that removes the module; keep it short" })}
         destructive
         busy={uninstallMutation.isPending}
         onConfirm={() => {
@@ -314,16 +310,13 @@ function ModulesCatalog({ cluster, clusterDisplayName, canManage }: { cluster: s
       <ConfirmDialog
         open={!!removeUploadTarget}
         onOpenChange={(o) => !o && setRemoveUploadTarget(null)}
-        title={`Remove uploaded module?`}
+        title={intl.formatMessage({ id: "web.routes.modules.remove_uploaded_module", defaultMessage: "Remove uploaded module?", description: "Modules: title of the remove-upload ConfirmDialog" })}
         description={
           <>
-            <p>
-              Deletes the uploaded bundle backing the <span className="font-mono">{removeUploadTarget?.displayName ?? removeUploadTarget?.name}</span> catalog entry.
-              The entry can be re-uploaded later.
-            </p>
+            <p>{intl.formatMessage({ id: "web.routes.modules.deletes_the_uploaded_bundle_backing_the", defaultMessage: "Deletes the uploaded bundle backing the", description: "Modules: opening words of the remove-upload dialog text, followed by the module name in monospace and the rest of the sentence" })} <span className="font-mono">{removeUploadTarget?.displayName ?? removeUploadTarget?.name}</span> {intl.formatMessage({ id: "web.routes.modules.catalog_entry_the_entry_can_be_re", defaultMessage: "catalog entry. The entry can be re-uploaded later.", description: "Modules: end of the remove-upload dialog text saying the catalog entry can be re-uploaded later" })}</p>
           </>
         }
-        confirmLabel="Remove upload"
+        confirmLabel={intl.formatMessage({ id: "web.routes.modules.remove_upload", defaultMessage: "Remove upload", description: "Modules: confirm button of the remove-upload dialog; keep it short" })}
         destructive
         busy={removeUploadMutation.isPending}
         onConfirm={() => {

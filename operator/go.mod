@@ -15,12 +15,17 @@ require (
 // both inside the workspace (go.work) and in standalone module/Docker builds.
 replace github.com/GameplanePanel/gameplane/netguard => ../netguard
 
+// i18n is an in-repo module (no published version); resolve it locally
+// both inside the go.work workspace and in standalone/Docker builds.
+replace github.com/GameplanePanel/gameplane/i18n => ../i18n
+
 require (
+	github.com/GameplanePanel/gameplane/i18n v0.0.0
 	github.com/go-git/go-billy/v5 v5.9.2
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/go-logr/logr v1.4.4
 	github.com/google/go-containerregistry v0.22.1
-	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.6.0
+	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.7.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.25.0
@@ -31,7 +36,7 @@ require (
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.1
-	oras.land/oras-go/v2 v2.6.2
+	oras.land/oras-go/v2 v2.6.3
 	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/yaml v1.6.0
 )

@@ -1,10 +1,12 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+import { defineMessages } from "react-intl";
 import { api, type ResourceScope } from "@/lib/api";
 import { DEFAULT_CLUSTER, DEFAULT_NAMESPACE } from "@/lib/cluster";
 import { Templates } from "@/lib/endpoints";
 import { assignGameCodesForTemplates } from "@/lib/gameIcon";
+import { useOptionalIntl } from "@/lib/i18n/format";
 import type { Backup, BackupSchedule, ClusterNode, ClusterStats, ClusterView, GameServer, GameServerSet, GameTemplate, Restore } from "@/types";
 
 export interface FleetTarget {
@@ -103,7 +105,16 @@ export function useFleetServerSets(cluster: string) {
     queryFn: ({ signal }) => Fleet.serverSets({ cluster: cluster || undefined }, signal), refetchInterval: 5_000 });
 }
 
+const MESSAGES = defineMessages({
+  results_unavailable: {
+    id: "web.lib.fleet.results_unavailable",
+    defaultMessage: "Server results unavailable.",
+    description: "Fleet view issue shown for a cluster or namespace whose server list failed to load",
+  },
+});
+
 export function useFleetServerSelection(cluster: string, namespaces: Set<string>) {
+  const intl = useOptionalIntl();
   const selected = useMemo(() => namespaces.size ? [...namespaces].sort() : [undefined], [namespaces]);
   const results = useQueries({ queries: selected.map((namespace) => ({
     queryKey: ["fleet", "servers", cluster, namespace ?? ""],
@@ -116,7 +127,7 @@ export function useFleetServerSelection(cluster: string, namespaces: Set<string>
   for (const [index, result] of results.entries()) {
     for (const item of result.data?.items ?? []) items.set(targetKey(item.target), item);
     issues.push(...result.data?.issues ?? []);
-    if (result.error) issues.push({ cluster, namespace: selected[index], code: "unavailable", message: "Server results unavailable." });
+    if (result.error) issues.push({ cluster, namespace: selected[index], code: "unavailable", message: intl.formatMessage(MESSAGES.results_unavailable) });
     partial ||= result.data?.partial === true || !!result.error;
   }
   return {

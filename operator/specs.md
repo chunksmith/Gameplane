@@ -11,7 +11,7 @@ The operator is a Kubernetes controller-runtime-based process that reconciles Ga
 ## Responsibilities
 
 - **GameServer lifecycle:** reconcile GameServer CRs into StatefulSets, Services, PVCs, and pod-injected agent sidecars; manage pod affinity, RCON/console integration, file I/O, and graceful stop sequences.
-- **Module installation:** pull OCI module bundles from remote or local sources, verify signatures (cosign), and materialize GameTemplate CRs; refresh source indexes periodically.
+- **Module installation:** pull OCI module bundles from remote or local sources, verify signatures (cosign), and materialize GameTemplate CRs; refresh source indexes periodically. Translation files (`locales/<tag>.json`) are carried by every module source (OCI layers, directory, git, HTTP archive, upload, `gp-module package` tarball) and validated against the ids derived from the module (`i18n/modlocale`); valid entries are written to the `<template>-locales` ConfigMap (owned by the GameTemplate, in the operator namespace) and problems surface as the GameTemplate `LocalesValid` condition (reasons `Valid`, `InvalidEntries`, `LocalesTooLarge`, `WriteFailed`) and Warning events, never as an install failure. A file over 900 KiB, or a language that would push the bundle's locale files past 4 MiB together (counted in file-name order), is not read but reported by language tag as `LocalesTooLarge`. Events fire only when the problem list changes (fingerprint annotation `gameplane.local/locales-problems`). The ConfigMap is rewritten on each apply, not recreated if deleted while the Module stays converged.
 - **Backup & restore:** coordinate application-level quiesce with agent, spawn restic backup/restore Jobs, track snapshot IDs, and enforce retention policies.
 - **Scheduled backups:** parse cron expressions, create Backup objects on schedule, apply retention rules (keep-daily, keep-hourly, etc.), and report schedule validity and retention status.
 - **Remote cluster health:** periodically probe Kubernetes clusters reachable via kubeconfig Secrets, report connectivity and API-server health.
@@ -73,7 +73,8 @@ operator/
 │   │   ├── restore_controller.go           Drives Restore → restic Job with GameServer suspend
 │   │   ├── restore_volumesnapshot.go       Snapshot recovery for restore strategy
 │   │   ├── modulesource_controller.go      Indexes module sources, refreshes catalog
-│   │   ├── module_controller.go            Pulls OCI bundle, verifies signature, creates GameTemplate
+│   │   ├── module_controller.go            Pulls OCI bundle, verifies signature, creates GameTemplate, publishes module translations
+│   │   ├── module_locales.go               Validates module translations, writes the <template>-locales ConfigMap, LocalesValid condition + events
 │   │   ├── cluster_controller.go           Health checks remote clusters via kubeconfig
 │   │   ├── networkcapture_controller.go    Drives NetworkCapture → sidecar injection + retention/expiry
 │   │   ├── agent_certs.go                  Generates per-GameServer agent mTLS certs
@@ -82,6 +83,7 @@ operator/
 │   │   ├── retention.go                    Backup retention logic (keep-daily, keep-hourly, etc.)
 │   │   ├── restic_summary.go               Parses restic JSON output from container logs
 │   │   ├── semver.go                       Semantic versioning helpers
+│   │   ├── gameserver_condition_args.go    conditionArgs derivation and localized-reason arguments (GameServer status)
 │   │   ├── helpers.go                      Utility functions shared across reconcilers
 │   │   └── *_envtest_test.go               Co-located integration tests (envtest tier)
 │   │
@@ -111,7 +113,7 @@ Ten CRD kinds under `gameplane.local/v1alpha1`:
 
 | Kind | File | Purpose |
 |------|------|---------|
-| **GameTemplate** | `gametemplate_types.go` | Reusable blueprint for a game server (image, ports, probes, RCON protocol, mod loaders, etc.). Cluster-wide catalog; instances are created via GameServer references. Status tracks in-use count. |
+| **GameTemplate** | `gametemplate_types.go` | Reusable blueprint for a game server (image, ports, probes, RCON protocol, mod loaders, etc.). Cluster-wide catalog; instances are created via GameServer references. Status tracks in-use count and the `LocalesValid` condition (module translations). |
 | **Module** | `module_types.go` | User request to pull and install a module (OCI bundle) from a ModuleSource. Creates a child GameTemplate on success; delete cascades to the template via owner reference. |
 | **ModuleSource** | `modulesource_types.go` | Registry of module bundles (OCI, git, HTTP, or local). Declares source location, refresh interval, optional credentials Secret, and optional cosign verification policy. Status lists available modules. |
 | **Cluster** | `cluster_types.go` | Metadata for a remote Kubernetes cluster (displayName, kubeconfig Secret ref). Cluster-scoped so multiple control planes can discover each other. Status tracks health (Unknown/Healthy/Unhealthy), lastCheckTime, conditions. |
@@ -207,6 +209,7 @@ Primary reconcilers register with the manager in `cmd/main.go` and handle CRD li
     - Precedence when several apply: `IgnoredForExposureMode` → `InvalidAddress` → `NoAddressManagerConfigured` → direct-conflict `AddressInUse` → event-derived failure → `ServiceNotReady` → `AssignmentPending` → `Assigned`.
   - **Endpoint population:** `endpointsFromService()` populates `GameServerEndpoint.pool` only when a pool request was actually translated (outcome == Assigned and Manager supports it); never claims a pool for the ClusterIP address shown while assignment is pending, for an ignored request, or for a cluster without an address manager.
   - **status.startedAt:** while the server is Running, `status.startedAt` follows the start time of the running game container, matched by container name (`gameContainerStartedAt` in `gameserver_status.go`). Uptime therefore resets when the game container restarts inside the same pod. When that time is unavailable, `startedAt` is set once to the current time and kept. Test: `TestGameContainerStartedAt` (`gameserver_status_test.go`).
+  - **conditionArgs:** `status.conditionArgs[<ConditionType>]` carries the values interpolated into the English `message` of the condition's current reason, recomputed on every `reconcileStatus` pass by `deriveConditionArgs` (`gameserver_condition_args.go`); `setPhase`, `setTunnelCredentialRefused` and `clearTunnelCredentialRefused` maintain their own entry. The `message` is unchanged. Translation ids are `condition.<type>.<reason>` (lower-cased) and are listed in `i18n/locales/en/app.json`.
   - **TunnelReady condition:** Reports tunnel pod readiness when `spec.networking.tunnel.enabled=true` (absent when disabled). Computed in `computeTunnelConditions` (`gameserver_status.go`) each pass reconcileStatus runs, with reasons `InvalidConfig`, `DeploymentNotReady`, `PortNotMapped` (frp, unmapped advertised ports), `NoCredentials` (tailscale/playit missing `credentialsSecretRef`), `UnknownProvider`, and `Ready`. **Credential ownership:** `reconcileTunnel` refuses to mount a `credentialsSecretRef` Secret that has no `ownerReference` matching the GameServer's name and UID (including a stale reference from a deleted same-name GameServer) (`isServerOwnedSecret`) — supported credential paths are the dashboard, the `PUT /servers/{name}:tunnel-credentials` API (which sets the ownerReference), or a manually-created Secret with an explicit ownerReference. A refused Secret is never mounted: `reconcileTunnel` still writes the tunnel Deployment, with no credential volume and zero replicas, so a tunnel already running with that Secret stops. It also writes `TunnelReady=False/TunnelCredentialRefused` (naming the Secret, never its data) directly from `reconcileTunnel` before `Reconcile` returns its error — this bypasses the normal `reconcileStatus` pass since Reconcile returns early on that error — The condition carries its own current `observedGeneration`, but `status.observedGeneration` is not advanced on a refused pass (the rest of status is not recomputed). Once the credential becomes acceptable (or the tunnel is no longer wanted), `reconcileTunnel` removes the refusal condition itself (`clearTunnelCredentialRefused`) before returning, so it does not linger if a later step (NetworkPolicy, Service, StatefulSet) fails; reconcileStatus then writes the real TunnelReady. The refusal message points at the dashboard/API, except when the refused Secret is the canonical `<server>-tunnel-auth` name, where the API answers 409 and the message says to fix the ownerReference or delete the Secret first.
 
 ### GameServerSetReconciler
@@ -372,6 +375,8 @@ Primary reconcilers register with the manager in `cmd/main.go` and handle CRD li
 - **restic_summary.go:** Parse restic container logs, extract final JSON summary (snapshot ID, duration, size).
 - **semver.go:** Semantic versioning utilities (compare version strings against gameplaneMinVersion).
 - **helpers.go:** Shared utilities (updateCondition, upsertCondition, phase transition helpers).
+- **gameserver_condition_args.go:** `deriveConditionArgs` rebuilds `status.conditionArgs` from the final GameServer conditions on every `reconcileStatus` pass (the values each reason's English message interpolates); `setConditionArgs` maintains the entries written out of band; `provisioningArgs` reads the pod's container states for CrashLoopBackOff and ContainerExited.
+- **hack/condition-ids (generator):** `go run ./hack/condition-ids -app ../i18n/locales/en/app.json` writes every `condition.<type>.<reason>` id from its table into the English reference (`make i18n-sync`); `-check` (run by `make check-i18n`) reports drift and exits 1. Its coverage guard parses the non-test controller sources with `go/parser` and fails when a reason literal they set has no table entry, or when a non-dynamic table reason is set nowhere; it reports the mismatch rather than editing the table. Rows marked dynamic (Backup `Pending`/`Running`, which come from the phase string) are exempt from the second check.
 
 ## External interface / contracts
 

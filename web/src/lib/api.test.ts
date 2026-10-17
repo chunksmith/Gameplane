@@ -916,3 +916,99 @@ describe("Telemetry notice client", () => {
     await expect(Telemetry.ack("keep")).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe("api() problem+json errors", () => {
+  const problemBody = {
+    type: "about:blank",
+    status: 409,
+    title: "Conflict",
+    detail: "role \"operator\" already exists",
+    messageId: "server.role.exists",
+    args: { role: "operator", count: 2, nested: { ignored: true } },
+  };
+
+  function problemRes(body: string, status = 409): Response {
+    return new Response(body, {
+      status,
+      headers: { "Content-Type": "application/problem+json" },
+    });
+  }
+
+  it("parses a problem+json body into detail, messageId and args", async () => {
+    fetchMock.mockResolvedValueOnce(problemRes(JSON.stringify(problemBody)));
+    await expect(api("/roles")).rejects.toMatchObject({
+      detail: "role \"operator\" already exists",
+      messageId: "server.role.exists",
+      args: { role: "operator", count: 2 },
+    });
+  });
+
+  it("sets body and message to the detail sentence", async () => {
+    fetchMock.mockResolvedValueOnce(problemRes(JSON.stringify(problemBody)));
+    const err = await api("/roles").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(APIError);
+    const apiErr = err as APIError;
+    expect(apiErr.body).toBe("role \"operator\" already exists");
+    expect(apiErr.message).toBe("409: role \"operator\" already exists");
+    expect(apiErr.status).toBe(409);
+    expect(apiErr.isHTML).toBe(false);
+  });
+
+  it("leaves messageId and args unset when the body omits them", async () => {
+    fetchMock.mockResolvedValueOnce(problemRes(JSON.stringify({ detail: "plain detail" }), 400));
+    const err = (await api("/roles").catch((e: unknown) => e)) as APIError;
+    expect(err.detail).toBe("plain detail");
+    expect(err.messageId).toBeUndefined();
+    expect(err.args).toBeUndefined();
+    expect(err.message).toBe("400: plain detail");
+  });
+
+  it("falls back to the raw body when problem+json is not valid JSON", async () => {
+    fetchMock.mockResolvedValueOnce(problemRes("not json {", 500));
+    const err = (await api("/roles").catch((e: unknown) => e)) as APIError;
+    expect(err.body).toBe("not json {");
+    expect(err.message).toBe("500: not json {");
+    expect(err.detail).toBeUndefined();
+    expect(err.messageId).toBeUndefined();
+  });
+
+  it("falls back to the raw body when problem+json has no string detail", async () => {
+    fetchMock.mockResolvedValueOnce(problemRes(JSON.stringify({ messageId: "x" }), 422));
+    const err = (await api("/roles").catch((e: unknown) => e)) as APIError;
+    expect(err.body).toBe(JSON.stringify({ messageId: "x" }));
+    expect(err.detail).toBeUndefined();
+  });
+
+  it("ignores a non-object args value", async () => {
+    fetchMock.mockResolvedValueOnce(
+      problemRes(JSON.stringify({ detail: "d", messageId: "m", args: ["a"] }), 400),
+    );
+    const err = (await api("/roles").catch((e: unknown) => e)) as APIError;
+    expect(err.messageId).toBe("m");
+    expect(err.args).toBeUndefined();
+  });
+
+  it("keeps plain text error bodies unchanged", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("boom", { status: 500, headers: { "Content-Type": "text/plain" } }));
+    const err = (await api("/roles").catch((e: unknown) => e)) as APIError;
+    expect(err.body).toBe("boom");
+    expect(err.message).toBe("500: boom");
+    expect(err.detail).toBeUndefined();
+    expect(err.messageId).toBeUndefined();
+    expect(err.args).toBeUndefined();
+  });
+
+  it("sends the problem+json Accept header by default", async () => {
+    fetchMock.mockResolvedValueOnce(jsonRes(200, { ok: true }));
+    await api("/roles");
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Record<string, string>).Accept).toBe("application/json, application/problem+json");
+  });
+
+  it("lets opts.headers override the Accept header", async () => {
+    fetchMock.mockResolvedValueOnce(jsonRes(200, { ok: true }));
+    await api("/roles", { headers: { Accept: "text/plain" } });
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Record<string, string>).Accept).toBe("text/plain");
+  });
+});

@@ -45,10 +45,18 @@ import { groupServers, type ServerGroup } from "@/lib/serverSets";
 import { resourceCan } from "@/lib/resourceTarget";
 import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServerSets, useFleetServers, type FleetItem, type FleetResult, type FleetTarget, type Located } from "@/lib/fleet";
 import { FleetCoverage, FleetScopeFilter } from "@/components/FleetScope";
+import { useOptionalIntl } from "@/lib/i18n/format";
+import { defineMessages, type MessageDescriptor } from "react-intl";
 
 type FilterKey = "all" | "running" | "stopped";
 
+const RUNNING_SUB_LABELS = defineMessages({
+  ofReturned: { id: "web.routes.servers.of_returned", defaultMessage: "of {count} returned", description: "Servers: sub-label on the Running card when the server list is partial; {count} is the number of returned servers" },
+  ofTotal: { id: "web.routes.servers.of_total", defaultMessage: "of {count} total", description: "Servers: sub-label on the Running card; {count} is the total number of servers" },
+});
+
 export function ServersPage() {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const { data: placements } = useFleetPlacements();
   const canCreate = (placements?.items.length ?? 0) > 0;
@@ -68,6 +76,7 @@ export function ServersPage() {
   const { data: setFleet } = useFleetServerSets(location);
   const sets = useMemo(() => (setFleet?.items ?? []).map(located).filter((set) => !location || set.fleetTarget.cluster === location), [setFleet, location]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const runningSubLabel: MessageDescriptor = fleet?.partial ? RUNNING_SUB_LABELS.ofReturned : RUNNING_SUB_LABELS.ofTotal;
   const { data: inventory, error: inventoryError } = useQuery({
     queryKey: ["fleet", "inventory", location],
     queryFn: ({ signal }) => Fleet.inventory({ cluster: location || undefined }, signal),
@@ -129,7 +138,9 @@ export function ServersPage() {
   const counts = useMemo(() => countByState(servers), [servers]);
   const players = playerCoverage(servers);
   const vcpus = (clusterView?.nodes ?? []).reduce((s, n) => s + (n.cpu?.capacity ?? 0), 0);
-  const storage = cluster.usedStorageBytes === undefined ? { valueText: "—", subText: "inventory unavailable", overcommitted: false } : describeStorageProvisioned(cluster.usedStorageBytes, cluster.totalStorageBytes);
+  const emptyValue = intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
+  const inventoryUnavailable = intl.formatMessage({ id: "web.routes.servers.inventory_unavailable", defaultMessage: "inventory unavailable", description: "Servers: sub-label on the storage and inventory-nodes cards when inventory cannot be read" });
+  const storage = cluster.usedStorageBytes === undefined ? { valueText: emptyValue, subText: inventoryUnavailable, overcommitted: false } : describeStorageProvisioned(cluster.usedStorageBytes, cluster.totalStorageBytes, intl);
 
   // Derive distinct games and namespaces from servers
   const distinctGames = useMemo(() => {
@@ -151,13 +162,14 @@ export function ServersPage() {
   const appliedFacetCount = appliedGames.size + appliedNamespaces.size + (location ? 1 : 0);
   const locationChoices = [...(scopes?.scopes ?? []).map((scope) => scope.cluster), ...(scopes?.items ?? []).map((item) => item.target.cluster), ...(scopes?.issues ?? []).map((issue) => issue.cluster)];
   const locationField = <div className="space-y-1">
-    <div className="text-xs font-semibold text-muted">Location</div>
+    <div className="text-xs font-semibold text-muted">{intl.formatMessage({ id: "web.routes.servers.location", defaultMessage: "Location", description: "Servers: label of the location filter in the filter panel; the choices are the clusters the user can access" })}</div>
     <FleetScopeFilter value={draftLocation} onChange={setDraftLocation} clusters={locationChoices} />
   </div>;
-  const networkSelect = (className: string) => <Select value={network} onChange={(next) => setNetwork(String(next ?? ""))} aria-label="Filter by network" className={className}>
+  const allNetworksLabel = intl.formatMessage({ id: "web.routes.servers.all_networks", defaultMessage: "All networks", description: "Servers: network filter choice that shows servers on every network; keep it short" });
+  const networkSelect = (className: string) => <Select value={network} onChange={(next) => setNetwork(String(next ?? ""))} aria-label={intl.formatMessage({ id: "web.routes.servers.filter_by_network", defaultMessage: "Filter by network", description: "Servers: accessible name of the network filter dropdown above the server list; keep it short" })} className={className}>
     <Select.Trigger><Select.Value /><Select.Indicator className="ml-auto h-4 w-4" /></Select.Trigger>
-    <Select.Popover><ListBox aria-label="Network options">
-      <ListBoxItem id="" textValue="All networks">All networks</ListBoxItem>
+    <Select.Popover><ListBox aria-label={intl.formatMessage({ id: "web.routes.servers.network_options", defaultMessage: "Network options", description: "Servers: hidden name of the list of networks inside the network filter dropdown, read only by screen readers" })}>
+      <ListBoxItem id="" textValue={allNetworksLabel}>{allNetworksLabel}</ListBoxItem>
       {(networks ?? []).map(({ name }) => <ListBoxItem key={name} id={name} textValue={name}>{name}</ListBoxItem>)}
     </ListBox></Select.Popover>
   </Select>;
@@ -246,7 +258,7 @@ export function ServersPage() {
     return next;
   });
   const groupSection = groups.length > 0 && (
-    <section aria-label="Server groups" className="space-y-3">
+    <section aria-label={intl.formatMessage({ id: "web.routes.servers.server_groups", defaultMessage: "Server groups", description: "Servers: hidden name of the section that lists server groups above the server list, read only by screen readers" })} className="space-y-3">
       {groups.map(({ group, shown }) => (
         <ServerGroupCard
           key={group.key}
@@ -267,56 +279,69 @@ export function ServersPage() {
     <div className="space-y-6 p-6">
       {!isMobile && (
         <PageHeader
-          title="Servers"
-          subtitle="Manage your game servers across all authorized locations."
+          title={intl.formatMessage({ id: "web.routes.servers.servers", defaultMessage: "Servers", description: "Servers: page title of the server list page; keep it short" })}
+          subtitle={intl.formatMessage({ id: "web.routes.servers.manage_your_game_servers_across_all", defaultMessage: "Manage your game servers across all authorized locations.", description: "Servers: subtitle under the page title saying the list covers game servers in all locations the user may access" })}
           actions={canCreate ?
             <Link to="/servers/new" className={cn(buttonVariants({ variant: "primary" }), "rounded-full")}>
-              <Plus className="h-4 w-4" /> Create server
-            </Link> : undefined
+              <Plus className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.servers.create_server", defaultMessage: "Create server", description: "Servers: button at the top right that opens the form to create a new game server; shown only to users who can create servers; keep it short" })}</Link> : undefined
           }
         />
       )}
 
       {act.error && <ErrorBanner err={act.error} onDismiss={() => act.reset()} />}
       {reorder.error && <ErrorBanner err={reorder.error} onDismiss={() => reorder.reset()} />}
-      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={error} label="Server results" />
-      <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={inventoryError} label="Inventory" />
+      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={error} label={intl.formatMessage({ id: "web.routes.servers.server_results", defaultMessage: "Server results", description: "Servers: label of the coverage status for the server data behind the list; it warns when the data is partial or failed" })} />
+      <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={inventoryError} label={intl.formatMessage({ id: "web.routes.servers.inventory", defaultMessage: "Inventory", description: "Servers: label of the coverage status for the cluster inventory data; it warns when the inventory is partial or failed" })} />
 
       {!isMobile && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatCard
-            label="Running"
+            label={intl.formatMessage({ id: "web.routes.servers.running", defaultMessage: "Running", description: "Servers: 'Running' is both a summary card label counting running servers and a status filter tab that lists them with their count; keep it short" })}
             icon={<Activity className="h-4 w-4" />}
-            value={error || (fleet?.partial && servers.length === 0) ? "—" : counts.running}
-            sub={error || (fleet?.partial && servers.length === 0) ? "server status unavailable" : `of ${servers.length} ${fleet?.partial ? "returned" : "total"}`}
+            value={error || (fleet?.partial && servers.length === 0) ? emptyValue : counts.running}
+            sub={error || (fleet?.partial && servers.length === 0)
+              ? intl.formatMessage({ id: "web.routes.servers.server_status_unavailable", defaultMessage: "server status unavailable", description: "Servers: sub-label on the Running card when server data cannot be read" })
+              : intl.formatMessage(runningSubLabel, { count: servers.length })}
             accent={error || (fleet?.partial && servers.length === 0) ? "warning" : "success"}
           />
           <StatCard
-            label="Players online"
+            label={intl.formatMessage({ id: "web.routes.servers.players_online", defaultMessage: "Players online", description: "Servers: label of the summary card for players online; the line under the number shows the peak or a note when counts are unavailable" })}
             icon={<UsersIcon className="h-4 w-4" />}
-            value={error || !players.known || (fleet?.partial && servers.length === 0) ? "—" : counts.players}
-            sub={error || !players.known || (fleet?.partial && servers.length === 0) ? "player status unavailable" : players.unknown ? `${players.unknown} server player counts unavailable` : `peak ${counts.playersMax}`}
+            value={error || !players.known || (fleet?.partial && servers.length === 0) ? emptyValue : counts.players}
+            sub={error || !players.known || (fleet?.partial && servers.length === 0)
+              ? intl.formatMessage({ id: "web.routes.servers.player_status_unavailable", defaultMessage: "player status unavailable", description: "Servers: sub-label on the Players online card when player counts cannot be read" })
+              : players.unknown
+                ? intl.formatMessage({ id: "web.routes.servers.player_counts_unavailable", defaultMessage: "{count} server player counts unavailable", description: "Servers: sub-label on the Players online card when some servers report no player count; {count} is how many" }, { count: players.unknown })
+                : intl.formatMessage({ id: "web.routes.servers.peak_players", defaultMessage: "peak {count}", description: "Servers: sub-label on the Players online card with the peak player count; {count} is the peak" }, { count: counts.playersMax })}
             accent="primary"
           />
           <StatCard
-            label="vCPUs"
+            label={intl.formatMessage({ id: "web.routes.servers.vcpus", defaultMessage: "vCPUs", description: "Servers: label of the summary card with the total vCPU count; vCPU is a technical term, usually left untranslated" })}
             icon={<Cpu className="h-4 w-4" />}
-            value={vcpus > 0 ? vcpus : "—"}
-            sub={inventory?.partial ? "returned inventory cores" : "authorized inventory cores"}
+            value={vcpus > 0 ? vcpus : emptyValue}
+            sub={inventory?.partial
+              ? intl.formatMessage({ id: "web.routes.servers.returned_inventory_cores", defaultMessage: "returned inventory cores", description: "Servers: sub-label on the vCPUs card when the inventory is partial" })
+              : intl.formatMessage({ id: "web.routes.servers.authorized_inventory_cores", defaultMessage: "authorized inventory cores", description: "Servers: sub-label on the vCPUs card" })}
             accent="warning"
           />
           <StatCard
-            label="Storage provisioned"
+            label={intl.formatMessage({ id: "web.routes.servers.storage_provisioned", defaultMessage: "Storage provisioned", description: "Servers: label of the summary card with the total provisioned storage; the line under it says whether it covers returned or all authorized inventory" })}
             icon={<HardDrive className="h-4 w-4" />}
             value={storage.valueText}
-            sub={storage.subText ?? "—"}
+            sub={storage.subText ?? emptyValue}
             accent={storage.overcommitted ? "warning" : "violet"}
           />
           <StatCard
-            label="Inventory nodes"
+            label={intl.formatMessage({ id: "web.routes.servers.inventory_nodes", defaultMessage: "Inventory nodes", description: "Servers: label of the summary card counting the nodes in the cluster inventory" })}
             icon={<ServerIcon className="h-4 w-4" />}
-            value={!inventoryError && cluster.nodes > 0 ? cluster.nodes : "—"}
-            sub={inventoryError ? "inventory unavailable" : cluster.nodes === 0 ? "no node data" : inventory?.partial ? "returned nodes only" : "authorized inventory nodes"}
+            value={!inventoryError && cluster.nodes > 0 ? cluster.nodes : emptyValue}
+            sub={inventoryError
+              ? inventoryUnavailable
+              : cluster.nodes === 0
+                ? intl.formatMessage({ id: "web.routes.servers.no_node_data", defaultMessage: "no node data", description: "Servers: sub-label on the inventory-nodes card when no nodes are reported" })
+                : inventory?.partial
+                  ? intl.formatMessage({ id: "web.routes.servers.returned_nodes_only", defaultMessage: "returned nodes only", description: "Servers: sub-label on the inventory-nodes card when the inventory is partial" })
+                  : intl.formatMessage({ id: "web.routes.servers.authorized_inventory_nodes", defaultMessage: "authorized inventory nodes", description: "Servers: sub-label on the inventory-nodes card" })}
             accent="warning"
           />
         </div>
@@ -329,27 +354,21 @@ export function ServersPage() {
             onSelectionChange={(key) => setFilter(key as FilterKey)}
             variant="secondary"
           >
-            <Tabs.List aria-label="Server status filter" className="servers-status-filter">
+            <Tabs.List aria-label={intl.formatMessage({ id: "web.routes.servers.server_status_filter", defaultMessage: "Server status filter", description: "Servers: hidden name of the row of status filter tabs, read only by screen readers" })} className="servers-status-filter">
               <Tab id="all">
-                <span className="inline-flex items-center gap-1.5">
-                  All
-                  <span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
+                <span className="inline-flex items-center gap-1.5">{intl.formatMessage({ id: "web.routes.servers.all", defaultMessage: "All", description: "Servers: status filter tab that shows all servers, followed by their count; keep it short" })}<span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
                     {servers.length}
                   </span>
                 </span>
               </Tab>
               <Tab id="running">
-                <span className="inline-flex items-center gap-1.5">
-                  Running
-                  <span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
+                <span className="inline-flex items-center gap-1.5">{intl.formatMessage({ id: "web.routes.servers.running", defaultMessage: "Running", description: "Servers: 'Running' is both a summary card label counting running servers and a status filter tab that lists them with their count; keep it short" })}<span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
                     {counts.running}
                   </span>
                 </span>
               </Tab>
               <Tab id="stopped">
-                <span className="inline-flex items-center gap-1.5">
-                  Stopped
-                  <span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
+                <span className="inline-flex items-center gap-1.5">{intl.formatMessage({ id: "web.routes.servers.stopped", defaultMessage: "Stopped", description: "Servers: status filter tab that shows only stopped servers, followed by their count; keep it short" })}<span className="servers-status-filter__count rounded-[4px] bg-foreground/10 px-1.5 py-0.5 text-xs leading-none">
                     {counts.stopped}
                   </span>
                 </span>
@@ -360,11 +379,11 @@ export function ServersPage() {
             <div className="relative w-64">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" />
               <Input
-                placeholder="Search servers…"
+                placeholder={intl.formatMessage({ id: "web.routes.servers.search_servers", defaultMessage: "Search servers…", description: "Servers: placeholder text inside the search box above the server list on wide screens, shown while the box is empty" })}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full pl-9"
-                aria-label="Search servers"
+                aria-label={intl.formatMessage({ id: "web.routes.servers.search_servers_2", defaultMessage: "Search servers", description: "Servers: screen-reader name of the server search box on wide and narrow screens; not shown on screen" })}
               />
             </div>
             {networkSelect("w-48")}
@@ -382,9 +401,7 @@ export function ServersPage() {
               onOpenChange={handleOpenFilterChange}
             >
               <div className="inline-flex items-center gap-2 rounded-[6px] px-3 py-2 text-sm font-medium border border-default-300 bg-default-100 hover:bg-default-200 cursor-pointer transition-colors">
-                <Filter className="h-4 w-4" />
-                Filter
-                {appliedFacetCount > 0 && (
+                <Filter className="h-4 w-4" />{intl.formatMessage({ id: "web.routes.servers.filter", defaultMessage: "Filter", description: "Servers: button that opens the filter panel, with a count of applied filters; keep it short" })}{appliedFacetCount > 0 && (
                   <Chip size="sm" variant="soft" className="ml-1.5">
                     {appliedFacetCount}
                   </Chip>
@@ -400,11 +417,11 @@ export function ServersPage() {
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" />
             <Input
-              placeholder="Search…"
+              placeholder={intl.formatMessage({ id: "web.routes.servers.search", defaultMessage: "Search…", description: "Servers: placeholder inside the search box shown on narrow screens; the short form of the search prompt" })}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full pl-9 rounded-xl"
-              aria-label="Search servers"
+              aria-label={intl.formatMessage({ id: "web.routes.servers.search_servers_2", defaultMessage: "Search servers", description: "Servers: screen-reader name of the server search box on wide and narrow screens; not shown on screen" })}
             />
           </div>
           {networkSelect("w-36 shrink-0")}
@@ -422,7 +439,7 @@ export function ServersPage() {
             onOpenChange={handleOpenFilterChange}
           >
             <div className="filter-trigger relative inline-flex items-center justify-center w-10 h-10 rounded-xl border border-default-300 bg-default-100 hover:bg-default-200 cursor-pointer">
-              <span className="sr-only">Filter</span>
+              <span className="sr-only">{intl.formatMessage({ id: "web.routes.servers.filter", defaultMessage: "Filter", description: "Servers: button that opens the filter panel, with a count of applied filters; keep it short" })}</span>
               <SlidersHorizontal className="h-[18px] w-[18px]" />
               {appliedFacetCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-accent px-1 text-[10px] text-accent-foreground">{appliedFacetCount}</span>}
             </div>
@@ -434,10 +451,10 @@ export function ServersPage() {
         <div className="space-y-3">
           {groupSection}
           {isLoading && (
-            <Card className="p-10 text-center text-sm text-foreground/60">Loading…</Card>
+            <Card className="p-10 text-center text-sm text-foreground/60">{intl.formatMessage({ id: "web.routes.servers.loading", defaultMessage: "Loading…", description: "Servers: text shown in a card while the server list is loading, in place of the list" })}</Card>
           )}
           {!isLoading && standalone.length === 0 && groups.length === 0 && (
-            <Card className="p-12 text-center text-sm text-foreground/60">{error || fleet?.partial ? "No server data available for this filter." : "No servers match."}</Card>
+            <Card className="p-12 text-center text-sm text-foreground/60">{error || fleet?.partial ? intl.formatMessage({ id: "web.routes.servers.no_data_for_filter", defaultMessage: "No server data available for this filter.", description: "Servers: empty-list message when server data is unavailable or partial" }) : intl.formatMessage({ id: "web.routes.servers.no_servers_match", defaultMessage: "No servers match.", description: "Servers: empty-list message when no servers match the filter" })}</Card>
           )}
           {standalone.map((gs) => (
             <ServerCard
@@ -457,31 +474,35 @@ export function ServersPage() {
           <div ref={setTableBox} className="rounded-lg border border-border bg-card overflow-hidden">
             <Table.Root className="bg-transparent">
               <Table.ScrollContainer>
-                <Table.Content aria-label="Server list" keyboardNavigationBehavior="arrow" dragAndDropHooks={dragAndDropHooks}>
+                <Table.Content aria-label={intl.formatMessage({ id: "web.routes.servers.server_list", defaultMessage: "Server list", description: "Servers: hidden name of the server list table, read only by screen readers" })} keyboardNavigationBehavior="arrow" dragAndDropHooks={dragAndDropHooks}>
                   <Table.Header>
-                    <Table.Column id="drag" className="w-10"><span className="sr-only">Reorder</span></Table.Column>
-                    <Table.Column id="name" isRowHeader>Name</Table.Column>
-                    <Table.Column id="game">Game</Table.Column>
-                    <Table.Column id="status">Status</Table.Column>
-                    <Table.Column id="uptime">Uptime</Table.Column>
-                    <Table.Column id="cpu">CPU</Table.Column>
-                    <Table.Column id="memory">Memory</Table.Column>
-                    <Table.Column id="disk">Disk</Table.Column>
-                    <Table.Column id="players">Players</Table.Column>
-                    <Table.Column id="node">Node</Table.Column>
-                    <Table.Column id="actions" className="text-right">Actions</Table.Column>
+                    <Table.Column id="drag" className="w-10"><span className="sr-only">{intl.formatMessage({ id: "web.routes.servers.reorder", defaultMessage: "Reorder", description: "Servers: hidden column heading of the drag handle column used to reorder servers; read only by screen readers" })}</span></Table.Column>
+                    <Table.Column id="name" isRowHeader>{intl.formatMessage({ id: "web.routes.servers.name", defaultMessage: "Name", description: "Servers: column heading for the server name; keep it short" })}</Table.Column>
+                    <Table.Column id="game">{intl.formatMessage({ id: "web.routes.servers.game", defaultMessage: "Game", description: "Servers: column heading for the game each server runs; keep it short" })}</Table.Column>
+                    <Table.Column id="status">{intl.formatMessage({ id: "web.routes.servers.status", defaultMessage: "Status", description: "Servers: column heading for the server state, such as running or stopped; keep it short" })}</Table.Column>
+                    <Table.Column id="uptime">{intl.formatMessage({ id: "web.routes.servers.uptime", defaultMessage: "Uptime", description: "Servers: column heading for how long each server has been running; keep it short" })}</Table.Column>
+                    <Table.Column id="cpu">{intl.formatMessage({ id: "web.routes.servers.cpu", defaultMessage: "CPU", description: "Servers: column heading for CPU use per server; CPU is a technical term, usually left untranslated; keep it short" })}</Table.Column>
+                    <Table.Column id="memory">{intl.formatMessage({ id: "web.routes.servers.memory", defaultMessage: "Memory", description: "Servers: column heading for memory use per server; keep it short" })}</Table.Column>
+                    <Table.Column id="disk">{intl.formatMessage({ id: "web.routes.servers.disk", defaultMessage: "Disk", description: "Servers: column heading for disk use per server; keep it short" })}</Table.Column>
+                    <Table.Column id="players">{intl.formatMessage({ id: "web.routes.servers.players", defaultMessage: "Players", description: "Servers: column heading for the number of players online on each server; keep it short" })}</Table.Column>
+                    <Table.Column id="node">{intl.formatMessage({ id: "web.routes.servers.node", defaultMessage: "Node", description: "Servers: column heading for the cluster node each server runs on; keep it short" })}</Table.Column>
+                    <Table.Column id="actions" className="text-right">{intl.formatMessage({ id: "web.routes.servers.actions", defaultMessage: "Actions", description: "Servers: column heading for the row buttons such as start, stop and restart; keep it short" })}</Table.Column>
                   </Table.Header>
                   <Table.Body
                     renderEmptyState={() => (
                       <div className="text-center py-10 text-foreground/60">
-                        {isLoading ? "Loading…" : error || fleet?.partial ? "No server data available for this filter." : "No servers match."}
+                        {isLoading
+                          ? intl.formatMessage({ id: "web.routes.servers.loading_servers", defaultMessage: "Loading…", description: "Servers: table empty state while servers load" })
+                          : error || fleet?.partial
+                            ? intl.formatMessage({ id: "web.routes.servers.no_data_for_filter", defaultMessage: "No server data available for this filter.", description: "Servers: empty-list message when server data is unavailable or partial" })
+                            : intl.formatMessage({ id: "web.routes.servers.no_servers_match", defaultMessage: "No servers match.", description: "Servers: empty-list message when no servers match the filter" })}
                       </div>
                     )}
                   >
                 {standalone.map((gs) => (
                   <Table.Row key={targetKey(resourceTarget(gs))} id={targetKey(resourceTarget(gs))} textValue={gs.metadata.name}>
                     <Table.Cell>
-                      <Button slot="drag" isIconOnly variant="ghost" size="sm" aria-label={`Reorder ${gs.metadata.name}`} className="cursor-grab text-foreground/40 hover:text-foreground">
+                      <Button slot="drag" isIconOnly variant="ghost" size="sm" aria-label={intl.formatMessage({ id: "web.routes.servers.reorder_server", defaultMessage: "Reorder {name}", description: "Servers: accessible label of the drag handle on a server row; {name} is the server name" }, { name: gs.metadata.name })} className="cursor-grab text-foreground/40 hover:text-foreground">
                         <GripVertical className="h-4 w-4" />
                       </Button>
                     </Table.Cell>
@@ -509,46 +530,46 @@ export function ServersPage() {
                     <Table.Cell>{gs.spec.templateRef.name}</Table.Cell>
                     <Table.Cell>
                       {(() => {
-                        const { phase, asleep } = serverRowData(gs);
+                        const { phase, asleep } = serverRowData(intl, gs);
                         return <PhaseChip phase={phase} asleep={asleep} />;
                       })()}
                     </Table.Cell>
                     <Table.Cell>
-                      <span className="whitespace-nowrap font-mono">{serverRowData(gs).uptimeLabel}</span>
+                      <span className="whitespace-nowrap font-mono">{serverRowData(intl, gs).uptimeLabel}</span>
                     </Table.Cell>
                     <Table.Cell>
                       {(() => {
-                        const { cpuLabel } = serverRowData(gs);
+                        const { cpuLabel } = serverRowData(intl, gs);
                         return <span className="font-mono">{cpuLabel}</span>;
                       })()}
                     </Table.Cell>
                     <Table.Cell>
                       {(() => {
-                        const { memLabel } = serverRowData(gs);
+                        const { memLabel } = serverRowData(intl, gs);
                         return <span className="whitespace-nowrap font-mono">{memLabel}</span>;
                       })()}
                     </Table.Cell>
                     <Table.Cell>
                       {(() => {
-                        const { diskLabel } = serverRowData(gs);
+                        const { diskLabel } = serverRowData(intl, gs);
                         return <span className="whitespace-nowrap font-mono">{diskLabel}</span>;
                       })()}
                     </Table.Cell>
                     <Table.Cell>
                       {(() => {
-                        const { playersLabel } = serverRowData(gs);
+                        const { playersLabel } = serverRowData(intl, gs);
                         return <span className="font-mono">{playersLabel}</span>;
                       })()}
                     </Table.Cell>
                     <Table.Cell>
                       {(() => {
-                        const { node } = serverRowData(gs);
-                        return <span className="font-mono text-foreground/60">{node ?? "—"}</span>;
+                        const { node } = serverRowData(intl, gs);
+                        return <span className="font-mono text-foreground/60">{node ?? emptyValue}</span>;
                       })()}
                     </Table.Cell>
                     <Table.Cell className="text-right">
                       {(() => {
-                        const { phase, asleep } = serverRowData(gs);
+                        const { phase, asleep } = serverRowData(intl, gs);
                         return <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={act.isPending} onAct={act.mutate} compact={fit.compact} />;
                       })()}
                     </Table.Cell>
@@ -571,7 +592,8 @@ export function ServersPage() {
 // ServerCard both need (CPU/memory %, player count, shared-read-only flag)
 // so the mobile card list can't silently drift from the desktop table's
 // formatting.
-function serverRowData(gs: GameServer) {
+function serverRowData(intl: ReturnType<typeof useOptionalIntl>, gs: GameServer) {
+  const emptyValue = intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
   const phase = gs.status?.phase;
   // The operator reports Stopping (not Suspended) for the whole graceful-
   // drain window even after status.idle.asleep flips true — players may
@@ -600,18 +622,18 @@ function serverRowData(gs: GameServer) {
     ? cpuLimitMilli
       ? `${((cpuMilli / cpuLimitMilli) * 100).toFixed(0)}%`
       : formatCpuPercent(cpuMilli / 1000)
-    : "—";
+    : emptyValue;
 
   const memLabel = usageLabel(agent?.memoryBytes, agent?.memoryLimitBytes);
   const diskLabel = usageLabel(agent?.diskUsedBytes, agent?.diskTotalBytes);
-  const uptimeLabel = phase === "Running" ? formatUptime(gs.status?.startedAt) : "—";
+  const uptimeLabel = phase === "Running" ? formatUptime(gs.status?.startedAt, intl) : emptyValue;
 
   const playersLabel =
     typeof players === "number" && players >= 0
       ? typeof maxPlayers === "number" && maxPlayers >= 0
-        ? `${players}/${maxPlayers}`
+        ? intl.formatMessage({ id: "web.routes.servers.players_of_max", defaultMessage: "{players}/{max}", description: "Servers: player count as online/max; both are numbers" }, { players, max: maxPlayers })
         : `${players}`
-      : "—";
+      : emptyValue;
 
   return { phase, asleep, node, isSharedNonDefault, cpuLabel, memLabel, diskLabel, playersLabel, uptimeLabel };
 }
@@ -638,6 +660,7 @@ function ServerLifecycleActions({
   onAct: (args: { target: FleetTarget; verb: LifecycleVerb }) => void;
   compact?: number;
 }) {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const running = phase === "Running" || phase === "Starting";
   const stopped = !asleep && (phase === "Stopped" || phase === "Suspended");
@@ -648,7 +671,7 @@ function ServerLifecycleActions({
     <div className="inline-flex items-center">
       {asleep ? (
         <ActionButton
-          title="Wake"
+          title={intl.formatMessage({ id: "web.routes.servers.wake", defaultMessage: "Wake", description: "Servers: tooltip of the icon button that wakes a sleeping server; keep it short" })}
           disabled={pending || !gs.fleetAccess?.canControl}
           onClick={() => onAct({ target: gs.fleetTarget, verb: "wake" })}
         >
@@ -656,7 +679,7 @@ function ServerLifecycleActions({
         </ActionButton>
       ) : !(compact > 1 && running) && (
         <ActionButton
-          title="Start"
+          title={intl.formatMessage({ id: "web.routes.servers.start", defaultMessage: "Start", description: "Servers: tooltip of the icon button that starts a stopped server; keep it short" })}
           disabled={pending || !gs.fleetAccess?.canControl || running}
           onClick={() => onAct({ target: gs.fleetTarget, verb: "start" })}
         >
@@ -666,7 +689,7 @@ function ServerLifecycleActions({
       {!(compact > 1 && stopped) && (
         <>
           <ActionButton
-            title="Stop"
+            title={intl.formatMessage({ id: "web.routes.servers.stop", defaultMessage: "Stop", description: "Servers: tooltip of the icon button that stops a running server; keep it short" })}
             // An asleep server is phase Suspended, but :stop is still a real
             // action there — it patches spec.suspend=true, which the operator
             // honors immediately, distinct from an idle sleep a wake window
@@ -677,7 +700,7 @@ function ServerLifecycleActions({
             <Square className="h-4 w-4" />
           </ActionButton>
           <ActionButton
-            title="Restart"
+            title={intl.formatMessage({ id: "web.routes.servers.restart", defaultMessage: "Restart", description: "Servers: tooltip of the icon button that restarts a server; keep it short" })}
             disabled={pending || !gs.fleetAccess?.canControl}
             onClick={() => onAct({ target: gs.fleetTarget, verb: "restart" })}
           >
@@ -710,12 +733,14 @@ function ServerGroupCard({
   pending: boolean;
   onAct: (args: { target: FleetTarget; verb: LifecycleVerb }) => void;
 }) {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const groupUnavailable = intl.formatMessage({ id: "web.routes.servers.group_unavailable", defaultMessage: "Group unavailable", description: "Servers: error shown in the banner on a server group card when its group data is missing and the change cannot be made" });
   const client = useMemo(() => createResourceClient({ cluster: group.cluster, namespace: group.namespace }), [group.cluster, group.namespace]);
   const refresh = () => qc.invalidateQueries({ queryKey: ["fleet"] });
   const scale = useMutation({
-    mutationFn: (replicas: number) => group.set ? client.ServerSets.scale(group.name, replicas) : Promise.reject(new Error("Group unavailable")),
+    mutationFn: (replicas: number) => group.set ? client.ServerSets.scale(group.name, replicas) : Promise.reject(new Error(groupUnavailable)),
     onSuccess: refresh,
   });
   const remove = useMutation({
@@ -739,7 +764,9 @@ function ServerGroupCard({
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
-          aria-label={`${expanded ? "Collapse" : "Expand"} group ${group.name}`}
+          aria-label={expanded
+            ? intl.formatMessage({ id: "web.routes.servers.collapse_group", defaultMessage: "Collapse group {name}", description: "Servers: accessible name of the button on a server group card that collapses the card to hide its servers; {name} is the group name" }, { name: group.name })
+            : intl.formatMessage({ id: "web.routes.servers.expand_group", defaultMessage: "Expand group {name}", description: "Servers: accessible name of the button on a server group card that expands the card to show its servers; {name} is the group name" }, { name: group.name })}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary"
         >
           {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted" />}
@@ -752,28 +779,28 @@ function ServerGroupCard({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="truncate font-mono text-sm text-foreground">{group.name}</span>
-              <Chip size="sm" variant="soft"><Layers className="h-3 w-3" /> Group</Chip>
+              <Chip size="sm" variant="soft"><Layers className="h-3 w-3" /> {intl.formatMessage({ id: "web.routes.servers.group", defaultMessage: "Group", description: "Servers: small chip on a server group card that marks the card as a group; keep it short" })}</Chip>
             </div>
-            <div className="truncate text-xs text-muted">{targetLabel(group)} · {game}</div>
+            <div className="truncate text-xs text-muted">{targetLabel(group)} {intl.formatMessage({ id: "web.common.separator_dot", defaultMessage: "·", description: "Visual separator between two items" })} {game}</div>
           </div>
         </button>
         <div className="flex flex-wrap items-center gap-2">
-          <StatChip icon={<Activity className="h-3.5 w-3.5" />} value={`${ready}/${desired} ready`} />
+          <StatChip icon={<Activity className="h-3.5 w-3.5" />} value={intl.formatMessage({ id: "web.routes.servers.group_ready", defaultMessage: "{ready}/{desired} ready", description: "Servers: stat chip on a server group card with the number of ready servers out of the desired count; both are numbers" }, { ready, desired })} />
           <StatChip icon={<UsersIcon className="h-3.5 w-3.5" />} value={players} />
-          <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={`${nodes} ${nodes === 1 ? "node" : "nodes"}`} />
+          <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={intl.formatMessage({ id: "web.routes.servers.group_nodes", defaultMessage: "{count, plural, one {# node} other {# nodes}}", description: "Servers: stat chip on a server group card with the number of nodes its servers run on; {count} is the node count" }, { count: nodes })} />
           {canWrite && (
             <div className="inline-flex items-center rounded-full border border-border">
-              <ActionButton title="Remove replica" disabled={busy || desired <= 0} onClick={() => scale.mutate(desired - 1)}>
+              <ActionButton title={intl.formatMessage({ id: "web.routes.servers.remove_replica", defaultMessage: "Remove replica", description: "Servers: tooltip of the icon button on a server group card that removes one replica; keep it short" })} disabled={busy || desired <= 0} onClick={() => scale.mutate(desired - 1)}>
                 <Minus className="h-4 w-4" />
               </ActionButton>
-              <span className="min-w-6 text-center font-mono text-sm" aria-label="Replicas">{desired}</span>
-              <ActionButton title="Add replica" disabled={busy || desired >= 100} onClick={() => scale.mutate(desired + 1)}>
+              <span className="min-w-6 text-center font-mono text-sm" aria-label={intl.formatMessage({ id: "web.routes.servers.replicas", defaultMessage: "Replicas", description: "Servers: accessible name of the replica count between the remove and add buttons on a server group card; read only by screen readers" })}>{desired}</span>
+              <ActionButton title={intl.formatMessage({ id: "web.routes.servers.add_replica", defaultMessage: "Add replica", description: "Servers: tooltip of the plus button on a group card that adds one replica; keep it short" })} disabled={busy || desired >= 100} onClick={() => scale.mutate(desired + 1)}>
                 <Plus className="h-4 w-4" />
               </ActionButton>
             </div>
           )}
           {canWrite && (
-            <ActionButton title="Delete group" disabled={busy} onClick={() => setConfirmDelete(true)}>
+            <ActionButton title={intl.formatMessage({ id: "web.routes.servers.delete_group", defaultMessage: "Delete group", description: "Servers: tooltip of the trash icon button on a server group card that deletes the group, and the confirm button label in its delete dialog; keep it short" })} disabled={busy} onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-4 w-4" />
             </ActionButton>
           )}
@@ -786,9 +813,9 @@ function ServerGroupCard({
       )}
       {expanded && (
         <div className="grid gap-3 border-t border-border p-4 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.length === 0 && <div className="text-sm text-muted">No replicas running.</div>}
+          {shown.length === 0 && <div className="text-sm text-muted">{intl.formatMessage({ id: "web.routes.servers.no_replicas_running", defaultMessage: "No replicas running.", description: "Servers: text shown in an expanded server group card when it has no servers to list" })}</div>}
           {shown.map((gs) => {
-            const { phase, asleep, node } = serverRowData(gs);
+            const { phase, asleep, node } = serverRowData(intl, gs);
             return (
               <ServerCard
                 key={targetKey(resourceTarget(gs))}
@@ -797,7 +824,7 @@ function ServerGroupCard({
                 gameCodes={gameCodes}
                 footer={
                   <div className="flex items-center justify-between gap-2">
-                    <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={node ?? "—"} />
+                    <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={node ?? intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })} />
                     <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={pending} onAct={onAct} />
                   </div>
                 }
@@ -809,9 +836,9 @@ function ServerGroupCard({
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={`Delete group ${group.name}?`}
-        description={`This deletes the group and all ${desired} of its servers.`}
-        confirmLabel="Delete group"
+        title={intl.formatMessage({ id: "web.routes.servers.delete_group_title", defaultMessage: "Delete group {name}?", description: "Servers: title of the dialog that asks before deleting a server group; {name} is the group name" }, { name: group.name })}
+        description={intl.formatMessage({ id: "web.routes.servers.delete_group_description", defaultMessage: "This deletes the group and all {count} of its servers.", description: "Servers: body of the dialog that asks before deleting a server group; {count} is how many servers the group has" }, { count: desired })}
+        confirmLabel={intl.formatMessage({ id: "web.routes.servers.delete_group", defaultMessage: "Delete group", description: "Servers: tooltip of the trash icon button on a server group card that deletes the group, and the confirm button label in its delete dialog; keep it short" })}
         destructive
         busy={remove.isPending}
         onConfirm={() => remove.mutate()}
@@ -833,11 +860,12 @@ function ServerCard({
   gameCodes: Map<string, string>;
   footer?: ReactNode;
 }) {
-  const { phase, asleep, memLabel, diskLabel, playersLabel, uptimeLabel } = serverRowData(gs);
+  const intl = useOptionalIntl();
+  const { phase, asleep, memLabel, diskLabel, playersLabel, uptimeLabel } = serverRowData(intl, gs);
 
   // Extract address from the first endpoint, if available
   const endpoint = gs.status?.endpoints?.[0];
-  const address = endpoint ? `${endpoint.host}:${endpoint.port}` : "—";
+  const address = endpoint ? `${endpoint.host}:${endpoint.port}` : intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
 
   return (
     <Card className="border border-border bg-card p-3.5">
@@ -856,11 +884,12 @@ function ServerCard({
               params={{ name: gs.metadata.name }}
               search={targetSearch(resourceTarget(gs))}
               className="block truncate text-sm font-medium text-foreground after:absolute after:inset-0 group-hover:text-primary"
+              title={gs.metadata.name}
             >
               {gs.metadata.name}
             </Link>
-            <div className="truncate text-xs text-muted">{targetLabel(resourceTarget(gs))}</div>
-            <div className="truncate text-xs text-foreground/60 font-mono">
+            <div className="truncate text-xs text-muted" title={targetLabel(resourceTarget(gs))}>{targetLabel(resourceTarget(gs))}</div>
+            <div className="truncate text-xs text-foreground/60 font-mono" title={address}>
               {address}
             </div>
           </div>

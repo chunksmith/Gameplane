@@ -29,7 +29,7 @@ Stored in `i18n/locales/<tag>/meta.json`. `en` is always listed (completeness 10
 
 | Field | Type | Rules |
 |---|---|---|
-| `id` | string | `^[a-z][a-z0-9_]*(\.[a-z0-9_-]+)+$`; namespace prefix `web.`, `server.`, `condition.`, `notify.`, `audit.` (app) or the module id scheme in [module-locales.md](./contracts/module-locales.md); stable once shipped |
+| `id` | string | App ids: `^[a-z][a-z0-9_]*(\.[a-z0-9_-]+)+$` with namespace prefix `web.`, `server.`, `condition.`, `notify.`, `audit.`. Module ids: the module id rule in [module-locales.md](./contracts/module-locales.md) §1 (upper case, digits, `_`, `-`, `~0`/`~1` escapes). Stable once shipped |
 | `defaultMessage` | ICU MessageFormat | parses; only designated rich-text tags (`<b>`, `<link>`) |
 | `description` | string | required (translator note: where shown, placeholder meaning, length limit) |
 | placeholders | derived | set of argument names (incl. inside `plural`/`select`) |
@@ -48,7 +48,7 @@ State transitions for one entry: `missing → translated` (contribution merged) 
 
 | Where | Field | Rules |
 |---|---|---|
-| `user_preferences.language` (new nullable column, migration `api/internal/db/migrations/common/016_user_language.sql`) | TEXT | BCP 47 tag or NULL (= no saved choice). Kept even if the language disappears from a release (spec edge case); resolution then skips it |
+| `user_preferences.language` (new nullable column, migration `api/internal/db/migrations/common/018_user_language.sql`) | TEXT | BCP 47 tag or NULL (= no saved choice). Kept even if the language disappears from a release (spec edge case); resolution then skips it |
 | browser `localStorage['gameplane-language']` | JSON `{"choice": tag \| null, "applied": tag}` | `choice` is the unauthenticated/browser choice (FR-005); `applied` drives the no-flash boot snippet |
 
 Resolution (FR-004): user `language` → browser `choice` → first available of `navigator.languages` (regional → base) → instance default → `en`.

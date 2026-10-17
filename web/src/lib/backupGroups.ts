@@ -1,3 +1,6 @@
+import type { IntlShape } from "react-intl";
+import { englishIntl } from "@/lib/i18n/format";
+
 export const GROUP_LABEL_PREFIX = "backup-group.gameplane.local/";
 export const SCHEDULE_LABEL = "gameplane.local/backup-schedule";
 export const DEFAULT_GROUP = "default";
@@ -65,18 +68,20 @@ export function runTimes({ every, time }: CronPreset): string[] {
   return Array.from({ length: 24 / every }, (_, i) => `${pad((hour + i * every) % 24)}:${pad(minute)}`);
 }
 
-export function describeCron(cron: string): string {
+export function describeCron(cron: string, intl: IntlShape = englishIntl): string {
   const preset = cronPreset(cron);
-  if (!preset) return `${cron} (UTC cron)`;
-  if (preset.every === 1) return `Hourly at :${preset.time.slice(3)}`;
-  if (preset.every === 24) return `Daily at ${preset.time}`;
-  return `Every ${preset.every}h · ${runTimes(preset).join(", ")}`;
+  if (!preset) return intl.formatMessage({ id: "web.lib.backup_groups.utc_cron", defaultMessage: "{cron} (UTC cron)", description: "Backup schedule: shown instead of a plain-language description when the cron expression is custom; {cron} is the raw cron expression" }, { cron });
+  if (preset.every === 1) return intl.formatMessage({ id: "web.lib.backup_groups.hourly", defaultMessage: "Hourly at :{minute}", description: "Backup schedule: description of a schedule that runs every hour; {minute} is the two-digit minute past the hour" }, { minute: preset.time.slice(3) });
+  if (preset.every === 24) return intl.formatMessage({ id: "web.lib.backup_groups.daily", defaultMessage: "Daily at {time}", description: "Backup schedule: description of a schedule that runs once a day; {time} is the local start time as HH:MM" }, { time: preset.time });
+  return intl.formatMessage({ id: "web.lib.backup_groups.every_hours", defaultMessage: "Every {hours}h · {times}", description: "Backup schedule: description of a schedule that runs every few hours; {hours} is the interval in hours and {times} the local run times, comma separated" }, { hours: preset.every, times: runTimes(preset).join(", ") });
 }
 
-export function formatDuration(totalSeconds: number): string {
+export function formatDuration(totalSeconds: number, intl: IntlShape = englishIntl): string {
   const seconds = Math.max(0, Math.round(totalSeconds));
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return intl.formatMessage({ id: "web.lib.backup_groups.duration_seconds", defaultMessage: "{seconds}s", description: "Duration of less than a minute, e.g. 45s; {seconds} is a whole number of seconds" }, { seconds });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return seconds % 60 ? `${minutes}m ${seconds % 60}s` : `${minutes}m`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  if (minutes < 60) return seconds % 60
+    ? intl.formatMessage({ id: "web.lib.backup_groups.duration_minutes_seconds", defaultMessage: "{minutes}m {seconds}s", description: "Duration of less than an hour with seconds, e.g. 5m 30s; {minutes} and {seconds} are whole numbers" }, { minutes, seconds: seconds % 60 })
+    : intl.formatMessage({ id: "web.lib.backup_groups.duration_minutes", defaultMessage: "{minutes}m", description: "Duration of whole minutes under an hour, e.g. 5m; {minutes} is a whole number" }, { minutes });
+  return intl.formatMessage({ id: "web.lib.backup_groups.duration_hours_minutes", defaultMessage: "{hours}h {minutes}m", description: "Duration of an hour or more, e.g. 2h 5m; {hours} and {minutes} are whole numbers" }, { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
 }
