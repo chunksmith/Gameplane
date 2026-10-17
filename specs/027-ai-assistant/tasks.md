@@ -50,3 +50,11 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T024 Stream the Messages API reply (`sendClaude` via `NewStreaming`) and the CLI reply (`--include-partial-messages`, `stream_event` frames) into the registry (`api/internal/handlers/ai_run.go`, `ai_cli.go`)
 - [X] T025 `useAssistantStream` and the live assistant bubble (`web/src/lib/assistant.ts`, `web/src/components/assistant/AssistantPanel.tsx`)
 - [X] T026 Tests `api/internal/handlers/ai_stream_test.go`, CLI delta case in `ai_cli_test.go`, timeout case in `api/cmd/timeout_test.go`, panel streaming case in `AssistantPanel.test.tsx`; document the route in `api/specs.md` and `web/specs.md`
+
+## Phase 6: Admin shell
+
+- [X] T027 `aiCreds.admin` from the built-in `admin` role (`api/internal/handlers/ai.go`); `Bash` tool, shell prompt and in-cluster env for admin CLI runs (`api/internal/handlers/ai_cli.go`); test `TestAICLIAdminShell` in `ai_cli_test.go`
+- [X] T028 `kubectl` 1.37.1 and a `debian:trixie-slim` runtime in `api/Dockerfile`
+- [X] T029 Opt-in `api.ai.clusterRole` ClusterRoleBinding (`charts/gameplane/templates/api.yaml`, `charts/gameplane/values.yaml`)
+- [X] T030 `BASH <command>` tool-call label (`web/src/lib/assistant.ts`); test in `assistant.test.ts`
+- [X] T031 Document the admin shell in `api/specs.md` and `web/specs.md`

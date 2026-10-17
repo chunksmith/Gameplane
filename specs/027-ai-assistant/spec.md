@@ -17,6 +17,10 @@
 - Q: Who may use the assistant with a subscription token? → A: The same users as with an API key (every signed-in user while enabled); the maintainer is the install's only user. Settled.
 - Q: Who may use the assistant? → A: Every signed-in user while the admin has it enabled; what it can do is limited by that user's own permissions. Settled (a per-role `ai:use` permission is out of scope).
 
+### Session 2026-10-17 (maintainer, in chat)
+
+- Q: Should admins reach Kubernetes directly? → A: Yes. In subscription mode, runs of users with the built-in `admin` role get Claude Code's Bash tool and `kubectl`, without approval, so they can open a shell or run `kubectl exec`. The maintainer accepted the risk because only admins get it. Settled.
+
 ## Design
 
 ### Model access
@@ -24,18 +28,25 @@
 - Anthropic Go SDK (`github.com/anthropics/anthropic-sdk-go`), beta Messages API, one custom tool `gameplane_api`.
 - Models: `claude-opus-5-5` (default), `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`. Effort: `low`, `medium` (default), `high`, `xhigh`, `max` via `output_config.effort`. Thinking is left at the model default (adaptive).
 - Server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`) on every model except Haiku. A `refusal` stop reason ends the turn with an error.
-- Subscription mode: when the Secret holds `oauthToken`, each run spawns `/usr/local/bin/claude -p` (Claude Code 2.1.301, baked into the API image) with `CLAUDE_CODE_OAUTH_TOKEN`, `--output-format stream-json`, `--model`, `--effort`, `--max-turns 40`, the panel system prompt (`--system-prompt`), built-in tools off (`--tools ""`), only `mcp__gameplane__gameplane_api` allowed (`--permission-mode dontAsk`), and `--resume <session_id>` for follow-ups. Claude Code's state lives in `/data/claude`.
+- Subscription mode: when the Secret holds `oauthToken`, each run spawns `/usr/local/bin/claude -p` (Claude Code 2.1.301, baked into the API image) with `CLAUDE_CODE_OAUTH_TOKEN`, `--output-format stream-json`, `--model`, `--effort`, `--max-turns 40`, the panel system prompt (`--system-prompt`), built-in tools off (`--tools ""`), only `mcp__gameplane__gameplane_api` allowed (`--permission-mode dontAsk`); admins also get `Bash` (see Admin shell), and `--resume <session_id>` for follow-ups. Claude Code's state lives in `/data/claude`.
 - The CLI reaches `gameplane_api` over MCP (streamable HTTP, stateless) on a listener bound to `127.0.0.1` inside the API process. Each run gets a random bearer token; the tool runs the same `authorize` and in-process router call as API-key mode.
 - The CLI runs inside the API container, so subscription mode needs `api.resources.limits.memory` of at least 1Gi.
 
 ### Permission model
 
 - Every tool call is an in-process request through the API's own router carrying the user's session cookie, CSRF header and client IP. Authentication, rate limiting, RBAC (role bindings, owner/collaborator/network fallback, admin-only backup delete) and the audit log apply exactly as for the dashboard. A 403 is returned to the model, which reports it.
-- The assistant never reaches: `/auth`, `/users` (except `GET /users/me`), `/roles`, `/networks`, `/admin`, `/clusters`, `/ai`, `/events`, `/shares`, `/ws`, cluster writes, tunnel credentials, captures, ownership changes (`:transfer`, `:collaborators`, `:network`) and binary transfers (`files/download|archive|upload`, `mods/upload`, `logs/download`).
+- Through `gameplane_api` the assistant never reaches: `/auth`, `/users` (except `GET /users/me`), `/roles`, `/networks`, `/admin`, `/clusters`, `/ai`, `/events`, `/shares`, `/ws`, cluster writes, tunnel credentials, captures, ownership changes (`:transfer`, `:collaborators`, `:network`) and binary transfers (`files/download|archive|upload`, `mods/upload`, `logs/download`).
 - General conversations reach `servers`, `serversets`, `backups`, `schedules`, `restores` (read/write) and `templates`, `fleet`, `namespaces`, `modules`, `cluster`, `backup-destinations` (GET only).
 - Server conversations are pinned to one server: `namespace` and `cluster` are forced on every call; only `/servers/{server}…`, `GET /templates/…` and the server's own backups, schedules and restores (`spec.serverRef.name`) are reachable; list reads of those kinds are filtered to the server.
 - Approval: `DELETE`, `:wipe-data` and `POST /restores` pause the run (`awaiting_approval`) until the user approves or declines in the panel. Declined calls return an error result to the model.
 - Approval in subscription mode: the tool call blocks until the user approves or declines in the panel (at most 30 minutes, then it counts as declined). Stop kills the CLI process. A conversation waiting for approval when the API restarts becomes `error`.
+
+### Admin shell
+
+- Subscription mode only: when the user starting a run has the built-in `admin` role (checked on every run), Claude Code also gets its `Bash` tool (`--tools Bash`, allowed without approval) and a shell section in the system prompt. The Messages API path has no shell.
+- The shell runs in the API container as the API user. The runtime image is `debian:trixie-slim` (Bash needs a shell; it was `distroless/cc`) with `kubectl` 1.37.1. `kubectl` uses the API's in-cluster ServiceAccount (`KUBERNETES_SERVICE_HOST`/`KUBERNETES_SERVICE_PORT` are passed to the CLI); local cluster only.
+- The ServiceAccount keeps its narrow rules by default. The Helm value `api.ai.clusterRole` (empty by default) binds the named ClusterRole (for example `view`, `edit` or `cluster-admin`) to `gameplane-api` (ClusterRoleBinding `<release>-api-ai`); this widens the API pod itself. Without it the default rules have no `pods/exec`, so `kubectl exec` is forbidden.
+- Shell commands bypass the API router: RBAC, approvals, server pinning and the Gameplane audit log do not apply to them. They are kept in `ai_messages` with the rest of the conversation. The shell can read the API's data volume and every Secret the ServiceAccount can read, including the Claude credential (`gameplane-ai`), backup destination and auth-provider Secrets.
 
 ### Records
 
@@ -59,7 +70,7 @@
 
 - Sidebar "General" → "Assistant" (`/assistant`), shown while the assistant is enabled; conversation history with an admin "All users" toggle.
 - Server detail → "Assistant" tab with the same panel scoped to the server.
-- Panel: conversation list, transcript (text, tool calls with method/path/status), approval card, stop button, composer. New conversations use the admin's default model and effort (the API also accepts `model`/`effort` per conversation; the panel has no picker).
+- Panel: conversation list, transcript (text, tool calls with method/path/status, shell commands as `BASH <command>`), approval card, stop button, composer. New conversations use the admin's default model and effort (the API also accepts `model`/`effort` per conversation; the panel has no picker).
 - Admin settings → "AI assistant": enable switch, Claude credential (write-only Console API key or `claude setup-token` subscription token), default model and effort.
 
 ## Out of scope

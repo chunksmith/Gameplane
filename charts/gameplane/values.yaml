@@ -142,6 +142,8 @@ api:
   resources:
     requests: { cpu: 100m, memory: 64Mi }
     limits:   { cpu: 500m, memory: 256Mi }
+  ai:
+    clusterRole: ""
 
   # Trusted reverse proxy networks for client IP extraction. Comma-separated
   # list of CIDR blocks. The API reads the X-Forwarded-For header only when
