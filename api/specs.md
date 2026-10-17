@@ -699,7 +699,7 @@ Foreign keys are enforced only on Postgres (modernc-sqlite runs with FK OFF); th
 
 ### Language and localizable errors (spec 019)
 
-**Storage (migration `018_user_language.sql`):** `user_preferences.language` is a nullable BCP 47 tag. `NULL` means the user has no saved choice and follows the instance default. Preference writes never touch the column: `UpsertPreferences` and `ResetPreferences` leave it alone, and `db.Store.SetLanguage` owns it. `SetLanguage` inserts a default row when the user has none.
+**Storage (migration `022_user_language.sql`):** `user_preferences.language` is a nullable BCP 47 tag. `NULL` means the user has no saved choice and follows the instance default. Preference writes never touch the column: `UpsertPreferences` and `ResetPreferences` leave it alone, and `db.Store.SetLanguage` owns it. `SetLanguage` inserts a default row when the user has none.
 
 **Endpoints:**
 - **PUT `/users/me/language`** — body `{"language": "<tag>" | null}`. A tag must be one `catalog.IsListed` reports for this release (`i18n/catalog`). `null` clears the choice. Success is `204 No Content`. A missing `language` key is `400 language is required`. An unlisted tag is `400` with the message `server.i18n.unknown_language`, so `args.language` carries the tag sent. 401 when unauthenticated.

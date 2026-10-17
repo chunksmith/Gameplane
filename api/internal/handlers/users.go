@@ -19,8 +19,8 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
-	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/messages"
+	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 	"github.com/GameplanePanel/gameplane/i18n/catalog"
 )
