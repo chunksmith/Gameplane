@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -414,7 +415,7 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 			switch {
 			case block.Type == "tool_result":
 				resolved[block.ToolUseID] = true
-			case block.Type == "tool_use" && strings.EqualFold(block.Input.Method, in.Method) && block.Input.Path == in.Path:
+			case block.Type == "tool_use" && strings.EqualFold(block.Input.Method, in.Method) && block.Input.Path == in.Path && maps.Equal(block.Input.Query, in.Query):
 				id = block.ID
 			}
 		}
