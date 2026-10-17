@@ -721,12 +721,7 @@ func TestGameServer_BackupPolicyMaterializesSchedule(t *testing.T) {
 	})
 }
 
-// TestGameServer_BackupPolicyMaterializesQuiescedSchedule covers F-045:
-// InlineBackupPolicy exposes no quiesce field, so the materialized
-// BackupSchedule must still get the CRD's documented default (true) rather
-// than the Go zero value the typed client would otherwise send explicitly on
-// the wire (defeating the apiserver's own `default: true`).
-func TestGameServer_BackupPolicyMaterializesQuiescedSchedule(t *testing.T) {
+func TestGameServer_BackupPolicyMaterializesUnquiescedSchedule(t *testing.T) {
 	ns := newNamespace(t)
 	startMgr(t, ns, withGameServerReconciler(t, ns))
 
@@ -751,8 +746,8 @@ func TestGameServer_BackupPolicyMaterializesQuiescedSchedule(t *testing.T) {
 			types.NamespacedName{Namespace: ns, Name: "smp-auto"}, &bs); err != nil {
 			return false, "get schedule: " + err.Error()
 		}
-		if !bs.Spec.Quiesce {
-			return false, "schedule.spec.quiesce = false, want true (CRD default)"
+		if bs.Spec.Quiesce {
+			return false, "schedule.spec.quiesce = true, want false"
 		}
 		return true, ""
 	})

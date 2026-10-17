@@ -48,15 +48,7 @@ type BackupScheduleSpec struct {
 	Strategy string `json:"strategy,omitempty"`
 
 	// Quiesce mirrors BackupSpec.Quiesce.
-	//
-	// No `omitempty`: the CRD default is true, so an `omitempty` tag would
-	// let the typed client silently drop an explicit `false` on the wire
-	// (Go's zero value for bool), and the apiserver would re-apply the
-	// `true` default — silently re-enabling quiesce for a schedule that
-	// explicitly disabled it (backupschedule_controller.go's fire() copies
-	// this value into each Backup it creates via the typed client). Do not
-	// add it back.
-	// +kubebuilder:default=true
+	// +kubebuilder:default=false
 	// +optional
 	Quiesce bool `json:"quiesce"`
 

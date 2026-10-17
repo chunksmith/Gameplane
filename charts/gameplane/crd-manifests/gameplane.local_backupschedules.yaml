@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: 2db1ad321565fecaa5ec1870e8f8a809fea8ace864347cfa400727818587033b
+    gameplane.local/crd-bundle-sha256: 132f3afbc26958b88a5677b45f9899aef942a5e26b3eb8ccc76b255570ca613b
     controller-gen.kubebuilder.io/version: v0.20.1
   name: backupschedules.gameplane.local
 spec:
@@ -85,17 +85,8 @@ spec:
                 type: array
                 x-kubernetes-list-type: set
               quiesce:
-                default: true
-                description: |-
-                  Quiesce mirrors BackupSpec.Quiesce.
-
-                  No `omitempty`: the CRD default is true, so an `omitempty` tag would
-                  let the typed client silently drop an explicit `false` on the wire
-                  (Go's zero value for bool), and the apiserver would re-apply the
-                  `true` default — silently re-enabling quiesce for a schedule that
-                  explicitly disabled it (backupschedule_controller.go's fire() copies
-                  this value into each Backup it creates via the typed client). Do not
-                  add it back.
+                default: false
+                description: Quiesce mirrors BackupSpec.Quiesce.
                 type: boolean
               repoRef:
                 description: |-

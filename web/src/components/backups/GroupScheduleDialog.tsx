@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
-  Checkbox,
   Input,
   Label,
   ListBox,
@@ -56,7 +55,6 @@ export function GroupScheduleDialog({
   const [cron, setCron] = useState(schedule?.spec.schedule ?? "0 1 * * *");
   const [retain, setRetain] = useState(schedule?.spec.retention?.keepLast ?? 7);
   const [concurrency, setConcurrency] = useState(schedule?.spec.concurrency ?? 1);
-  const [quiesce, setQuiesce] = useState(schedule?.spec.quiesce ?? true);
   const [repo, setRepo] = useState(schedule?.spec.repoRef?.name ?? "");
   const { data: destinations = [] } = useBackupDestinations(scope);
   if (!repo && destinations.length > 0) setRepo(destinations[0].name);
@@ -72,7 +70,7 @@ export function GroupScheduleDialog({
       const spec = {
         groups,
         concurrency,
-        quiesce,
+        quiesce: false,
         schedule: expression,
         repoRef: { name: repo, key: "repo" },
         retention: { keepLast: retain },
@@ -195,15 +193,6 @@ export function GroupScheduleDialog({
                   </Select.Popover>
                 </Select>
               </div>
-
-              <Checkbox isSelected={quiesce} onChange={setQuiesce} className="flex-row items-center gap-2">
-                <Checkbox.Control className="size-4">
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                <Checkbox.Content>
-                  <span className="text-sm">{intl.formatMessage({ id: "web.components.backups.group_schedule_dialog.flush_and_pause_world_saves_during_the", defaultMessage: "Flush and pause world saves during the backup", description: "Group schedule dialog: label of the checkbox that flushes and pauses world saves while the backup runs" })}</span>
-                </Checkbox.Content>
-              </Checkbox>
 
               {save.error && <ErrorBanner err={save.error} />}
             </ModalBody>

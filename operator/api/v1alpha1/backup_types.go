@@ -76,13 +76,7 @@ type BackupSpec struct {
 	// Quiesce, when true, asks the agent to flush/pause the game before
 	// the snapshot (via RCON "save-all" or game-specific hook) and
 	// resume after. Requires an agent that supports the game.
-	//
-	// No `omitempty`: the CRD default is true, so an `omitempty` tag would
-	// let the typed client silently drop an explicit `false` on the wire
-	// (Go's zero value for bool), and the apiserver would re-apply the
-	// `true` default — silently re-enabling quiesce for a user/schedule
-	// that explicitly disabled it. Do not add it back.
-	// +kubebuilder:default=true
+	// +kubebuilder:default=false
 	// +optional
 	Quiesce bool `json:"quiesce"`
 
