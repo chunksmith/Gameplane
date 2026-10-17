@@ -44,8 +44,8 @@
 ### Admin shell
 
 - Subscription mode only: when the user starting a run has the built-in `admin` role (checked on every run), Claude Code also gets its `Bash` tool (`--tools Bash`, allowed without approval) and a shell section in the system prompt. The Messages API path has no shell.
-- The shell runs in the API container as the API user. The runtime image is `debian:trixie-slim` (Bash needs a shell; it was `distroless/cc`) with `kubectl` 1.37.1. `kubectl` uses the API's in-cluster ServiceAccount (`KUBERNETES_SERVICE_HOST`/`KUBERNETES_SERVICE_PORT` are passed to the CLI); local cluster only.
-- The ServiceAccount keeps its narrow rules by default. The Helm value `api.ai.clusterRole` (empty by default) binds the named ClusterRole (for example `view`, `edit` or `cluster-admin`) to `gameplane-api` (ClusterRoleBinding `<release>-api-ai`); this widens the API pod itself. Without it the default rules have no `pods/exec`, so `kubectl exec` is forbidden.
+- The shell runs in the API container as the API user. The runtime image is `buildpack-deps:trixie-curl` (Debian trixie with curl and wget; Bash needs a shell; it was `distroless/cc`) with `kubectl` 1.37.1. `kubectl` uses the API's in-cluster ServiceAccount (`KUBERNETES_SERVICE_HOST`/`KUBERNETES_SERVICE_PORT` are passed to the CLI); local cluster only.
+- The API's games-namespace Role also grants `pods/exec` (get, create; revised 2026-10-17, maintainer in chat), so `kubectl exec` into game pods works without extra setup; it is no wider than the `pods/attach` the console already holds. The Helm value `api.ai.clusterRole` (empty by default) binds the named ClusterRole (for example `view`, `edit` or `cluster-admin`) to `gameplane-api` (ClusterRoleBinding `<release>-api-ai`); this widens the API pod itself.
 - Shell commands bypass the API router: RBAC, approvals, server pinning and the Gameplane audit log do not apply to them. They are kept in `ai_messages` with the rest of the conversation. The shell can read the API's data volume and every Secret the ServiceAccount can read, including the Claude credential (`gameplane-ai`), backup destination and auth-provider Secrets.
 
 ### Records

@@ -120,6 +120,9 @@ rules:
   - apiGroups: [""]
     resources: [pods/attach]
     verbs: [get, create]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [get, create]
   # The startup-log stream (api/internal/ws/podlogs.go) follows the game
   # container's stdout via the pod-log subresource so download/config
   # output is visible before the game's own log file exists.

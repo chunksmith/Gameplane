@@ -58,3 +58,4 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T029 Opt-in `api.ai.clusterRole` ClusterRoleBinding (`charts/gameplane/templates/api.yaml`, `charts/gameplane/values.yaml`)
 - [X] T030 `BASH <command>` tool-call label (`web/src/lib/assistant.ts`); test in `assistant.test.ts`
 - [X] T031 Document the admin shell in `api/specs.md` and `web/specs.md`
+- [X] T032 `curl` and `wget` in the API runtime (`buildpack-deps:trixie-curl` in `api/Dockerfile`); `pods/exec` on the API games Role (`charts/gameplane/templates/api.yaml`); shell prompt names curl and wget (`api/internal/handlers/ai_cli.go`); `POST /servers/{name}/mods/install` in the system prompt (`api/internal/handlers/ai_run.go`)

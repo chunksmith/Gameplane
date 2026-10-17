@@ -44,7 +44,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" \
     && echo "$(curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256")  /kubectl" | sha256sum -c - \
     && chmod 0755 /kubectl
 
-FROM debian:trixie-slim
+FROM buildpack-deps:trixie-curl
 RUN useradd --no-log-init --uid 65532 --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin nonroot
 WORKDIR /
 COPY --from=build /out/api /api
