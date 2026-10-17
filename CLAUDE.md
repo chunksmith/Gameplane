@@ -36,6 +36,7 @@ netguard/            SSRF dial-guard: IsAllowed (operator module sources, API si
 gameaction/          console-injection guard + command renderer (api, agent)
 gameproto/           Minecraft/Terraria handshake parser (sentinel)
 telemetryschema/     shared telemetry report contract (api, telemetry-receiver)
+i18n/                ICU formatter, pack validator, i18n-check CLI; locales/<tag>/ language packs (en/app.json = English reference)
 gp-module/           module authoring CLI: init/validate/preview/package
 operator/            controller-runtime operator
   api/v1alpha1/      CRD types (edit here, then `make generate manifests`); zz_generated.deepcopy.go GENERATED
@@ -59,7 +60,7 @@ deploy/kind/         local Kind scripts
 test/e2e/            Kind E2E suite (//go:build e2e)
 docs/                architecture, security, modules
 signing/             cosign public keys, dated legacy key + cross-signature (image + module)
-go.work              links all 16 Go modules (incl. test/e2e)
+go.work              links all 17 Go modules (incl. test/e2e)
 Makefile             canonical task runner
 ```
 
@@ -68,13 +69,13 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 ## Commands (always via Makefile)
 
 - **Dev:** `make dev-up` (Kind + OCI registry :5001 + Helm), `make web-dev` (Vite, proxies in-cluster API), `make dev-load` (load built images; run `make images` first), `make dev-install` (Helm upgrade), `make dev-down`.
-- **Build:** `make build` (all Go + web), `make build-go` (15 modules in GO_MODULES, all but test/e2e), `make build-web` (`npm ci && npm run build`), `make images`.
-- **Codegen:** `make generate` (deepcopy), `make manifests` (CRD/RBAC YAML, synced to `charts/gameplane/charts/gameplane-crds/crds/` and `charts/gameplane/crd-manifests/`), `make modules-push`, `make tidy`.
+- **Build:** `make build` (all Go + web), `make build-go` (16 modules in GO_MODULES, all but test/e2e), `make build-web` (`npm ci && npm run build`), `make images`.
+- **Codegen:** `make generate` (deepcopy), `make manifests` (CRD/RBAC YAML, synced to `charts/gameplane/charts/gameplane-crds/crds/` and `charts/gameplane/crd-manifests/`), `make modules-push`, `make tidy`, `make i18n-sync` (API `server.*`/`notify.*` and operator `condition.*` ids into `i18n/locales/en/app.json`), `cd web && npm run i18n:extract` (dashboard `web.*` ids into the same file).
 - **Tests (CI only — never run locally, see Rule 8):** `make test`, `make test-integration` (envtest operator+api), `make test-e2e` (~10–20 min), `make test-e2e-bucket BUCKET=(operator|api-auth|api-roles|api-rbac|api-agent|api-mods|ratelimit|bot-fast|bot-heavy|multicluster|upgrade)`.
 - **E2E conventions:** register new tests in `test/e2e/buckets.sh`; `t.Parallel()` + unique names; guard shared resources (`ociPushMu` for module pushes, `ensureResticRepo(t)` for shared backup repos). Rate limits per cluster: IP burst 10 (5/min), user burst 6 (3/min) — cap an API bucket at ~7 admin logins.
-- **Lint:** `make lint` = gofmt, go vet, golangci-lint, ESLint, `check-specs`, `check-doc-versions`, `check-links`.
+- **Lint:** `make lint` = gofmt, go vet, golangci-lint, ESLint (incl. formatjs), `check-specs`, `check-doc-versions`, `check-links`, `check-i18n` (pack validity, catalog drift, unused ids).
 
-**Coverage minimums:** netguard 91, gameaction 91, gameproto 90, telemetryschema 90, gp-module 80, operator 72, api 80, agent 90, svcutil 90; audit-syslog-bridge, telemetry-receiver, sentinel, capture-sidecar, mcp-server, tunnel 70; web 92 lines / 76 functions / 82 branches / 92 statements.
+**Coverage minimums:** netguard 91, gameaction 91, gameproto 90, telemetryschema 90, i18n 90, gp-module 80, operator 72, api 80, agent 90, svcutil 90; audit-syslog-bridge, telemetry-receiver, sentinel, capture-sidecar, mcp-server, tunnel 70; web 92 lines / 76 functions / 82 branches / 92 statements.
 
 ## Core rules
 
@@ -107,6 +108,12 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 17. **Mechanical UI waves** (token re-skins): scripted, blind updates at `haiku`. Precompute change lists with `grep`/`jq`; one script applies them. Verify by browser screenshots, not code dumps.
 18. **Scout once, brief many:** one scout reads code/docs/failures and writes a factual brief (exact `file:line`, before/after code, justification). Fix agents get only the brief and edit blind at `haiku` — never tell them to re-read files, test suites, or `CLAUDE.md` and `AGENTS.md`. Reviewers check git diffs against the brief.
 19. **PRs only on chunksmith, NEVER upstream:** every PR is `chunksmith/Gameplane:<branch>` → `chunksmith/Gameplane:master`. Never open a PR against `GameplanePanel/*` or any other upstream repo, under any circumstances. `origin` is a fork, so a bare `gh pr create` targets upstream: always run `gh pr create --repo chunksmith/Gameplane --base master --head <branch>`. Submodules (`website/`, `modules/`) have no chunksmith fork: never open PRs for them; stop and ask.
+20. **Localized text (spec 019):** every user-visible dashboard string goes through `intl.formatMessage({ id, defaultMessage, description }, values?)` with `const intl = useOptionalIntl()` from `@/lib/i18n/format` (module constants: `defineMessages`); the formatjs ESLint rules cover all of `web/src` except tests.
+    - Ids are `web.<path>.<slug>`; reuse an existing id only for identical English (`web.common.empty_value` "—", `web.common.separator_dot` "·"). Descriptions are literal translator notes ("<Screen>: what it is and where it appears").
+    - No literal text in JSX: not even `{" "}`, "·", "/" or template literals in children or in `aria-label`/`title`/`placeholder`/`alt`. Interpolate with ICU placeholders and plurals (`{count, plural, one {# server} other {# servers}}`); rich text only with `<b>`.
+    - No leading or trailing spaces in `defaultMessage` (`formatjs extract` trims them); keep spacing in JSX (`<> {msg}</>`).
+    - Numbers and times through `useFormat()` and `formatRelative(iso, intl)`, never `toLocaleString()`.
+    - After adding or changing strings run `cd web && npm run i18n:extract` and commit `i18n/locales/en/app.json`; CI fails on drift. API 4xx errors use `httperr.WriteMessage(w, r, messages.New(id, args))` with an id registered in `api/internal/messages`, then `make i18n-sync`.
 
 ## Architecture
 
@@ -116,6 +123,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 | gameaction | Go | validates console input against schemas; escapes injection |
 | gameproto | Go | Minecraft/Terraria wire parser for connection filtering |
 | telemetryschema | Go | stdlib-only shared telemetry report contract: types, strict decode, official module catalog, report signing (api, telemetry-receiver) |
+| i18n | Go | ICU MessageFormat formatter with CLDR plurals, language-pack validation and `i18n-check`, embedded catalog with regional → base → en fallback (api, operator, gp-module, web build) |
 | gp-module | Go | module CLI: scaffold, offline validate, dry-run preview, OCI package |
 | svcutil | Go | stdlib-only env + graceful shutdown (`RunHTTP`) |
 | operator | Go, controller-runtime | authoritative reconciler for 10 CRDs (`GameServer`, `GameTemplate`, …) |
