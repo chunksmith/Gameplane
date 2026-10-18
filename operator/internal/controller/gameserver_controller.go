@@ -1588,6 +1588,7 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 		}
 		// Volumes and InitContainers are assigned wholesale so removing
 		// configFiles from the template strips them on the next reconcile.
+		var initContainers []corev1.Container
 		if len(mc.files) > 0 {
 			items := make([]corev1.KeyToPath, 0, len(mc.files))
 			for _, f := range mc.files {
@@ -1602,10 +1603,9 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 					},
 				},
 			})
-			ss.Spec.Template.Spec.InitContainers = []corev1.Container{buildConfigInitContainer(r.ConfigInitImage, tmpl)}
-		} else {
-			ss.Spec.Template.Spec.InitContainers = nil
+			initContainers = append(initContainers, buildConfigInitContainer(r.ConfigInitImage, tmpl))
 		}
+		ss.Spec.Template.Spec.InitContainers = append(initContainers, gs.Spec.InitContainers...)
 		// Per-(version+loader) mod volume, nested at storage.mountPath/<path>
 		// so the game image reads mods from its usual dir while they persist
 		// on their own PVC. Assigned wholesale with the rest, so switching to

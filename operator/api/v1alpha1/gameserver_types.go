@@ -156,6 +156,9 @@ type GameServerSpec struct {
 	// Capture configures optional packet-capture capability for this GameServer.
 	// +optional
 	Capture *CaptureConfiguration `json:"capture,omitempty"`
+
+	// +optional
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 }
 
 // IdleSpec configures idle auto-sleep: the operator scales the server down
