@@ -1095,7 +1095,7 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 			Command: []string{"/bin/sh", "-c"},
 			// `cat config` is the canonical "does the repo exist" probe;
 			// `init` is idempotent against an empty target.
-			Args: []string{"restic cat config --no-lock >/dev/null 2>&1 || restic init"},
+			Args: []string{"restic cat config --no-lock >/dev/null 2>&1 || restic init || exit; restic unlock || true"},
 			Env:  env,
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "cache", MountPath: "/tmp"},

@@ -329,6 +329,15 @@ func (r *RestoreReconciler) buildRestorePodSpec(
 	uid := int64(65532)
 	return corev1.PodSpec{
 		SecurityContext: buildBackupPodSecurityContext(tmpl),
+		InitContainers: []corev1.Container{{
+			Name:            "restic-unlock",
+			Image:           resticImageOrDefault(r.ResticImage),
+			Command:         []string{"/bin/sh", "-c"},
+			Args:            []string{"restic unlock || true"},
+			Env:             resticEnv(src.Spec.RepoRef.Name),
+			VolumeMounts:    []corev1.VolumeMount{{Name: "cache", MountPath: "/tmp"}},
+			SecurityContext: resticContainerSecurityContext(),
+		}},
 		Containers: []corev1.Container{{
 			Name:  "restic",
 			Image: resticImageOrDefault(r.ResticImage),
