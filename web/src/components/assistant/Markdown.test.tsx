@@ -27,9 +27,17 @@ describe("Markdown", () => {
     render(<Markdown text={"## Servers\n- lobby\n- survival\n\n1. read\n2. write\n\n> careful\n\n---\nplain line"} />);
     expect(screen.getByRole("heading", { name: "Servers" })).toBeInTheDocument();
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["lobby", "survival", "read", "write"]);
-    expect(screen.getByText("careful").tagName).toBe("BLOCKQUOTE");
+    expect(screen.getByText("careful").closest("blockquote")).not.toBeNull();
     expect(screen.getByRole("separator")).toBeInTheDocument();
     expect(screen.getByText("plain line")).toBeInTheDocument();
+  });
+
+  it("renders GFM tables", () => {
+    render(<Markdown text={"| Server | Template |\n|---|---|\n| ardiy-paper | `paper` |\n| sonblok-smp | golempaper |"} />);
+    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["Server", "Template"]);
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    expect(screen.getByText("paper").tagName).toBe("CODE");
+    expect(screen.getByRole("cell", { name: "sonblok-smp" })).toBeInTheDocument();
   });
 
   it("keeps an unterminated code fence readable", () => {

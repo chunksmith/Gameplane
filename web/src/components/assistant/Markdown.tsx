@@ -1,32 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
 import { useOptionalIntl } from "@/lib/i18n/format";
-
-const INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|~~([^~]+)~~|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-
-function inline(text: string): ReactNode[] {
-  const out: ReactNode[] = [];
-  let last = 0;
-  for (const match of text.matchAll(INLINE)) {
-    const at = match.index;
-    const [whole, code, strong, strongAlt, em, strike, label, href] = match;
-    if (at > last) out.push(text.slice(last, at));
-    last = at + whole.length;
-    if (code !== undefined) {
-      out.push(<code key={at} className="rounded bg-foreground/10 px-1.5 py-0.5 font-mono text-[0.85em]">{code}</code>);
-    } else if (strong !== undefined || strongAlt !== undefined) {
-      out.push(<strong key={at} className="font-semibold">{strong ?? strongAlt}</strong>);
-    } else if (em !== undefined) {
-      out.push(<em key={at}>{em}</em>);
-    } else if (strike !== undefined) {
-      out.push(<s key={at} className="text-muted">{strike}</s>);
-    } else {
-      out.push(<a key={at} href={href} target="_blank" rel="noreferrer" className="text-link underline underline-offset-2">{label}</a>);
-    }
-  }
-  out.push(text.slice(last));
-  return out;
-}
 
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
   const intl = useOptionalIntl();
@@ -56,60 +32,44 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   );
 }
 
+const title: Components["h1"] = ({ children }) => <h3 className="text-[15px] font-semibold text-foreground">{children}</h3>;
+const subtitle: Components["h1"] = ({ children }) => <h4 className="text-sm font-semibold text-foreground">{children}</h4>;
+
+const components: Components = {
+  p: ({ children }) => <p className="whitespace-pre-wrap break-words">{children}</p>,
+  h1: title,
+  h2: title,
+  h3: subtitle,
+  h4: subtitle,
+  h5: subtitle,
+  h6: subtitle,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  del: ({ children }) => <s className="text-muted">{children}</s>,
+  a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-link underline underline-offset-2">{children}</a>,
+  hr: () => <hr className="border-border" />,
+  blockquote: ({ children }) => <blockquote className="space-y-2 border-l-2 border-accent/50 pl-3 text-muted">{children}</blockquote>,
+  ul: ({ children }) => <ul className="list-disc space-y-1 pl-5 marker:text-muted">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5 marker:text-muted">{children}</ol>,
+  code: ({ children }) => <code className="rounded bg-foreground/10 px-1.5 py-0.5 font-mono text-[0.85em]">{children}</code>,
+  pre: ({ children }) => {
+    const { className, children: code } = (children as ReactElement<{ className?: string; children?: ReactNode }>).props;
+    return <CodeBlock lang={/language-(\S+)/.exec(className ?? "")?.[1] ?? ""} code={String(code).replace(/\n$/, "")} />;
+  },
+  table: ({ children }) => (
+    <div className="overflow-x-auto rounded-xl border border-border scrollbar-thin">
+      <table className="w-full border-collapse text-left text-[13px]">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="border-b border-border bg-surface-secondary">{children}</thead>,
+  tr: ({ children }) => <tr className="border-b border-border last:border-b-0">{children}</tr>,
+  th: ({ children }) => <th className="whitespace-nowrap px-3 py-2 font-semibold text-foreground">{children}</th>,
+  td: ({ children }) => <td className="whitespace-nowrap px-3 py-2">{children}</td>,
+};
+
 export function Markdown({ text }: { text: string }) {
-  const lines = text.split("\n");
-  const out: ReactNode[] = [];
-  let paragraph: string[] = [];
-  const flush = () => {
-    if (paragraph.length) out.push(<p key={out.length} className="whitespace-pre-wrap break-words">{inline(paragraph.join("\n"))}</p>);
-    paragraph = [];
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const fence = /^ {0,3}```\s*(\S*)/.exec(line);
-    const heading = /^(#{1,6})\s+(.+)$/.exec(line);
-    const quote = /^>\s?(.*)$/.exec(line);
-    const bullet = /^\s*[-*+]\s+(.+)$/.exec(line);
-    const item = bullet ?? /^\s*\d+[.)]\s+(.+)$/.exec(line);
-
-    if (fence) {
-      flush();
-      const body: string[] = [];
-      for (i++; i < lines.length && !/^ {0,3}```/.test(lines[i]); i++) body.push(lines[i]);
-      out.push(<CodeBlock key={out.length} lang={fence[1]} code={body.join("\n")} />);
-    } else if (heading) {
-      flush();
-      const Tag = heading[1].length <= 2 ? "h3" : "h4";
-      const size = heading[1].length <= 2 ? "text-[15px]" : "text-sm";
-      out.push(<Tag key={out.length} className={`${size} font-semibold text-foreground`}>{inline(heading[2])}</Tag>);
-    } else if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
-      flush();
-      out.push(<hr key={out.length} className="border-border" />);
-    } else if (quote) {
-      flush();
-      const body = [quote[1]];
-      while (i + 1 < lines.length && /^>\s?/.test(lines[i + 1])) body.push(lines[++i].replace(/^>\s?/, ""));
-      out.push(<blockquote key={out.length} className="border-l-2 border-accent/50 pl-3 text-muted">{inline(body.join("\n"))}</blockquote>);
-    } else if (item) {
-      flush();
-      const ordered = !bullet;
-      const pattern = ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/;
-      const items = [item[1]];
-      for (let next = pattern.exec(lines[i + 1] ?? ""); next; next = pattern.exec(lines[i + 1] ?? "")) {
-        items.push(next[1]);
-        i++;
-      }
-      const nodes = items.map((entry, index) => <li key={index}>{inline(entry)}</li>);
-      out.push(ordered
-        ? <ol key={out.length} className="list-decimal space-y-1 pl-5 marker:text-muted">{nodes}</ol>
-        : <ul key={out.length} className="list-disc space-y-1 pl-5 marker:text-muted">{nodes}</ul>);
-    } else if (line.trim() === "") {
-      flush();
-    } else {
-      paragraph.push(line);
-    }
-  }
-  flush();
-  return <div className="space-y-3 text-sm leading-relaxed">{out}</div>;
+  return (
+    <div className="space-y-3 text-sm leading-relaxed">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{text}</ReactMarkdown>
+    </div>
+  );
 }
