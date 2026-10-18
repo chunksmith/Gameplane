@@ -43,7 +43,11 @@ const (
 	aiIdle     = "idle"
 	aiFailed   = "error"
 
-	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id`
+	aiModeDefault = "default"
+	aiModeAuto    = "auto"
+	aiModeBypass  = "bypassPermissions"
+
+	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode`
 	aiFrom    = ` FROM ai_conversations c LEFT JOIN users u ON u.id = c.user_id`
 	aiListOwn = `SELECT ` + aiColumns + aiFrom + ` WHERE c.user_id = ? AND c.server = ? AND c.namespace = ? AND c.cluster = ? ORDER BY c.updated_at DESC LIMIT 200`
 	aiListAll = `SELECT ` + aiColumns + aiFrom + ` ORDER BY c.updated_at DESC LIMIT 200`
@@ -53,6 +57,7 @@ const (
 var (
 	aiModels     = []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"}
 	aiEfforts    = []string{"low", "medium", "high", "xhigh", "max"}
+	aiModes      = []string{aiModeDefault, aiModeAuto, aiModeBypass}
 	errAIStopped = errors.New("ai run stopped")
 )
 
@@ -60,6 +65,7 @@ type aiSettings struct {
 	Enabled         bool   `json:"enabled"`
 	DefaultModel    string `json:"defaultModel"`
 	DefaultEffort   string `json:"defaultEffort"`
+	DefaultMode     string `json:"defaultMode"`
 	APIKeySet       bool   `json:"apiKeySet"`
 	SubscriptionSet bool   `json:"subscriptionSet,omitempty"`
 }
@@ -74,6 +80,7 @@ type aiConversation struct {
 	Server       string `json:"server"`
 	Model        string `json:"model"`
 	Effort       string `json:"effort"`
+	Mode         string `json:"mode"`
 	Status       string `json:"status"`
 	Error        string `json:"error"`
 	InputTokens  int64  `json:"inputTokens"`
@@ -185,7 +192,7 @@ func validateAI(body []byte) (json.RawMessage, error) {
 		return nil, fmt.Errorf("invalid json: %w", err)
 	}
 	s = s.withDefaults()
-	if err := aiCheckModel(s.DefaultModel, s.DefaultEffort); err != nil {
+	if err := cmp.Or(aiCheckModel(s.DefaultModel, s.DefaultEffort), aiCheckMode(s.DefaultMode)); err != nil {
 		return nil, err
 	}
 	return json.Marshal(s)
@@ -194,6 +201,7 @@ func validateAI(body []byte) (json.RawMessage, error) {
 func (s aiSettings) withDefaults() aiSettings {
 	s.DefaultModel = cmp.Or(s.DefaultModel, aiModels[0])
 	s.DefaultEffort = cmp.Or(s.DefaultEffort, "medium")
+	s.DefaultMode = cmp.Or(s.DefaultMode, aiModeDefault)
 	return s
 }
 
@@ -203,6 +211,13 @@ func aiCheckModel(model, effort string) error {
 	}
 	if !slices.Contains(aiEfforts, effort) {
 		return fmt.Errorf("effort must be one of %s", strings.Join(aiEfforts, ", "))
+	}
+	return nil
+}
+
+func aiCheckMode(mode string) error {
+	if !slices.Contains(aiModes, mode) {
+		return fmt.Errorf("mode must be one of %s", strings.Join(aiModes, ", "))
 	}
 	return nil
 }
@@ -247,6 +262,7 @@ func (h *aiHandler) status(w http.ResponseWriter, req *http.Request) {
 		"configured":    key != "",
 		"defaultModel":  s.DefaultModel,
 		"defaultEffort": s.DefaultEffort,
+		"defaultMode":   s.DefaultMode,
 	})
 }
 
@@ -294,6 +310,7 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		Cluster   string `json:"cluster"`
 		Model     string `json:"model"`
 		Effort    string `json:"effort"`
+		Mode      string `json:"mode"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
@@ -305,8 +322,9 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	}
 	prompt := strings.TrimSpace(body.Prompt)
 	model, effort := cmp.Or(body.Model, s.DefaultModel), cmp.Or(body.Effort, s.DefaultEffort)
+	mode := cmp.Or(body.Mode, s.DefaultMode)
 	server, namespace, cluster := aiScope(body.Server, body.Namespace, body.Cluster)
-	err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort))
+	err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort), aiCheckMode(mode))
 	if err == nil && server != "" && (!dnsLabelRE.MatchString(server) || namespace == "") {
 		err = errors.New("server must be a DNS label and namespace is required")
 	}
@@ -328,12 +346,12 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	runID := rand.Text()
 	conv := aiConversation{
 		ID: rand.Text(), UserID: u.ID, Username: u.Username, Title: aiTitle(prompt),
-		Cluster: cluster, Namespace: namespace, Server: server, Model: model, Effort: effort,
+		Cluster: cluster, Namespace: namespace, Server: server, Model: model, Effort: effort, Mode: mode,
 		Status: aiRunning, CreatedAt: now, UpdatedAt: now,
 	}
 	if _, err := h.store.DB.ExecContext(req.Context(),
-		`INSERT INTO ai_conversations(id, user_id, title, cluster, namespace, server, model, effort, status, error, run_id, input_tokens, output_tokens, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 0, 0, ?, ?)`,
-		conv.ID, conv.UserID, conv.Title, conv.Cluster, conv.Namespace, conv.Server, conv.Model, conv.Effort, conv.Status, runID, now, now); err != nil {
+		`INSERT INTO ai_conversations(id, user_id, title, cluster, namespace, server, model, effort, permission_mode, status, error, run_id, input_tokens, output_tokens, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 0, 0, ?, ?)`,
+		conv.ID, conv.UserID, conv.Title, conv.Cluster, conv.Namespace, conv.Server, conv.Model, conv.Effort, conv.Mode, conv.Status, runID, now, now); err != nil {
 		httperr.Write(w, req, err)
 		return
 	}
@@ -375,13 +393,15 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	}
 	var body struct {
 		Prompt string `json:"prompt"`
+		Mode   string `json:"mode"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 	prompt := strings.TrimSpace(body.Prompt)
-	if err := aiCheckPrompt(prompt); err != nil {
+	conv.Mode = cmp.Or(body.Mode, conv.Mode)
+	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckMode(conv.Mode)); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -391,6 +411,11 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	}
 	runID, ok := h.start(w, req, conv.ID, aiIdle, aiFailed)
 	if !ok {
+		return
+	}
+	if _, err := h.store.DB.ExecContext(req.Context(), `UPDATE ai_conversations SET permission_mode = ? WHERE id = ?`, conv.Mode, conv.ID); err != nil {
+		h.settle(req.Context(), conv.ID, runID, aiFailed, "Could not save the permission mode.")
+		httperr.Write(w, req, err)
 		return
 	}
 	msgs, err := h.messages(req.Context(), conv.ID)
@@ -585,7 +610,7 @@ func (h *aiHandler) addUsage(ctx context.Context, id string, usage anthropic.Bet
 func scanAIConversation(row interface{ Scan(...any) error }) (aiConversation, error) {
 	var c aiConversation
 	err := row.Scan(&c.ID, &c.UserID, &c.Username, &c.Title, &c.Cluster, &c.Namespace, &c.Server,
-		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID)
+		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID, &c.Mode)
 	return c, err
 }
 

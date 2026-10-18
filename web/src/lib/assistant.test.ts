@@ -68,6 +68,19 @@ describe("assistant helpers", () => {
     ]);
   });
 
+  it("sends the picked permission mode", async () => {
+    const seen: string[] = [];
+    server.use(
+      http.post(/\/ai\/conversations/, async ({ request }) => {
+        seen.push(await request.text());
+        return HttpResponse.json({ id: "c1" });
+      }),
+    );
+    await Assistant.create("hi", {}, "auto");
+    await Assistant.send("c1", "more", "bypassPermissions");
+    expect(seen).toEqual([`{"prompt":"hi","mode":"auto"}`, `{"prompt":"more","mode":"bypassPermissions"}`]);
+  });
+
   it("labels shell commands", () => {
     expect(callLabel({ type: "tool_use", input: { command: "kubectl get pods -A" } })).toBe("BASH kubectl get pods -A");
   });

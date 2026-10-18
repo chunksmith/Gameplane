@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Input, TextArea } from "@heroui/react";
+import { Button, Card, Input, ListBox, ListBoxItem, Select, TextArea } from "@heroui/react";
 import {
   Activity,
   Archive,
@@ -16,6 +16,7 @@ import {
   Send,
   Server,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Square,
   Users,
@@ -27,6 +28,7 @@ import { Markdown } from "@/components/assistant/Markdown";
 import { can, useMe } from "@/lib/auth";
 import { cn, formatRelative } from "@/lib/utils";
 import {
+  ASSISTANT_MODES,
   Assistant,
   blocksOf,
   callLabel,
@@ -40,6 +42,7 @@ import {
   type AssistantConversation,
   type AssistantDetail,
   type AssistantMessage,
+  type AssistantMode,
   type AssistantScope,
 } from "@/lib/assistant";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
@@ -138,6 +141,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const [prompt, setPrompt] = useState("");
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
+  const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const ready = !!status.data?.enabled && status.data.configured;
 
   const list = useQuery({
@@ -166,7 +170,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
   const submit = useMutation({
-    mutationFn: (text: string) => (selected ? Assistant.send(selected, text) : Assistant.create(text, scope)),
+    mutationFn: (text: string) => (selected ? Assistant.send(selected, text, pickedMode) : Assistant.create(text, scope, pickedMode)),
     onSuccess: (conv) => {
       setPrompt("");
       setSelected(conv.id);
@@ -192,8 +196,11 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const busy = running || conv?.status === "awaiting_approval" || submit.isPending;
   const starters = scope.server ? serverStarters : fleetStarters;
   const pending = detail.data?.pending ?? [];
+  const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
+  const modeLabel = intl.formatMessage({ id: "web.components.assistant.assistant_panel.permission_mode", defaultMessage: "Permission mode", description: "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short" });
   const open = (id: string | null) => {
     setSelected(id);
+    setPickedMode(undefined);
     setListOpen(false);
   };
   const send = () => {
@@ -361,6 +368,20 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
           <div className="flex flex-wrap items-center gap-1.5">
             {scope.server && <span className={chipClass}><Server className="h-3 w-3" />{scope.server}</span>}
             <span className={chipClass}><Lock className="h-3 w-3" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.acts_with_your_permissions", defaultMessage: "Acts with your permissions", description: "Assistant panel: chip above the message box reminding that the assistant acts with the user's own permissions; keep it short" })}</span>
+            <Select aria-label={modeLabel} selectedKey={mode} isDisabled={!own} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
+              <Select.Trigger className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
+                <ShieldCheck className="h-3 w-3" />
+                <Select.Value />
+                <Select.Indicator className="h-3 w-3" />
+              </Select.Trigger>
+              <Select.Popover className="rounded border border-border">
+                <ListBox aria-label={modeLabel}>
+                  {ASSISTANT_MODES.map((option) => (
+                    <ListBoxItem key={option.id} id={option.id}>{intl.formatMessage(option.label)}</ListBoxItem>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
           </div>
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
             <TextArea

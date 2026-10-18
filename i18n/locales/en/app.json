@@ -1267,6 +1267,10 @@
     "defaultMessage": "ok",
     "description": "Assistant panel: badge on a finished tool call that succeeded, used when the result gives no status text; keep it short"
   },
+  "web.components.assistant.assistant_panel.permission_mode": {
+    "defaultMessage": "Permission mode",
+    "description": "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short"
+  },
   "web.components.assistant.assistant_panel.placeholder_lobby_example": {
     "defaultMessage": "e.g. \"On lobby, change the MOTD\"",
     "description": "Assistant panel: example prompt shown as the placeholder of the message box when the assistant covers all servers; keep the example as it is"
@@ -4543,6 +4547,18 @@
     "defaultMessage": "User menu",
     "description": "Top bar: screen-reader name of the user avatar dropdown menu; not visible on screen"
   },
+  "web.lib.assistant.mode_auto": {
+    "defaultMessage": "Auto",
+    "description": "Assistant permission mode where Claude Code's auto mode approves safe shell commands itself and blocks risky ones; keep it short"
+  },
+  "web.lib.assistant.mode_bypass": {
+    "defaultMessage": "Bypass permissions",
+    "description": "Assistant permission mode where every action runs at once without asking for approval; keep it short"
+  },
+  "web.lib.assistant.mode_default": {
+    "defaultMessage": "Ask permissions",
+    "description": "Assistant permission mode that pauses deletes, data wipes and restores until the user approves them; keep it short"
+  },
   "web.lib.backup_groups.daily": {
     "defaultMessage": "Daily at {time}",
     "description": "Backup schedule: description of a schedule that runs once a day; {time} is the local start time as HH:MM"
@@ -5114,6 +5130,10 @@
   "web.routes.admin_settings.default_namespace": {
     "defaultMessage": "Default namespace",
     "description": "Admin settings: label of the field for the Kubernetes namespace where new game servers are created by default"
+  },
+  "web.routes.admin_settings.default_permission_mode": {
+    "defaultMessage": "Default permission mode",
+    "description": "Admin settings: label of the dropdown that picks the AI assistant's default permission mode for new conversations"
   },
   "web.routes.admin_settings.default_role": {
     "defaultMessage": "Default role",

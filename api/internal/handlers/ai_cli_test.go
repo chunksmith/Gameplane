@@ -449,3 +449,38 @@ func TestAICLIAdminShell(t *testing.T) {
 		t.Error("admin flag follows the built-in admin role")
 	}
 }
+
+func TestAICLIModes(t *testing.T) {
+	for mode, want := range map[string]string{"": "dontAsk", aiModeDefault: "dontAsk", aiModeAuto: "auto", aiModeBypass: "bypassPermissions"} {
+		args := aiCLIArgs(aiConversation{Model: "claude-opus-5-5", Effort: "medium", Mode: mode}, "http://127.0.0.1:1/mcp", "tok", true)
+		system := args[slices.Index(args, "--system-prompt")+1]
+		if !hasArg(args, "--permission-mode", want) || strings.Contains(system, "Bypass permissions is on") != (mode == aiModeBypass) {
+			t.Errorf("mode %q args = %v", mode, args)
+		}
+	}
+}
+
+func TestAICLIBypass(t *testing.T) {
+	var mu sync.Mutex
+	var result string
+	f, spawns := newCLIFixture(t, func(call aiSpawn, emit func(string)) {
+		emit(cliInit)
+		emit(cliToolUse("tu1", `{"method":"DELETE","path":"/servers/lobby/files/delete","query":{"path":"/old.txt"}}`))
+		emit(cliBarrier)
+		text := cliTool(t, call.args, map[string]any{"method": "DELETE", "path": "/servers/lobby/files/delete", "query": map[string]string{"path": "/old.txt"}})
+		mu.Lock()
+		result = text
+		mu.Unlock()
+		emit(cliToolResult("tu1", text))
+		emit(cliDone)
+	})
+	f.routes["DELETE /servers/lobby/files/delete"] = func() (int, string) { return http.StatusOK, `{}` }
+	conv := f.create(map[string]any{"prompt": "delete old.txt", "server": "lobby", "namespace": "games", "mode": aiModeBypass})
+	f.wait(conv.ID, aiIdle)
+	mu.Lock()
+	got := result
+	mu.Unlock()
+	if args := spawns()[0].args; !strings.HasPrefix(got, "HTTP 200") || !hasArg(args, "--permission-mode", "bypassPermissions") {
+		t.Errorf("result = %q args = %v", got, args)
+	}
+}

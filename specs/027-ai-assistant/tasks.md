@@ -59,3 +59,11 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T030 `BASH <command>` tool-call label (`web/src/lib/assistant.ts`); test in `assistant.test.ts`
 - [X] T031 Document the admin shell in `api/specs.md` and `web/specs.md`
 - [X] T032 `curl` and `wget` in the API runtime (`buildpack-deps:trixie-curl` in `api/Dockerfile`); `pods/exec` on the API games Role (`charts/gameplane/templates/api.yaml`); shell prompt names curl and wget (`api/internal/handlers/ai_cli.go`); `POST /servers/{name}/mods/install` in the system prompt (`api/internal/handlers/ai_run.go`)
+
+## Phase 7: Permission modes
+
+- [X] T033 `permission_mode` column (`api/internal/db/migrations/common/023_ai_permission_mode.sql`); `defaultMode` setting, `mode` on create and messages, `defaultMode` in status (`api/internal/handlers/ai.go`)
+- [X] T034 Bypass skips the approval gate on both paths and mode-specific approval text in the system prompt (`api/internal/handlers/ai_run.go`); `--permission-mode` per mode and mode-specific shell text (`api/internal/handlers/ai_cli.go`)
+- [X] T035 Tests: `TestValidateAI`, `TestAIStatusAndGuards`, `TestAIRunBypass` in `ai_test.go`; `TestAICLIModes`, `TestAICLIBypass` in `ai_cli_test.go`
+- [X] T036 `ASSISTANT_MODES` and `mode` on create and send (`web/src/lib/assistant.ts`); composer mode picker (`web/src/components/assistant/AssistantPanel.tsx`); admin default permission mode (`web/src/routes/AdminSettings.tsx`, `web/src/lib/config.ts`); tests in `assistant.test.ts`, `AssistantPanel.test.tsx`, `AdminSettings_ai.test.tsx`
+- [X] T037 Document the modes in `api/specs.md` and `web/specs.md`

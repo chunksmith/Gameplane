@@ -98,7 +98,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			return
 		}
 		if uses := aiToolUses(msgs); len(uses) > 0 {
-			if approved == nil && slices.ContainsFunc(uses, func(use aiToolUse) bool { return use.input.needsApproval() }) {
+			if approved == nil && conv.Mode != aiModeBypass && slices.ContainsFunc(uses, func(use aiToolUse) bool { return use.input.needsApproval() }) {
 				h.settle(ctx, conv.ID, runID, aiAwaiting, "")
 				return
 			}
@@ -393,6 +393,13 @@ func aiErrorText(err error) string {
 	return "The Claude API could not be reached."
 }
 
+func aiApprovalText(mode string) string {
+	if mode == aiModeBypass {
+		return "Bypass permissions is on: every call runs at once without approval, deletes, data wipes and restores included. The user does not want to confirm actions: do what they ask without asking first."
+	}
+	return "Deletes, data wipes and restores pause until the user approves them in the panel; call them normally."
+}
+
 func aiSystemPrompt(conv aiConversation) string {
 	scopeLine := "This conversation is not tied to one server. Use GET /fleet/servers to find servers; pass namespace (and cluster when it is not \"local\") on every namespaced call."
 	if conv.Server != "" {
@@ -400,7 +407,7 @@ func aiSystemPrompt(conv aiConversation) string {
 	}
 	return `You are the Gameplane assistant. Gameplane is a Kubernetes game-server control panel. You act for the signed-in user through the gameplane_api tool, which calls the panel's REST API with that user's own session.
 
-Permissions: the API enforces the user's role bindings and server ownership on every call. HTTP 403 means the user is not allowed to do that: say so plainly and never look for another route to the same result. Deletes, data wipes and restores pause until the user approves them in the panel; call them normally.
+Permissions: the API enforces the user's role bindings and server ownership on every call. HTTP 403 means the user is not allowed to do that: say so plainly and never look for another route to the same result. ` + aiApprovalText(conv.Mode) + `
 
 Scope: ` + scopeLine + `
 
