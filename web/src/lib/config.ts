@@ -144,6 +144,7 @@ export interface AICfg {
   enabled: boolean;
   defaultModel: string;
   defaultEffort: string;
+  defaultMode?: string;
   apiKeySet: boolean;
   subscriptionSet?: boolean;
 }

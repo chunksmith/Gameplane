@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -234,10 +235,10 @@ func textReply(text, stop string) string {
 
 func TestValidateAI(t *testing.T) {
 	out, err := validateAI([]byte(`{"enabled":true,"extra":1}`))
-	if err != nil || string(out) != `{"enabled":true,"defaultModel":"claude-opus-5-5","defaultEffort":"medium","apiKeySet":false}` {
+	if err != nil || string(out) != `{"enabled":true,"defaultModel":"claude-opus-5-5","defaultEffort":"medium","defaultMode":"default","apiKeySet":false}` {
 		t.Fatalf("defaults = %s, %v", out, err)
 	}
-	for _, body := range []string{`{`, `{"defaultModel":"gpt"}`, `{"defaultEffort":"extreme"}`} {
+	for _, body := range []string{`{`, `{"defaultModel":"gpt"}`, `{"defaultEffort":"extreme"}`, `{"defaultMode":"yolo"}`} {
 		if _, err := validateAI([]byte(body)); err == nil {
 			t.Errorf("validateAI(%s) accepted", body)
 		}
@@ -392,7 +393,7 @@ func TestAIParams(t *testing.T) {
 func TestAIStatusAndGuards(t *testing.T) {
 	f := newAIFixture(t, false)
 	rr := f.do(http.MethodGet, "/ai/status", "", nil)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"enabled":false`) || !strings.Contains(rr.Body.String(), `"configured":true`) {
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"enabled":false`) || !strings.Contains(rr.Body.String(), `"configured":true`) || !strings.Contains(rr.Body.String(), `"defaultMode":"default"`) {
 		t.Fatalf("status = %d %s", rr.Code, rr.Body.String())
 	}
 	if rr := f.do(http.MethodPost, "/ai/conversations", "", map[string]any{"prompt": "hi"}); rr.Code != http.StatusForbidden {
@@ -407,6 +408,7 @@ func TestAIStatusAndGuards(t *testing.T) {
 	for _, body := range []map[string]any{
 		{"prompt": ""},
 		{"prompt": "hi", "model": "gpt"},
+		{"prompt": "hi", "mode": "yolo"},
 		{"prompt": "hi", "server": "Bad_Name", "namespace": "g"},
 		{"prompt": "hi", "server": "lobby"},
 	} {
@@ -511,6 +513,35 @@ func TestAIRunApproval(t *testing.T) {
 	_, msgs, _ := f.detail(conv.ID, "")
 	if !strings.Contains(string(msgs[len(msgs)-2]), "HTTP 403") {
 		t.Errorf("forbidden delete result = %s", msgs[len(msgs)-2])
+	}
+}
+
+func TestAIRunBypass(t *testing.T) {
+	f := newAIFixture(t, true)
+	f.routes["GET /backups/b1"] = func() (int, string) { return http.StatusOK, `{"spec":{"serverRef":{"name":"lobby"}}}` }
+	f.routes["DELETE /backups/b1"] = func() (int, string) { return http.StatusOK, `{}` }
+	f.script(nil, toolReply("t1", `{"method":"DELETE","path":"/backups/b1"}`), textReply("Deleted", "end_turn"))
+	conv := f.create(map[string]any{"prompt": "delete backup b1", "server": "lobby", "namespace": "games", "mode": aiModeBypass})
+	if conv.Mode != aiModeBypass {
+		t.Fatalf("mode = %q", conv.Mode)
+	}
+	f.wait(conv.ID, aiIdle)
+	f.mu.Lock()
+	deleted := slices.ContainsFunc(f.calls, func(c aiCall) bool { return c.method == http.MethodDelete })
+	system := f.params[0].System[0].Text
+	f.mu.Unlock()
+	if !deleted || !strings.Contains(system, "Bypass permissions is on") {
+		t.Errorf("deleted=%v system=%q", deleted, system)
+	}
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/messages", "", map[string]any{"prompt": "again", "mode": "yolo"}); rr.Code != http.StatusBadRequest {
+		t.Errorf("bad mode post = %d", rr.Code)
+	}
+	f.script(nil, toolReply("t2", `{"method":"DELETE","path":"/backups/b1"}`))
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/messages", "", map[string]any{"prompt": "delete it again", "mode": aiModeDefault}); rr.Code != http.StatusOK {
+		t.Fatalf("follow-up = %d %s", rr.Code, rr.Body.String())
+	}
+	if got := f.wait(conv.ID, aiAwaiting); got.Mode != aiModeDefault {
+		t.Errorf("mode after follow-up = %q", got.Mode)
 	}
 }
 

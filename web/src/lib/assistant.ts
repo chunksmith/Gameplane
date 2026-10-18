@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { defineMessages, type MessageDescriptor } from "react-intl";
 
 export const ASSISTANT_MODELS: ReadonlyArray<{ id: string; label: string }> = [
   { id: "claude-opus-5-5", label: "Claude Opus 5.5" },
@@ -17,11 +18,26 @@ export const ASSISTANT_EFFORTS: ReadonlyArray<{ id: string; label: string }> = [
   { id: "max", label: "Max" },
 ];
 
+export type AssistantMode = "default" | "auto" | "bypassPermissions";
+
+const MODE_MESSAGES = defineMessages({
+  default: { id: "web.lib.assistant.mode_default", defaultMessage: "Ask permissions", description: "Assistant permission mode that pauses deletes, data wipes and restores until the user approves them; keep it short" },
+  auto: { id: "web.lib.assistant.mode_auto", defaultMessage: "Auto", description: "Assistant permission mode where Claude Code's auto mode approves safe shell commands itself and blocks risky ones; keep it short" },
+  bypassPermissions: { id: "web.lib.assistant.mode_bypass", defaultMessage: "Bypass permissions", description: "Assistant permission mode where every action runs at once without asking for approval; keep it short" },
+});
+
+export const ASSISTANT_MODES: ReadonlyArray<{ id: AssistantMode; label: MessageDescriptor }> = [
+  { id: "default", label: MODE_MESSAGES.default },
+  { id: "auto", label: MODE_MESSAGES.auto },
+  { id: "bypassPermissions", label: MODE_MESSAGES.bypassPermissions },
+];
+
 export interface AssistantStatus {
   enabled: boolean;
   configured: boolean;
   defaultModel: string;
   defaultEffort: string;
+  defaultMode: AssistantMode;
 }
 
 export interface AssistantScope {
@@ -42,6 +58,7 @@ export interface AssistantConversation {
   server: string;
   model: string;
   effort: string;
+  mode: AssistantMode;
   status: AssistantRunStatus;
   error: string;
   inputTokens: number;
@@ -95,10 +112,10 @@ export const Assistant = {
   status: () => api<AssistantStatus>("/ai/status"),
   list: (scope: AssistantScope, all: boolean) => api<AssistantConversation[]>(`/ai/conversations${scopeQuery(scope, all)}`),
   get: (id: string) => api<AssistantDetail>(conversationPath(id)),
-  create: (prompt: string, scope: AssistantScope) =>
-    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope } }),
-  send: (id: string, prompt: string) =>
-    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt } }),
+  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode) =>
+    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode } }),
+  send: (id: string, prompt: string, mode?: AssistantMode) =>
+    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode } }),
   decide: (id: string, approve: boolean) =>
     api<AssistantConversation>(conversationPath(id, "/approval"), { method: "POST", body: { approve } }),
   cancel: (id: string) => api<void>(conversationPath(id, "/cancel"), { method: "POST" }),

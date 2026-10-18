@@ -87,7 +87,7 @@ import {
   type SinkKind,
   type TelemetryCfg,
 } from "@/lib/config";
-import { ASSISTANT_EFFORTS, ASSISTANT_MODELS, AssistantAdmin } from "@/lib/assistant";
+import { ASSISTANT_EFFORTS, ASSISTANT_MODELS, ASSISTANT_MODES, AssistantAdmin } from "@/lib/assistant";
 import { ErrorBanner } from "@/components/backups/ErrorBanner";
 import { ModuleSourcesPanel } from "@/components/modules/ModuleSourcesPanel";
 import { defineMessages } from "react-intl";
@@ -1333,9 +1333,10 @@ function AISection({ initial }: { initial?: AICfg }) {
           </div>
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_model", defaultMessage: "Default model", description: "Admin settings: label of the default model dropdown of the AI assistant" })} value={f.draft.defaultModel} options={ASSISTANT_MODELS} onChange={(defaultModel) => f.update({ defaultModel })} />
         <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_effort", defaultMessage: "Default effort", description: "Admin settings: label of the default effort dropdown of the AI assistant" })} value={f.draft.defaultEffort} options={ASSISTANT_EFFORTS} onChange={(defaultEffort) => f.update({ defaultEffort })} />
+        <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_permission_mode", defaultMessage: "Default permission mode", description: "Admin settings: label of the dropdown that picks the AI assistant's default permission mode for new conversations" })} value={f.draft.defaultMode ?? "default"} options={ASSISTANT_MODES.map((mode) => ({ id: mode.id, label: intl.formatMessage(mode.label) }))} onChange={(defaultMode) => f.update({ defaultMode })} />
       </div>
     </SectionCard>
   );

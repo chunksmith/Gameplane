@@ -35,7 +35,24 @@ const (
 
 const aiShellPrompt = `
 
-Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Shell commands run without approval, so ask the user before anything destructive.`
+Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it.`
+
+func aiShellText(mode string) string {
+	switch mode {
+	case aiModeBypass:
+		return aiShellPrompt + " Bypass permissions is on: run the commands the task needs without asking the user to confirm."
+	case aiModeAuto:
+		return aiShellPrompt + " Auto mode checks each shell command and blocks risky ones; when a command is blocked, tell the user instead of working around it."
+	}
+	return aiShellPrompt + " Shell commands run without approval, so ask the user before anything destructive."
+}
+
+func aiCLIMode(mode string) string {
+	if mode == aiModeAuto || mode == aiModeBypass {
+		return mode
+	}
+	return "dontAsk"
+}
 
 type aiLive struct {
 	conv   aiConversation
@@ -185,13 +202,13 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool) []string {
 	}}})
 	tools, allowed, system := "", aiMCPTool, aiSystemPrompt(conv)
 	if admin {
-		tools, allowed, system = "Bash", aiMCPTool+",Bash", system+aiShellPrompt
+		tools, allowed, system = "Bash", aiMCPTool+",Bash", system+aiShellText(conv.Mode)
 	}
 	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--model", conv.Model, "--effort", conv.Effort, "--max-turns", strconv.Itoa(aiMaxSteps),
 		"--system-prompt", system,
 		"--strict-mcp-config", "--mcp-config", string(servers),
-		"--permission-mode", "dontAsk", "--allowedTools", allowed, "--tools", tools}
+		"--permission-mode", aiCLIMode(conv.Mode), "--allowedTools", allowed, "--tools", tools}
 	if conv.SessionID != "" {
 		args = append(args, "--resume", conv.SessionID)
 	}
@@ -284,7 +301,7 @@ func (h *aiHandler) mcpCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 	text, failed := "", true
 	if err := json.Unmarshal(req.Params.Arguments, &in); err != nil {
 		text = "Invalid tool input: " + err.Error()
-	} else if in.needsApproval() && !h.await(ctx, run, in) {
+	} else if run.conv.Mode != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
 		text = "The user declined this action."
 	} else {
 		status, body := h.tool(ctx, run.conv, run.creds, in)

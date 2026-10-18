@@ -58,6 +58,19 @@ describe("AdminSettings AI assistant", () => {
     expect(saved).toEqual({ enabled: true, defaultModel: "claude-sonnet-5-5", defaultEffort: "medium", apiKeySet: true });
   });
 
+  it("saves the default permission mode", async () => {
+    let saved: unknown;
+    server.use(http.put("/admin/config/ai", async ({ request }) => {
+      saved = await request.json();
+      return new HttpResponse(null, { status: 204 });
+    }));
+    await gotoAI({ enabled: true, defaultModel: "claude-opus-5-5", defaultEffort: "medium", apiKeySet: true });
+    await userEvent.click(await screen.findByRole("button", { name: /Default permission mode/i }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bypass permissions" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save changes$/i }));
+    await waitFor(() => expect(saved).toEqual({ enabled: true, defaultModel: "claude-opus-5-5", defaultEffort: "medium", apiKeySet: true, defaultMode: "bypassPermissions" }));
+  });
+
   it("removes a configured key on save", async () => {
     let deleted = false;
     let saved: unknown;

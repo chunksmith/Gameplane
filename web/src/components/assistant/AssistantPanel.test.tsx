@@ -13,7 +13,7 @@ const now = new Date().toISOString();
 function conv(over: Partial<AssistantConversation> = {}): AssistantConversation {
   return {
     id: "c1", userId: 1, username: "admin", title: "Change the motd", cluster: "local", namespace: "games", server: "lobby",
-    model: "claude-opus-5-5", effort: "medium", status: "idle", error: "", inputTokens: 1200, outputTokens: 34,
+    model: "claude-opus-5-5", effort: "medium", mode: "default", status: "idle", error: "", inputTokens: 1200, outputTokens: 34,
     createdAt: now, updatedAt: now, ...over,
   };
 }
@@ -100,6 +100,20 @@ describe("AssistantPanel", () => {
     expect(screen.getByText("You are not allowed to edit files on lobby.")).toBeInTheDocument();
     expect(screen.getByText("Claude Opus 5.5 · medium")).toBeInTheDocument();
     expect(screen.getByText("1,234 tokens")).toBeInTheDocument();
+  });
+
+  it("starts a conversation in the picked permission mode", async () => {
+    let created: unknown;
+    mockAssistant({ detail: { conversation: conv({ mode: "bypassPermissions" }), pending: [], messages: [] } });
+    server.use(http.post("/ai/conversations", async ({ request }) => {
+      created = await request.json();
+      return HttpResponse.json(conv({ status: "running", mode: "bypassPermissions" }), { status: 201 });
+    }));
+    renderWithQuery(<AssistantPanel />);
+    await userEvent.click(await screen.findByRole("button", { name: /Permission mode/ }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bypass permissions" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Message the assistant" }), "Wipe it{Enter}");
+    await waitFor(() => expect(created).toEqual({ prompt: "Wipe it", mode: "bypassPermissions" }));
   });
 
   it("asks for approval before destructive actions", async () => {
