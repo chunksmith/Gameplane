@@ -45,6 +45,8 @@
     "react-aria-components": "^1.22.1",
     "react-dom": "^19.3.0",
     "react-intl": "^12.1.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
