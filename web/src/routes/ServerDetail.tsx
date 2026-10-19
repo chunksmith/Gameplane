@@ -5,6 +5,7 @@ import { Button, Tab, Tabs } from "@heroui/react";
 import {
   AlertTriangle,
   Archive,
+  ChartColumn,
   FolderOpen,
   History,
   LayoutDashboard,
@@ -62,12 +63,16 @@ const ConsoleTab = lazy(() =>
 const FilesTab = lazy(() =>
   import("./tabs/Files").then((m) => ({ default: m.FilesTab })),
 );
+const StatisticsTab = lazy(() =>
+  import("./tabs/Statistics").then((m) => ({ default: m.StatisticsTab })),
+);
 
 type TabKey =
-  | "overview" | "assistant" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
+  | "overview" | "statistics" | "assistant" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
 
 const TAB_LABELS = defineMessages({
   overview: { id: "web.routes.server_detail.tab_overview", defaultMessage: "Overview", description: "Server detail: label of the Overview tab" },
+  statistics: { id: "web.routes.server_detail.tab_statistics", defaultMessage: "Statistics", description: "Server detail: label of the Statistics tab with the server's history charts" },
   assistant: { id: "web.routes.server_detail.tab_assistant", defaultMessage: "Assistant", description: "Server detail: label of the Assistant tab" },
   events: { id: "web.routes.server_detail.tab_events", defaultMessage: "Events", description: "Server detail: label of the Events tab" },
   console: { id: "web.routes.server_detail.tab_console", defaultMessage: "Console", description: "Server detail: label of the Console tab" },
@@ -83,6 +88,7 @@ const TAB_LABELS = defineMessages({
 
 const tabs: Array<{ key: TabKey; label: MessageDescriptor; icon: LucideIcon }> = [
   { key: "overview", label: TAB_LABELS.overview, icon: LayoutDashboard },
+  { key: "statistics", label: TAB_LABELS.statistics, icon: ChartColumn },
   { key: "console",  label: TAB_LABELS.console,  icon: Terminal },
   { key: "files",    label: TAB_LABELS.files,    icon: FolderOpen },
   { key: "logs",     label: TAB_LABELS.logs,     icon: ScrollText },
@@ -243,6 +249,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   const visibleTabs = tabs.filter((t) => {
     if (t.key === "assistant") return assistant.data?.enabled === true;
     if (t.key === "console") return consoleAvailable;
+    if (t.key === "statistics") return clusterId === "local";
     if (t.key === "mods") return modsAvailable;
     if (t.key === "modpacks") return modpacksAvailable;
     if (t.key === "capture") return captureTabVisible;
@@ -397,6 +404,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               onOpenConsole={consoleAvailable ? () => setTab("console") : undefined}
             />
           )}
+          {activeTab === "statistics" && <StatisticsTab name={name} ns={ns} />}
           {activeTab === "assistant" && (
             <div className="p-4 sm:p-6">
               <AssistantPanel scope={{ server: name, namespace: ns, cluster: clusterId }} />

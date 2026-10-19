@@ -7,16 +7,20 @@ export function Sparkline({
   data,
   className,
   strokeWidth = 1.5,
+  area = false,
+  fixedMin,
 }: {
   data: number[];
   className?: string;
   strokeWidth?: number;
+  area?: boolean;
+  fixedMin?: number;
 }) {
   if (data.length < 2) return null;
   const w = 100;
   const h = 24;
   const max = Math.max(...data);
-  const min = Math.min(...data);
+  const min = fixedMin ?? Math.min(...data);
   const range = max - min || 1;
   const points = data
     .map((v, i) => {
@@ -32,6 +36,7 @@ export function Sparkline({
       className={cn("h-6 w-full", className)}
       aria-hidden="true"
     >
+      {area && <polygon points={`0,${h} ${points} ${w},${h}`} fill="currentColor" fillOpacity={0.12} />}
       <polyline
         points={points}
         fill="none"

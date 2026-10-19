@@ -25,6 +25,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/handlers"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
 	"github.com/GameplanePanel/gameplane/api/internal/notify"
+	"github.com/GameplanePanel/gameplane/api/internal/prom"
 	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/registry"
 	"github.com/GameplanePanel/gameplane/api/internal/steam"
@@ -178,6 +179,12 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("telemetry destination", "kind", telemetryDest.Kind, "host", telemetryDest.Host)
+
+	promClient, err := prom.New(cfg.prometheusURL)
+	if err != nil {
+		logger.Error("invalid --prometheus-url", "err", err)
+		os.Exit(1)
+	}
 
 	store, err := db.Open(ctx, cfg.dbDriver, cfg.dbDSN)
 	if err != nil {
@@ -395,6 +402,7 @@ func main() {
 		handlers.MountAuthProviderSecrets(p, k8s, cfg.namespace)
 		handlers.MountCluster(p, reg, store, Version, cfg.clusterOps, cfg.updateChannel)
 		handlers.MountClusterActions(p, k8s, cfg.clusterOps, cfg.clusterExternalAddress)
+		handlers.MountStatistics(p, reg, promClient)
 		handlers.MountClusters(p, reg, k8s, cfg.namespace)
 		handlers.MountInstallation(p, cfg.standalone, Version)
 		handlers.MountEvents(p, reg)
@@ -557,6 +565,7 @@ type config struct {
 	auditStdout            bool
 	auditWebhookURL        string
 	auditWebhookAuth       string
+	prometheusURL          string
 	steamAPIKey            string
 	steamCacheMaxEntries   int
 	steamCacheTTL          time.Duration
@@ -631,6 +640,7 @@ func (c *config) bindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&c.auditRetentionDays, "audit-retention-days", envOrInt("GAMEPLANE_AUDIT_RETENTION_DAYS", 0), "delete audit events older than this many days (0 = keep forever)")
 	fs.BoolVar(&c.auditStdout, "audit-stdout", envOr("GAMEPLANE_AUDIT_STDOUT", "") == "true", "also emit each audit event as a structured stdout log line (for external log aggregation)")
 	fs.StringVar(&c.auditWebhookURL, "audit-webhook-url", envOr("GAMEPLANE_AUDIT_WEBHOOK_URL", ""), "POST each audit event as JSON to this URL (empty = disabled)")
+	fs.StringVar(&c.prometheusURL, "prometheus-url", envOr("GAMEPLANE_PROMETHEUS_URL", ""), "Prometheus base URL for the Statistics pages (empty = metrics-server live data only)")
 	// The auth header is a credential, so it comes from the environment (a
 	// mounted Secret) only — never a flag, since flag values are visible in the
 	// pod spec and `ps`.

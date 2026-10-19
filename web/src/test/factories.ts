@@ -22,6 +22,13 @@ import type {
   PlayersResp,
   Restore,
   NetworkCapture,
+  ServerStatistics,
+  StatisticsHistory,
+  StatisticsLive,
+  StatisticsNodeDetail,
+  StatisticsNodeSummary,
+  StatisticsPoint,
+  StatisticsServerSummary,
 } from "@/types";
 import type { AllConfig } from "@/lib/config";
 import type { FileEntry } from "@/lib/endpoints";
@@ -341,6 +348,150 @@ export function makeCapture(over: Partial<NetworkCapture> = {}): NetworkCapture 
     bytesWritten: 1024,
     packetsWritten: 100,
     expiresAt: "2026-08-30T00:00:00Z",
+    ...over,
+  };
+}
+
+const statisticsNow = 1_792_000_000;
+const gib = 1024 ** 3;
+
+const statisticsNodes: StatisticsNodeSummary[] = [
+  { name: "node-a", ready: true, internalIP: "10.0.0.11", cpuCapacity: 16, memoryCapacity: 64 * gib, pods: 14, cpuUsed: 3.4, memoryUsed: 42 * gib, rx: 9.8e6, tx: 12.6e6, load1: 2.41 },
+  { name: "node-b", ready: true, internalIP: "10.0.0.21", cpuCapacity: 32, memoryCapacity: 128 * gib, pods: 21, cpuUsed: 5.1, memoryUsed: 90 * gib, rx: 17.9e6, tx: 22.3e6, load1: 3.3 },
+  { name: "node-c", ready: true, internalIP: "10.0.0.22", cpuCapacity: 32, memoryCapacity: 128 * gib, pods: 19, cpuUsed: 2.9, memoryUsed: 81 * gib, rx: 14.2e6, tx: 18.1e6, load1: 2.92 },
+];
+
+const statisticsServers: StatisticsServerSummary[] = [
+  { name: "alpha", namespace: "gameplane-games", node: "node-a", cpu: 1.2, cpuLimit: 4, memory: 3.8 * gib, memoryLimit: 8 * gib, rx: 9.6e6, tx: 12.4e6, players: 8, maxPlayers: 350 },
+  { name: "beta", namespace: "gameplane-games", node: "node-b", cpu: 2.15, cpuLimit: 4, memory: 6.1 * gib, memoryLimit: 8 * gib, rx: 2.2e6, tx: 3.1e6, players: 61, maxPlayers: 500 },
+  { name: "gamma", namespace: "gameplane-games", node: "node-c", cpu: 0.94, cpuLimit: 4, memory: 5.7 * gib, memoryLimit: 12 * gib, rx: 1.4e6, tx: 1.9e6, players: 7, maxPlayers: -1 },
+];
+
+function statisticsSeries(count: number, stepSeconds: number, base: number, amplitude: number): StatisticsPoint[] {
+  return Array.from({ length: count }, (_, index): StatisticsPoint => [
+    statisticsNow - (count - 1 - index) * stepSeconds,
+    Math.max(0, base + amplitude * Math.sin(index / 3)),
+  ]);
+}
+
+function statisticsHeatmap(base: number, amplitude: number): Record<string, (number | null)[]> {
+  return Object.fromEntries(
+    statisticsNodes.map((node, nodeIndex): [string, (number | null)[]] => [
+      node.name,
+      Array.from({ length: 24 }, (_, index) => Math.max(0, base + amplitude * Math.sin(index / 4 + nodeIndex))),
+    ]),
+  );
+}
+
+export function makeStatisticsLive(over: Partial<StatisticsLive> = {}): StatisticsLive {
+  return {
+    source: "prometheus",
+    warnings: [],
+    generatedAt: new Date(statisticsNow * 1000).toISOString(),
+    cluster: {
+      cpu: { used: 11.4, capacity: 80, series: statisticsSeries(30, 30, 11.4, 1.2) },
+      memory: { used: 213 * gib, capacity: 320 * gib, series: statisticsSeries(30, 30, 213 * gib, 2 * gib) },
+      network: {
+        rx: 41.9e6,
+        tx: 53e6,
+        rxSeries: statisticsSeries(30, 30, 41.9e6, 6e6),
+        txSeries: statisticsSeries(30, 30, 53e6, 6e6),
+      },
+    },
+    nodes: statisticsNodes,
+    servers: statisticsServers,
+    ...over,
+  };
+}
+
+export function makeStatisticsHistory(over: Partial<StatisticsHistory> = {}): StatisticsHistory {
+  return {
+    source: "prometheus",
+    warnings: [],
+    range: "24h",
+    step: 900,
+    start: statisticsNow - 86400,
+    end: statisticsNow,
+    network: {
+      rx: statisticsSeries(96, 900, 40e6, 20e6),
+      tx: statisticsSeries(96, 900, 50e6, 20e6),
+      rxTotal: 3.92e12,
+      txTotal: 5.11e12,
+      peak: { value: 142e6, at: statisticsNow - 7200 },
+      p95: 118e6,
+    },
+    heatmap: {
+      buckets: Array.from({ length: 24 }, (_, index) => statisticsNow - (23 - index) * 3600),
+      cpu: statisticsHeatmap(45, 30),
+      memory: statisticsHeatmap(70, 10),
+      network: statisticsHeatmap(30e6, 20e6),
+    },
+    nodeCpu: Object.fromEntries(
+      statisticsNodes.map((node, nodeIndex): [string, StatisticsPoint[]] => [node.name, statisticsSeries(96, 900, 45 + nodeIndex * 5, 25)]),
+    ),
+    ...over,
+  };
+}
+
+export function makeStatisticsNodeDetail(over: Partial<StatisticsNodeDetail> = {}): StatisticsNodeDetail {
+  return {
+    source: "prometheus",
+    warnings: [],
+    range: "24h",
+    step: 900,
+    node: {
+      ...statisticsNodes[0],
+      osImage: "Ubuntu 24.04.2 LTS",
+      kernelVersion: "6.8.0-45-generic",
+      kubeletVersion: "v1.31.0",
+      bootTime: statisticsNow - 14 * 86400,
+    },
+    live: {
+      load5: 2.1,
+      load15: 1.8,
+      diskRead: 0.4e6,
+      diskWrite: 1.2e6,
+      cpuSeries: statisticsSeries(30, 30, 3.4, 0.6),
+      memorySeries: statisticsSeries(30, 30, 42 * gib, gib),
+      rxSeries: statisticsSeries(30, 30, 9.8e6, 2e6),
+      txSeries: statisticsSeries(30, 30, 12.6e6, 2e6),
+    },
+    cpu: { usage: statisticsSeries(96, 900, 3.4, 1.2), requested: 6.5 },
+    memory: { usage: statisticsSeries(96, 900, 42 * gib, 4 * gib), requested: 48 * gib },
+    network: { rx: statisticsSeries(96, 900, 9.8e6, 4e6), tx: statisticsSeries(96, 900, 12.6e6, 4e6) },
+    interfaces: [
+      { name: "eth0", rx: 9.8e6, tx: 12.6e6, rxPackets: 9100, txPackets: 6400, rxTotal: 3.1e11, txTotal: 4e11, errors: 0, drops: 0 },
+      { name: "ens19", rx: 2.1e6, tx: 0.8e6, rxPackets: 1500, txPackets: 900, rxTotal: 6.5e10, txTotal: 2.4e10, errors: 0, drops: 12 },
+    ],
+    filesystems: [{ mountpoint: "/", device: "/dev/sda1", fstype: "ext4", size: 500e9, used: 180e9 }],
+    servers: statisticsServers.filter((server) => server.node === "node-a"),
+    ...over,
+  };
+}
+
+export function makeServerStatistics(over: Partial<ServerStatistics> = {}): ServerStatistics {
+  return {
+    source: "prometheus",
+    warnings: [],
+    range: "24h",
+    step: 900,
+    pod: "alpha-0",
+    node: "node-a",
+    cpu: { usage: statisticsSeries(96, 900, 1.2, 0.8), request: 1, limit: 4 },
+    memory: { usage: statisticsSeries(96, 900, 3.8 * gib, 0.3 * gib), request: 2 * gib, limit: 8 * gib },
+    network: {
+      rx: statisticsSeries(96, 900, 9.6e6, 5e6),
+      tx: statisticsSeries(96, 900, 12.4e6, 5e6),
+      rxSinceStart: 45.2e9,
+      txSinceStart: 14.1e9,
+      peak: { value: 31.4e6, at: statisticsNow - 3 * 3600 },
+      p95: 22e6,
+      rxPackets: 9100,
+      txPackets: 6400,
+    },
+    players: { online: statisticsSeries(96, 900, 40, 35), max: 500 },
+    disk: { used: 312e6, total: 2e9, growth: 18e6, read: 0.4e6, write: 1.2e6 },
+    health: { restarts: 0, oomKills: 0, throttledPercent: 2.1 },
     ...over,
   };
 }

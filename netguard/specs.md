@@ -7,11 +7,11 @@
 
 Shared SSRF/egress dial-guard restricting outbound connections so they cannot be aimed at cloud instance-metadata endpoints or other cluster-internal SSRF targets. Enforced at dial time to defeat DNS rebinding past a name-based allowlist. Used by:
 - **Operator reconciliation** (module-source HTTP/git fetches)
-- **API gateway** (notification sinks, Steam resolver)
+- **API gateway** (notification sinks, Prometheus, Steam resolver)
 - **Agent sidecar** (mod downloads, WebSocket RCON)
 
 via two deliberately different policies that must remain separately selectable:
-- **`IsAllowed`** (operator & API, permissive): admin-configured infrastructure (private registries, notification sinks, loopback RCON).
+- **`IsAllowed`** (operator & API, permissive): admin-configured infrastructure (private registries, notification sinks, Prometheus, loopback RCON).
 - **`IsPublic`** (agent & API Steam resolver, strict): user-supplied targets (mod URLs, Steam names).
 
 ## Responsibilities
@@ -102,6 +102,7 @@ Single package; no subdirectories or internal structure.
 - **`agent/internal/rcon/websocket.go`** — loopback WebSocket RCON via `IsAllowed`.
 - **`agent/internal/mods/mods.go`** — mod downloads via `IsPublic`.
 - **`api/internal/notify/{notify,deliver}.go`** — admin-configured notification sinks via `IsAllowed`.
+- **`api/internal/prom/prom.go`** — admin-configured Prometheus URL for the Statistics pages via `IsAllowed`.
 - **`api/internal/steam/resolver.go`** — Steam name resolution via `IsPublic`.
 - **`api/internal/registry/registry.go`** — module registry queries (Modrinth, Thunderstore, etc.) via `IsPublic`.
 - **`go.work`** — workspace linking netguard to operator, agent, and other Go modules.

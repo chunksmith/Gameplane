@@ -41,6 +41,11 @@ import type {
   Role,
   RoleBinding,
   ServerEvent,
+  ServerStatistics,
+  StatisticsHistory,
+  StatisticsLive,
+  StatisticsNodeDetail,
+  StatisticsRange,
   StatusReading,
   ThemePresetId,
   ThemeType,
@@ -136,6 +141,13 @@ export interface NamespacesResponse {
 
 
 
+
+export const Statistics = {
+  live: (signal?: AbortSignal) => api<StatisticsLive>("/statistics/live", { signal }),
+  history: (range: StatisticsRange, signal?: AbortSignal) => api<StatisticsHistory>(`/statistics/history?range=${range}`, { signal }),
+  node: (name: string, range: StatisticsRange, signal?: AbortSignal) => api<StatisticsNodeDetail>(`/statistics/nodes/${encodeURIComponent(name)}?range=${range}`, { signal }),
+  server: (name: string, range: StatisticsRange, ns?: string, signal?: AbortSignal) => api<ServerStatistics>(withNS(`/servers/${encodeURIComponent(name)}/statistics?range=${range}`, ns), { signal }),
+};
 
 // Multi-cluster registry operations.
 export const Clusters = {
