@@ -275,7 +275,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
     <div className="flex h-full flex-col">
       <header className="border-b border-border bg-background px-6 pt-8">
         <div className="flex flex-wrap items-start justify-between gap-4 pb-6">
-          <div className="flex items-start gap-4">
+          <div className="flex min-w-0 items-start gap-4">
             <GameIcon
               game={gs?.spec.templateRef.name}
               icon={tmpl?.spec.icon}
