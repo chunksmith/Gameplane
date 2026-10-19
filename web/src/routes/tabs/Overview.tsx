@@ -129,7 +129,7 @@ export function OverviewTab({
         </Alert>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <AllocationCard
