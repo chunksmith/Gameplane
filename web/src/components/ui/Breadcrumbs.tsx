@@ -21,6 +21,7 @@ const routeLabelMessages = defineMessages({
   audit: { id: "web.components.ui.breadcrumbs.audit_log", defaultMessage: "Audit log", description: "Breadcrumb: label for the audit log crumb" },
   logs: { id: "web.components.ui.breadcrumbs.system_logs", defaultMessage: "System logs", description: "Breadcrumb: label for the system logs crumb" },
   backups: { id: "web.components.ui.breadcrumbs.backups", defaultMessage: "Backups", description: "Breadcrumb: label for the backups crumb" },
+  statistics: { id: "web.components.ui.breadcrumbs.statistics", defaultMessage: "Statistics", description: "Breadcrumb: label for the statistics crumb" },
   new: { id: "web.components.ui.breadcrumbs.new", defaultMessage: "New", description: "Breadcrumb: label for the create-new crumb" },
 });
 
@@ -52,6 +53,7 @@ export function buildCrumbs(pathname: string, intl: IntlShape = englishIntl): Cr
     if (p === "servers" && parts.length > 1) continue;
     // /settings/theme renders as the same single "Settings" crumb as /admin.
     if (p === "settings" && parts[parts.length - 1] === "theme") continue;
+    if (p === "nodes" && parts[0] === "statistics") continue;
     const label = p === "theme" && parts[0] === "settings" ? routeLabel(intl, "admin") : routeLabel(intl, p);
     crumbs.push({ label, to: acc });
   }

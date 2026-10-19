@@ -1119,6 +1119,10 @@
     "defaultMessage": "Settings",
     "description": "Sidebar: navigation link to admin settings"
   },
+  "web.components.app_layout.statistics": {
+    "defaultMessage": "Statistics",
+    "description": "Sidebar: navigation link to the statistics pages"
+  },
   "web.components.app_layout.system_logs": {
     "defaultMessage": "System logs",
     "description": "Sidebar: navigation link to system logs"
@@ -3863,6 +3867,70 @@
     "defaultMessage": "Working…",
     "description": "Wipe server dialog: submit button label while the wipe runs"
   },
+  "web.components.statistics.heatmap.cell_tooltip": {
+    "defaultMessage": "{node} at {time}: {value}",
+    "description": "Statistics heatmap: tooltip over one cell, naming the node, the time bucket and the value"
+  },
+  "web.components.statistics.heatmap.legend_top": {
+    "defaultMessage": "{value}+ {unit}",
+    "description": "Statistics heatmap: last legend label, the top of the scale followed by the metric unit"
+  },
+  "web.components.statistics.inline_meter.percent": {
+    "defaultMessage": "{value}%",
+    "description": "Statistics table meter: the share of capacity in use, as a whole-number percentage"
+  },
+  "web.components.statistics.line_chart.no_data": {
+    "defaultMessage": "No data for this range",
+    "description": "Statistics line chart: shown in the empty chart box when the selected range has no samples"
+  },
+  "web.components.statistics.line_chart.now": {
+    "defaultMessage": "now",
+    "description": "Statistics line chart: label of the last time tick when that tick is the current time"
+  },
+  "web.components.statistics.live_card.no_bandwidth": {
+    "defaultMessage": "No bandwidth data",
+    "description": "Statistics live card: text in the dashed box shown instead of a sparkline when the network rate is unavailable"
+  },
+  "web.components.statistics.live_card.now": {
+    "defaultMessage": "now",
+    "description": "Statistics live card: footer label at the right edge of the sparkline, meaning the current time"
+  },
+  "web.components.statistics.live_card.peak": {
+    "defaultMessage": "Peak {value} · 15m",
+    "description": "Statistics live card: footer with the highest value of the last 15 minutes; {value} is the formatted peak"
+  },
+  "web.components.statistics.range_select.aria_label": {
+    "defaultMessage": "Time range",
+    "description": "Statistics range switch: accessible name of the group of time range buttons; not shown as text"
+  },
+  "web.components.statistics.range_select.range_15m": {
+    "defaultMessage": "15m",
+    "description": "Statistics range switch: button for the last 15 minutes; keep the short form"
+  },
+  "web.components.statistics.range_select.range_1h": {
+    "defaultMessage": "1h",
+    "description": "Statistics range switch: button for the last hour; keep the short form"
+  },
+  "web.components.statistics.range_select.range_24h": {
+    "defaultMessage": "24h",
+    "description": "Statistics range switch: button for the last 24 hours; keep the short form"
+  },
+  "web.components.statistics.range_select.range_30d": {
+    "defaultMessage": "30d",
+    "description": "Statistics range switch: button for the last 30 days; keep the short form"
+  },
+  "web.components.statistics.range_select.range_6h": {
+    "defaultMessage": "6h",
+    "description": "Statistics range switch: button for the last 6 hours; keep the short form"
+  },
+  "web.components.statistics.range_select.range_7d": {
+    "defaultMessage": "7d",
+    "description": "Statistics range switch: button for the last 7 days; keep the short form"
+  },
+  "web.components.statistics.split_bars.pair": {
+    "defaultMessage": "{inbound} / {outbound}",
+    "description": "Statistics bandwidth bars: inbound and outbound rates of one node in MB/s, separated by a slash"
+  },
   "web.components.ui.admin.edit_user_dialog.cancel": {
     "defaultMessage": "Cancel",
     "description": "Edit user dialog: button that closes the dialog without saving; keep it short"
@@ -4114,6 +4182,10 @@
   "web.components.ui.breadcrumbs.settings": {
     "defaultMessage": "Settings",
     "description": "Breadcrumb: label for the settings crumb (also used for the theme settings page)"
+  },
+  "web.components.ui.breadcrumbs.statistics": {
+    "defaultMessage": "Statistics",
+    "description": "Breadcrumb: label for the statistics crumb"
   },
   "web.components.ui.breadcrumbs.system_logs": {
     "defaultMessage": "System logs",
@@ -8123,6 +8195,10 @@
     "defaultMessage": "Settings",
     "description": "Server detail: label of the Settings tab"
   },
+  "web.routes.server_detail.tab_statistics": {
+    "defaultMessage": "Statistics",
+    "description": "Server detail: label of the Statistics tab with the server's history charts"
+  },
   "web.routes.server_detail.this_server_changed_while_it_was_being": {
     "defaultMessage": "This server changed while it was being loaded. Reload its current identity before continuing.",
     "description": "Server detail: error card shown when the server's identity no longer matches the one the link was for; asks the user to reload its current identity"
@@ -8494,6 +8570,462 @@
   "web.routes.share.try_again_shortly": {
     "defaultMessage": "Try again shortly",
     "description": "Share: start button label while a retry is scheduled after a failed start"
+  },
+  "web.routes.statistics.all_nodes": {
+    "defaultMessage": "All nodes",
+    "description": "Statistics: first choice of the node dropdown, which keeps the cluster-wide overview"
+  },
+  "web.routes.statistics.bandwidth_subtitle": {
+    "defaultMessage": "Current in + out, MB/s",
+    "description": "Statistics: subtitle of the bandwidth by node card"
+  },
+  "web.routes.statistics.bandwidth_title": {
+    "defaultMessage": "Bandwidth by node",
+    "description": "Statistics: title of the card that compares current inbound and outbound traffic per node"
+  },
+  "web.routes.statistics.column_cpu": {
+    "defaultMessage": "CPU",
+    "description": "Statistics node table: column with CPU utilization of the node"
+  },
+  "web.routes.statistics.column_load": {
+    "defaultMessage": "Load 1m",
+    "description": "Statistics node table: column with the one-minute load average"
+  },
+  "web.routes.statistics.column_memory": {
+    "defaultMessage": "Memory",
+    "description": "Statistics node table: column with memory utilization of the node"
+  },
+  "web.routes.statistics.column_net": {
+    "defaultMessage": "Net in / out",
+    "description": "Statistics top game servers table: column with the inbound and outbound network rate"
+  },
+  "web.routes.statistics.column_net_in": {
+    "defaultMessage": "Net in",
+    "description": "Statistics node table: column with the inbound network rate of the node"
+  },
+  "web.routes.statistics.column_net_out": {
+    "defaultMessage": "Net out",
+    "description": "Statistics node table: column with the outbound network rate of the node"
+  },
+  "web.routes.statistics.column_node": {
+    "defaultMessage": "Node",
+    "description": "Statistics node table: column with the node name"
+  },
+  "web.routes.statistics.column_players": {
+    "defaultMessage": "Players",
+    "description": "Statistics top game servers table: column with players online and the player capacity"
+  },
+  "web.routes.statistics.column_pods": {
+    "defaultMessage": "Pods",
+    "description": "Statistics node table: column with the number of pods on the node"
+  },
+  "web.routes.statistics.column_server": {
+    "defaultMessage": "Server",
+    "description": "Statistics top game servers table: column with the game server name"
+  },
+  "web.routes.statistics.column_status": {
+    "defaultMessage": "Status",
+    "description": "Statistics node table: column with the Ready or NotReady status"
+  },
+  "web.routes.statistics.column_trend": {
+    "defaultMessage": "CPU · {range}",
+    "description": "Statistics node table: column with a sparkline of the node CPU over the selected range; {range} is the time range such as 24h"
+  },
+  "web.routes.statistics.connect_body": {
+    "defaultMessage": "Set metrics.prometheus.url in the Helm values to a Prometheus that scrapes node-exporter and cAdvisor. kube-prometheus-stack works as is.",
+    "description": "Statistics: body of the callout shown when Prometheus is not configured; metrics.prometheus.url is a Helm value name, shown as code"
+  },
+  "web.routes.statistics.connect_title": {
+    "defaultMessage": "Connect Prometheus to unlock history, bandwidth and heatmaps",
+    "description": "Statistics: heading of the callout shown when Prometheus is not configured"
+  },
+  "web.routes.statistics.cpu": {
+    "defaultMessage": "CPU",
+    "description": "Statistics: label of the cluster CPU card; technical term, usually left untranslated"
+  },
+  "web.routes.statistics.cpu_sub": {
+    "defaultMessage": "{used} of {capacity} cores in use",
+    "description": "Statistics: CPU card subtitle; {used} and {capacity} are core counts"
+  },
+  "web.routes.statistics.delta_percent": {
+    "defaultMessage": "{value}% vs 15m",
+    "description": "Statistics: relative change over the last 15 minutes; {value} is the percentage"
+  },
+  "web.routes.statistics.delta_points": {
+    "defaultMessage": "{value} pt",
+    "description": "Statistics: change since the start of the live window, in percentage points; {value} is the number"
+  },
+  "web.routes.statistics.error": {
+    "defaultMessage": "Couldn't load statistics.",
+    "description": "Statistics: error card message when the live statistics cannot be loaded"
+  },
+  "web.routes.statistics.heatmap_subtitle": {
+    "defaultMessage": "Average per node · last {range}",
+    "description": "Statistics: subtitle of the heatmap; {range} is the selected time range such as 24h"
+  },
+  "web.routes.statistics.heatmap_switch": {
+    "defaultMessage": "Heatmap metric",
+    "description": "Statistics: accessible name of the CPU, Memory and Network switch above the heatmap"
+  },
+  "web.routes.statistics.heatmap_title": {
+    "defaultMessage": "Utilization heatmap",
+    "description": "Statistics: title of the heatmap of average utilization per node and time bucket"
+  },
+  "web.routes.statistics.history_error": {
+    "defaultMessage": "Couldn't load statistics history.",
+    "description": "Statistics: error card message when the history for the selected range cannot be loaded"
+  },
+  "web.routes.statistics.inbound": {
+    "defaultMessage": "Inbound",
+    "description": "Statistics: label of the card and legend entry for incoming network traffic"
+  },
+  "web.routes.statistics.legend_in": {
+    "defaultMessage": "In",
+    "description": "Statistics: short legend label for inbound traffic"
+  },
+  "web.routes.statistics.legend_out": {
+    "defaultMessage": "Out",
+    "description": "Statistics: short legend label for outbound traffic"
+  },
+  "web.routes.statistics.live": {
+    "defaultMessage": "Live",
+    "description": "Statistics: green pill meaning the values refresh automatically"
+  },
+  "web.routes.statistics.live_updated": {
+    "defaultMessage": "Updated {relative} · refreshes every 10s",
+    "description": "Statistics: line under the live usage label; {relative} is how long ago the values were fetched, such as 4s ago"
+  },
+  "web.routes.statistics.live_usage": {
+    "defaultMessage": "Live usage",
+    "description": "Statistics: section label above the live CPU, memory and network cards"
+  },
+  "web.routes.statistics.loading": {
+    "defaultMessage": "Loading statistics…",
+    "description": "Statistics: loading message while the live statistics are fetched"
+  },
+  "web.routes.statistics.memory": {
+    "defaultMessage": "Memory",
+    "description": "Statistics: label of the cluster memory card"
+  },
+  "web.routes.statistics.memory_sub": {
+    "defaultMessage": "{used} of {capacity} in use",
+    "description": "Statistics: memory card subtitle; {used} and {capacity} are byte sizes"
+  },
+  "web.routes.statistics.metric_cpu": {
+    "defaultMessage": "CPU",
+    "description": "Statistics: switch option for CPU; technical term, usually left untranslated"
+  },
+  "web.routes.statistics.metric_memory": {
+    "defaultMessage": "Memory",
+    "description": "Statistics: switch option for memory"
+  },
+  "web.routes.statistics.metric_network": {
+    "defaultMessage": "Network",
+    "description": "Statistics: switch option for network traffic"
+  },
+  "web.routes.statistics.mobile_cpu": {
+    "defaultMessage": "CPU",
+    "description": "Statistics nodes list on phones: label of the CPU meter; technical term, usually left untranslated"
+  },
+  "web.routes.statistics.mobile_memory": {
+    "defaultMessage": "Mem",
+    "description": "Statistics nodes list on phones: short label of the memory meter"
+  },
+  "web.routes.statistics.mobile_rates": {
+    "defaultMessage": "↓{rx} ↑{tx}",
+    "description": "Statistics nodes list on phones: current inbound and outbound rate of a node; {rx} and {tx} are rates in MB/s, or — when unknown"
+  },
+  "web.routes.statistics.needs_prometheus": {
+    "defaultMessage": "Needs Prometheus",
+    "description": "Statistics: text under a network card when network rates need Prometheus, which is not connected"
+  },
+  "web.routes.statistics.network_sub": {
+    "defaultMessage": "{rate} across {count, plural, one {# node} other {# nodes}}",
+    "description": "Statistics: network card subtitle; {rate} is the rate in Mbit/s and {count} the number of nodes"
+  },
+  "web.routes.statistics.network_subtitle": {
+    "defaultMessage": "Cluster-wide, all node interfaces · last {range}",
+    "description": "Statistics: subtitle of the network chart; {range} is the selected time range such as 24h"
+  },
+  "web.routes.statistics.network_title": {
+    "defaultMessage": "Network throughput",
+    "description": "Statistics: title of the cluster network throughput chart"
+  },
+  "web.routes.statistics.node_picker": {
+    "defaultMessage": "Node",
+    "description": "Statistics: accessible name of the node dropdown; picking a node opens that node's statistics page"
+  },
+  "web.routes.statistics.node_spec": {
+    "defaultMessage": "{cores} cores · {memory} · {ip}",
+    "description": "Statistics node table: muted line under the node name with core count, memory and internal IP address"
+  },
+  "web.routes.statistics.node_spec_no_ip": {
+    "defaultMessage": "{cores} cores · {memory}",
+    "description": "Statistics node table: muted line under the node name when the node has no internal IP address"
+  },
+  "web.routes.statistics.nodes_subtitle": {
+    "defaultMessage": "{count, plural, one {# node} other {# nodes}} · {cores} cores · {memory} memory · select a node for details",
+    "description": "Statistics: subtitle of the node table with totals; {cores} is a core count and {memory} a byte size"
+  },
+  "web.routes.statistics.nodes_title": {
+    "defaultMessage": "Nodes",
+    "description": "Statistics: title of the node table"
+  },
+  "web.routes.statistics.outbound": {
+    "defaultMessage": "Outbound",
+    "description": "Statistics: label of the card and legend entry for outgoing network traffic"
+  },
+  "web.routes.statistics.p95": {
+    "defaultMessage": "p95",
+    "description": "Statistics: mini stat label for the 95th percentile of the network rate; keep the short form"
+  },
+  "web.routes.statistics.partial": {
+    "defaultMessage": "Some Prometheus queries failed. Affected values show as —.",
+    "description": "Statistics: muted warning line shown when some Prometheus queries failed and their values are missing"
+  },
+  "web.routes.statistics.peak": {
+    "defaultMessage": "Peak",
+    "description": "Statistics: mini stat with the highest network rate over the selected range"
+  },
+  "web.routes.statistics.percent_value": {
+    "defaultMessage": "{value}%",
+    "description": "Statistics: a percentage of capacity in use; {value} is a whole number"
+  },
+  "web.routes.statistics.rate_mbps": {
+    "defaultMessage": "{value} MB/s",
+    "description": "Statistics: network rate in megabytes per second on a chart axis or as a peak; {value} is the number"
+  },
+  "web.routes.statistics.server_cpu": {
+    "defaultMessage": "{used} / {limit} cores",
+    "description": "Statistics: game server CPU as used and limit cores"
+  },
+  "web.routes.statistics.server_memory": {
+    "defaultMessage": "{used} / {limit}",
+    "description": "Statistics: game server memory as used and limit byte sizes"
+  },
+  "web.routes.statistics.server_net": {
+    "defaultMessage": "{inbound} / {outbound} MB/s",
+    "description": "Statistics: game server inbound and outbound rate in MB/s"
+  },
+  "web.routes.statistics.server_players": {
+    "defaultMessage": "{online} / {max}",
+    "description": "Statistics: game server players online and the player capacity"
+  },
+  "web.routes.statistics.server_scope": {
+    "defaultMessage": "local / {namespace}",
+    "description": "Statistics: muted line under a game server name with the cluster name and the Kubernetes namespace; local is the home cluster"
+  },
+  "web.routes.statistics.servers_subtitle": {
+    "defaultMessage": "Highest current usage across all nodes",
+    "description": "Statistics: subtitle of the top game servers table"
+  },
+  "web.routes.statistics.servers_switch": {
+    "defaultMessage": "Sort game servers by",
+    "description": "Statistics: accessible name of the CPU, Memory and Network switch that sorts the top game servers"
+  },
+  "web.routes.statistics.servers_title": {
+    "defaultMessage": "Top game servers",
+    "description": "Statistics: title of the table of the game servers with the highest current usage"
+  },
+  "web.routes.statistics.setup_guide": {
+    "defaultMessage": "Setup guide",
+    "description": "Statistics: button that opens the Prometheus setup documentation in a new tab"
+  },
+  "web.routes.statistics.status_not_ready": {
+    "defaultMessage": "NotReady",
+    "description": "Statistics: status pill for a node that is not ready"
+  },
+  "web.routes.statistics.status_ready": {
+    "defaultMessage": "Ready",
+    "description": "Statistics: status pill for a node that is ready"
+  },
+  "web.routes.statistics.subtitle_metrics_server": {
+    "defaultMessage": "Live node CPU and memory from metrics-server. Connect Prometheus for history and bandwidth.",
+    "description": "Statistics overview: subtitle when only live metrics-server data is available"
+  },
+  "web.routes.statistics.subtitle_prometheus": {
+    "defaultMessage": "Node CPU, memory and network usage across the cluster, from Prometheus.",
+    "description": "Statistics overview: subtitle when history and bandwidth come from Prometheus"
+  },
+  "web.routes.statistics.title": {
+    "defaultMessage": "Statistics",
+    "description": "Statistics overview: page title; also the sidebar label"
+  },
+  "web.routes.statistics.total_in": {
+    "defaultMessage": "Total in",
+    "description": "Statistics: mini stat with the bytes received over the selected range"
+  },
+  "web.routes.statistics.total_out": {
+    "defaultMessage": "Total out",
+    "description": "Statistics: mini stat with the bytes sent over the selected range"
+  },
+  "web.routes.statistics.unit_mbps": {
+    "defaultMessage": "MB/s",
+    "description": "Statistics: unit shown after a live network rate in megabytes per second"
+  },
+  "web.routes.statistics.unit_percent": {
+    "defaultMessage": "%",
+    "description": "Statistics: unit shown after a live CPU or memory percentage"
+  },
+  "web.routes.statistics.unlimited": {
+    "defaultMessage": "∞",
+    "description": "Statistics: player capacity shown when the server has no player limit"
+  },
+  "web.routes.statistics.unreachable_body": {
+    "defaultMessage": "Check that metrics.prometheus.url in the Helm values points to a Prometheus that is running and reachable from the API. Live values still come from metrics-server.",
+    "description": "Statistics: body of the callout shown when a configured Prometheus does not answer; metrics.prometheus.url is a Helm value name"
+  },
+  "web.routes.statistics.unreachable_title": {
+    "defaultMessage": "Prometheus is unreachable",
+    "description": "Statistics: heading of the callout shown when a configured Prometheus does not answer"
+  },
+  "web.routes.statistics_node.back": {
+    "defaultMessage": "Back to statistics",
+    "description": "Node statistics: link back to the overview from the not-found state"
+  },
+  "web.routes.statistics_node.cores_value": {
+    "defaultMessage": "{value} cores",
+    "description": "Node statistics: a core count; {value} is the number"
+  },
+  "web.routes.statistics_node.cpu_chart_sub": {
+    "defaultMessage": "Percent of {cores} cores · last {range}",
+    "description": "Node statistics: CPU chart subtitle; {cores} is a core count and {range} the time range"
+  },
+  "web.routes.statistics_node.cpu_sub": {
+    "defaultMessage": "{used} of {cores} cores · load {load}",
+    "description": "Node statistics: CPU card subtitle; {used} and {cores} are core counts and {load} is the one-minute load average"
+  },
+  "web.routes.statistics_node.cpu_usage": {
+    "defaultMessage": "CPU usage",
+    "description": "Node statistics: title of the CPU usage chart"
+  },
+  "web.routes.statistics_node.disk_read": {
+    "defaultMessage": "Disk read",
+    "description": "Node statistics: mini stat with the disk read rate"
+  },
+  "web.routes.statistics_node.disk_write": {
+    "defaultMessage": "Disk write",
+    "description": "Node statistics: mini stat with the disk write rate"
+  },
+  "web.routes.statistics_node.error": {
+    "defaultMessage": "Couldn't load this node's statistics.",
+    "description": "Node statistics: error card message when the node statistics cannot be loaded"
+  },
+  "web.routes.statistics_node.errors_column": {
+    "defaultMessage": "Errors / drops",
+    "description": "Node statistics interfaces table: column with receive and transmit errors and drops"
+  },
+  "web.routes.statistics_node.errors_value": {
+    "defaultMessage": "{errors} / {drops}",
+    "description": "Node statistics interfaces table: error and drop counts separated by a slash"
+  },
+  "web.routes.statistics_node.filesystem_meta": {
+    "defaultMessage": "{device} · {fstype}",
+    "description": "Node statistics: muted line under a mount point with the device and filesystem type"
+  },
+  "web.routes.statistics_node.filesystem_usage": {
+    "defaultMessage": "{percent}% · {used} of {size}",
+    "description": "Node statistics: filesystem usage as a whole-number percentage and the used and total byte sizes"
+  },
+  "web.routes.statistics_node.filesystems": {
+    "defaultMessage": "Filesystems",
+    "description": "Node statistics: section label above the list of filesystems on the node"
+  },
+  "web.routes.statistics_node.interface_column": {
+    "defaultMessage": "Interface",
+    "description": "Node statistics interfaces table: column with the network interface name"
+  },
+  "web.routes.statistics_node.kernel": {
+    "defaultMessage": "kernel {version}",
+    "description": "Node statistics: header detail with the Linux kernel version"
+  },
+  "web.routes.statistics_node.load_15m": {
+    "defaultMessage": "Load 15m",
+    "description": "Node statistics: mini stat with the fifteen-minute load average"
+  },
+  "web.routes.statistics_node.load_1m": {
+    "defaultMessage": "Load 1m",
+    "description": "Node statistics: mini stat with the one-minute load average"
+  },
+  "web.routes.statistics_node.load_5m": {
+    "defaultMessage": "Load 5m",
+    "description": "Node statistics: mini stat with the five-minute load average"
+  },
+  "web.routes.statistics_node.load_note": {
+    "defaultMessage": "Load is per {cores} cores · {percent}% of capacity",
+    "description": "Node statistics: note under the load values; {cores} is a core count and {percent} the load as a whole-number share of capacity"
+  },
+  "web.routes.statistics_node.loading": {
+    "defaultMessage": "Loading node statistics…",
+    "description": "Node statistics: loading message while the node statistics are fetched"
+  },
+  "web.routes.statistics_node.memory_chart_sub": {
+    "defaultMessage": "Percent of {memory} · last {range}",
+    "description": "Node statistics: memory chart subtitle; {memory} is a byte size and {range} the time range"
+  },
+  "web.routes.statistics_node.memory_usage": {
+    "defaultMessage": "Memory usage",
+    "description": "Node statistics: title of the memory usage chart"
+  },
+  "web.routes.statistics_node.net_value": {
+    "defaultMessage": "{inbound} / {outbound} MB/s",
+    "description": "Node statistics: game server inbound and outbound rate in MB/s"
+  },
+  "web.routes.statistics_node.network_subtitle": {
+    "defaultMessage": "All interfaces on this node · last {range}",
+    "description": "Node statistics: network chart subtitle; {range} is the selected time range"
+  },
+  "web.routes.statistics_node.no_servers": {
+    "defaultMessage": "No game servers on this node.",
+    "description": "Node statistics: text shown when no game server runs on this node"
+  },
+  "web.routes.statistics_node.not_found": {
+    "defaultMessage": "This node was not found.",
+    "description": "Node statistics: error card shown when the node does not exist"
+  },
+  "web.routes.statistics_node.packets_column": {
+    "defaultMessage": "Packets in / out",
+    "description": "Node statistics interfaces table: column with packets per second received and sent"
+  },
+  "web.routes.statistics_node.packets_value": {
+    "defaultMessage": "{inbound} / {outbound} /s",
+    "description": "Node statistics interfaces table: packets per second received and sent; {inbound} and {outbound} are compact counts"
+  },
+  "web.routes.statistics_node.requested": {
+    "defaultMessage": "Requested",
+    "description": "Node statistics: legend entry for the dashed line of resources requested by pods on the node"
+  },
+  "web.routes.statistics_node.servers": {
+    "defaultMessage": "Game servers on this node",
+    "description": "Node statistics: title of the card listing game servers on this node"
+  },
+  "web.routes.statistics_node.servers_subtitle": {
+    "defaultMessage": "{pods} pods · {servers, plural, one {# game server} other {# game servers}}",
+    "description": "Node statistics: subtitle of the game servers card with the pod count and the number of game servers"
+  },
+  "web.routes.statistics_node.system": {
+    "defaultMessage": "System",
+    "description": "Node statistics: title of the card with load, disk and filesystem usage"
+  },
+  "web.routes.statistics_node.system_subtitle": {
+    "defaultMessage": "Load, disk and filesystems",
+    "description": "Node statistics: subtitle of the system card"
+  },
+  "web.routes.statistics_node.total_column": {
+    "defaultMessage": "Total · {range}",
+    "description": "Node statistics interfaces table: column with bytes received and sent over the selected range; {range} is the time range"
+  },
+  "web.routes.statistics_node.totals_value": {
+    "defaultMessage": "{inbound} / {outbound}",
+    "description": "Node statistics interfaces table: bytes received and sent, as two byte sizes separated by a slash"
+  },
+  "web.routes.statistics_node.uptime": {
+    "defaultMessage": "up {uptime}",
+    "description": "Node statistics: header detail with how long the node has been running"
+  },
+  "web.routes.statistics_node.usage": {
+    "defaultMessage": "Usage",
+    "description": "Node statistics: legend entry for the measured usage line"
   },
   "web.routes.tabs.backups.actions": {
     "defaultMessage": "Actions",
@@ -11190,6 +11722,202 @@
   "web.routes.tabs.settings.you_need_permission_to_change_this": {
     "defaultMessage": "You need permission to change this server's settings.",
     "description": "Settings tab: footer text shown to users who can view but not change this server's settings"
+  },
+  "web.routes.tabs.statistics.cpu_subtitle": {
+    "defaultMessage": "Cores · last {range}",
+    "description": "Server statistics tab: subtitle of the CPU chart with its unit and time range; {range} is a range such as 24h"
+  },
+  "web.routes.tabs.statistics.cpu_subtitle_no_limit": {
+    "defaultMessage": "Cores · last {range} · no limit set",
+    "description": "Server statistics tab: subtitle of the CPU chart when the server has no CPU limit; {range} is a range such as 24h"
+  },
+  "web.routes.tabs.statistics.cpu_title": {
+    "defaultMessage": "CPU usage",
+    "description": "Server statistics tab: title of the CPU history chart"
+  },
+  "web.routes.tabs.statistics.disk_growth": {
+    "defaultMessage": "Disk growth · {range}",
+    "description": "Server statistics tab: label of the box with how much the data volume grew over the range; {range} is a range such as 24h"
+  },
+  "web.routes.tabs.statistics.disk_io": {
+    "defaultMessage": "Disk I/O",
+    "description": "Server statistics tab: label of the box with the data volume read and write rates"
+  },
+  "web.routes.tabs.statistics.disk_io_value": {
+    "defaultMessage": "{read} / {write} MB/s",
+    "description": "Server statistics tab: data volume read and write rates in megabytes per second; {read} and {write} are numbers"
+  },
+  "web.routes.tabs.statistics.disk_usage": {
+    "defaultMessage": "{percent}% · {used} of {total}",
+    "description": "Server statistics tab: data volume usage as a percentage and in bytes; {percent} is a whole number, {used} and {total} are formatted sizes"
+  },
+  "web.routes.tabs.statistics.gigabytes": {
+    "defaultMessage": "{value} GB",
+    "description": "Server statistics tab: memory chart axis label; {value} is a number of gigabytes"
+  },
+  "web.routes.tabs.statistics.growth_gain": {
+    "defaultMessage": "+{size}",
+    "description": "Server statistics tab: data volume growth over the range when it grew; {size} is a formatted byte size"
+  },
+  "web.routes.tabs.statistics.growth_loss": {
+    "defaultMessage": "-{size}",
+    "description": "Server statistics tab: data volume growth over the range when it shrank; {size} is a formatted byte size"
+  },
+  "web.routes.tabs.statistics.history": {
+    "defaultMessage": "History",
+    "description": "Server statistics tab: section label above the history charts; shown in uppercase"
+  },
+  "web.routes.tabs.statistics.in_since_start": {
+    "defaultMessage": "In since pod start",
+    "description": "Server statistics tab: label of the box with the total bytes received since the pod started"
+  },
+  "web.routes.tabs.statistics.inbound": {
+    "defaultMessage": "Inbound",
+    "description": "Server statistics tab: legend label of the inbound traffic series"
+  },
+  "web.routes.tabs.statistics.limit": {
+    "defaultMessage": "Limit",
+    "description": "Server statistics tab: legend label of the resource limit line in the CPU and memory charts"
+  },
+  "web.routes.tabs.statistics.load_error": {
+    "defaultMessage": "Server statistics could not be loaded.",
+    "description": "Server statistics tab: error card shown when the server's statistics request fails; a retry button is on the card"
+  },
+  "web.routes.tabs.statistics.memory_subtitle": {
+    "defaultMessage": "GB · last {range}",
+    "description": "Server statistics tab: subtitle of the memory chart with its unit and time range; {range} is a range such as 24h"
+  },
+  "web.routes.tabs.statistics.memory_title": {
+    "defaultMessage": "Memory usage",
+    "description": "Server statistics tab: title of the memory history chart"
+  },
+  "web.routes.tabs.statistics.network_subtitle": {
+    "defaultMessage": "Pod interface · last {range}",
+    "description": "Server statistics tab: subtitle of the network chart naming the interface and time range; {range} is a range such as 24h"
+  },
+  "web.routes.tabs.statistics.network_title": {
+    "defaultMessage": "Network throughput",
+    "description": "Server statistics tab: title of the network throughput chart"
+  },
+  "web.routes.tabs.statistics.node": {
+    "defaultMessage": "Node",
+    "description": "Server statistics tab: label of the box with the name of the node the pod runs on; links to that node"
+  },
+  "web.routes.tabs.statistics.not_configured_body": {
+    "defaultMessage": "Server history comes from Prometheus. Set metrics.prometheus.url in the Helm values to a Prometheus that scrapes node-exporter and cAdvisor. kube-prometheus-stack works as is.",
+    "description": "Server statistics tab: body of the empty state that explains which Helm value connects Prometheus; metrics.prometheus.url is a setting name, keep it as is"
+  },
+  "web.routes.tabs.statistics.not_configured_title": {
+    "defaultMessage": "Prometheus is not configured",
+    "description": "Server statistics tab: title of the empty state shown when no Prometheus is set up for this install"
+  },
+  "web.routes.tabs.statistics.oom_kills": {
+    "defaultMessage": "OOM kills",
+    "description": "Server statistics tab: label of the box with the number of times the container was killed for running out of memory; OOM is a technical term, keep it as is"
+  },
+  "web.routes.tabs.statistics.out_since_start": {
+    "defaultMessage": "Out since pod start",
+    "description": "Server statistics tab: label of the box with the total bytes sent since the pod started"
+  },
+  "web.routes.tabs.statistics.outbound": {
+    "defaultMessage": "Outbound",
+    "description": "Server statistics tab: legend label of the outbound traffic series"
+  },
+  "web.routes.tabs.statistics.p95": {
+    "defaultMessage": "p95",
+    "description": "Server statistics tab: label of the box with the 95th percentile traffic rate; statistics term, keep it as is"
+  },
+  "web.routes.tabs.statistics.packets": {
+    "defaultMessage": "Packets in / out",
+    "description": "Server statistics tab: label of the box with the inbound and outbound packet rates"
+  },
+  "web.routes.tabs.statistics.packets_value": {
+    "defaultMessage": "{inbound} / {outbound} /s",
+    "description": "Server statistics tab: inbound and outbound packet rates per second; {inbound} and {outbound} are compact numbers"
+  },
+  "web.routes.tabs.statistics.peak": {
+    "defaultMessage": "Peak",
+    "description": "Server statistics tab: label of the box with the highest traffic rate in the range"
+  },
+  "web.routes.tabs.statistics.percent_value": {
+    "defaultMessage": "{value}%",
+    "description": "Server statistics tab: a percentage value in a storage and health box; {value} is the number"
+  },
+  "web.routes.tabs.statistics.players": {
+    "defaultMessage": "Players",
+    "description": "Server statistics tab: legend label of the players series"
+  },
+  "web.routes.tabs.statistics.players_capacity": {
+    "defaultMessage": "Capacity {capacity}",
+    "description": "Server statistics tab: subtitle of the players chart with only the capacity; {capacity} is a number or ∞"
+  },
+  "web.routes.tabs.statistics.players_empty": {
+    "defaultMessage": "Player history needs Prometheus to scrape the agent (serviceMonitors.enabled).",
+    "description": "Server statistics tab: empty state of the players chart when the agent's player metric is not scraped; serviceMonitors.enabled is a setting name, keep it as is"
+  },
+  "web.routes.tabs.statistics.players_peak": {
+    "defaultMessage": "Peak {peak} at {time}",
+    "description": "Server statistics tab: subtitle of the players chart with the peak player count and its time"
+  },
+  "web.routes.tabs.statistics.players_peak_capacity": {
+    "defaultMessage": "Peak {peak} at {time} · capacity {capacity}",
+    "description": "Server statistics tab: subtitle of the players chart with the peak player count, its time and the capacity; {capacity} is a number or ∞"
+  },
+  "web.routes.tabs.statistics.players_title": {
+    "defaultMessage": "Players online",
+    "description": "Server statistics tab: title of the players history chart"
+  },
+  "web.routes.tabs.statistics.pod": {
+    "defaultMessage": "Pod {pod} · from Prometheus",
+    "description": "Server statistics tab: line under the history label naming the pod and the Prometheus source, shown when the pod's node is unknown; {pod} is the pod name"
+  },
+  "web.routes.tabs.statistics.pod_on_node": {
+    "defaultMessage": "Pod {pod} on {node} · from Prometheus",
+    "description": "Server statistics tab: line under the history label naming the pod, the node it runs on and the Prometheus source; {pod} is the pod name, {node} the node name"
+  },
+  "web.routes.tabs.statistics.request": {
+    "defaultMessage": "Request",
+    "description": "Server statistics tab: legend label of the requested-resources line in the CPU and memory charts"
+  },
+  "web.routes.tabs.statistics.restarts": {
+    "defaultMessage": "Restarts",
+    "description": "Server statistics tab: label of the box with the number of container restarts"
+  },
+  "web.routes.tabs.statistics.setup_guide": {
+    "defaultMessage": "Setup guide",
+    "description": "Server statistics tab: button that opens the Prometheus setup guide in a new tab; keep it short"
+  },
+  "web.routes.tabs.statistics.storage_note": {
+    "defaultMessage": "Throttling and OOM kills come from cAdvisor; restarts from the pod status.",
+    "description": "Server statistics tab: footnote under the storage and health card naming where each signal comes from; cAdvisor is a product name, keep it as is"
+  },
+  "web.routes.tabs.statistics.storage_subtitle": {
+    "defaultMessage": "Data volume and container signals",
+    "description": "Server statistics tab: subtitle of the storage and health card"
+  },
+  "web.routes.tabs.statistics.storage_title": {
+    "defaultMessage": "Storage & health",
+    "description": "Server statistics tab: title of the card with data volume usage and container health signals"
+  },
+  "web.routes.tabs.statistics.throttled": {
+    "defaultMessage": "CPU throttled",
+    "description": "Server statistics tab: label of the box with the share of time the container was throttled by its CPU limit"
+  },
+  "web.routes.tabs.statistics.unlimited": {
+    "defaultMessage": "∞",
+    "description": "Server statistics tab: shown in place of a player capacity when the server has no limit"
+  },
+  "web.routes.tabs.statistics.unreachable_body": {
+    "defaultMessage": "Gameplane could not query the Prometheus at metrics.prometheus.url. Check the URL and that Prometheus is running.",
+    "description": "Server statistics tab: body of the empty state shown when the configured Prometheus does not answer; metrics.prometheus.url is a setting name, keep it as is"
+  },
+  "web.routes.tabs.statistics.unreachable_title": {
+    "defaultMessage": "Prometheus is unreachable",
+    "description": "Server statistics tab: title of the empty state shown when the configured Prometheus does not answer"
+  },
+  "web.routes.tabs.statistics.usage": {
+    "defaultMessage": "Usage",
+    "description": "Server statistics tab: legend label of the measured usage line in the CPU and memory charts"
   },
   "web.routes.theme_settings.a_stylesheet_layered_on_top_of_the": {
     "defaultMessage": "A stylesheet layered on top of the active base theme.",
