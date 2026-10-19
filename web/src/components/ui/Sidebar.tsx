@@ -1,4 +1,5 @@
 import { useLocation, Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ShieldCheck, X, LogOut, GitCommitHorizontal } from "lucide-react";
 import {
@@ -35,6 +36,7 @@ export interface SidebarProps {
   isCustomColorsActive?: boolean;
   version?: string;
   buildDate?: string;
+  notifications?: ReactNode;
 }
 
 const REPO_URL = "https://github.com/chunksmith/Gameplane";
@@ -60,6 +62,7 @@ export function Sidebar({
   isCustomColorsActive = false,
   version,
   buildDate,
+  notifications,
 }: SidebarProps) {
   const intl = useOptionalIntl();
   const { pathname } = useLocation();
@@ -168,6 +171,7 @@ export function Sidebar({
 
         {/* User info + logout row */}
         <div className="flex items-center gap-3 rounded-md px-2 py-1.5">
+          {notifications}
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 font-mono text-xs text-primary shrink-0">
             {(user?.displayName || user?.username || "G").slice(0, 2).toUpperCase()}
           </div>

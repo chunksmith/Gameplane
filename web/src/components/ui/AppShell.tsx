@@ -23,8 +23,8 @@ export function AppShell({ sidebar, topBar, children }: AppShellProps) {
 
       {/* Main content area — sidebar + topBar + children in a column */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* TopBar — fixed height 64px (h-16); TopBar's header provides the border */}
-        <div className="h-16 shrink-0">
+        {/* TopBar — mobile only, fixed height 64px (h-16); TopBar's header provides the border */}
+        <div className="h-16 shrink-0 lg:hidden">
           {topBar}
         </div>
 
