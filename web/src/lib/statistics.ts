@@ -2,8 +2,7 @@ import { formatDateIn, formatTimeIn } from "@/lib/i18n/format";
 import { formatBytes } from "@/lib/utils";
 import type { StatisticsPoint, StatisticsRange } from "@/types";
 
-export const STATISTICS_RANGES: StatisticsRange[] = ["15m", "1h", "6h", "24h", "7d", "30d"];
-export const DEFAULT_RANGE: StatisticsRange = "24h";
+export { DEFAULT_RANGE, STATISTICS_RANGES, isStatisticsRange } from "@/lib/statisticsRange";
 
 export function formatByteSize(bytes: number): string {
   return formatBytes(bytes >= 1 ? bytes : 0);
@@ -31,10 +30,6 @@ export function seriesPeak(points: StatisticsPoint[]): StatisticsPoint | null {
 export function seriesDelta(points: StatisticsPoint[]): number | null {
   if (points.length < 2) return null;
   return points[points.length - 1][1] - points[0][1];
-}
-
-export function isStatisticsRange(value: unknown): value is StatisticsRange {
-  return STATISTICS_RANGES.some((range) => range === value);
 }
 
 export function formatTick(unix: number, range: StatisticsRange, locale: string): string {

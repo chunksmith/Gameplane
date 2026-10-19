@@ -4,7 +4,7 @@
 
 import { http, HttpResponse, ws, type PathParams } from "msw";
 import { fleetHandlers } from "./fleetHandlers";
-import { DEFAULT_RANGE, isStatisticsRange } from "@/lib/statistics";
+import { DEFAULT_RANGE, isStatisticsRange } from "@/lib/statisticsRange";
 import type { StatisticsRange } from "@/types";
 import {
   makeAudit,
