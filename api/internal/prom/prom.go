@@ -1,3 +1,4 @@
+// Package prom is a minimal client for the Prometheus HTTP query API.
 package prom
 
 import (
