@@ -702,7 +702,7 @@ describe("ServerDetailPage failure states", () => {
 });
 
 describe("ServerDetailPage capture tab", () => {
-  it("renders the Capture tab between Backups and Settings", async () => {
+  it("renders the Capture tab between Players and Settings", async () => {
     server.use(http.get("/servers/alpha", () => HttpResponse.json(makeServer())));
     renderWithQuery(<ServerDetailPage />);
     const nav = await screen.findByRole("tablist", { name: "Server detail tabs" });
@@ -710,11 +710,11 @@ describe("ServerDetailPage capture tab", () => {
     const labels = within(nav)
       .getAllByRole("tab")
       .map((b) => b.textContent);
-    const backupsIdx = labels.indexOf("Backups");
+    const playersIdx = labels.indexOf("Players");
     const captureIdx = labels.indexOf("Capture");
     const settingsIdx = labels.indexOf("Settings");
-    expect(backupsIdx).toBeGreaterThanOrEqual(0);
-    expect(captureIdx).toBe(backupsIdx + 1);
+    expect(playersIdx).toBeGreaterThanOrEqual(0);
+    expect(captureIdx).toBe(playersIdx + 1);
     expect(settingsIdx).toBe(captureIdx + 1);
   });
 
