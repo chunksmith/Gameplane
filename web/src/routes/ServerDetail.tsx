@@ -278,6 +278,12 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
     }
   }
 
+  const statsAside = (
+    <aside className="px-4 pt-4 lg:order-last lg:w-[232px] lg:shrink-0 lg:overflow-auto lg:py-4 lg:pl-0 lg:pr-6">
+      <ServerStatCards gs={gs} vertical />
+    </aside>
+  );
+
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-border bg-background px-4 pt-4 md:px-6 md:pt-8">
@@ -408,24 +414,18 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
           )}
           {activeTab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
           {(activeTab === "console" || activeTab === "logs") && (
-            <div className="flex h-full flex-col lg:flex-row">
-              <aside className="px-4 pt-4 lg:order-last lg:w-[232px] lg:shrink-0 lg:overflow-auto lg:py-4 lg:pl-0 lg:pr-6">
-                <ServerStatCards gs={gs} vertical />
-              </aside>
-              <div className="min-h-0 min-w-0 flex-1">
-                {activeTab === "console" ? (
-                  <ConsoleTab name={name} ns={ns} />
-                ) : (
-                  <LogsTab
-                    name={name}
-                    ns={ns}
-                    logPath={tmpl?.spec.logPath}
-                    phase={phase}
-                    progressMessage={progressMessage}
-                  />
-                )}
-              </div>
-            </div>
+            activeTab === "console" ? (
+              <ConsoleTab name={name} ns={ns} aside={statsAside} />
+            ) : (
+              <LogsTab
+                name={name}
+                ns={ns}
+                logPath={tmpl?.spec.logPath}
+                phase={phase}
+                progressMessage={progressMessage}
+                aside={statsAside}
+              />
+            )
           )}
           {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} />}
           {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}

@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button, Input } from "@heroui/react";
 import { Download, Eraser, Maximize2 } from "lucide-react";
 
@@ -31,7 +31,7 @@ const HISTORY_LIMIT = 100;
 // toolbar (connection indicator + Clear/Download/Fullscreen) bracketing the
 // xterm host, and a dedicated command-input bar. All behavior comes from the
 // useConsoleTerminal handle; this component is presentation + local input.
-export function ConsoleShell({ handle }: { handle: ConsoleHandle }) {
+export function ConsoleShell({ handle, aside }: { handle: ConsoleHandle; aside?: ReactNode }) {
   const intl = useOptionalIntl();
   const { hostRef, status, clear, download, toggleFullscreen, sendCommand } = handle;
   const [cmd, setCmd] = useState("");
@@ -102,8 +102,11 @@ export function ConsoleShell({ handle }: { handle: ConsoleHandle }) {
           </Button>
         </div>
       </div>
-      <div className="flex-1 min-h-0 p-4">
-        <div ref={hostRef} className="h-full rounded-lg border border-border bg-[#0b0b0d] p-2" />
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {aside}
+        <div className="min-h-0 min-w-0 flex-1 p-4">
+          <div ref={hostRef} className="h-full rounded-lg border border-border bg-[#0b0b0d] p-2" />
+        </div>
       </div>
       <form
         className="flex items-center gap-2 border-t border-border px-4 py-2"
