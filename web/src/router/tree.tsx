@@ -11,6 +11,10 @@ import { ServerDetailPage } from "@/routes/ServerDetail";
 import { ModulesPage } from "@/routes/Modules";
 import { ClusterPage } from "@/routes/Cluster";
 import { ClustersPage } from "@/routes/Clusters";
+import { StatisticsPage } from "@/routes/Statistics";
+import { StatisticsNodePage } from "@/routes/StatisticsNode";
+import { isStatisticsRange } from "@/lib/statistics";
+import type { StatisticsRange } from "@/types";
 import { UsersPage } from "@/routes/Users";
 import { AdminSettingsPage } from "@/routes/AdminSettings";
 import { ThemeSettingsPage } from "@/routes/ThemeSettings";
@@ -112,6 +116,32 @@ const clustersRoute = new Route({
   component: ClustersPage,
 });
 
+const statisticsRangeSearch = (search: Record<string, unknown>): { range?: StatisticsRange } => ({
+  range: isStatisticsRange(search.range) ? search.range : undefined,
+});
+
+const statisticsRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/statistics",
+  component: () => (
+    <RequirePermission perm="cluster:read">
+      <StatisticsPage />
+    </RequirePermission>
+  ),
+  validateSearch: statisticsRangeSearch,
+});
+
+const statisticsNodeRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/statistics/nodes/$name",
+  component: () => (
+    <RequirePermission perm="cluster:read">
+      <StatisticsNodePage />
+    </RequirePermission>
+  ),
+  validateSearch: statisticsRangeSearch,
+});
+
 const usersRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/users",
@@ -199,6 +229,8 @@ export const routeTree = rootRoute.addChildren([
   shareRoute,
   appLayoutRoute.addChildren([
     dashboardRoute,
+    statisticsRoute,
+    statisticsNodeRoute,
     createServerRoute,
     serversRoute,
     serverDetailRoute.addChildren([serverFilesRoute]),

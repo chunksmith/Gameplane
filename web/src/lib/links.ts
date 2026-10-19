@@ -7,3 +7,4 @@
  * docs/telemetry-provider.md and CHANGELOG.md.
  */
 export const TELEMETRY_STATEMENT_URL = "https://gameplane.net/telemetry/";
+export const STATISTICS_SETUP_URL = "https://github.com/chunksmith/Gameplane/blob/master/docs/install.md#statistics-pages";

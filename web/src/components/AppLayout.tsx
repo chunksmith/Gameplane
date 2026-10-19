@@ -2,6 +2,7 @@ import { Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-ro
 import { useQuery } from "@tanstack/react-query";
 import {
   Archive,
+  ChartColumn,
   LayoutDashboard,
   Network,
   Package,
@@ -173,6 +174,7 @@ export function AppLayout() {
       label: intl.formatMessage({ id: "web.components.app_layout.general", defaultMessage: "General", description: "Sidebar: heading of the general navigation group" }),
       items: [
         { to: "/", label: intl.formatMessage({ id: "web.components.app_layout.dashboard", defaultMessage: "Dashboard", description: "Sidebar: navigation link to the dashboard" }), icon: LayoutDashboard },
+        ...(can(me, "cluster:read") ? [{ to: "/statistics", label: intl.formatMessage({ id: "web.components.app_layout.statistics", defaultMessage: "Statistics", description: "Sidebar: navigation link to the statistics pages" }), icon: ChartColumn }] : []),
         { to: "/servers", label: intl.formatMessage({ id: "web.components.app_layout.servers", defaultMessage: "Servers", description: "Sidebar: navigation link to the servers list" }), icon: Server },
         { to: "/modules", label: intl.formatMessage({ id: "web.components.app_layout.modules", defaultMessage: "Modules", description: "Sidebar: navigation link to modules" }), icon: Package },
         { to: "/backups", label: intl.formatMessage({ id: "web.components.app_layout.backups", defaultMessage: "Backups", description: "Sidebar: navigation link to backups" }), icon: Archive },

@@ -40,6 +40,9 @@
   --sleep: oklch(54.13% 0.2466 293.01); /* #7C3AED — Asleep/sleep status color (violet) */
   --focus: var(--accent); /* input focus ring uses theme accent, per OD-16 */
   --chart-stat: oklch(60.56% 0.2189 292.72); /* #8B5CF6 — stat-card icon accent, OD-9 */
+  --chart-inbound: oklch(57.53% 0.1626 255.53);
+  --chart-outbound: oklch(67.08% 0.1750 40.64);
+  --chart-players: oklch(66.90% 0.1408 162.11);
   --link: oklch(54.61% 0.2152 262.88); /* #2563EB */
   --segment: oklch(100.00% 0.0000 89.88); /* #FFFFFF */
   --segment-foreground: oklch(21.67% 0.0502 347.62); /* #2A0F1E */
@@ -83,6 +86,9 @@
   --sleep: oklch(70.90% 0.1592 293.54); /* #A78BFA — Asleep/sleep status color (light violet) */
   --focus: var(--accent); /* input focus ring uses theme accent, per OD-16 */
   --chart-stat: oklch(60.56% 0.2189 292.72); /* #8B5CF6 — stat-card icon accent, OD-9 */
+  --chart-inbound: oklch(62.21% 0.1612 255.05);
+  --chart-outbound: oklch(62.21% 0.1726 40.11);
+  --chart-players: oklch(62.12% 0.1283 163.11);
   --link: oklch(76.21% 0.1231 256.39); /* #7DB4FF */
   --segment: oklch(22.75% 0.0137 298.37); /* #1D1B22 */
   --segment-foreground: oklch(96.68% 0.0057 308.40); /* #F5F3F7 */
@@ -243,6 +249,9 @@
   --color-sleep: var(--sleep); /* Asleep/sleep status color */
   --color-violet: hsl(258 90% 66%); /* operator role chips */
   --color-chart-stat: var(--chart-stat); /* stat-card icon accent, OD-9 — settled 2026-09-16 */
+  --color-chart-inbound: var(--chart-inbound);
+  --color-chart-outbound: var(--chart-outbound);
+  --color-chart-players: var(--chart-players);
 
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;

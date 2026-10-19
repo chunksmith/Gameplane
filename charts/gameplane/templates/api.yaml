@@ -509,6 +509,12 @@ spec:
               value: {{ $capture.defaultMaxDurationSeconds | default 0 | int64 | quote }}
             - name: GAMEPLANE_CAPTURE_DEFAULT_MAX_SIZE
               value: {{ $capture.defaultMaxSizeBytes | default 0 | int64 | quote }}
+            {{- $metrics := .Values.metrics | default dict }}
+            {{- $prom := $metrics.prometheus | default dict }}
+            {{- if $prom.url }}
+            - name: GAMEPLANE_PROMETHEUS_URL
+              value: {{ $prom.url | quote }}
+            {{- end }}
             - name: GAMEPLANE_LOG_LEVEL
               value: {{ .Values.api.logLevel | quote }}
           ports:

@@ -944,6 +944,18 @@ The warning is shown regardless of how many groups are being added (single or mu
     - Uses HeroUI Card, Button, Chip, Spinner; brand header with ShieldCheck icon; address copy button
     - Built directly from HeroUI primitives; no ui/ atom components
 
+14. **Statistics** (`/statistics`) → `StatisticsPage` (`web/src/routes/Statistics.tsx`, requires `cluster:read`)
+    - Home cluster only; range kept in the `range` search param (`15m`–`30d`, default `24h`) so links are shareable
+    - Live CPU, memory, inbound and outbound cards polled every 10s; without Prometheus the CPU and memory sparklines are built from successive polls and the network cards show a placeholder
+    - Prometheus-only: network throughput chart, bandwidth by node, utilization heatmap (CPU / Memory / Network) and top game servers (CPU / Memory / Network sort); history polled every 60s and queried only when the live source is `prometheus`
+    - Nodes table always shown; each row links to `/statistics/nodes/$name`
+    - A callout points to the Helm `metrics.prometheus.url` setup when Prometheus is not configured or unreachable
+
+15. **Statistics node** (`/statistics/nodes/$name`) → `StatisticsNodePage` (`web/src/routes/StatisticsNode.tsx`, requires `cluster:read`)
+    - Node header with Ready state, kernel, kubelet and uptime; 404 renders a not-found card linking back to `/statistics`
+    - Live cards, CPU and memory usage against the requested line, network throughput with the per-interface table, load and filesystems, and game servers on the node (Prometheus only)
+    - Polled every 15s
+
 ## Server Groups (feature 026)
 
 Feature spec: `specs/026-server-groups/`.
@@ -964,16 +976,17 @@ Feature spec: `specs/026-server-groups/`.
 Visible tab set depends on server template + active version:
 
 1. **Overview** — GameServer status, phase, uptime, restart count; live metrics from RCON (if available); recent pod events
-2. **Events** — Kubernetes events: image pulls, scheduling, crash-loop, agent startup
-3. **Console** — Interactive RCON/WebSocket terminal (hidden if template has no console, or consoleMode=none)
-4. **Logs** — Live pod stdout OR configured game log file (agent-provided via mTLS; see gameplane.local/logPath annotation)
-5. **Files** — Browser and editor for server data files (config, save games, logs)
-6. **Mods** — List/install/remove mods; browse by registry provider (Modrinth, CurseForge, etc.) if template declares one
-7. **Modpacks** — Install modpacks (only if template + active version supports loader with modpack capability)
-8. **Players** — Online player snapshot, ban list, whitelist, kick/ban/unban actions
-9. **Backups** — Per-server backup list, schedule management, restore trigger; reads backup repository URL from Secret `key: "repo"`. Hidden for ephemeral servers (`spec.storage.ephemeral`)
-10. **Capture** — a `CaptureWidget` component driving start/stop of packet captures and a table of past captures for this server, gated on the `captures:manage` permission. Sits between the Backups and Settings tabs per `assets/design-export/json` node `O08uaD`/`b4eaUf` (start-capture modal) and `m5kOm4` (capture list). `CaptureWidget.tsx` with `Captures` client namespace (`web/src/lib/api.ts:127-175`) and router/tab wiring (`ServerDetail.tsx:278`) are implemented in `web/src`.
-11. **Settings** — Grouped form with sub-sections (below); changes are draft-until-save; conflict detection on reload
+2. **Statistics** — History of CPU, memory, network, players, disk and health from Prometheus, with a range switch (`15m`–`30d`); shows a setup state when Prometheus is not configured. Home cluster only. The live CPU, memory, disk, network and uptime cards above all tabs stay in place.
+3. **Events** — Kubernetes events: image pulls, scheduling, crash-loop, agent startup
+4. **Console** — Interactive RCON/WebSocket terminal (hidden if template has no console, or consoleMode=none)
+5. **Logs** — Live pod stdout OR configured game log file (agent-provided via mTLS; see gameplane.local/logPath annotation)
+6. **Files** — Browser and editor for server data files (config, save games, logs)
+7. **Mods** — List/install/remove mods; browse by registry provider (Modrinth, CurseForge, etc.) if template declares one
+8. **Modpacks** — Install modpacks (only if template + active version supports loader with modpack capability)
+9. **Players** — Online player snapshot, ban list, whitelist, kick/ban/unban actions
+10. **Backups** — Per-server backup list, schedule management, restore trigger; reads backup repository URL from Secret `key: "repo"`. Hidden for ephemeral servers (`spec.storage.ephemeral`)
+11. **Capture** — a `CaptureWidget` component driving start/stop of packet captures and a table of past captures for this server, gated on the `captures:manage` permission. Sits between the Backups and Settings tabs per `assets/design-export/json` node `O08uaD`/`b4eaUf` (start-capture modal) and `m5kOm4` (capture list). `CaptureWidget.tsx` with `Captures` client namespace (`web/src/lib/api.ts:127-175`) and router/tab wiring (`ServerDetail.tsx:278`) are implemented in `web/src`.
+12. **Settings** — Grouped form with sub-sections (below); changes are draft-until-save; conflict detection on reload
 
 On narrow screens, server actions wrap and the detail tab strip scrolls inside its navigation container. Selecting a tab keeps that tab visible without horizontally scrolling the page or moving the panel controls off-screen.
 
