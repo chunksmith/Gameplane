@@ -251,6 +251,7 @@ export function StatisticsPage() {
                 sub={cluster && cluster.cpu.used !== null ? intl.formatMessage(messages.cpuSub, { used: oneDecimal(cluster.cpu.used), capacity: oneDecimal(cluster.cpu.capacity) }) : undefined}
                 delta={trendOf(seriesDelta(cpuSeries), pointsDelta)}
                 series={cpuSeries.map(([, value]) => value)}
+                formatPoint={oneDecimal}
                 peak={peakOf(cpuSeries, (value) => intl.formatMessage(messages.percentValue, { value: oneDecimal(value) }))}
               />
               <LiveCard
@@ -262,6 +263,7 @@ export function StatisticsPage() {
                 sub={cluster && cluster.memory.used !== null ? intl.formatMessage(messages.memorySub, { used: formatBytes(cluster.memory.used), capacity: formatBytes(cluster.memory.capacity) }) : undefined}
                 delta={trendOf(seriesDelta(memorySeries), pointsDelta)}
                 series={memorySeries.map(([, value]) => value)}
+                formatPoint={oneDecimal}
                 peak={peakOf(memorySeries, (value) => intl.formatMessage(messages.percentValue, { value: oneDecimal(value) }))}
               />
               <LiveCard
@@ -274,6 +276,7 @@ export function StatisticsPage() {
                 placeholder={network ? undefined : intl.formatMessage(messages.needsPrometheus)}
                 delta={trendOf(percentChange(rxPoints), percentDelta)}
                 series={rxPoints.map(([, value]) => value)}
+                formatPoint={(value) => mbps(value, format)}
                 peak={peakOf(rxPoints, (value) => intl.formatMessage(messages.rateMbps, { value: mbps(value, format) }))}
               />
               <LiveCard
@@ -286,6 +289,7 @@ export function StatisticsPage() {
                 placeholder={network ? undefined : intl.formatMessage(messages.needsPrometheus)}
                 delta={trendOf(percentChange(txPoints), percentDelta)}
                 series={txPoints.map(([, value]) => value)}
+                formatPoint={(value) => mbps(value, format)}
                 peak={peakOf(txPoints, (value) => intl.formatMessage(messages.rateMbps, { value: mbps(value, format) }))}
               />
             </div>
