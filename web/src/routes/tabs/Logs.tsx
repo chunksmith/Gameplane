@@ -234,7 +234,7 @@ export function LogsTab({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3 md:gap-y-3">
         {logPath ? (
           <Tabs className="shrink-0" selectedKey={source} onSelectionChange={(key) => setSource(key as LogSource)} variant="secondary" aria-label={intl.formatMessage({ id: "web.routes.tabs.logs.log_source", defaultMessage: "Log source", description: "Logs tab: accessible label of the tabs that choose between container output and game log; not shown as text" })}>
             <Tabs.List className="servers-status-filter">
@@ -261,7 +261,7 @@ export function LogsTab({
             {intl.formatMessage({ id: "web.routes.tabs.logs.container_output", defaultMessage: "Container output", description: "Logs tab: tab name for the container output of the pod, the setup and startup output; when no log file exists it is shown as plain text" })}
           </span>
         )}
-        <div className="relative min-w-[12rem] max-w-xs flex-1">
+        <div className="relative min-w-[10rem] max-w-xs flex-1 md:min-w-[12rem]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
             placeholder={intl.formatMessage({ id: "web.routes.tabs.logs.filter_lines", defaultMessage: "Filter lines…", description: "Logs tab: placeholder in the search box that filters the log lines by the text typed" })}
@@ -271,7 +271,7 @@ export function LogsTab({
             className="w-full pl-9 font-mono text-xs"
           />
         </div>
-        <Tabs className="shrink-0" selectedKey={level} onSelectionChange={(key) => setLevel(key as "all" | LogLevel)} variant="secondary" aria-label={intl.formatMessage({ id: "web.routes.tabs.logs.log_level", defaultMessage: "Log level", description: "Logs tab: accessible label of the tabs that filter log lines by level, with an All option; not shown as text" })}>
+        <Tabs className="shrink-0 scrollbar-thin max-md:order-last max-md:w-full max-md:overflow-x-auto" selectedKey={level} onSelectionChange={(key) => setLevel(key as "all" | LogLevel)} variant="secondary" aria-label={intl.formatMessage({ id: "web.routes.tabs.logs.log_level", defaultMessage: "Log level", description: "Logs tab: accessible label of the tabs that filter log lines by level, with an All option; not shown as text" })}>
           <Tabs.List className="servers-status-filter w-fit">
             {(["all", ...LEVELS] as const).map((lv) => (
               <TabComponent key={lv} id={lv}>
@@ -304,7 +304,7 @@ export function LogsTab({
               window.location.href = Logs.downloadURL(name, ns);
             }}
           >
-            <Download className="h-4 w-4" />{intl.formatMessage({ id: "web.routes.tabs.logs.download", defaultMessage: "Download", description: "Logs tab: button that downloads the log as a file; keep it short" })}</Button>
+            <Download className="h-4 w-4" /><span className="max-md:sr-only">{intl.formatMessage({ id: "web.routes.tabs.logs.download", defaultMessage: "Download", description: "Logs tab: button that downloads the log as a file; keep it short" })}</span></Button>
         </div>
       </div>
       <div

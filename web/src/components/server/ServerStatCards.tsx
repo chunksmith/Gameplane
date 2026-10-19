@@ -49,7 +49,7 @@ export function ServerStatCards({ gs }: { gs?: GameServer }) {
   const netTxTotal = netTotalKnown ? (agent?.networkTxBytes as number) : 0;
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto scrollbar-thin px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:p-0 lg:grid-cols-3 xl:grid-cols-5">
       <ResourceCard
         label={intl.formatMessage(TEXT.cpu)}
         icon={<Cpu className="h-4 w-4" />}
@@ -160,7 +160,7 @@ function ResourceCard({
   }[accent ?? "primary"];
   const history = useMetricHistory(trend);
   return (
-    <Card className="flex flex-col gap-2 border border-border bg-card p-4">
+    <Card className="flex w-40 shrink-0 snap-start flex-col gap-2 border border-border bg-card p-4 md:w-auto">
       <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.5px] text-muted">
         <span>{label}</span>
         <span className="text-muted">{icon}</span>
