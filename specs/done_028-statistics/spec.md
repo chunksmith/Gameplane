@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/statistics`
 **Created**: 2026-10-19
-**Status**: In progress
+**Status**: Implemented (merged in PR #67, 2026-10-19)
 **Input**: Maintainer request (2026-10-19, in chat): "a general statistics page; CPU, RAM and bandwidth per node; detailed statistics; Prometheus may be used for the data; live usage cards at the very top; the same inside a server's page, specific to that pod."
 
 ## Clarifications
