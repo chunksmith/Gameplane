@@ -88,11 +88,11 @@ const TAB_LABELS = defineMessages({
 
 const tabs: Array<{ key: TabKey; label: MessageDescriptor; icon: LucideIcon }> = [
   { key: "overview", label: TAB_LABELS.overview, icon: LayoutDashboard },
-  { key: "statistics", label: TAB_LABELS.statistics, icon: ChartColumn },
   { key: "console",  label: TAB_LABELS.console,  icon: Terminal },
   { key: "files",    label: TAB_LABELS.files,    icon: FolderOpen },
   { key: "logs",     label: TAB_LABELS.logs,     icon: ScrollText },
   { key: "backups",  label: TAB_LABELS.backups,  icon: Archive },
+  { key: "statistics", label: TAB_LABELS.statistics, icon: ChartColumn },
   { key: "assistant", label: TAB_LABELS.assistant, icon: Sparkles },
   { key: "events",   label: TAB_LABELS.events,   icon: History },
   { key: "mods",     label: TAB_LABELS.mods,     icon: Puzzle },
@@ -369,10 +369,6 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
           </div>
         )}
 
-        <div className="pb-2 md:pb-6">
-          <ServerStatCards gs={gs} />
-        </div>
-
         <nav className="-mb-px overflow-x-auto scrollbar-thin">
           <Tabs
             selectedKey={activeTab}
@@ -411,15 +407,25 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             </div>
           )}
           {activeTab === "events"   && <EventsTab name={name} ns={ns} gs={gs} />}
-          {activeTab === "console"  && <ConsoleTab name={name} ns={ns} />}
-          {activeTab === "logs"     && (
-            <LogsTab
-              name={name}
-              ns={ns}
-              logPath={tmpl?.spec.logPath}
-              phase={phase}
-              progressMessage={progressMessage}
-            />
+          {(activeTab === "console" || activeTab === "logs") && (
+            <div className="flex h-full flex-col lg:flex-row">
+              <aside className="px-4 pt-4 lg:order-last lg:w-[232px] lg:shrink-0 lg:overflow-auto lg:py-4 lg:pl-0 lg:pr-6">
+                <ServerStatCards gs={gs} vertical />
+              </aside>
+              <div className="min-h-0 min-w-0 flex-1">
+                {activeTab === "console" ? (
+                  <ConsoleTab name={name} ns={ns} />
+                ) : (
+                  <LogsTab
+                    name={name}
+                    ns={ns}
+                    logPath={tmpl?.spec.logPath}
+                    phase={phase}
+                    progressMessage={progressMessage}
+                  />
+                )}
+              </div>
+            </div>
           )}
           {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} />}
           {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}

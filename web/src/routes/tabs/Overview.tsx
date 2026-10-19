@@ -9,6 +9,7 @@ import { ServerActionsCard } from "@/components/server/ServerActionsCard";
 import { ServerStatusCard } from "@/components/server/ServerStatusCard";
 import { ServerSleepCard } from "@/components/server/ServerSleepCard";
 import { EventList } from "@/components/server/EventList";
+import { ServerStatCards } from "@/components/server/ServerStatCards";
 import { formatBytes, formatCpuPercent, formatRelative, formatUptime, parseQuantityToBytes } from "@/lib/utils";
 import { parseCpuQuantity } from "@/lib/quantity";
 import { mapServerEvent, type NormalizedServerEvent } from "@/lib/events";
@@ -113,6 +114,7 @@ export function OverviewTab({
 
   return (
     <div className="space-y-5 p-8">
+      <ServerStatCards gs={gs} />
       {/* Provisioning failure alert */}
       {provisioningFailure && (
         <Alert

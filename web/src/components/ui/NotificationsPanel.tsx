@@ -140,7 +140,7 @@ export function NotificationsPanel({ enabled = true }: NotificationsPanelProps):
       <Popover.Trigger>
         <div
           aria-label={intl.formatMessage({ id: "web.components.ui.notifications_panel.notifications", defaultMessage: "Notifications", description: "Notifications panel: screen-reader name of the trigger that opens the notifications list; not visible on screen" })}
-          className="inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-default-100 cursor-pointer transition-colors relative"
+          className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-lg hover:bg-default-100 cursor-pointer transition-colors relative"
         >
           <Bell className="h-[18px] w-[18px]" />
           {unread > 0 && (

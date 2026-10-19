@@ -24,7 +24,6 @@ import { AppShell } from "@/components/ui/AppShell";
 import { Sidebar, type SidebarNavGroup } from "@/components/ui/Sidebar";
 import { TopBar } from "@/components/ui/TopBar";
 import { Breadcrumbs, buildCrumbs } from "@/components/ui/Breadcrumbs";
-import { GlobalSearch } from "@/components/ui/GlobalSearch";
 import { NotificationsPanel } from "@/components/ui/NotificationsPanel";
 import { AppLoadingSkeleton } from "@/components/ui/AppLoadingSkeleton";
 import type { AppearanceMode } from "@/components/ui/AppearanceToggle";
@@ -244,14 +243,15 @@ export function AppLayout() {
             isCustomColorsActive={isCustomColorsActive}
             version={installation.data?.version}
             buildDate={import.meta.env.VITE_BUILD_DATE}
+            notifications={<NotificationsPanel enabled={installation.data?.localCluster === true} />}
           />
         }
         topBar={
           <TopBar
             breadcrumbs={<Breadcrumbs items={crumbs} />}
             clusterSelector={null}
-            search={<GlobalSearch />}
-            notifications={<NotificationsPanel enabled={installation.data?.localCluster === true} />}
+            search={null}
+            notifications={null}
             mobileTitle={mobileTitle}
             user={me}
             onMenuClick={() => setDrawerOpen(true)}
