@@ -280,8 +280,8 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-border bg-background px-6 pt-8">
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-6">
+      <header className="border-b border-border bg-background px-4 pt-4 md:px-6 md:pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 pb-4 md:pb-6">
           <div className="flex min-w-0 items-start gap-4">
             <GameIcon
               game={gs?.spec.templateRef.name}
@@ -369,7 +369,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
           </div>
         )}
 
-        <div className="pb-6">
+        <div className="pb-2 md:pb-6">
           <ServerStatCards gs={gs} />
         </div>
 
