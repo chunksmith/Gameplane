@@ -3739,6 +3739,38 @@
     "defaultMessage": "Will never sleep",
     "description": "Server sleep card: heading of the warning shown when the server will never go to sleep; the reason is shown in the text below"
   },
+  "web.components.server.server_stat_cards.cpu": {
+    "defaultMessage": "CPU",
+    "description": "Server stat cards: label of the CPU usage card; technical term, usually left untranslated"
+  },
+  "web.components.server.server_stat_cards.disk": {
+    "defaultMessage": "Disk",
+    "description": "Server stat cards: label of the disk usage card"
+  },
+  "web.components.server.server_stat_cards.memory": {
+    "defaultMessage": "Memory",
+    "description": "Server stat cards: label of the memory usage card"
+  },
+  "web.components.server.server_stat_cards.network": {
+    "defaultMessage": "Network",
+    "description": "Server stat cards: label of the network traffic card, showing the inbound and outbound rate"
+  },
+  "web.components.server.server_stat_cards.network_rate": {
+    "defaultMessage": "In {rx}/s · Out {tx}/s",
+    "description": "Server stat cards: network card line with the current inbound and outbound rate; {rx} and {tx} are formatted byte amounts per second"
+  },
+  "web.components.server.server_stat_cards.network_since_pod_start": {
+    "defaultMessage": "Since pod start: {rx} in · {tx} out",
+    "description": "Server stat cards: network card line with the total bytes received and sent since the pod started; {rx} and {tx} are formatted byte amounts"
+  },
+  "web.components.server.server_stat_cards.uptime": {
+    "defaultMessage": "Uptime",
+    "description": "Server stat cards: label of the card showing how long the server has been running"
+  },
+  "web.components.server.server_stat_cards.used_of_total": {
+    "defaultMessage": "{used} / {total}",
+    "description": "Server stat cards: memory or disk usage against its limit; {used} is the amount in use, {total} the limit"
+  },
   "web.components.server.server_status_card.game_status": {
     "defaultMessage": "Game status",
     "description": "Server status card: heading of the card that shows the game's status figures"
@@ -9431,17 +9463,9 @@
     "defaultMessage": "Copy",
     "description": "Overview tab: icon-only button tooltip that copies the address to the clipboard; keep it short"
   },
-  "web.routes.tabs.overview.cpu": {
-    "defaultMessage": "CPU",
-    "description": "Overview tab: label of the CPU usage card; technical term, usually left untranslated"
-  },
   "web.routes.tabs.overview.cpu_allocation": {
     "defaultMessage": "CPU allocation",
     "description": "Overview tab: label of the CPU allocation card, comparing the CPU request and limit with the usage"
-  },
-  "web.routes.tabs.overview.disk": {
-    "defaultMessage": "Disk",
-    "description": "Overview tab: label of the disk usage card"
   },
   "web.routes.tabs.overview.exposure": {
     "defaultMessage": "Exposure",
@@ -9495,25 +9519,9 @@
     "defaultMessage": "Loading…",
     "description": "Overview tab: loading text shown until the server status is available"
   },
-  "web.routes.tabs.overview.memory": {
-    "defaultMessage": "Memory",
-    "description": "Overview tab: label of the memory usage card"
-  },
   "web.routes.tabs.overview.memory_allocation": {
     "defaultMessage": "Memory allocation",
     "description": "Overview tab: label of the memory allocation card, comparing the memory request and limit with the usage"
-  },
-  "web.routes.tabs.overview.network": {
-    "defaultMessage": "Network",
-    "description": "Overview tab: label of the network traffic card, showing the inbound and outbound rate"
-  },
-  "web.routes.tabs.overview.network_rate": {
-    "defaultMessage": "In {rx}/s · Out {tx}/s",
-    "description": "Overview: network card line with the current inbound and outbound rate; {rx} and {tx} are formatted byte amounts per second"
-  },
-  "web.routes.tabs.overview.network_since_pod_start": {
-    "defaultMessage": "Since pod start: {rx} in · {tx} out",
-    "description": "Overview: network card line with the total bytes received and sent since the pod started; {rx} and {tx} are formatted byte amounts"
   },
   "web.routes.tabs.overview.no_events_yet_lifecycle_backup_and": {
     "defaultMessage": "No events yet. Lifecycle, backup, and agent activity will appear here.",
@@ -9586,10 +9594,6 @@
   "web.routes.tabs.overview.uptime": {
     "defaultMessage": "Uptime",
     "description": "Overview: server details row label for how long the server has been running"
-  },
-  "web.routes.tabs.overview.used_of_total": {
-    "defaultMessage": "{used} / {total}",
-    "description": "Overview: memory or disk usage against its limit; {used} is the amount in use, {total} the limit"
   },
   "web.routes.tabs.overview.view_all": {
     "defaultMessage": "View all",

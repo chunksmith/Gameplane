@@ -34,6 +34,7 @@ import { PhaseChip } from "@/components/ui/PhaseChip";
 import { GameIcon } from "@/components/ui/GameIcon";
 import { capitalize, formatUptime, ignoreRejection } from "@/lib/utils";
 import { ServerActionsMenu } from "@/components/server/ServerActionsMenu";
+import { ServerStatCards } from "@/components/server/ServerStatCards";
 import { CaptureWidget } from "@/components/CaptureWidget";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ResourceTargetProvider, useResourceClient, useResourceTarget, useResourceAccess, resourceCan, resourceKey, type ResourceTarget, type ServerAccessResponse } from "@/lib/resourceTarget";
@@ -82,15 +83,15 @@ const TAB_LABELS = defineMessages({
 
 const tabs: Array<{ key: TabKey; label: MessageDescriptor; icon: LucideIcon }> = [
   { key: "overview", label: TAB_LABELS.overview, icon: LayoutDashboard },
+  { key: "console",  label: TAB_LABELS.console,  icon: Terminal },
+  { key: "files",    label: TAB_LABELS.files,    icon: FolderOpen },
+  { key: "logs",     label: TAB_LABELS.logs,     icon: ScrollText },
+  { key: "backups",  label: TAB_LABELS.backups,  icon: Archive },
   { key: "assistant", label: TAB_LABELS.assistant, icon: Sparkles },
   { key: "events",   label: TAB_LABELS.events,   icon: History },
-  { key: "console",  label: TAB_LABELS.console,  icon: Terminal },
-  { key: "logs",     label: TAB_LABELS.logs,     icon: ScrollText },
-  { key: "files",    label: TAB_LABELS.files,    icon: FolderOpen },
   { key: "mods",     label: TAB_LABELS.mods,     icon: Puzzle },
   { key: "modpacks", label: TAB_LABELS.modpacks, icon: Package },
   { key: "players",  label: TAB_LABELS.players,  icon: Users },
-  { key: "backups",  label: TAB_LABELS.backups,  icon: Archive },
   { key: "capture",  label: TAB_LABELS.capture,  icon: RadioTower },
   { key: "settings", label: TAB_LABELS.settings, icon: SettingsIcon },
 ];
@@ -360,6 +361,10 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             <ErrorBanner err={act.error} onDismiss={() => act.reset()} />
           </div>
         )}
+
+        <div className="pb-6">
+          <ServerStatCards gs={gs} />
+        </div>
 
         <nav className="-mb-px overflow-x-auto scrollbar-thin">
           <Tabs

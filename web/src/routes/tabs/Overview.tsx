@@ -1,11 +1,10 @@
 import { useResourceClient, useResourceTarget, resourceKey } from "@/lib/resourceTarget";
-import { useEffect, useState, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownUp, Copy, Cpu, HardDrive, HeartPulse, MemoryStick, AlertCircle, ServerCog } from "lucide-react";
+import { Copy, Cpu, HeartPulse, MemoryStick, AlertCircle, ServerCog } from "lucide-react";
 import type { GameServer, GameTemplate, PlayersResp } from "@/types";
 
 import { Card, CardHeader, CardContent, Alert } from "@heroui/react";
-import { Sparkline } from "@/components/ui/Sparkline";
 import { ServerActionsCard } from "@/components/server/ServerActionsCard";
 import { ServerStatusCard } from "@/components/server/ServerStatusCard";
 import { ServerSleepCard } from "@/components/server/ServerSleepCard";
@@ -77,28 +76,11 @@ export function OverviewTab({
   const cpuMilli = cpuKnown ? (agent?.cpuMillicores as number) : 0;
   const cpuLimitMilli =
     typeof agent?.cpuLimitMillicores === "number" ? (agent?.cpuLimitMillicores as number) : 0;
-  const cpuPct = cpuKnown && cpuLimitMilli ? (cpuMilli / cpuLimitMilli) * 100 : 0;
 
   const memKnown = typeof agent?.memoryBytes === "number";
   const memUsed = memKnown ? (agent?.memoryBytes as number) : 0;
   const memLimit =
     typeof agent?.memoryLimitBytes === "number" ? (agent?.memoryLimitBytes as number) : 0;
-  const memPct = memKnown && memLimit ? (memUsed / memLimit) * 100 : 0;
-
-  const diskKnown =
-    typeof agent?.diskUsedBytes === "number" && typeof agent?.diskTotalBytes === "number";
-  const diskUsed = diskKnown ? (agent?.diskUsedBytes as number) : 0;
-  const diskTotal = diskKnown ? (agent?.diskTotalBytes as number) : 0;
-  const diskPct = diskKnown && diskTotal ? (diskUsed / diskTotal) * 100 : 0;
-
-  const netRateKnown =
-    typeof agent?.networkRxBytesPerSec === "number" && typeof agent?.networkTxBytesPerSec === "number";
-  const netRxRate = netRateKnown ? (agent?.networkRxBytesPerSec as number) : 0;
-  const netTxRate = netRateKnown ? (agent?.networkTxBytesPerSec as number) : 0;
-  const netTotalKnown =
-    typeof agent?.networkRxBytes === "number" && typeof agent?.networkTxBytes === "number";
-  const netRxTotal = netTotalKnown ? (agent?.networkRxBytes as number) : 0;
-  const netTxTotal = netTotalKnown ? (agent?.networkTxBytes as number) : 0;
 
   const resources = gs.spec.resources ?? tmpl?.spec.resources;
   const cpuRequestCores = cpuCores(resources?.requests?.cpu);
@@ -149,63 +131,6 @@ export function OverviewTab({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-            <ResourceCard
-              label={intl.formatMessage({ id: "web.routes.tabs.overview.cpu", defaultMessage: "CPU", description: "Overview tab: label of the CPU usage card; technical term, usually left untranslated" })}
-              icon={<Cpu className="h-4 w-4" />}
-              value={
-                cpuKnown ? (cpuLimitMilli ? `${cpuPct.toFixed(0)}%` : formatCpuPercent(cpuMilli / 1000)) : intl.formatMessage(OVERVIEW_TEXT.empty_value)
-              }
-              sub={
-                cpuKnown && cpuLimitMilli
-                  ? `${formatCpuPercent(cpuMilli / 1000)} / ${formatCpuPercent(cpuLimitMilli / 1000)}`
-                  : undefined
-              }
-              progress={cpuKnown && cpuLimitMilli ? cpuPct : undefined}
-              trend={cpuKnown ? (cpuLimitMilli ? cpuPct : cpuMilli) : undefined}
-              accent="primary"
-            />
-            <ResourceCard
-              label={intl.formatMessage({ id: "web.routes.tabs.overview.memory", defaultMessage: "Memory", description: "Overview tab: label of the memory usage card" })}
-              icon={<MemoryStick className="h-4 w-4" />}
-              value={memKnown ? (memLimit ? `${memPct.toFixed(0)}%` : formatBytes(memUsed)) : intl.formatMessage(OVERVIEW_TEXT.empty_value)}
-              sub={
-                memKnown ? intl.formatMessage({ id: "web.routes.tabs.overview.used_of_total", defaultMessage: "{used} / {total}", description: "Overview: memory or disk usage against its limit; {used} is the amount in use, {total} the limit" }, { used: formatBytes(memUsed), total: memLimit ? formatBytes(memLimit) : intl.formatMessage(OVERVIEW_TEXT.empty_value) }) : undefined
-              }
-              progress={memKnown && memLimit ? memPct : undefined}
-              trend={memKnown && memLimit ? memPct : undefined}
-              accent="violet"
-            />
-            <ResourceCard
-              label={intl.formatMessage({ id: "web.routes.tabs.overview.disk", defaultMessage: "Disk", description: "Overview tab: label of the disk usage card" })}
-              icon={<HardDrive className="h-4 w-4" />}
-              value={diskKnown ? (diskTotal ? `${diskPct.toFixed(0)}%` : formatBytes(diskUsed)) : intl.formatMessage(OVERVIEW_TEXT.empty_value)}
-              sub={
-                diskKnown ? intl.formatMessage({ id: "web.routes.tabs.overview.used_of_total", defaultMessage: "{used} / {total}", description: "Overview: memory or disk usage against its limit; {used} is the amount in use, {total} the limit" }, { used: formatBytes(diskUsed), total: diskTotal ? formatBytes(diskTotal) : intl.formatMessage(OVERVIEW_TEXT.empty_value) }) : undefined
-              }
-              progress={diskKnown && diskTotal ? diskPct : undefined}
-              trend={diskKnown && diskTotal ? diskPct : undefined}
-              accent="success"
-            />
-            <ResourceCard
-              label={intl.formatMessage({ id: "web.routes.tabs.overview.network", defaultMessage: "Network", description: "Overview tab: label of the network traffic card, showing the inbound and outbound rate" })}
-              icon={<ArrowDownUp className="h-4 w-4" />}
-              value={netRateKnown ? `${formatBytes(netRxRate + netTxRate)}/s` : intl.formatMessage(OVERVIEW_TEXT.empty_value)}
-              sub={
-                netRateKnown || netTotalKnown ? (
-                  <>
-                    {netRateKnown && <div>{intl.formatMessage({ id: "web.routes.tabs.overview.network_rate", defaultMessage: "In {rx}/s · Out {tx}/s", description: "Overview: network card line with the current inbound and outbound rate; {rx} and {tx} are formatted byte amounts per second" }, { rx: formatBytes(netRxRate), tx: formatBytes(netTxRate) })}</div>}
-                    {netTotalKnown && (
-                      <div>{intl.formatMessage({ id: "web.routes.tabs.overview.network_since_pod_start", defaultMessage: "Since pod start: {rx} in · {tx} out", description: "Overview: network card line with the total bytes received and sent since the pod started; {rx} and {tx} are formatted byte amounts" }, { rx: formatBytes(netRxTotal), tx: formatBytes(netTxTotal) })}</div>
-                    )}
-                  </>
-                ) : undefined
-              }
-              trend={netRateKnown ? netRxRate + netTxRate : undefined}
-              accent="warning"
-            />
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
             <AllocationCard
               label={intl.formatMessage({ id: "web.routes.tabs.overview.cpu_allocation", defaultMessage: "CPU allocation", description: "Overview tab: label of the CPU allocation card, comparing the CPU request and limit with the usage" })}
@@ -375,75 +300,6 @@ export function OverviewTab({
         </div>
       </div>
     </div>
-  );
-}
-
-// Accumulate a rolling window of a metric's samples so the tile can draw a
-// trend. Appends only when the value actually changes (the parent re-renders
-// on every poll), capped to the last `max` points.
-function useMetricHistory(value: number | undefined, max = 32): number[] {
-  const [hist, setHist] = useState<number[]>([]);
-  useEffect(() => {
-    if (value === undefined || Number.isNaN(value)) return;
-    const appendSample = () => {
-      setHist((h) => {
-        const next = h.concat(value);
-        return next.length > max ? next.slice(-max) : next;
-      });
-    };
-    appendSample();
-  }, [value, max]);
-  return hist;
-}
-
-function ResourceCard({
-  label,
-  icon,
-  value,
-  sub,
-  progress,
-  trend,
-  accent,
-}: {
-  label: string;
-  icon: ReactNode;
-  value: string;
-  sub?: ReactNode;
-  progress?: number;
-  trend?: number;
-  accent?: "primary" | "success" | "warning" | "violet";
-}) {
-  const accentClass = {
-    primary: "bg-accent",
-    success: "bg-success-soft-foreground",
-    warning: "bg-warning",
-    violet: "bg-violet",
-  }[accent ?? "primary"];
-  const accentText = {
-    primary: "text-accent",
-    success: "text-success-soft-foreground",
-    warning: "text-warning",
-    violet: "text-violet",
-  }[accent ?? "primary"];
-  const history = useMetricHistory(trend);
-  return (
-    <Card className="flex flex-col gap-2 border border-border bg-card p-4">
-      <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.5px] text-muted">
-        <span>{label}</span>
-        <span className="text-muted">{icon}</span>
-      </div>
-      <div className="font-mono text-2xl font-bold text-foreground">{value}</div>
-      <Sparkline data={history} className={accentText} />
-      {progress !== undefined && (
-        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--default)]">
-          <div
-            className={`h-full ${accentClass}`}
-            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-          />
-        </div>
-      )}
-      {sub && <div className="space-y-0.5 text-xs text-muted">{sub}</div>}
-    </Card>
   );
 }
 

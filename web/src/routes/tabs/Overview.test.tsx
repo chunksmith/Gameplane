@@ -55,70 +55,15 @@ describe("OverviewTab recent events", () => {
   });
 });
 
-describe("OverviewTab metric tiles", () => {
-  it("renders real CPU, memory and disk usage from the heartbeat", async () => {
+describe("OverviewTab players fallback", () => {
+  it("falls back to the heartbeat player count when not Running", async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(jsonRes({ online: 0, max: 20, players: [], asOf: "now" })));
-    renderWithQuery(<OverviewTab name="s1" gs={gs({
-      agent: {
-        lastHeartbeat: "now",
-        cpuMillicores: 500, cpuLimitMillicores: 2000, // 25%
-        memoryBytes: 536870912, memoryLimitBytes: 1073741824, // 512 MB / 1.0 GB = 50%
-        diskUsedBytes: 2147483648, diskTotalBytes: 10737418240, // 2.0 GB / 10 GB = 20%
-        networkRxBytes: 1073741824, networkTxBytes: 2147483648,
-        networkRxBytesPerSec: 1024, networkTxBytesPerSec: 2048,
-      },
-    })} />);
-    expect(await screen.findByText("Disk")).toBeInTheDocument();
-    expect(screen.getByText("25%")).toBeInTheDocument(); // CPU 500/2000
-    expect(screen.getByText("50% / 200%")).toBeInTheDocument();
-    expect(screen.getByText("50%")).toBeInTheDocument();
-    // formatBytes gives one decimal below 10 units: 1 GiB → "1.0 GB".
-    expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
-    expect(screen.getByText("20%")).toBeInTheDocument();
-    expect(screen.getByText("2.0 GB / 10 GB")).toBeInTheDocument();
-    expect(screen.getByText("Network")).toBeInTheDocument();
-    expect(screen.getByText("3.0 KB/s")).toBeInTheDocument();
-    expect(screen.getByText("In 1.0 KB/s · Out 2.0 KB/s")).toBeInTheDocument();
-    expect(screen.getByText("Since pod start: 1.0 GB in · 2.0 GB out")).toBeInTheDocument();
-  });
-
-  it("renders '—' for usage when the agent heartbeat is stale/absent", async () => {
-    fetchMock.mockImplementation(() =>
-      Promise.resolve(jsonRes({ online: 0, max: 20, players: [], asOf: "now" })));
-    // A stale heartbeat: the API drops the usage readings and flags stale,
-    // so the tiles must render "—" rather than a frozen value or NaN.
-    renderWithQuery(<OverviewTab name="s1" gs={gs({
-      agent: { lastHeartbeat: "old", stale: true },
-    })} />);
-    expect(await screen.findByText("Disk")).toBeInTheDocument();
-    // CPU, Memory and Disk all unknown → at least three em-dashes.
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
-  });
-
-  it("shows cores/bytes and '—' limits when usage is known but limits are absent", async () => {
-    fetchMock.mockImplementation(() =>
-      Promise.resolve(jsonRes({ online: 0, max: 20, players: [], asOf: "now" })));
-    // phase Starting disables the roster query, so the Players card falls
-    // back to status.agent.playersOnline. Usage values are set but the
-    // limits/total are absent/0, exercising the no-limit tile branches.
     renderWithQuery(<OverviewTab name="s1" gs={gs({
       phase: "Starting",
-      agent: {
-        lastHeartbeat: "now",
-        cpuMillicores: 1500,                          // no limit → "150%", no bar
-        memoryBytes: 536870912,                       // no limit → "512 MB" primary + "512 MB / —"
-        diskUsedBytes: 1073741824, diskTotalBytes: 0, // no total → "1.0 GB" primary + "1.0 GB / —"
-        playersOnline: 3,                             // exercises the players fallback branch
-      },
+      agent: { lastHeartbeat: "now", playersOnline: 3 },
     })} />);
-    expect(await screen.findByText("150%")).toBeInTheDocument();
-    expect(screen.getByText("512 MB")).toBeInTheDocument();
-    expect(screen.getByText("512 MB / —")).toBeInTheDocument();
-    expect(screen.getByText("1.0 GB")).toBeInTheDocument();
-    expect(screen.getByText("1.0 GB / —")).toBeInTheDocument();
-    // Players fallback (phase != Running) feeds the sidebar card.
-    expect(screen.getByText(/names not yet available/)).toBeInTheDocument();
+    expect(await screen.findByText(/names not yet available/)).toBeInTheDocument();
   });
 });
 
