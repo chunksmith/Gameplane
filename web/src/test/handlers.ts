@@ -4,6 +4,8 @@
 
 import { http, HttpResponse, ws, type PathParams } from "msw";
 import { fleetHandlers } from "./fleetHandlers";
+import { DEFAULT_RANGE, isStatisticsRange } from "@/lib/statistics";
+import type { StatisticsRange } from "@/types";
 import {
   makeAudit,
   makeBackup,
@@ -21,6 +23,10 @@ import {
   makeRestore,
   makeSchedule,
   makeServer,
+  makeServerStatistics,
+  makeStatisticsHistory,
+  makeStatisticsLive,
+  makeStatisticsNodeDetail,
   makeTemplate,
   makeUser,
 } from "./factories";
@@ -45,6 +51,25 @@ export const INVALID_BPF_FILTER_FIXTURE = "tcp prot 8080 foo";
 // supported. A `/servers/:name` resolver that returns nothing falls through to
 // the next handler, which keeps `name:verb` URLs for the regex handlers.
 const isColonAction = (params: PathParams) => String(params.name).includes(":");
+
+function statisticsRange(request: Request): StatisticsRange {
+  const range = new URL(request.url).searchParams.get("range");
+  return isStatisticsRange(range) ? range : DEFAULT_RANGE;
+}
+
+const statisticsHandlers = [
+  http.get("/statistics/live", () => HttpResponse.json({ ...makeStatisticsLive(), generatedAt: new Date().toISOString() })),
+  http.get("/statistics/history", ({ request }) => HttpResponse.json(makeStatisticsHistory({ range: statisticsRange(request) }))),
+  http.get("/statistics/nodes/:name", ({ params, request }) => {
+    const summary = makeStatisticsLive().nodes.find((node) => node.name === String(params.name));
+    if (!summary) return new HttpResponse("not found\n", { status: 404 });
+    const detail = makeStatisticsNodeDetail({ range: statisticsRange(request) });
+    return HttpResponse.json({ ...detail, node: { ...detail.node, ...summary } });
+  }),
+  http.get("/servers/:name/statistics", ({ params, request }) =>
+    HttpResponse.json(makeServerStatistics({ pod: `${String(params.name)}-0`, range: statisticsRange(request) })),
+  ),
+];
 
 export const handlers = [
   ...fleetHandlers,
@@ -158,6 +183,7 @@ export const handlers = [
     }
     return HttpResponse.json(makeClusterStats());
   }),
+  ...statisticsHandlers,
   http.get("/clusters", ({ cookies }) => HttpResponse.json({
     items: [
       { name: "local", displayName: "local", phase: "Healthy", canViewInventory: true },
@@ -930,6 +956,7 @@ export function buildScreenshotHandlers() {
     http.get("/cluster", () => HttpResponse.json(data.clusterView())),
     http.get("/cluster/info", () => HttpResponse.json(makeClusterInfo())),
     http.get("/cluster/stats", () => HttpResponse.json(data.clusterStats())),
+    ...statisticsHandlers,
     http.get("/clusters", () =>
       HttpResponse.json({
         items: [{ name: "local", displayName: "local", phase: "Healthy" as const, canViewInventory: true }],

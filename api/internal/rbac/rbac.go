@@ -298,6 +298,7 @@ var rules = []rule{
 	// Cluster reads (nodes, version, storage) vs credential-minting ops.
 	{method: "GET", segment: "cluster", perm: "cluster:read"},
 	{segment: "cluster", perm: "cluster:manage"},
+	{method: "GET", segment: "statistics", perm: "cluster:read"},
 
 	// Cluster registration (multi-cluster): list/create/delete remote clusters
 	// (plural /clusters endpoint).

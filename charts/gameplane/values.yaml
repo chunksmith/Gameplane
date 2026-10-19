@@ -639,6 +639,17 @@ serviceMonitors:
   # `{matchLabels: {kubernetes.io/metadata.name: monitoring}}`.
   scrapeNamespaceSelector: {}
 
+# Statistics pages (/statistics and the server Statistics tab). Set url to a
+# Prometheus that scrapes node-exporter and the kubelet's cAdvisor endpoint,
+# e.g. kube-prometheus-stack:
+#   http://kps-kube-prometheus-stack-prometheus.monitoring.svc:9090
+# Empty = live node CPU/memory from metrics-server only, no history or
+# bandwidth. Player and disk history also need serviceMonitors.enabled so
+# Prometheus scrapes the agent.
+metrics:
+  prometheus:
+    url: ""
+
 # PrometheusRule (alerts) for the operator, off by default like serviceMonitors.
 # Alerts use only the operator's own metrics — controller-runtime internals plus
 # the gameplane_* fleet gauges (scraped by the operator ServiceMonitor above) —

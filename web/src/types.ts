@@ -1184,3 +1184,136 @@ export interface ShareLinkPublic {
   address?: ShareAddr; // undefined if no public endpoint is exposed
   playersOnline?: number; // undefined if not exposed by the game
 }
+
+export type StatisticsPoint = [number, number];
+export type StatisticsSource = "prometheus" | "metrics-server" | "none";
+export type StatisticsRange = "15m" | "1h" | "6h" | "24h" | "7d" | "30d";
+export type StatisticsWarning = "prometheus_unreachable" | "prometheus_partial";
+
+export interface StatisticsLive {
+  source: StatisticsSource;
+  warnings: StatisticsWarning[];
+  generatedAt: string;
+  cluster: {
+    cpu: { used: number | null; capacity: number; series: StatisticsPoint[] };
+    memory: { used: number | null; capacity: number; series: StatisticsPoint[] };
+    network: { rx: number | null; tx: number | null; rxSeries: StatisticsPoint[]; txSeries: StatisticsPoint[] } | null;
+  };
+  nodes: StatisticsNodeSummary[];
+  servers: StatisticsServerSummary[];
+}
+
+export interface StatisticsNodeSummary {
+  name: string;
+  ready: boolean;
+  internalIP?: string;
+  cpuCapacity: number;
+  memoryCapacity: number;
+  pods: number;
+  cpuUsed: number | null;
+  memoryUsed: number | null;
+  rx: number | null;
+  tx: number | null;
+  load1: number | null;
+}
+
+export interface StatisticsServerSummary {
+  name: string;
+  namespace: string;
+  node: string | null;
+  cpu: number | null;
+  cpuLimit: number | null;
+  memory: number | null;
+  memoryLimit: number | null;
+  rx: number | null;
+  tx: number | null;
+  players: number | null;
+  maxPlayers: number | null;
+}
+
+export interface StatisticsHistory {
+  source: "prometheus" | "none";
+  warnings: StatisticsWarning[];
+  range: StatisticsRange;
+  step: number;
+  start: number;
+  end: number;
+  network: {
+    rx: StatisticsPoint[];
+    tx: StatisticsPoint[];
+    rxTotal: number | null;
+    txTotal: number | null;
+    peak: { value: number; at: number } | null;
+    p95: number | null;
+  } | null;
+  heatmap: {
+    buckets: number[];
+    cpu: Record<string, (number | null)[]>;
+    memory: Record<string, (number | null)[]>;
+    network: Record<string, (number | null)[]>;
+  } | null;
+  nodeCpu: Record<string, StatisticsPoint[]>;
+}
+
+export interface StatisticsNodeDetail {
+  source: StatisticsSource;
+  warnings: StatisticsWarning[];
+  range: StatisticsRange;
+  step: number;
+  node: StatisticsNodeSummary & {
+    osImage?: string;
+    kernelVersion?: string;
+    kubeletVersion?: string;
+    bootTime: number | null;
+  };
+  live: {
+    load5: number | null;
+    load15: number | null;
+    diskRead: number | null;
+    diskWrite: number | null;
+    cpuSeries: StatisticsPoint[];
+    memorySeries: StatisticsPoint[];
+    rxSeries: StatisticsPoint[];
+    txSeries: StatisticsPoint[];
+  };
+  cpu: { usage: StatisticsPoint[]; requested: number | null };
+  memory: { usage: StatisticsPoint[]; requested: number | null };
+  network: { rx: StatisticsPoint[]; tx: StatisticsPoint[] };
+  interfaces: {
+    name: string;
+    rx: number | null;
+    tx: number | null;
+    rxPackets: number | null;
+    txPackets: number | null;
+    rxTotal: number | null;
+    txTotal: number | null;
+    errors: number | null;
+    drops: number | null;
+  }[];
+  filesystems: { mountpoint: string; device: string; fstype: string; size: number; used: number }[];
+  servers: StatisticsServerSummary[];
+}
+
+export interface ServerStatistics {
+  source: "prometheus" | "none";
+  warnings: StatisticsWarning[];
+  range: StatisticsRange;
+  step: number;
+  pod: string;
+  node: string | null;
+  cpu: { usage: StatisticsPoint[]; request: number | null; limit: number | null };
+  memory: { usage: StatisticsPoint[]; request: number | null; limit: number | null };
+  network: {
+    rx: StatisticsPoint[];
+    tx: StatisticsPoint[];
+    rxSinceStart: number | null;
+    txSinceStart: number | null;
+    peak: { value: number; at: number } | null;
+    p95: number | null;
+    rxPackets: number | null;
+    txPackets: number | null;
+  };
+  players: { online: StatisticsPoint[]; max: number | null } | null;
+  disk: { used: number | null; total: number | null; growth: number | null; read: number | null; write: number | null };
+  health: { restarts: number | null; oomKills: number | null; throttledPercent: number | null };
+}
