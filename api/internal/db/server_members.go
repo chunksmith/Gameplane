@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// ServerMember is a row of server_members: a user's direct grant on one server.
 type ServerMember struct {
 	UserID      int64
 	Cluster     string
@@ -15,6 +16,7 @@ type ServerMember struct {
 	Permissions []string
 }
 
+// ListServerMembers returns a user's direct server grants.
 func (s *Store) ListServerMembers(ctx context.Context, userID int64) ([]ServerMember, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT cluster, namespace, server, server_uid, permissions
@@ -41,6 +43,7 @@ func (s *Store) ListServerMembers(ctx context.Context, userID int64) ([]ServerMe
 	return members, nil
 }
 
+// UpsertServerMember creates or replaces a direct server grant.
 func (s *Store) UpsertServerMember(ctx context.Context, m ServerMember) error {
 	if _, err := s.DB.ExecContext(ctx, `
 		INSERT INTO server_members(user_id, cluster, namespace, server, server_uid, permissions)
@@ -53,6 +56,7 @@ func (s *Store) UpsertServerMember(ctx context.Context, m ServerMember) error {
 	return nil
 }
 
+// DeleteServerMember removes one grant and reports whether it existed.
 func (s *Store) DeleteServerMember(ctx context.Context, userID int64, cluster, namespace, server string) (bool, error) {
 	res, err := s.DB.ExecContext(ctx,
 		`DELETE FROM server_members WHERE user_id = ? AND cluster = ? AND namespace = ? AND server = ?`,
@@ -67,6 +71,7 @@ func (s *Store) DeleteServerMember(ctx context.Context, userID int64, cluster, n
 	return n > 0, nil
 }
 
+// DeleteServerMembersForServer removes every grant on a deleted server.
 func (s *Store) DeleteServerMembersForServer(ctx context.Context, cluster, namespace, server string) error {
 	if _, err := s.DB.ExecContext(ctx,
 		`DELETE FROM server_members WHERE cluster = ? AND namespace = ? AND server = ?`,

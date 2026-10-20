@@ -32,6 +32,7 @@ type serverGrantHandler struct {
 	store *db.Store
 }
 
+// MountServerGrants mounts the per-server grant endpoints.
 func MountServerGrants(r chi.Router, reg *kube.Registry, store *db.Store) {
 	h := &serverGrantHandler{reg: reg, store: store}
 	r.Route("/server-grants", func(r chi.Router) {

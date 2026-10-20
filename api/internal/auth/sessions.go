@@ -48,13 +48,16 @@ type User struct {
 	ServerGrants map[ServerKey]ServerGrant
 }
 
+// ServerKey identifies a game server by cluster, namespace and name.
 type ServerKey struct{ Cluster, Namespace, Name string }
 
+// ServerGrant is a direct per-server grant pinned to the server UID.
 type ServerGrant struct {
 	UID         string
 	Permissions []string
 }
 
+// ServerGrant returns the user's granted permissions on a server whose UID matches.
 func (u *User) ServerGrant(cluster, namespace, name, uid string) ([]string, bool) {
 	grant, ok := u.ServerGrants[ServerKey{cluster, namespace, name}]
 	if !ok || (grant.UID != "" && grant.UID != uid) {

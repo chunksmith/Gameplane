@@ -73,13 +73,34 @@ const CATALOG = {
 };
 
 const navigate = vi.fn();
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
-    <a {...rest}>{children}</a>
-  ),
-  useNavigate: () => navigate,
-  useSearch: () => ({}),
-}));
+const tabSearch = vi.hoisted(() => ({ tab: undefined as string | undefined, listeners: new Set<() => void>() }));
+vi.mock("@tanstack/react-router", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
+      <a {...rest}>{children}</a>
+    ),
+    useNavigate: () => (options: { search?: { tab?: string } }) => {
+      if (options.search) {
+        tabSearch.tab = options.search.tab;
+        tabSearch.listeners.forEach((listener) => listener());
+      }
+      navigate(options);
+      return Promise.resolve();
+    },
+    useSearch: () => ({
+      tab: useSyncExternalStore(
+        (listener) => {
+          tabSearch.listeners.add(listener);
+          return () => {
+            tabSearch.listeners.delete(listener);
+          };
+        },
+        () => tabSearch.tab,
+      ),
+    }),
+  };
+});
 
 const ALICE: ExtendedUser = {
   id: 2,
@@ -106,6 +127,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  tabSearch.tab = undefined;
   list.mockResolvedValue([ME, ALICE]);
   rolesList.mockResolvedValue(ROLE_DEFS);
   catalog.mockResolvedValue(CATALOG);

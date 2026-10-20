@@ -67,6 +67,7 @@ func (s *SessionStore) LoadNetworks(ctx context.Context, userID int64) (map[stri
 	return networks, nil
 }
 
+// LoadServerGrants returns the per-server grants stored for a user.
 func (s *SessionStore) LoadServerGrants(ctx context.Context, userID int64) (map[ServerKey]ServerGrant, error) {
 	rows, err := s.db.DB.QueryContext(ctx,
 		`SELECT cluster, namespace, server, server_uid, permissions FROM server_members WHERE user_id = ?`, userID)
