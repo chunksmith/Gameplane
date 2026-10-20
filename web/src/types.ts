@@ -840,6 +840,14 @@ export interface Network {
   members: NetworkMember[];
 }
 
+export interface ServerGrant {
+  userId: number;
+  cluster: string;
+  namespace: string;
+  server: string;
+  permissions: string[];
+}
+
 // One grantable permission and whether it is namespaced.
 export interface Permission {
   key: string;

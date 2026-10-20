@@ -373,6 +373,11 @@ func (h *ownershipHandler) getOwnedServers(w http.ResponseWriter, req *http.Requ
 		httperr.WriteMessage(w, req, messages.New("server.common.unauthenticated", nil))
 		return
 	}
+	clusterID, err := scope.ResolveCluster(req, h.reg)
+	if err != nil {
+		httperr.Write(w, req, err)
+		return
+	}
 
 	// List all servers across all namespaces within the resolved cluster.
 	list, err := k.Dynamic.Resource(kube.GVRs["servers"]).
@@ -402,6 +407,11 @@ func (h *ownershipHandler) getOwnedServers(w http.ResponseWriter, req *http.Requ
 			}
 		}
 		if inNetwork(&list.Items[i], u) {
+			gateStaleAgent(&list.Items[i])
+			filtered.Items = append(filtered.Items, list.Items[i])
+			continue
+		}
+		if _, ok := u.ServerGrant(clusterID, list.Items[i].GetNamespace(), list.Items[i].GetName(), string(list.Items[i].GetUID())); ok {
 			gateStaleAgent(&list.Items[i])
 			filtered.Items = append(filtered.Items, list.Items[i])
 			continue

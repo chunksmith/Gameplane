@@ -695,7 +695,7 @@ export const handlers = [
 
   http.get("/networks", () =>
     HttpResponse.json([
-      { name: "skyblock", members: [{ id: 3, username: "viewer-carol" }] },
+      { name: "skyblock", members: [{ id: 3, username: "viewer-carol", permissions: ["servers:console"] }] },
       { name: "smp", members: [] },
     ]),
   ),
@@ -706,6 +706,10 @@ export const handlers = [
   http.delete("/networks/:name", () => new HttpResponse(null, { status: 204 })),
   http.put("/networks/:name/members/:id", () => new HttpResponse(null, { status: 204 })),
   http.delete("/networks/:name/members/:id", () => new HttpResponse(null, { status: 204 })),
+
+  http.get("/server-grants", () => HttpResponse.json([])),
+  http.put("/server-grants", () => new HttpResponse(null, { status: 204 })),
+  http.delete("/server-grants", () => new HttpResponse(null, { status: 204 })),
 
   // Roles + permission catalog (custom RBAC).
   http.get("/roles", () =>

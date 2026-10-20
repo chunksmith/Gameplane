@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   Button,
   Card,
@@ -51,7 +51,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RoleEditorModal } from "@/components/ui/RoleEditorModal";
 import { InviteUserDialog } from "@/components/ui/admin/InviteUserDialog";
-import { EditUserDialog } from "@/components/ui/admin/EditUserDialog";
 import { ResetPasswordDialog } from "@/components/ui/admin/ResetPasswordDialog";
 import { NetworksTab } from "@/routes/UsersNetworks";
 import { APIError } from "@/lib/api";
@@ -60,7 +59,6 @@ import {
   Users as UsersAPI,
   Roles as RolesAPI,
   Clusters,
-  type UserUpdate,
 } from "@/lib/endpoints";
 import { formatRelative } from "@/lib/utils";
 import type { ExtendedUser, Role, RoleBinding } from "@/types";
@@ -91,6 +89,10 @@ const roleColor: Record<string, string> = {
   viewer: "bg-default/60 text-muted",
 };
 
+function isTabKey(value: string | undefined): value is TabKey {
+  return TABS.some((t) => t.id === value);
+}
+
 function apiErrorText(error: unknown, intl: IntlShape = englishIntl): string | undefined {
   if (!error) return undefined;
   return error instanceof APIError
@@ -98,7 +100,7 @@ function apiErrorText(error: unknown, intl: IntlShape = englishIntl): string | u
     : (error as Error).message;
 }
 
-function roleGrantsUserManagement(roles: Role[], name: string): boolean {
+export function roleGrantsUserManagement(roles: Role[], name: string): boolean {
   const r = roles.find((x) => x.name === name);
   return !!r && (r.permissions.includes("*") || r.permissions.includes("users:manage"));
 }
@@ -112,10 +114,11 @@ export function UsersPage() {
   const qc = useQueryClient();
   const { data: me } = useMe();
   const canAudit = can(me, "audit:read");
-  const [tab, setTab] = useState<TabKey>("users");
+  const navigate = useNavigate();
+  const { tab: tabParam } = useSearch({ from: "/app-layout/users" });
+  const tab: TabKey = isTabKey(tabParam) ? tabParam : "users";
   const [q, setQ] = useState("");
   const [inviting, setInviting] = useState(false);
-  const [editing, setEditing] = useState<ExtendedUser | null>(null);
   const [resetting, setResetting] = useState<ExtendedUser | null>(null);
   const [deleting, setDeleting] = useState<ExtendedUser | null>(null);
 
@@ -156,13 +159,6 @@ export function UsersPage() {
       setInviting(false);
     },
   });
-  const save = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: UserUpdate }) => UsersAPI.update(id, body),
-    onSuccess: () => {
-      invalidate();
-      setEditing(null);
-    },
-  });
   const reset = useMutation({
     mutationFn: ({ id, password }: { id: number; password: string }) =>
       UsersAPI.resetPassword(id, password),
@@ -191,7 +187,7 @@ export function UsersPage() {
 
       <Tabs
         selectedKey={tab}
-        onSelectionChange={(key) => setTab(key as TabKey)}
+        onSelectionChange={(key) => void navigate({ to: "/users", search: { tab: String(key) }, replace: true })}
         variant="secondary"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -301,7 +297,7 @@ export function UsersPage() {
                           <DropdownMenu aria-label={intl.formatMessage({ id: "web.routes.users.actions_for_user", defaultMessage: "Actions for {name}", description: "Users: aria-label of the row actions menu; {name} is the username" }, { name: u.username })}>
                             <DropdownItem
                               key="edit"
-                              onPress={() => setEditing(u)}
+                              onPress={() => void navigate({ to: "/users/$id", params: { id: String(u.id) } })}
                             >
                               <div className="flex items-center gap-2">
                                 <Pencil className="h-4 w-4" />{intl.formatMessage({ id: "web.routes.users.edit_user", defaultMessage: "Edit user", description: "Users: menu item that opens the edit dialog for a user; keep it short" })}</div>
@@ -382,37 +378,6 @@ export function UsersPage() {
           });
         }}
       />
-      {editing && (
-        <EditUserDialog
-          key={editing.id}
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setEditing(null);
-              save.reset();
-            }
-          }}
-          username={editing.username}
-          displayName={editing.displayName ?? ""}
-          email={editing.email ?? ""}
-          role={editing.role}
-          roles={roles.map((r) => r.name)}
-          isMe={!!me && me.id === editing.id}
-          roleGrantsUserManagement={(r) => roleGrantsUserManagement(roles, r)}
-          isLoading={save.isPending}
-          apiError={apiErrorText(save.error, intl)}
-          contactFieldsOptional
-          extraContent={<NamespaceGrants userId={editing.id} roles={roles} />}
-          onSave={(displayName, email, role) => {
-            const dirty: UserUpdate = {};
-            if (displayName !== (editing.displayName ?? "")) dirty.displayName = displayName;
-            if (email !== (editing.email ?? "")) dirty.email = email;
-            if (role !== editing.role) dirty.role = role;
-            if (Object.keys(dirty).length === 0) return;
-            save.mutate({ id: editing.id, body: dirty });
-          }}
-        />
-      )}
       {resetting && (
         <ResetPasswordDialog
           open
@@ -459,7 +424,7 @@ function ErrorLine({ error }: { error: unknown }) {
   );
 }
 
-function DeleteUserDialog({
+export function DeleteUserDialog({
   user,
   isMe,
   onClose,
@@ -678,7 +643,7 @@ function DeleteRoleDialog({
   );
 }
 
-function NamespaceGrants({ userId, roles }: { userId: number; roles: Role[] }) {
+export function NamespaceGrants({ userId, roles }: { userId: number; roles: Role[] }) {
   const intl = useOptionalIntl();
   const installation = useInstallation();
   if (installation.isPending) return <p className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.users.loading_installation", defaultMessage: "Loading installation…", description: "Users: loading text in the namespace grants area while installation details are fetched" })}</p>;

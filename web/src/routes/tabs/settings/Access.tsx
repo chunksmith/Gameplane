@@ -1,14 +1,12 @@
 import { useResourceClient, useResourceTarget, resourceKey, useResourceAccess } from "@/lib/resourceTarget";
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import type { GameServer } from "@/types";
-import { Button, Input, Label, Chip, Card, CardContent, Select, ListBox, ListBoxItem } from "@heroui/react";
-import { useMe, can } from "@/lib/auth";
-import { Networks } from "@/lib/endpoints";
+import { Button, Input, Label, Chip, Card, CardContent } from "@heroui/react";
 
 import { errorTextIntl } from "@/lib/errors";
-import { NETWORK_ANNOTATION, OWNER_ANNOTATION } from "@/lib/annotations";
+import { OWNER_ANNOTATION } from "@/lib/annotations";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import type { IntlShape } from "react-intl";
 
@@ -28,7 +26,6 @@ export function AccessSection({ gs }: Props) {
   const access = useResourceAccess();
   const [addInput, setAddInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [networkInput, setNetworkInput] = useState("");
 
   const setCollab = useMutation({
     mutationFn: async (body: { userIds?: number[]; usernames?: string[] }) => {
@@ -47,36 +44,12 @@ export function AccessSection({ gs }: Props) {
     },
   });
 
-  const setNetwork = useMutation({
-    mutationFn: async (network: string) => {
-      if (!gs) return;
-      return Servers.setNetwork(gs.metadata.name, gs.metadata.namespace ?? "gameplane-games", network);
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["fleet"] });
-      setNetworkInput("");
-      setError(null);
-      return qc.invalidateQueries({ queryKey: resourceKey(resourceTarget, "server", gs?.metadata.name) });
-    },
-    onError: (err) => {
-      setError(errMsg(err, intl.formatMessage({ id: "web.routes.tabs.settings.access.failed", defaultMessage: "failed", description: "Access: fallback error shown when changing collaborators fails and the server gives no message" }), intl));
-    },
-  });
-
-  const { data: me } = useMe();
-  const { data: networks } = useQuery({
-    queryKey: ["networks"],
-    queryFn: () => Networks.list(),
-    enabled: access?.canDelete === true && can(me, "users:read"),
-  });
-
   if (!gs) {
     return <div className="p-6 text-sm text-default-500">{intl.formatMessage({ id: "web.routes.tabs.settings.access.loading", defaultMessage: "Loading…", description: "Settings access section: loading text shown while the server access details are fetched" })}</div>;
   }
 
   const ann = gs.metadata.annotations ?? {};
   const ownerName = ann[OWNER_ANNOTATION] ?? intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
-  const network = ann[NETWORK_ANNOTATION] ?? "";
   const collaboratorIDs = ann[COLLABORATORS_ANNOTATION]
     ? ann[COLLABORATORS_ANNOTATION].split(",").map((s) => s.trim())
     : [];
@@ -190,86 +163,6 @@ export function AccessSection({ gs }: Props) {
                   onPress={() => handleAddCollaborator()}
                   isDisabled={!addInput.trim() || setCollab.isPending}
                 >{intl.formatMessage({ id: "web.routes.tabs.settings.access.add", defaultMessage: "Add", description: "Button that adds the typed username as a collaborator" })}</Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border border-divider bg-default/40">
-        <CardContent className="gap-0 px-4 py-4">
-          <div className="space-y-3">
-            <div>
-              <Label className="text-sm font-medium">{intl.formatMessage({ id: "web.routes.tabs.settings.access.network", defaultMessage: "Network", description: "Access tab: label of the network section, where the server is assigned to a network" })}</Label>
-              <p className="pt-1 text-xs text-default-500">{intl.formatMessage({ id: "web.routes.tabs.settings.access.members_of_this_network_can_view_this", defaultMessage: "Members of this network can view this server; console and manage access follow each member's network permissions. Only the owner or an admin can change it.", description: "Access tab: hint under the network label saying who can view the server and who can change its network" })}</p>
-            </div>
-            {network ? (
-              <Chip variant="soft" color="default" className="flex w-fit items-center gap-1">
-                <span>{network}</span>
-                {canManage && (
-                  <Button
-                    isIconOnly
-                    variant="ghost"
-                    size="sm"
-                    className="ml-0.5 text-danger"
-                    onPress={() => setNetwork.mutate("")}
-                    isDisabled={setNetwork.isPending}
-                    aria-label={intl.formatMessage({ id: "web.routes.tabs.settings.access.remove_from_network", defaultMessage: "Remove from network", description: "Access tab: accessible label of the button that removes the server from its network" })}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </Chip>
-            ) : (
-              <div className="text-xs text-default-500">{intl.formatMessage({ id: "web.routes.tabs.settings.access.not_in_a_network", defaultMessage: "Not in a network", description: "Access tab: text shown when the server is not assigned to any network" })}</div>
-            )}
-            {canManage && (
-              <div className="flex items-center gap-2 pt-1">
-                {networks ? (
-                  <Select
-                    aria-label={intl.formatMessage({ id: "web.routes.tabs.settings.access.network_name", defaultMessage: "Network name", description: "Access tab: accessible label of the box where a network name is typed or chosen" })}
-                    placeholder={intl.formatMessage({ id: "web.routes.tabs.settings.access.assign_to_network", defaultMessage: "Assign to network…", description: "Access tab: placeholder of the network box, shown before a network is chosen or typed" })}
-                    value={networkInput}
-                    onChange={(value) => setNetworkInput(String(value))}
-                    isDisabled={setNetwork.isPending}
-                    className="flex-1"
-                  >
-                    <Select.Trigger className="w-full items-center rounded border border-border bg-surface px-3 py-2 text-sm hover:bg-surface/80">
-                      <Select.Value className="text-[var(--field-placeholder)]" />
-                      <Select.Indicator className="ml-auto h-4 w-4" />
-                    </Select.Trigger>
-                    <Select.Popover className="rounded border border-border">
-                      <ListBox className="p-0" aria-label={intl.formatMessage({ id: "web.routes.tabs.settings.access.networks", defaultMessage: "Networks", description: "Access tab: accessible label of the list of networks to choose from" })}>
-                        {networks
-                          .filter((option) => option.name !== network)
-                          .map((option) => (
-                            <ListBoxItem key={option.name} id={option.name}>
-                              {option.name}
-                            </ListBoxItem>
-                          ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                ) : (
-                  <Input
-                    value={networkInput}
-                    onChange={(e) => setNetworkInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && networkInput.trim()) setNetwork.mutate(networkInput.trim());
-                    }}
-                    placeholder={intl.formatMessage({ id: "web.routes.tabs.settings.access.assign_to_network", defaultMessage: "Assign to network…", description: "Access tab: placeholder of the network box, shown before a network is chosen or typed" })}
-                    aria-label={intl.formatMessage({ id: "web.routes.tabs.settings.access.network_name", defaultMessage: "Network name", description: "Access tab: accessible label of the box where a network name is typed or chosen" })}
-                    className="flex-1"
-                    disabled={setNetwork.isPending}
-                    type="text"
-                  />
-                )}
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onPress={() => setNetwork.mutate(networkInput.trim())}
-                  isDisabled={!networkInput.trim() || setNetwork.isPending}
-                >{intl.formatMessage({ id: "web.routes.tabs.settings.access.assign", defaultMessage: "Assign", description: "Access tab: button that assigns the server to the chosen or typed network" })}</Button>
               </div>
             )}
           </div>
