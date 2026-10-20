@@ -37,17 +37,38 @@ vi.mock("@/lib/auth", async (orig) => ({
     isLoading: false,
   }),
 }));
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
-    <a {...rest}>{children}</a>
-  ),
-}));
+const tabSearch = vi.hoisted(() => ({ tab: undefined as string | undefined, listeners: new Set<() => void>() }));
+vi.mock("@tanstack/react-router", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
+      <a {...rest}>{children}</a>
+    ),
+    useSearch: () => ({
+      tab: useSyncExternalStore(
+        (listener) => {
+          tabSearch.listeners.add(listener);
+          return () => {
+            tabSearch.listeners.delete(listener);
+          };
+        },
+        () => tabSearch.tab,
+      ),
+    }),
+    useNavigate: () => (options: { search?: { tab?: string } }) => {
+      tabSearch.tab = options.search?.tab;
+      tabSearch.listeners.forEach((listener) => listener());
+      return Promise.resolve();
+    },
+  };
+});
 
 function renderPage() {
   return renderWithQuery(<UsersPage />);
 }
 
 beforeEach(() => {
+  tabSearch.tab = undefined;
   list.mockResolvedValue([
     { id: 1, username: "root", displayName: "Root", email: "r@x", role: "admin", provider: "local" },
   ]);

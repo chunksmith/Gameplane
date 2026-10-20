@@ -3931,58 +3931,6 @@
     "defaultMessage": "{inbound} / {outbound}",
     "description": "Statistics bandwidth bars: inbound and outbound rates of one node in MB/s, separated by a slash"
   },
-  "web.components.ui.admin.edit_user_dialog.cancel": {
-    "defaultMessage": "Cancel",
-    "description": "Edit user dialog: button that closes the dialog without saving; keep it short"
-  },
-  "web.components.ui.admin.edit_user_dialog.display_name": {
-    "defaultMessage": "Display name",
-    "description": "Edit user dialog: label above the display name field; the same words are the field's placeholder"
-  },
-  "web.components.ui.admin.edit_user_dialog.display_name_is_required": {
-    "defaultMessage": "Display name is required",
-    "description": "Edit user dialog: validation error when the display name is empty"
-  },
-  "web.components.ui.admin.edit_user_dialog.edit_user": {
-    "defaultMessage": "Edit user",
-    "description": "Edit user dialog: title of the dialog for editing a user; the username appears under the title"
-  },
-  "web.components.ui.admin.edit_user_dialog.email": {
-    "defaultMessage": "Email",
-    "description": "Edit user dialog: label above the email address field"
-  },
-  "web.components.ui.admin.edit_user_dialog.email_example_com": {
-    "defaultMessage": "email@example.com",
-    "description": "Edit user dialog: example value shown inside the empty email field; a sample address, keep it as written"
-  },
-  "web.components.ui.admin.edit_user_dialog.email_is_required": {
-    "defaultMessage": "Email is required",
-    "description": "Edit user dialog: validation error when the email is empty"
-  },
-  "web.components.ui.admin.edit_user_dialog.primary_role": {
-    "defaultMessage": "Primary role",
-    "description": "Edit user dialog: screen-reader name of the list of roles in the primary role dropdown; not visible on screen"
-  },
-  "web.components.ui.admin.edit_user_dialog.primary_role_cluster_wide": {
-    "defaultMessage": "Primary role (cluster-wide)",
-    "description": "Edit user dialog: label above the primary role dropdown; the role applies across the whole cluster"
-  },
-  "web.components.ui.admin.edit_user_dialog.role_is_required": {
-    "defaultMessage": "Role is required",
-    "description": "Edit user dialog: validation error when no role is selected"
-  },
-  "web.components.ui.admin.edit_user_dialog.save_changes": {
-    "defaultMessage": "Save changes",
-    "description": "Edit user dialog: save button label"
-  },
-  "web.components.ui.admin.edit_user_dialog.saving": {
-    "defaultMessage": "Saving…",
-    "description": "Edit user dialog: save button label while the update is in progress"
-  },
-  "web.components.ui.admin.edit_user_dialog.you_can_t_remove_your_own_ability_to": {
-    "defaultMessage": "You can’t remove your own ability to manage users.",
-    "description": "Edit user dialog: warning shown under the role dropdown when the change would remove the user's own ability to manage users"
-  },
   "web.components.ui.admin.invite_user_dialog.alice": {
     "defaultMessage": "alice",
     "description": "Invite user dialog: example value shown inside the empty username field; a sample name, not a default value"
@@ -4698,6 +4646,18 @@
   "web.lib.games.category.survival": {
     "defaultMessage": "Survival",
     "description": "Module category name shown as a filter chip and badge: survival games"
+  },
+  "web.lib.permissions.console": {
+    "defaultMessage": "Console",
+    "description": "Permission chips: name of the console permission, which lets a member use the server console; keep it short"
+  },
+  "web.lib.permissions.manage": {
+    "defaultMessage": "Manage",
+    "description": "Permission chips: name of the permission that lets a member start, stop, change files, mods and players of a server; keep it short"
+  },
+  "web.lib.permissions.view": {
+    "defaultMessage": "View",
+    "description": "Permission chips: name of the view permission, which every grant includes and cannot be removed; keep it short"
   },
   "web.lib.settings_merge.conflict": {
     "defaultMessage": "Server changed since you opened this page.",
@@ -8071,6 +8031,138 @@
     "defaultMessage": "Upload module",
     "description": "Modules: button that opens the dialog to upload a module bundle; keep it short"
   },
+  "web.routes.network_detail.add_count_servers": {
+    "defaultMessage": "Add {count, plural, one {# server} other {# servers}}",
+    "description": "Network detail: button that assigns the selected servers to the network; {count} is the number of selected servers"
+  },
+  "web.routes.network_detail.add_member": {
+    "defaultMessage": "Add member",
+    "description": "Network detail: button that adds the selected user to the network; keep it short"
+  },
+  "web.routes.network_detail.add_servers": {
+    "defaultMessage": "Add servers",
+    "description": "Network detail: button that opens the picker for assigning fleet servers to this network; keep it short"
+  },
+  "web.routes.network_detail.back_to_networks": {
+    "defaultMessage": "Networks",
+    "description": "Network detail: back link above the page title that returns to the Networks tab; keep it short"
+  },
+  "web.routes.network_detail.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "Network detail: button that closes the add-servers picker without assigning anything; keep it short"
+  },
+  "web.routes.network_detail.cancel_delete": {
+    "defaultMessage": "Cancel",
+    "description": "Network detail: button that closes the delete confirmation dialog without deleting the network; keep it short"
+  },
+  "web.routes.network_detail.choose_user": {
+    "defaultMessage": "Choose a user",
+    "description": "Network detail: placeholder of the dropdown that picks a user to add to the network"
+  },
+  "web.routes.network_detail.confirm_delete": {
+    "defaultMessage": "Delete network",
+    "description": "Network detail: button that confirms deleting the network in the confirmation dialog; keep it short"
+  },
+  "web.routes.network_detail.danger_zone": {
+    "defaultMessage": "Danger zone",
+    "description": "Network detail: title of the danger zone card and its navigation link; keep it short"
+  },
+  "web.routes.network_detail.delete_confirm": {
+    "defaultMessage": "{count, plural, one {# server} other {# servers}} will be unassigned and every member will lose access through this network. This cannot be undone.",
+    "description": "Network detail: body of the delete confirmation dialog; {count} is the number of servers that will be unassigned"
+  },
+  "web.routes.network_detail.delete_description": {
+    "defaultMessage": "Deleting the network unassigns its servers and removes every member.",
+    "description": "Network detail: explanation under the danger zone title of what deleting the network does"
+  },
+  "web.routes.network_detail.delete_name": {
+    "defaultMessage": "Delete {name}?",
+    "description": "Network detail: heading of the delete confirmation dialog; {name} is the network name"
+  },
+  "web.routes.network_detail.delete_network": {
+    "defaultMessage": "Delete network",
+    "description": "Network detail: button that opens the confirmation dialog for deleting the network; keep it short"
+  },
+  "web.routes.network_detail.description": {
+    "defaultMessage": "Servers assigned to this network and the members who can reach them.",
+    "description": "Network detail: description under the network name in the page header"
+  },
+  "web.routes.network_detail.member_permissions": {
+    "defaultMessage": "{username} permissions in {network}",
+    "description": "Network detail: accessible name of the permission chips for one member of the network; {username} is the member and {network} the network name"
+  },
+  "web.routes.network_detail.member_to_add": {
+    "defaultMessage": "User to add",
+    "description": "Network detail: accessible name of the dropdown that picks a user to add to the network"
+  },
+  "web.routes.network_detail.members": {
+    "defaultMessage": "Members",
+    "description": "Network detail: section title of the members card and its navigation link; keep it short"
+  },
+  "web.routes.network_detail.members_description": {
+    "defaultMessage": "Members can view every server in this network. Console and Manage are granted per member.",
+    "description": "Network detail: description under the Members section title"
+  },
+  "web.routes.network_detail.new_member_permissions": {
+    "defaultMessage": "New member permissions in {network}",
+    "description": "Network detail: accessible name of the permission chips for a member about to be added to the network; {network} is the network name"
+  },
+  "web.routes.network_detail.no_members": {
+    "defaultMessage": "No members yet.",
+    "description": "Network detail: empty state of the members card when the network has no members"
+  },
+  "web.routes.network_detail.no_servers": {
+    "defaultMessage": "No servers in this network yet.",
+    "description": "Network detail: empty state of the servers card when no server is assigned to the network"
+  },
+  "web.routes.network_detail.not_found": {
+    "defaultMessage": "Network not found",
+    "description": "Network detail: title of the empty state shown when no network matches the URL"
+  },
+  "web.routes.network_detail.remove_from_selection": {
+    "defaultMessage": "Remove {name} from selection",
+    "description": "Network detail: accessible name of the chip that removes a server from the add-servers selection; {name} is the server name"
+  },
+  "web.routes.network_detail.remove_member": {
+    "defaultMessage": "Remove {username} from {network}",
+    "description": "Network detail: accessible name of the button that removes a member from the network; {username} is the member and {network} the network name"
+  },
+  "web.routes.network_detail.remove_server": {
+    "defaultMessage": "Remove {name} from network",
+    "description": "Network detail: accessible name of the button that removes a server from the network; {name} is the server name"
+  },
+  "web.routes.network_detail.request_failed": {
+    "defaultMessage": "Request failed",
+    "description": "Network detail: fallback error shown when a network request fails without a readable message"
+  },
+  "web.routes.network_detail.search_servers": {
+    "defaultMessage": "Search servers",
+    "description": "Network detail: accessible name of the search input in the add-servers picker"
+  },
+  "web.routes.network_detail.search_servers_placeholder": {
+    "defaultMessage": "Search servers…",
+    "description": "Network detail: placeholder of the search input in the add-servers picker"
+  },
+  "web.routes.network_detail.sections": {
+    "defaultMessage": "Network sections",
+    "description": "Network detail: accessible name of the section navigation in the sidebar; not visible on screen"
+  },
+  "web.routes.network_detail.servers": {
+    "defaultMessage": "Servers",
+    "description": "Network detail: section title of the servers card and its navigation link; keep it short"
+  },
+  "web.routes.network_detail.servers_description": {
+    "defaultMessage": "Servers in this network share its members' access.",
+    "description": "Network detail: description under the Servers section title"
+  },
+  "web.routes.network_detail.unassigned": {
+    "defaultMessage": "Unassigned",
+    "description": "Network detail: label in the add-servers picker for a server that belongs to no network"
+  },
+  "web.routes.network_detail.username_handle": {
+    "defaultMessage": "@{username}",
+    "description": "Network detail: username shown under a member's name, prefixed with an at sign; {username} is the login name"
+  },
   "web.routes.not_found.go_to_dashboard": {
     "defaultMessage": "Go to dashboard",
     "description": "Not found: link styled as a button under the explanation that returns the user to the dashboard; keep it short"
@@ -10295,14 +10387,6 @@
     "defaultMessage": "Add collaborator by username…",
     "description": "Settings access section: placeholder in the box for adding a collaborator by username; pressing Enter adds them"
   },
-  "web.routes.tabs.settings.access.assign": {
-    "defaultMessage": "Assign",
-    "description": "Access tab: button that assigns the server to the chosen or typed network"
-  },
-  "web.routes.tabs.settings.access.assign_to_network": {
-    "defaultMessage": "Assign to network…",
-    "description": "Access tab: placeholder of the network box, shown before a network is chosen or typed"
-  },
   "web.routes.tabs.settings.access.collaborators": {
     "defaultMessage": "Collaborators",
     "description": "Label for the list of users who can manage this server"
@@ -10323,29 +10407,9 @@
     "defaultMessage": "Loading…",
     "description": "Settings access section: loading text shown while the server access details are fetched"
   },
-  "web.routes.tabs.settings.access.members_of_this_network_can_view_this": {
-    "defaultMessage": "Members of this network can view this server; console and manage access follow each member's network permissions. Only the owner or an admin can change it.",
-    "description": "Access tab: hint under the network label saying who can view the server and who can change its network"
-  },
-  "web.routes.tabs.settings.access.network": {
-    "defaultMessage": "Network",
-    "description": "Access tab: label of the network section, where the server is assigned to a network"
-  },
-  "web.routes.tabs.settings.access.network_name": {
-    "defaultMessage": "Network name",
-    "description": "Access tab: accessible label of the box where a network name is typed or chosen"
-  },
-  "web.routes.tabs.settings.access.networks": {
-    "defaultMessage": "Networks",
-    "description": "Access tab: accessible label of the list of networks to choose from"
-  },
   "web.routes.tabs.settings.access.none_yet": {
     "defaultMessage": "None yet",
     "description": "Settings access section: empty-state text in the collaborators area when there are no collaborators"
-  },
-  "web.routes.tabs.settings.access.not_in_a_network": {
-    "defaultMessage": "Not in a network",
-    "description": "Access tab: text shown when the server is not assigned to any network"
   },
   "web.routes.tabs.settings.access.owner": {
     "defaultMessage": "Owner",
@@ -10354,10 +10418,6 @@
   "web.routes.tabs.settings.access.remove_collaborator": {
     "defaultMessage": "Remove {name}",
     "description": "Access: aria-label of the remove button on a collaborator chip; {name} is the collaborator's username"
-  },
-  "web.routes.tabs.settings.access.remove_from_network": {
-    "defaultMessage": "Remove from network",
-    "description": "Access tab: accessible label of the button that removes the server from its network"
   },
   "web.routes.tabs.settings.backups.active": {
     "defaultMessage": "Active",
@@ -12247,6 +12307,230 @@
     "defaultMessage": "Your saved accent and surface",
     "description": "Theme settings: caption under the colour preview, naming the accent and surface colors you saved"
   },
+  "web.routes.user_edit.add_servers": {
+    "defaultMessage": "Add servers",
+    "description": "User edit: button that opens the panel for granting this user access to servers; keep it short"
+  },
+  "web.routes.user_edit.add_to_network": {
+    "defaultMessage": "Add to network",
+    "description": "User edit: button that adds the user to the chosen network; keep it short"
+  },
+  "web.routes.user_edit.back_to_users": {
+    "defaultMessage": "Back to users",
+    "description": "User edit: link that returns to the users list; keep it short"
+  },
+  "web.routes.user_edit.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "User edit: button that closes a panel without making changes; keep it short"
+  },
+  "web.routes.user_edit.cannot_remove_own_user_management": {
+    "defaultMessage": "You can’t remove your own ability to manage users.",
+    "description": "User edit: warning under the role dropdown when the change would remove the signed-in user's own ability to manage users"
+  },
+  "web.routes.user_edit.choose_network": {
+    "defaultMessage": "Choose a network",
+    "description": "User edit: placeholder of the dropdown that picks a network to add the user to"
+  },
+  "web.routes.user_edit.cluster_namespace": {
+    "defaultMessage": "{cluster} / {namespace}",
+    "description": "User edit: cluster and namespace of a candidate server; {cluster} is the cluster and {namespace} the namespace"
+  },
+  "web.routes.user_edit.created": {
+    "defaultMessage": "Created",
+    "description": "User edit: profile card label for when the account was created"
+  },
+  "web.routes.user_edit.danger_description": {
+    "defaultMessage": "Deleting a user revokes their sessions and removes every grant. This cannot be undone.",
+    "description": "User edit: description of the danger zone card"
+  },
+  "web.routes.user_edit.danger_zone": {
+    "defaultMessage": "Danger zone",
+    "description": "User edit: title of the danger zone card"
+  },
+  "web.routes.user_edit.delete_user": {
+    "defaultMessage": "Delete user",
+    "description": "User edit: button that opens the delete dialog for this user; keep it short"
+  },
+  "web.routes.user_edit.discard": {
+    "defaultMessage": "Discard",
+    "description": "User edit: button that throws away unsaved profile and role changes; keep it short"
+  },
+  "web.routes.user_edit.display_name": {
+    "defaultMessage": "Display name",
+    "description": "User edit: label of the display name input"
+  },
+  "web.routes.user_edit.edit_user": {
+    "defaultMessage": "Edit user",
+    "description": "User edit: page title for editing one user account"
+  },
+  "web.routes.user_edit.edit_user_description": {
+    "defaultMessage": "Update the profile, role and server access for this account.",
+    "description": "User edit: description under the page title"
+  },
+  "web.routes.user_edit.email": {
+    "defaultMessage": "Email",
+    "description": "User edit: label of the email input"
+  },
+  "web.routes.user_edit.grant_access": {
+    "defaultMessage": "Grant access to {count, plural, one {# server} other {# servers}}",
+    "description": "User edit: button that grants the selected servers; {count} is the number of selected servers"
+  },
+  "web.routes.user_edit.network_permissions": {
+    "defaultMessage": "Permissions in {network}",
+    "description": "User edit: accessible name of the permission chips for the membership in one network; {network} is the network name"
+  },
+  "web.routes.user_edit.network_server_count": {
+    "defaultMessage": "{count, plural, one {# server} other {# servers}}",
+    "description": "User edit: server count under a network name; {count} is the number of servers in the network"
+  },
+  "web.routes.user_edit.network_to_join": {
+    "defaultMessage": "Network to join",
+    "description": "User edit: accessible name of the dropdown that picks a network to add the user to"
+  },
+  "web.routes.user_edit.networks": {
+    "defaultMessage": "Networks",
+    "description": "User edit: profile card label for the number of networks the user belongs to"
+  },
+  "web.routes.user_edit.networks_description": {
+    "defaultMessage": "Membership grants access to every server assigned to the network.",
+    "description": "User edit: description of the networks card"
+  },
+  "web.routes.user_edit.networks_title": {
+    "defaultMessage": "Networks",
+    "description": "User edit: title of the networks card"
+  },
+  "web.routes.user_edit.new_grant_permissions": {
+    "defaultMessage": "Permissions for new server grants",
+    "description": "User edit: accessible name of the permission chips for servers about to be granted; not visible on screen"
+  },
+  "web.routes.user_edit.new_membership_permissions": {
+    "defaultMessage": "Permissions for the new network membership",
+    "description": "User edit: accessible name of the permission chips for a network membership about to be added; not visible on screen"
+  },
+  "web.routes.user_edit.no_servers": {
+    "defaultMessage": "No servers yet",
+    "description": "User edit: empty state when the user has no direct grants and no network servers"
+  },
+  "web.routes.user_edit.not_in_any_network": {
+    "defaultMessage": "Not in any network",
+    "description": "User edit: empty state when the user belongs to no network"
+  },
+  "web.routes.user_edit.open": {
+    "defaultMessage": "Open",
+    "description": "User edit: link to the network that grants access to a server; keep it short"
+  },
+  "web.routes.user_edit.primary_role": {
+    "defaultMessage": "Primary role (cluster-wide)",
+    "description": "User edit: label of the primary role dropdown; the role applies across the whole cluster"
+  },
+  "web.routes.user_edit.primary_role_options": {
+    "defaultMessage": "Primary role options",
+    "description": "User edit: accessible name of the list of roles; not visible on screen"
+  },
+  "web.routes.user_edit.profile": {
+    "defaultMessage": "Profile",
+    "description": "User edit: title of the profile card"
+  },
+  "web.routes.user_edit.profile_description": {
+    "defaultMessage": "Name and contact details shown across the dashboard.",
+    "description": "User edit: description of the profile card"
+  },
+  "web.routes.user_edit.provider_local": {
+    "defaultMessage": "Local",
+    "description": "User edit: chip for an account that signs in with a local password; keep it short"
+  },
+  "web.routes.user_edit.provider_oidc": {
+    "defaultMessage": "OIDC",
+    "description": "User edit: chip for an account that signs in through OIDC; keep it short"
+  },
+  "web.routes.user_edit.provider_pending": {
+    "defaultMessage": "Pending",
+    "description": "User edit: chip for an invited account that has not signed in yet; keep it short"
+  },
+  "web.routes.user_edit.remove": {
+    "defaultMessage": "Remove",
+    "description": "User edit: button that removes a direct server grant; keep it short"
+  },
+  "web.routes.user_edit.remove_membership": {
+    "defaultMessage": "Remove",
+    "description": "User edit: button that removes the user from a network; keep it short"
+  },
+  "web.routes.user_edit.reset_password": {
+    "defaultMessage": "Reset password",
+    "description": "User edit: button that opens the reset-password dialog; disabled for OIDC-managed accounts; keep it short"
+  },
+  "web.routes.user_edit.role_and_cluster_grants": {
+    "defaultMessage": "Role and cluster grants",
+    "description": "User edit: title of the role card"
+  },
+  "web.routes.user_edit.role_description": {
+    "defaultMessage": "The primary role applies across the cluster; namespace grants refine it.",
+    "description": "User edit: description of the role card"
+  },
+  "web.routes.user_edit.save_changes": {
+    "defaultMessage": "Save changes",
+    "description": "User edit: button that saves the profile and role changes"
+  },
+  "web.routes.user_edit.saving": {
+    "defaultMessage": "Saving…",
+    "description": "User edit: save button label while the profile update is in progress"
+  },
+  "web.routes.user_edit.search_servers": {
+    "defaultMessage": "Search servers",
+    "description": "User edit: accessible name and placeholder of the server search field in the add-servers panel"
+  },
+  "web.routes.user_edit.sections": {
+    "defaultMessage": "Sections",
+    "description": "User edit: accessible name of the section navigation; not visible on screen"
+  },
+  "web.routes.user_edit.server_access": {
+    "defaultMessage": "Server access",
+    "description": "User edit: title of the server access card"
+  },
+  "web.routes.user_edit.server_access_description": {
+    "defaultMessage": "Direct grants and servers reached through a network membership.",
+    "description": "User edit: description of the server access card"
+  },
+  "web.routes.user_edit.server_meta": {
+    "defaultMessage": "{game} · {cluster}",
+    "description": "User edit: secondary line under a server name showing its game and cluster; {game} is the game and {cluster} the cluster name"
+  },
+  "web.routes.user_edit.server_permissions": {
+    "defaultMessage": "Permissions for {server}",
+    "description": "User edit: accessible name of the permission chips for one server row; {server} is the server name"
+  },
+  "web.routes.user_edit.servers": {
+    "defaultMessage": "Servers",
+    "description": "User edit: profile card label for the number of servers the user can access"
+  },
+  "web.routes.user_edit.set_new_password": {
+    "defaultMessage": "Set new password",
+    "description": "User edit: submit button label in the reset-password dialog"
+  },
+  "web.routes.user_edit.source_direct": {
+    "defaultMessage": "Direct",
+    "description": "User edit: source chip for a server granted directly to the user; keep it short"
+  },
+  "web.routes.user_edit.source_network": {
+    "defaultMessage": "via {network}",
+    "description": "User edit: source chip for a server reached through a network; {network} is the network name"
+  },
+  "web.routes.user_edit.unsaved_changes": {
+    "defaultMessage": "Unsaved changes",
+    "description": "User edit: label in the sticky save bar when the profile or role has unsaved edits"
+  },
+  "web.routes.user_edit.user_not_found": {
+    "defaultMessage": "User not found",
+    "description": "User edit: empty state title when no user matches the id in the URL"
+  },
+  "web.routes.user_edit.username": {
+    "defaultMessage": "Username",
+    "description": "User edit: label of the read-only username field"
+  },
+  "web.routes.user_edit.username_handle": {
+    "defaultMessage": "@{username}",
+    "description": "User edit: @-prefixed username shown under the display name; {username} is the account username"
+  },
   "web.routes.users.account_is_oidc_managed": {
     "defaultMessage": "Account is OIDC-managed",
     "description": "Users: tooltip explaining that an OIDC account's password is managed elsewhere"
@@ -12547,93 +12831,69 @@
     "defaultMessage": "You can't delete your own account.",
     "description": "Users: message in the delete dialog shown when you try to delete your own account"
   },
-  "web.routes.users_networks.add": {
-    "defaultMessage": "Add",
-    "description": "Users networks: button that adds the typed username as a member of the network; keep it short"
-  },
-  "web.routes.users_networks.add_member_by_username": {
-    "defaultMessage": "Add member by username…",
-    "description": "Users networks: placeholder of the input that takes the username of a member to add to the network"
-  },
-  "web.routes.users_networks.add_member_to_network": {
-    "defaultMessage": "Add member to {network}",
-    "description": "Users networks: accessible name of the input that adds a member to the network; {network} is the network name"
+  "web.routes.users_networks.add_servers": {
+    "defaultMessage": "Add servers",
+    "description": "Users networks: chip on an empty network card that links to the network detail page to assign servers; keep it short"
   },
   "web.routes.users_networks.cancel": {
     "defaultMessage": "Cancel",
     "description": "Users networks: button that closes the dialog without creating the network; keep it short"
   },
-  "web.routes.users_networks.confirm_delete": {
-    "defaultMessage": "Confirm delete",
-    "description": "Users networks: label of the delete button after the first click, asking the owner to confirm; keep it short"
-  },
   "web.routes.users_networks.count_member": {
     "defaultMessage": "{count, plural, one {# member} other {# members}}",
     "description": "Users networks: member count badge on a network card; {count} is the number of members"
+  },
+  "web.routes.users_networks.count_server": {
+    "defaultMessage": "{count, plural, one {# server} other {# servers}}",
+    "description": "Users networks: server count on a network card; {count} is the number of fleet servers assigned to the network"
   },
   "web.routes.users_networks.create": {
     "defaultMessage": "Create",
     "description": "Users networks: button that creates the network named in the dialog; keep it short"
   },
-  "web.routes.users_networks.delete": {
-    "defaultMessage": "Delete",
-    "description": "Users networks: button that starts deleting the network; the next click confirms it; keep it short"
-  },
   "web.routes.users_networks.e_g_survival": {
     "defaultMessage": "e.g. survival",
     "description": "Users networks: example network name shown as the placeholder of the network name input"
   },
-  "web.routes.users_networks.member_permissions_in_network": {
-    "defaultMessage": "{username} permissions in {network}",
-    "description": "Users networks: accessible name of the group of permission checkboxes for one member of a network; {username} is the member and {network} the network name"
+  "web.routes.users_networks.manage": {
+    "defaultMessage": "Manage",
+    "description": "Users networks: link on a network card that opens the network detail page to edit its servers and members; keep it short"
   },
   "web.routes.users_networks.members_can_view_every_server_assigned": {
     "defaultMessage": "Members can view every server assigned to their network. Console and Manage (start, stop, files, mods and players) are granted per member. Delete, transfer and wipe stay with the owner.",
     "description": "Users networks: explanation at the top of the networks tab saying what members can view and which permissions are granted per member, and that only the owner can delete, transfer or wipe"
   },
+  "web.routes.users_networks.more_servers": {
+    "defaultMessage": "+{count}",
+    "description": "Users networks: chip after the server names on a network card showing how many more servers are assigned; {count} is that number"
+  },
   "web.routes.users_networks.network_name": {
     "defaultMessage": "Network name",
     "description": "Users networks: label of the input for the name of the new network"
-  },
-  "web.routes.users_networks.new_member_permissions_in_network": {
-    "defaultMessage": "New member permissions in {network}",
-    "description": "Users networks: accessible name of the permission checkboxes for a member about to be added to the network; {network} is the network name"
   },
   "web.routes.users_networks.new_network": {
     "defaultMessage": "New network",
     "description": "Users networks: button and dialog heading for creating a new network; keep it short"
   },
-  "web.routes.users_networks.no_members_yet": {
-    "defaultMessage": "No members yet",
-    "description": "Users networks: text shown in a network card when the network has no members"
+  "web.routes.users_networks.no_networks_match": {
+    "defaultMessage": "No networks match your search.",
+    "description": "Users networks: title of the empty state shown when the search matches no network name"
   },
   "web.routes.users_networks.no_networks_yet": {
     "defaultMessage": "No networks yet.",
     "description": "Users networks: title of the empty state shown when there are no networks"
   },
-  "web.routes.users_networks.permission_console": {
-    "defaultMessage": "Console",
-    "description": "Users networks: name of the console permission, shown as a checkbox and in the member summary; keep it short"
-  },
-  "web.routes.users_networks.permission_manage": {
-    "defaultMessage": "Manage",
-    "description": "Users networks: name of the permission that lets a member start, stop, change files, mods and players of a server, shown as a checkbox and in the member summary; keep it short"
-  },
-  "web.routes.users_networks.remove_member_from_network": {
-    "defaultMessage": "Remove {username} from {network}",
-    "description": "Users networks: accessible name of the icon button that removes a member from the network; {username} is the member and {network} the network name"
-  },
   "web.routes.users_networks.request_failed": {
     "defaultMessage": "Request failed",
     "description": "Users networks: fallback error shown when a network request fails without a readable message"
   },
-  "web.routes.users_networks.user_not_found": {
-    "defaultMessage": "User {username} not found",
-    "description": "Users networks: error shown when the username typed to add a member matches no user; {username} is the typed name"
+  "web.routes.users_networks.search_networks": {
+    "defaultMessage": "Search networks",
+    "description": "Users networks: accessible name of the search input that filters the network cards by name"
   },
-  "web.routes.users_networks.view_only": {
-    "defaultMessage": "View only",
-    "description": "Users networks: summary of a member with no permissions on the network, so the member can only view it; keep it short"
+  "web.routes.users_networks.search_networks_placeholder": {
+    "defaultMessage": "Search networks…",
+    "description": "Users networks: placeholder of the search input that filters the network cards by name"
   },
   "web.settings.compact_language_menu": {
     "defaultMessage": "Language options",

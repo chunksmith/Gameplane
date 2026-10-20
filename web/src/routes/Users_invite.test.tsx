@@ -30,6 +30,8 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
     <a {...rest}>{children}</a>
   ),
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
 }));
 
 function renderPage() {

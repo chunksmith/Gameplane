@@ -67,6 +67,30 @@ func (s *SessionStore) LoadNetworks(ctx context.Context, userID int64) (map[stri
 	return networks, nil
 }
 
+func (s *SessionStore) LoadServerGrants(ctx context.Context, userID int64) (map[ServerKey]ServerGrant, error) {
+	rows, err := s.db.DB.QueryContext(ctx,
+		`SELECT cluster, namespace, server, server_uid, permissions FROM server_members WHERE user_id = ?`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load server grants for user %d: %w", userID, err)
+	}
+	defer func() { _ = rows.Close() }()
+	grants := map[ServerKey]ServerGrant{}
+	for rows.Next() {
+		var key ServerKey
+		var grant ServerGrant
+		var permissions string
+		if err := rows.Scan(&key.Cluster, &key.Namespace, &key.Name, &grant.UID, &permissions); err != nil {
+			return nil, fmt.Errorf("scan server grant: %w", err)
+		}
+		grant.Permissions = strings.FieldsFunc(permissions, func(r rune) bool { return r == ',' })
+		grants[key] = grant
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate server grants: %w", err)
+	}
+	return grants, nil
+}
+
 // PermsToJSON flattens the in-memory three-level permission set into a
 // JSON-friendly namespace→permissions map. It merges permissions across
 // all clusters, so the frontend sees the union of what the user can do

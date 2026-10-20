@@ -44,7 +44,23 @@ type User struct {
 	// Nil for Users built outside the session path (treated as holding nothing).
 	Perms map[string]map[string]map[string]struct{}
 
-	Networks map[string][]string
+	Networks     map[string][]string
+	ServerGrants map[ServerKey]ServerGrant
+}
+
+type ServerKey struct{ Cluster, Namespace, Name string }
+
+type ServerGrant struct {
+	UID         string
+	Permissions []string
+}
+
+func (u *User) ServerGrant(cluster, namespace, name, uid string) ([]string, bool) {
+	grant, ok := u.ServerGrants[ServerKey{cluster, namespace, name}]
+	if !ok || (grant.UID != "" && grant.UID != uid) {
+		return nil, false
+	}
+	return grant.Permissions, true
 }
 
 // SessionStore manages session lifecycle for authenticated users.
@@ -181,6 +197,11 @@ func (s *SessionStore) lookup(ctx context.Context, token string) (*User, string,
 		return nil, "", nerr
 	}
 	u.Networks = networks
+	grants, gerr := s.LoadServerGrants(ctx, u.ID)
+	if gerr != nil {
+		return nil, "", gerr
+	}
+	u.ServerGrants = grants
 	exp, perr := time.Parse(time.RFC3339, expires)
 	if perr != nil {
 		// A corrupt expires_at row is indistinguishable from an expired

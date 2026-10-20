@@ -16,6 +16,8 @@ import { StatisticsNodePage } from "@/routes/StatisticsNode";
 import { isStatisticsRange } from "@/lib/statistics";
 import type { StatisticsRange } from "@/types";
 import { UsersPage } from "@/routes/Users";
+import { UserEditPage } from "@/routes/UserEdit";
+import { NetworkDetailPage } from "@/routes/NetworkDetail";
 import { AdminSettingsPage } from "@/routes/AdminSettings";
 import { ThemeSettingsPage } from "@/routes/ThemeSettings";
 import { CreateServerWizard } from "@/routes/CreateServer";
@@ -150,6 +152,29 @@ const usersRoute = new Route({
       <UsersPage />
     </RequirePermission>
   ),
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
+});
+
+const userEditRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/users/$id",
+  component: () => (
+    <RequirePermission perm="users:manage">
+      <UserEditPage />
+    </RequirePermission>
+  ),
+});
+
+const networkDetailRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/users/networks/$name",
+  component: () => (
+    <RequirePermission perm="users:manage">
+      <NetworkDetailPage />
+    </RequirePermission>
+  ),
 });
 
 const adminRoute = new Route({
@@ -238,6 +263,8 @@ export const routeTree = rootRoute.addChildren([
     clusterRoute,
     clustersRoute,
     usersRoute,
+    userEditRoute,
+    networkDetailRoute,
     adminRoute,
     themeSettingsRoute,
     auditLogRoute,

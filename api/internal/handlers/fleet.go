@@ -260,12 +260,13 @@ func serverFleetAccess(u *auth.User, cl, ns string, obj *unstructured.Unstructur
 		}
 	}
 	granted, member := u.Networks[obj.GetAnnotations()[networkAnnotation]]
+	direct, hasDirect := u.ServerGrant(cl, ns, obj.GetName(), string(obj.GetUID()))
 	write := u.Can("servers:write", true, cl, ns)
 	return fleetServerAccess{
-		CanWrite: write, CanControl: write || owner || collaborator || slices.Contains(granted, "servers:write"),
-		CanConsole: u.Can("servers:console", true, cl, ns) || owner || collaborator || slices.Contains(granted, "servers:console"),
+		CanWrite: write, CanControl: write || owner || collaborator || slices.Contains(granted, "servers:write") || slices.Contains(direct, "servers:write"),
+		CanConsole: u.Can("servers:console", true, cl, ns) || owner || collaborator || slices.Contains(granted, "servers:console") || slices.Contains(direct, "servers:console"),
 		CanDelete:  u.Can("*", true, cl, ns) || owner,
-		IsOwner:    owner, IsCollaborator: collaborator || (member && !owner),
+		IsOwner:    owner, IsCollaborator: collaborator || ((member || hasDirect) && !owner),
 	}
 }
 

@@ -393,6 +393,7 @@ func main() {
 		handlers.MountShareLinks(p, reg, store)
 		handlers.MountOwnership(p, reg, store)
 		handlers.MountUsers(p, store, sessions, reg)
+		handlers.MountServerGrants(p, reg, store)
 		handlers.MountRoles(p, store)
 		handlers.MountAudit(p, auditor)
 		telemetrySettings := handlers.TelemetrySettings{Dest: telemetryDest, Interval: cfg.telemetryInterval, Deps: telemetryDeps}

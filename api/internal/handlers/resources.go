@@ -439,6 +439,9 @@ func deleteHandler(reg *kube.Registry, store *db.Store, gvr schema.GroupVersionR
 			if rerr := store.RevokeShareLinksForServer(req.Context(), clusterID, ns, name); rerr != nil {
 				slog.Warn("revoke share links after server delete", "server", name, "namespace", ns, "err", rerr)
 			}
+			if gerr := store.DeleteServerMembersForServer(req.Context(), clusterID, ns, name); gerr != nil {
+				slog.Warn("delete server grants after server delete", "server", name, "namespace", ns, "err", gerr)
+			}
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}

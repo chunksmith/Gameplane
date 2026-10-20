@@ -41,6 +41,7 @@ import type {
   Role,
   RoleBinding,
   ServerEvent,
+  ServerGrant,
   ServerStatistics,
   StatisticsHistory,
   StatisticsLive,
@@ -318,6 +319,13 @@ export const Networks = {
     api<void>(`/networks/${encodeURIComponent(name)}/members/${userId}`, { method: "PUT", body: { permissions } }),
   removeMember: (name: string, userId: number) =>
     api<void>(`/networks/${encodeURIComponent(name)}/members/${userId}`, { method: "DELETE" }),
+};
+
+export const ServerGrants = {
+  list: (userId: number) => api<ServerGrant[]>(`/server-grants?userId=${userId}`),
+  put: (body: ServerGrant) => api<void>("/server-grants", { method: "PUT", body }),
+  remove: (g: Pick<ServerGrant, "userId" | "cluster" | "namespace" | "server">) =>
+    api<void>(`/server-grants?userId=${g.userId}&cluster=${encodeURIComponent(g.cluster)}&namespace=${encodeURIComponent(g.namespace)}&server=${encodeURIComponent(g.server)}`, { method: "DELETE" }),
 };
 
 export const Auth = {
@@ -739,8 +747,8 @@ function makeResourceEndpoints(request: RequestClient) {
     // merged; either or both can be provided. Empty list clears collaborators.
     setCollaborators: (name: string, ns: string, body: { userIds?: number[]; usernames?: string[] }) =>
       api<void>(withNS(`/servers/${name}:collaborators`, ns), { method: "PUT", body }),
-    setNetwork: (name: string, ns: string, network: string) =>
-      api<void>(withNS(`/servers/${name}:network`, ns), { method: "PUT", body: { network } }),
+    setNetwork: (name: string, ns: string, network: string, cluster?: string) =>
+      api<void>(withNS(`/servers/${name}:network`, ns), { method: "PUT", body: { network }, cluster }),
     // Lists all servers where the caller is owner or collaborator (cluster-wide).
     getMyServers: (cluster?: string, signal?: AbortSignal) => api<List<GameServer>>("/users/me/servers", { cluster, signal }),
     // Live module-declared metrics for the Overview tab. The agent returns

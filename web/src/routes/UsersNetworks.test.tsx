@@ -1,24 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { http, HttpResponse } from "msw";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { server } from "@/test/server";
 import { renderWithQuery } from "@/test/render";
+import { makeFleetItem, makeNetwork } from "@/test/factories";
+import { NETWORK_ANNOTATION } from "@/lib/annotations";
 import { NetworksTab } from "./UsersNetworks";
 
-const list = vi.fn();
-const create = vi.fn();
-const remove = vi.fn();
-const addMember = vi.fn();
-const removeMember = vi.fn();
-const usersList = vi.fn();
-vi.mock("@/lib/endpoints", () => ({
-  Networks: {
-    list: () => list(),
-    create: (name: string) => create(name),
-    remove: (name: string) => remove(name),
-    addMember: (name: string, id: number, permissions: string[]) => addMember(name, id, permissions),
-    removeMember: (name: string, id: number) => removeMember(name, id),
-  },
-  Users: { list: () => usersList() },
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({ children, to, params, ...rest }: { children: ReactNode; to: string; params?: { name: string } } & Record<string, unknown>) => (
+    <a href={params ? to.replace("$name", params.name) : to} {...rest}>{children}</a>
+  ),
 }));
 
 const useMeMock = vi.fn();
@@ -28,107 +22,90 @@ vi.mock("@/lib/auth", async (orig) => ({
 }));
 
 const ADMIN = { id: 1, username: "root", permissions: { "*": ["*"] } };
+const READER = { id: 5, username: "reader", permissions: { "*": ["users:read"] } };
+
+const skyblockServers = ["s1", "s2", "s3", "s4", "s5", "s6"].map((name) => makeFleetItem(name, { [NETWORK_ANNOTATION]: "skyblock" }));
+const fleetItems = [
+  ...skyblockServers,
+  makeFleetItem("alpha", { [NETWORK_ANNOTATION]: "skyblock" }),
+  makeFleetItem("beta"),
+];
+
+function serveNetworks(networks: ReturnType<typeof makeNetwork>[]) {
+  server.use(http.get("/networks", () => HttpResponse.json(networks)));
+}
+
+function serveFleet() {
+  server.use(http.get("/fleet/servers", () => HttpResponse.json({ items: fleetItems, partial: false, issues: [], totalReturned: fleetItems.length })));
+}
+
+beforeEach(() => {
+  useMeMock.mockReturnValue({ data: ADMIN });
+  serveNetworks([
+    makeNetwork({ name: "skyblock", members: [{ id: 2, username: "ayse", permissions: ["servers:console"] }] }),
+    makeNetwork({ name: "smp", members: [] }),
+  ]);
+  serveFleet();
+});
 
 describe("NetworksTab", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useMeMock.mockReturnValue({ data: ADMIN });
-    list.mockResolvedValue([
-      { name: "skyblock", members: [{ id: 2, username: "ayse", permissions: ["servers:console"] }] },
-      { name: "smp", members: [] },
-    ]);
-    usersList.mockResolvedValue([
-      { id: 2, username: "ayse", role: "member" },
-      { id: 3, username: "mert", role: "member" },
-    ]);
-    create.mockResolvedValue({ name: "survival", members: [] });
-    remove.mockResolvedValue(undefined);
-    addMember.mockResolvedValue(undefined);
-    removeMember.mockResolvedValue(undefined);
-  });
-
-  it("lists networks with their members", async () => {
+  it("lists each network with its server and member counts", async () => {
     renderWithQuery(<NetworksTab />);
-    expect(await screen.findByText("skyblock")).toBeInTheDocument();
-    expect(screen.getByText("ayse")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "skyblock" })).toHaveAttribute("href", "/users/networks/skyblock");
+    expect(screen.getByText("7 servers")).toBeInTheDocument();
     expect(screen.getByText("1 member")).toBeInTheDocument();
-    expect(screen.getByText("No members yet")).toBeInTheDocument();
+    expect(screen.getByText("0 members")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add servers/ })).toHaveAttribute("href", "/users/networks/smp");
   });
 
-  it("shows an empty state", async () => {
-    list.mockResolvedValue([]);
+  it("shows the first four server chips and the number of the rest", async () => {
+    renderWithQuery(<NetworksTab />);
+    await screen.findByRole("link", { name: "skyblock" });
+    expect(screen.getByText("s1")).toBeInTheDocument();
+    expect(screen.getByText("s4")).toBeInTheDocument();
+    expect(screen.queryByText("s5")).not.toBeInTheDocument();
+    expect(screen.getByText("+3")).toBeInTheDocument();
+  });
+
+  it("shows an empty state when there are no networks", async () => {
+    serveNetworks([]);
     renderWithQuery(<NetworksTab />);
     expect(await screen.findByText("No networks yet.")).toBeInTheDocument();
   });
 
-  it("creates a network from the dialog", async () => {
+  it("filters the network cards by name", async () => {
     renderWithQuery(<NetworksTab />);
-    await userEvent.click(screen.getByRole("button", { name: /New network/i }));
+    await screen.findByRole("link", { name: "smp" });
+    await userEvent.type(screen.getByLabelText("Search networks"), "sky");
+    expect(screen.getByRole("link", { name: "skyblock" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "smp" })).not.toBeInTheDocument();
+  });
+
+  it("shows a no-match state when the search matches nothing", async () => {
+    renderWithQuery(<NetworksTab />);
+    await screen.findByRole("link", { name: "smp" });
+    await userEvent.type(screen.getByLabelText("Search networks"), "zzz");
+    expect(await screen.findByText("No networks match your search.")).toBeInTheDocument();
+  });
+
+  it("creates a network from the dialog", async () => {
+    const created: unknown[] = [];
+    server.use(http.post("/networks", async ({ request }) => {
+      created.push(await request.json());
+      return HttpResponse.json({ name: "survival", members: [] }, { status: 201 });
+    }));
+    renderWithQuery(<NetworksTab />);
+    await userEvent.click(await screen.findByRole("button", { name: /New network/i }));
     await userEvent.type(await screen.findByLabelText("Network name"), "survival");
     await userEvent.click(screen.getByRole("button", { name: /^Create$/i }));
-    await waitFor(() => expect(create).toHaveBeenCalledWith("survival"));
+    await waitFor(() => expect(created).toEqual([{ name: "survival" }]));
   });
 
-  it("adds a member by username", async () => {
+  it("hides the new network button without users:manage", async () => {
+    useMeMock.mockReturnValue({ data: READER });
     renderWithQuery(<NetworksTab />);
-    await screen.findByText("smp");
-    await waitFor(() => expect(usersList).toHaveBeenCalled());
-    await userEvent.type(screen.getByLabelText("Add member to smp"), "mert{Enter}");
-    await waitFor(() => expect(addMember).toHaveBeenCalledWith("smp", 3, ["servers:console", "servers:write"]));
-  });
-
-  it("adds a view-only member", async () => {
-    renderWithQuery(<NetworksTab />);
-    await screen.findByText("smp");
-    await waitFor(() => expect(usersList).toHaveBeenCalled());
-    const picker = screen.getByRole("group", { name: "New member permissions in smp" });
-    await userEvent.click(within(picker).getByRole("checkbox", { name: "Console" }));
-    await userEvent.click(within(picker).getByRole("checkbox", { name: "Manage" }));
-    await userEvent.type(screen.getByLabelText("Add member to smp"), "mert{Enter}");
-    await waitFor(() => expect(addMember).toHaveBeenCalledWith("smp", 3, []));
-  });
-
-  it("changes a member's permissions", async () => {
-    renderWithQuery(<NetworksTab />);
-    const picker = await screen.findByRole("group", { name: "ayse permissions in skyblock" });
-    expect(within(picker).getByRole("checkbox", { name: "Console" })).toBeChecked();
-    await userEvent.click(within(picker).getByRole("checkbox", { name: "Manage" }));
-    await waitFor(() => expect(addMember).toHaveBeenCalledWith("skyblock", 2, ["servers:console", "servers:write"]));
-  });
-
-  it("reports an unknown username", async () => {
-    renderWithQuery(<NetworksTab />);
-    await screen.findByText("smp");
-    await userEvent.type(screen.getByLabelText("Add member to smp"), "ghost");
-    const addButtons = screen.getAllByRole("button", { name: /^Add$/i });
-    await userEvent.click(addButtons[addButtons.length - 1]);
-    expect(await screen.findByRole("alert")).toHaveTextContent("User ghost not found");
-    expect(addMember).not.toHaveBeenCalled();
-  });
-
-  it("removes a member", async () => {
-    renderWithQuery(<NetworksTab />);
-    await userEvent.click(await screen.findByRole("button", { name: "Remove ayse from skyblock" }));
-    await waitFor(() => expect(removeMember).toHaveBeenCalledWith("skyblock", 2));
-  });
-
-  it("asks for confirmation before deleting a network", async () => {
-    renderWithQuery(<NetworksTab />);
-    await screen.findByText("smp");
-    const deleteButtons = screen.getAllByRole("button", { name: /^Delete$/i });
-    await userEvent.click(deleteButtons[1]);
-    expect(remove).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: /Confirm delete/i }));
-    await waitFor(() => expect(remove).toHaveBeenCalledWith("smp"));
-  });
-
-  it("hides management controls without users:manage", async () => {
-    useMeMock.mockReturnValue({ data: { id: 5, username: "reader", permissions: { "*": ["users:read"] } } });
-    renderWithQuery(<NetworksTab />);
-    await screen.findByText("skyblock");
+    await screen.findByRole("link", { name: "skyblock" });
     expect(screen.queryByRole("button", { name: /New network/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Console")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Delete$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove ayse from skyblock" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Manage/ })).toHaveLength(2);
   });
 });
