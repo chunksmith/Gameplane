@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Input, ListBox, ListBoxItem, Select, TextArea } from "@heroui/react";
 import {
@@ -503,7 +503,7 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
   );
 }
 
-function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean }) {
+const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean }) {
   const intl = useOptionalIntl();
   const text = result ? resultText(result) : "";
   const body = block.input?.body;
@@ -542,4 +542,4 @@ function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; 
       </details>
     </li>
   );
-}
+});
