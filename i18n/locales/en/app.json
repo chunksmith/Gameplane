@@ -9307,6 +9307,74 @@
     "defaultMessage": "Warnings",
     "description": "Events: filter button showing warning and error events only"
   },
+  "web.routes.tabs.file_assistant.apply": {
+    "defaultMessage": "Apply to editor",
+    "description": "Files tab: button under Claude's suggested change that puts it into the file editor; keep it short"
+  },
+  "web.routes.tabs.file_assistant.approve": {
+    "defaultMessage": "Approve",
+    "description": "Files tab: button in the Claude chat panel that approves the waiting actions; keep it short"
+  },
+  "web.routes.tabs.file_assistant.approve_question": {
+    "defaultMessage": "Claude wants to run {count, plural, one {an action} other {# actions}} that need your approval.",
+    "description": "Files tab: text in the Claude chat panel when actions wait for approval; {count} is the number of actions"
+  },
+  "web.routes.tabs.file_assistant.close": {
+    "defaultMessage": "Close chat",
+    "description": "Files tab: icon-only button that closes the Claude chat panel beside the file editor; read by screen readers; keep it short"
+  },
+  "web.routes.tabs.file_assistant.context": {
+    "defaultMessage": "Context: {file}",
+    "description": "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name"
+  },
+  "web.routes.tabs.file_assistant.decline": {
+    "defaultMessage": "Decline",
+    "description": "Files tab: button in the Claude chat panel that rejects the waiting actions; keep it short"
+  },
+  "web.routes.tabs.file_assistant.discard": {
+    "defaultMessage": "Discard",
+    "description": "Files tab: button under Claude's suggested change that hides it without changing the file; keep it short"
+  },
+  "web.routes.tabs.file_assistant.empty": {
+    "defaultMessage": "Ask Claude to explain or change {file}.",
+    "description": "Files tab: hint in the empty Claude chat panel beside the file editor; {file} is the file name"
+  },
+  "web.routes.tabs.file_assistant.message": {
+    "defaultMessage": "Message Claude",
+    "description": "Files tab: accessible name of the message box in the Claude chat panel; keep it short"
+  },
+  "web.routes.tabs.file_assistant.mode": {
+    "defaultMessage": "Permission mode",
+    "description": "Files tab: accessible name of the dropdown in the Claude chat panel that picks how Claude may change files; keep it short"
+  },
+  "web.routes.tabs.file_assistant.panel": {
+    "defaultMessage": "Claude chat",
+    "description": "Files tab: accessible label of the Claude chat panel shown beside the file editor; not shown as text"
+  },
+  "web.routes.tabs.file_assistant.placeholder": {
+    "defaultMessage": "Ask Claude about this file…",
+    "description": "Files tab: placeholder of the message box in the Claude chat panel beside the file editor"
+  },
+  "web.routes.tabs.file_assistant.send": {
+    "defaultMessage": "Send",
+    "description": "Files tab: button in the Claude chat panel that sends the typed message; keep it short"
+  },
+  "web.routes.tabs.file_assistant.stop": {
+    "defaultMessage": "Stop",
+    "description": "Files tab: icon-only button in the Claude chat panel that stops the running reply; keep it short"
+  },
+  "web.routes.tabs.file_assistant.title": {
+    "defaultMessage": "Claude",
+    "description": "Files tab: title in the header of the Claude chat panel beside the file editor; keep it short"
+  },
+  "web.routes.tabs.file_assistant.unavailable": {
+    "defaultMessage": "The AI assistant is not set up. An admin can turn it on under Admin settings → AI assistant.",
+    "description": "Files tab: text in the Claude chat panel when the AI assistant is turned off or has no API key"
+  },
+  "web.routes.tabs.file_assistant.working": {
+    "defaultMessage": "Working…",
+    "description": "Files tab: status in the Claude chat panel while Claude is working on a reply"
+  },
   "web.routes.tabs.files.archive_name": {
     "defaultMessage": "Archive name",
     "description": "Files tab: field label for the name of a new zip archive in the zip prompt"
@@ -9314,6 +9382,10 @@
   "web.routes.tabs.files.archive_zip": {
     "defaultMessage": "archive.zip",
     "description": "Files tab: example placeholder in the archive name field; an example name, not a default"
+  },
+  "web.routes.tabs.files.ask_claude": {
+    "defaultMessage": "Ask Claude",
+    "description": "Files tab: icon-only button beside the List and Tree switch that opens the Claude chat next to the file editor; read by screen readers; keep it short"
   },
   "web.routes.tabs.files.calculating_size": {
     "defaultMessage": "Calculating size",

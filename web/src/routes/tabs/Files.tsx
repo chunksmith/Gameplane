@@ -29,6 +29,7 @@ import {
   ListTree,
   Loader2,
   RefreshCw,
+  Sparkles,
   Trash2,
   Upload,
   X,
@@ -36,6 +37,7 @@ import {
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { FileAssistant } from "@/routes/tabs/FileAssistant";
 import type { FileEntry, ResourceClient } from "@/lib/endpoints";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
@@ -96,6 +98,7 @@ const FILES_MESSAGES = defineMessages({
   folder_tree: { id: "web.routes.tabs.files.folder_tree", defaultMessage: "Folder tree", description: "Files tab: accessible label of the folder tree panel shown beside the files in tree view; not shown as text" },
   tree_load_failed: { id: "web.routes.tabs.files.tree_load_failed", defaultMessage: "Could not load", description: "Files tab: muted text in the folder tree where a folder's contents could not be loaded" },
   tree_drop_hint: { id: "web.routes.tabs.files.tree_drop_hint", defaultMessage: "Drop files or folders here to upload", description: "Files tab: hint at the bottom of the folder tree saying files or folders can be dropped in to upload them" },
+  ask_claude: { id: "web.routes.tabs.files.ask_claude", defaultMessage: "Ask Claude", description: "Files tab: icon-only button beside the List and Tree switch that opens the Claude chat next to the file editor; read by screen readers; keep it short" },
 });
 
 const SAVE_STATES = defineMessages({
@@ -546,6 +549,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
   const [failed, setFailed] = useState<{ body: string; error: Error } | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const flush = useRef(() => {});
   const deleted = useRef(false);
   if (draft === null && content.data !== undefined) setDraft({ value: content.data, saved: content.data });
@@ -592,12 +596,53 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
       ? "failed"
       : dirty || saving ? "saving" : "saved";
 
+  async function reload() {
+    await qc.resetQueries({ queryKey: resourceKey(resourceTarget, "file-content", name, path, ns) });
+    setDraft(null);
+  }
+
+  const editor = (
+    <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-lg border border-border bg-background">
+      {content.error ? (
+        <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
+      ) : draft === null ? (
+        <Spinner />
+      ) : (
+        <Editor
+          wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
+          theme="vs-dark"
+          language={guessLang(entry.name)}
+          value={draft.value}
+          onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
+          onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
+          options={{
+            minimap: { enabled: false },
+            fontFamily: "JetBrains Mono",
+            readOnly: !canControl,
+            scrollBeyondLastLine: false,
+          }}
+        />
+      )}
+    </div>
+  );
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Breadcrumbs path={path} onNavigate={onNavigate} />
         <div className="flex items-center gap-2">
           {viewToggle}
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            aria-label={intl.formatMessage(FILES_MESSAGES.ask_claude)}
+            aria-pressed={assistantOpen}
+            className={cn(assistantOpen && "bg-primary/10 text-primary")}
+            onPress={() => setAssistantOpen(!assistantOpen)}
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
           {draft && (
             <span role="status" className="flex items-center gap-1.5 pr-1 text-xs text-muted">
               {SAVE_ICONS[saveState]} {intl.formatMessage(SAVE_STATES[saveState])}
@@ -616,28 +661,25 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
 
       <Split aside={aside}>
-        <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-lg border border-border bg-background">
-          {content.error ? (
-            <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
-          ) : draft === null ? (
-            <Spinner />
-          ) : (
-            <Editor
-              wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
-              theme="vs-dark"
-              language={guessLang(entry.name)}
-              value={draft.value}
-              onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
-              onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
-              options={{
-                minimap: { enabled: false },
-                fontFamily: "JetBrains Mono",
-                readOnly: !canControl,
-                scrollBeyondLastLine: false,
-              }}
-            />
-          )}
-        </div>
+        {assistantOpen ? (
+          <div className="grid flex-1 gap-3 lg:grid-cols-2">
+            {editor}
+            <div className="relative min-h-[60vh]">
+              <FileAssistant
+                scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }}
+                path={path}
+                language={guessLang(entry.name)}
+                content={draft?.value ?? ""}
+                canControl={canControl}
+                onApply={(next) => setDraft((current) => current && { ...current, value: next })}
+                onSaved={() => void reload()}
+                onClose={() => setAssistantOpen(false)}
+              />
+            </div>
+          </div>
+        ) : (
+          editor
+        )}
       </Split>
 
       {confirmDelete && (
