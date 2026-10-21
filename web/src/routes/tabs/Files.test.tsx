@@ -32,6 +32,7 @@ beforeEach(() => {
 afterEach(() => {
   fetchMock.mockReset();
   vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
 
 function jsonRes(body: unknown, status = 200): Response {
@@ -833,6 +834,60 @@ describe("FilesTab", () => {
     expect(within(toolbar()).getByRole("button", { name: "Zip" })).toBeDisabled();
     expect(within(toolbar()).getByRole("button", { name: "Delete" })).toBeDisabled();
     expect(within(toolbar()).getByRole("button", { name: "Download" })).toBeEnabled();
+  });
+
+  it("switches to the tree view and remembers the choice", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    expect(screen.queryByRole("complementary", { name: "Folder tree" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tree" }));
+    expect(await screen.findByRole("complementary", { name: "Folder tree" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("gameplane.files.view")).toBe("tree");
+    expect(screen.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "List" }));
+    expect(screen.queryByRole("complementary", { name: "Folder tree" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("gameplane.files.view")).toBe("list");
+  });
+
+  it("opens in tree view when the saved choice is tree", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    expect(await screen.findByRole("complementary", { name: "Folder tree" })).toBeInTheDocument();
+  });
+
+  it("expands a folder in the tree without opening it", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    const onNavigate = vi.fn();
+    mockServerProperties({
+      "GET /servers/mc-survival/files/list?path=%2Fconfig": () => jsonRes([
+        { name: "server-config.yaml", path: "/config/server-config.yaml", size: 512, dir: false },
+      ]),
+    });
+    renderWithQuery(<FilesTab name="mc-survival" path="/" onNavigate={onNavigate} />);
+    const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
+    fireEvent.click(await folderTree.findByRole("button", { name: "config" }));
+    expect(await folderTree.findByRole("button", { name: "server-config.yaml" })).toBeInTheDocument();
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("opens a file picked in the tree", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    const onNavigate = vi.fn();
+    mockServerProperties();
+    renderWithQuery(<FilesTab name="mc-survival" path="/" onNavigate={onNavigate} />);
+    const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
+    fireEvent.click(await folderTree.findByRole("button", { name: "server.properties" }));
+    expect(onNavigate).toHaveBeenCalledWith("/server.properties");
+  });
+
+  it("shows selection actions in the same toolbar row as the folder buttons", async () => {
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select config" }));
+    expect(toolbar().parentElement).toBe(screen.getByRole("button", { name: /New file/ }).parentElement);
   });
 });
 

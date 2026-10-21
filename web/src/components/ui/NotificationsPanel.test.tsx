@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, act } from "@testing-library/react";
+import { screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithQuery } from "@/test/render";
 import { QueryClientProvider } from "@tanstack/react-query";
 
-// Store callbacks for triggering events in tests
 let sseCallback: ((ev: unknown) => void) | null = null;
 
 vi.mock("@/lib/sse", () => ({
@@ -27,195 +26,113 @@ vi.mock("@/lib/sse", () => ({
   },
 }));
 
-import { NotificationsPanel } from "./NotificationsPanel";
+import { useNotificationFeed, type NotificationFeed } from "./NotificationsPanel";
 
-describe("NotificationsPanel", () => {
+let latest: NotificationFeed | undefined;
+
+function Harness({ enabled = true }: { enabled?: boolean }) {
+  const feed = useNotificationFeed(enabled);
+  latest = feed;
+  return (
+    <>
+      <output aria-label="unread">{feed.unread}</output>
+      <ul>
+        {feed.notices.map((n) => (
+          <li key={n.id}>{`${n.verb} ${n.kind} ${n.name}`}</li>
+        ))}
+      </ul>
+      <button onClick={feed.markAllRead}>mark</button>
+      <button onClick={feed.clear}>clear</button>
+    </>
+  );
+}
+
+const send = async (eventType: string, kind: string, name: string) => {
+  await act(() => {
+    sseCallback!({ kind, eventType, object: { metadata: { name } } });
+  });
+};
+
+describe("useNotificationFeed", () => {
   beforeEach(() => {
     sseCallback = null;
+    latest = undefined;
   });
 
   it("closes its subscription when local event streaming is disabled", () => {
-    const view = renderWithQuery(<NotificationsPanel />);
+    const view = renderWithQuery(<Harness />);
     expect(sseCallback).not.toBeNull();
-    view.rerender(<QueryClientProvider client={view.client}><NotificationsPanel enabled={false} /></QueryClientProvider>);
+    view.rerender(<QueryClientProvider client={view.client}><Harness enabled={false} /></QueryClientProvider>);
     expect(sseCallback).toBeNull();
-    expect(screen.getByRole("button", { name: /notifications/i })).toBeInTheDocument();
   });
 
-  it("renders bell button with aria label", () => {
-    renderWithQuery(<NotificationsPanel />);
-    const bell = screen.getByRole("button", { name: /notifications/i });
-    expect(bell).toBeInTheDocument();
+  it("starts with no notices and no unread items", () => {
+    renderWithQuery(<Harness />);
+    expect(latest!.notices).toEqual([]);
+    expect(screen.getByLabelText("unread")).toHaveTextContent("0");
   });
 
-  it("shows no recent activity when there are no notices", async () => {
-    renderWithQuery(<NotificationsPanel />);
-    const bell = screen.getByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-    expect(await screen.findByText("Recent activity")).toBeInTheDocument();
-    expect(screen.getByText("No recent activity.")).toBeInTheDocument();
+  it("stores structured notices with verb, kind and name", async () => {
+    renderWithQuery(<Harness />);
+    await send("ADDED", "servers", "test-server");
+    expect(latest!.notices).toEqual([
+      { id: 1, verb: "added", kind: "server", name: "test-server", at: expect.any(String) },
+    ]);
   });
 
-  it("bell toggles the notifications panel open and closed", async () => {
-    renderWithQuery(<NotificationsPanel />);
-    const bell = screen.getByRole("button", { name: /notifications/i });
-
-    // Initially closed — no "Recent activity" text
-    expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
-
-    // Click to open
-    await userEvent.click(bell);
-    expect(
-      await screen.findByText("Recent activity")
-    ).toBeInTheDocument();
-
-    // Click to close
-    await userEvent.click(bell);
-    await waitFor(() => {
-      expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
-    });
+  it("lower-cases the event type and strips the trailing s from the kind", async () => {
+    renderWithQuery(<Harness />);
+    await send("MODIFIED", "servers", "my-server");
+    await send("DELETED", "backups", "b-1");
+    expect(latest!.notices.map((n) => [n.verb, n.kind, n.name])).toEqual([
+      ["deleted", "backup", "b-1"],
+      ["modified", "server", "my-server"],
+    ]);
   });
 
-  it("displays notice events with text and time", async () => {
-    renderWithQuery(<NotificationsPanel />);
-
-    // Simulate an SSE event
-    expect(sseCallback).not.toBeNull();
-    await act(() => {
-      sseCallback!({
-        kind: "servers",
-        eventType: "ADDED",
-        object: { metadata: { name: "test-server" } },
-      });
-    });
-
-    const bell = screen.getByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-
-    // Wait for the notice to appear
-    expect(
-      await screen.findByText(/added server test-server/)
-    ).toBeInTheDocument();
+  it("stamps each notice with an ISO timestamp", async () => {
+    renderWithQuery(<Harness />);
+    await send("ADDED", "servers", "s");
+    expect(new Date(latest!.notices[0].at).toISOString()).toBe(latest!.notices[0].at);
   });
 
-  it("badge shows unread count", async () => {
-    renderWithQuery(<NotificationsPanel />);
-
-    // Simulate multiple SSE events
-    expect(sseCallback).not.toBeNull();
-    await act(() => {
-      sseCallback!({
-        kind: "servers",
-        eventType: "ADDED",
-        object: { metadata: { name: "server-1" } },
-      });
-    });
-    await act(() => {
-      sseCallback!({
-        kind: "backups",
-        eventType: "MODIFIED",
-        object: { metadata: { name: "backup-1" } },
-      });
-    });
-
-    // Badge should show 2 unread
-    expect(await screen.findByText("2")).toBeInTheDocument();
+  it("counts unread notices", async () => {
+    renderWithQuery(<Harness />);
+    await send("ADDED", "servers", "server-1");
+    await send("MODIFIED", "backups", "backup-1");
+    expect(screen.getByLabelText("unread")).toHaveTextContent("2");
   });
 
-  it("badge shows 9+ when unread count exceeds 9", async () => {
-    renderWithQuery(<NotificationsPanel />);
-
-    expect(sseCallback).not.toBeNull();
-    // Simulate 11 events
-    for (let i = 1; i <= 11; i++) {
-      await act(() => {
-        sseCallback!({
-          kind: "servers",
-          eventType: "ADDED",
-          object: { metadata: { name: `server-${i}` } },
-        });
-      });
-    }
-
-    expect(await screen.findByText("9+")).toBeInTheDocument();
+  it("markAllRead resets unread to 0 and keeps the notices", async () => {
+    renderWithQuery(<Harness />);
+    await send("ADDED", "servers", "server-1");
+    await userEvent.click(screen.getByRole("button", { name: "mark" }));
+    expect(screen.getByLabelText("unread")).toHaveTextContent("0");
+    expect(latest!.notices).toHaveLength(1);
   });
 
-  it("resets unread count to 0 when panel is opened", async () => {
-    renderWithQuery(<NotificationsPanel />);
-
-    await act(() => {
-      sseCallback!({
-        kind: "servers",
-        eventType: "ADDED",
-        object: { metadata: { name: "server-1" } },
-      });
-    });
-
-    // Badge shows 1
-    expect(await screen.findByText("1")).toBeInTheDocument();
-
-    // Click bell to open panel
-    const bell = screen.getByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-
-    // Wait for panel to render
-    await screen.findByText("Recent activity");
-
-    // Badge should be gone (unread count reset to 0)
-    await waitFor(() => {
-      expect(screen.queryByText("1")).not.toBeInTheDocument();
-    });
+  it("clear empties the notices and resets unread", async () => {
+    renderWithQuery(<Harness />);
+    await send("ADDED", "servers", "server-1");
+    await send("ADDED", "servers", "server-2");
+    await userEvent.click(screen.getByRole("button", { name: "clear" }));
+    expect(latest!.notices).toEqual([]);
+    expect(screen.getByLabelText("unread")).toHaveTextContent("0");
   });
 
   it("caps notices at 50 items", async () => {
-    renderWithQuery(<NotificationsPanel />);
-
-    // Simulate 60 events
+    renderWithQuery(<Harness />);
     for (let i = 1; i <= 60; i++) {
-      await act(() => {
-        sseCallback!({
-          kind: "servers",
-          eventType: "ADDED",
-          object: { metadata: { name: `server-${i}` } },
-        });
-      });
+      await send("ADDED", "servers", `server-${i}`);
     }
-
-    const bell = screen.getByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-
-    // Wait for panel to appear
-    await screen.findByText("Recent activity");
-
-    const noticeItems = screen.getAllByRole("listitem");
-    // Should have exactly 50 items (capped)
-    expect(noticeItems).toHaveLength(50);
-  });
-
-  it("removes trailing 's' from kind in notice text", async () => {
-    renderWithQuery(<NotificationsPanel />);
-
-    await act(() => {
-      sseCallback!({
-        kind: "servers",
-        eventType: "MODIFIED",
-        object: { metadata: { name: "my-server" } },
-      });
-    });
-
-    const bell = screen.getByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-
-    // Should say "modified server" (not "modified servers")
-    expect(
-      await screen.findByText(/modified server my-server/)
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(50);
+    expect(latest!.notices[0].name).toBe("server-60");
   });
 
   it("coalesces a burst of events for one kind into a single invalidation", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const { client } = renderWithQuery(<NotificationsPanel />);
+      const { client } = renderWithQuery(<Harness />);
       const spy = vi.spyOn(client, "invalidateQueries");
       for (let i = 1; i <= 30; i++) {
         await act(() => {
@@ -240,7 +157,7 @@ describe("NotificationsPanel", () => {
   it("defers the invalidation until an in-flight fetch for that key settles", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const { client } = renderWithQuery(<NotificationsPanel />);
+      const { client } = renderWithQuery(<Harness />);
       const spy = vi.spyOn(client, "invalidateQueries");
       const fetching = vi.spyOn(client, "isFetching").mockReturnValueOnce(1).mockReturnValue(0);
       await act(() => {
@@ -264,7 +181,7 @@ describe("NotificationsPanel", () => {
   it("drops pending invalidations on unmount", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const { client, unmount } = renderWithQuery(<NotificationsPanel />);
+      const { client, unmount } = renderWithQuery(<Harness />);
       const spy = vi.spyOn(client, "invalidateQueries");
       await act(() => {
         sseCallback!({ kind: "servers", eventType: "MODIFIED", object: { metadata: { name: "s-1" } } });
@@ -278,7 +195,7 @@ describe("NotificationsPanel", () => {
   });
 
   describe("heartbeat noise filter", () => {
-    const send = async (eventType: string, object?: Record<string, unknown>) => {
+    const sendObject = async (eventType: string, object?: Record<string, unknown>) => {
       await act(() => {
         sseCallback!({ kind: "servers", eventType, object });
       });
@@ -287,68 +204,62 @@ describe("NotificationsPanel", () => {
       metadata: { name: "s1", namespace: "games", generation },
       status: { phase },
     });
-    // Opens the panel and returns how many notices it lists.
-    const noticeCount = async () => {
-      await userEvent.click(screen.getByRole("button", { name: /notifications/i }));
-      await screen.findByText("Recent activity");
-      return screen.queryAllByRole("listitem").length;
-    };
+    const noticeCount = () => screen.queryAllByRole("listitem").length;
 
     it("drops MODIFIED events that change neither generation nor phase", async () => {
-      renderWithQuery(<NotificationsPanel />);
-      await send("ADDED", server(1, "Running"));
-      await send("MODIFIED", server(1, "Running"));
-      await send("MODIFIED", server(1, "Running"));
-      await send("MODIFIED", server(1, "Running"));
-      expect(await noticeCount()).toBe(1);
-      expect(screen.getByText(/added server s1/)).toBeInTheDocument();
+      renderWithQuery(<Harness />);
+      await sendObject("ADDED", server(1, "Running"));
+      await sendObject("MODIFIED", server(1, "Running"));
+      await sendObject("MODIFIED", server(1, "Running"));
+      await sendObject("MODIFIED", server(1, "Running"));
+      expect(noticeCount()).toBe(1);
+      expect(screen.getByText("added server s1")).toBeInTheDocument();
     });
 
     it("records a MODIFIED when the phase changes", async () => {
-      renderWithQuery(<NotificationsPanel />);
-      await send("ADDED", server(1, "Running"));
-      await send("MODIFIED", server(1, "Stopped"));
-      await send("MODIFIED", server(1, "Stopped"));
-      expect(await noticeCount()).toBe(2);
-      expect(screen.getByText(/modified server s1/)).toBeInTheDocument();
+      renderWithQuery(<Harness />);
+      await sendObject("ADDED", server(1, "Running"));
+      await sendObject("MODIFIED", server(1, "Stopped"));
+      await sendObject("MODIFIED", server(1, "Stopped"));
+      expect(noticeCount()).toBe(2);
+      expect(screen.getByText("modified server s1")).toBeInTheDocument();
     });
 
     it("records a MODIFIED when the generation (spec) changes", async () => {
-      renderWithQuery(<NotificationsPanel />);
-      await send("ADDED", server(1, "Running"));
-      await send("MODIFIED", server(2, "Running"));
-      expect(await noticeCount()).toBe(2);
+      renderWithQuery(<Harness />);
+      await sendObject("ADDED", server(1, "Running"));
+      await sendObject("MODIFIED", server(2, "Running"));
+      expect(noticeCount()).toBe(2);
     });
 
     it("records the first MODIFIED of an unseen object once, even without generation or status", async () => {
-      renderWithQuery(<NotificationsPanel />);
-      await send("MODIFIED", { metadata: { name: "bare" } });
-      await send("MODIFIED", { metadata: { name: "bare" } });
-      await send("MODIFIED", { metadata: { name: "bare" } });
-      // An event with no object at all is handled too (recorded once).
-      await send("MODIFIED");
-      expect(await noticeCount()).toBe(2);
+      renderWithQuery(<Harness />);
+      await sendObject("MODIFIED", { metadata: { name: "bare" } });
+      await sendObject("MODIFIED", { metadata: { name: "bare" } });
+      await sendObject("MODIFIED", { metadata: { name: "bare" } });
+      await sendObject("MODIFIED");
+      expect(noticeCount()).toBe(2);
     });
 
     it("forgets the baseline on DELETED so a later MODIFIED is recorded", async () => {
-      renderWithQuery(<NotificationsPanel />);
-      await send("ADDED", server(1, "Running"));
-      await send("DELETED", server(1, "Running"));
-      await send("MODIFIED", server(1, "Running"));
-      expect(await noticeCount()).toBe(3);
+      renderWithQuery(<Harness />);
+      await sendObject("ADDED", server(1, "Running"));
+      await sendObject("DELETED", server(1, "Running"));
+      await sendObject("MODIFIED", server(1, "Running"));
+      expect(noticeCount()).toBe(3);
     });
 
     it("does not invalidate caches for a suppressed MODIFIED", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       try {
-        const { client } = renderWithQuery(<NotificationsPanel />);
+        const { client } = renderWithQuery(<Harness />);
         const spy = vi.spyOn(client, "invalidateQueries");
-        await send("ADDED", server(1, "Running"));
+        await sendObject("ADDED", server(1, "Running"));
         await act(async () => {
           await vi.advanceTimersByTimeAsync(500);
         });
         expect(spy).toHaveBeenCalledTimes(1);
-        await send("MODIFIED", server(1, "Running"));
+        await sendObject("MODIFIED", server(1, "Running"));
         await act(async () => {
           await vi.advanceTimersByTimeAsync(1000);
         });

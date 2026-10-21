@@ -1107,6 +1107,10 @@
     "defaultMessage": "Modules",
     "description": "Sidebar: navigation link to modules"
   },
+  "web.components.app_layout.notifications": {
+    "defaultMessage": "Notifications",
+    "description": "Sidebar: navigation link to the notifications page"
+  },
   "web.components.app_layout.page_not_found": {
     "defaultMessage": "Page not found",
     "description": "Breadcrumb for the 404 page"
@@ -4123,6 +4127,10 @@
     "defaultMessage": "New",
     "description": "Breadcrumb: label for the create-new crumb"
   },
+  "web.components.ui.breadcrumbs.notifications": {
+    "defaultMessage": "Notifications",
+    "description": "Breadcrumb: label for the notifications crumb"
+  },
   "web.components.ui.breadcrumbs.servers": {
     "defaultMessage": "Servers",
     "description": "Breadcrumb: label for the servers list crumb"
@@ -4250,26 +4258,6 @@
   "web.components.ui.meter.percent": {
     "defaultMessage": "{value}%",
     "description": "Meter: usage percentage shown beside the bar; {value} is the whole-number percentage"
-  },
-  "web.components.ui.notifications_panel.event_line": {
-    "defaultMessage": "{verb, select, added {added} modified {modified} deleted {deleted} other {{verb}}} {kind} {name}",
-    "description": "Notifications panel: one line in the events feed. {verb} is the lower-cased event type (added, modified or deleted, otherwise the raw type), {kind} is the singular object kind such as GameServer, {name} is the object name and may be empty"
-  },
-  "web.components.ui.notifications_panel.no_recent_activity": {
-    "defaultMessage": "No recent activity.",
-    "description": "Notifications panel: empty-state text shown when there are no recent notifications"
-  },
-  "web.components.ui.notifications_panel.notifications": {
-    "defaultMessage": "Notifications",
-    "description": "Notifications panel: screen-reader name of the trigger that opens the notifications list; not visible on screen"
-  },
-  "web.components.ui.notifications_panel.recent_activity": {
-    "defaultMessage": "Recent activity",
-    "description": "Notifications panel: heading at the top of the notifications list showing recent activity"
-  },
-  "web.components.ui.notifications_panel.unread_overflow": {
-    "defaultMessage": "9+",
-    "description": "Notifications panel: unread badge text when there are more than nine unread items"
   },
   "web.components.ui.phase_chip.asleep": {
     "defaultMessage": "Asleep",
@@ -4494,6 +4482,10 @@
   "web.components.ui.sidebar.sign_out": {
     "defaultMessage": "Sign out",
     "description": "Sidebar: icon-only button that signs the user out; screen-reader name, not visible on screen; keep it short"
+  },
+  "web.components.ui.sidebar.unread_overflow": {
+    "defaultMessage": "9+",
+    "description": "Sidebar: badge text on a navigation link when it has more than nine unread items"
   },
   "web.components.ui.telemetry_notice.anonymous_usage_metrics_are_on_for_this": {
     "defaultMessage": "Anonymous usage metrics are on for this install.",
@@ -8175,6 +8167,30 @@
     "defaultMessage": "The page you're looking for doesn't exist or has moved.",
     "description": "Not found: explanation under the heading saying the page does not exist or has moved"
   },
+  "web.routes.notifications.clear": {
+    "defaultMessage": "Clear",
+    "description": "Notifications: button that removes every notification from the list; keep it short"
+  },
+  "web.routes.notifications.live_cluster_events": {
+    "defaultMessage": "Live cluster events: servers, backups and templates added, changed or removed.",
+    "description": "Notifications: description under the title saying the page lists live cluster events for servers, backups and templates"
+  },
+  "web.routes.notifications.mark_all_read": {
+    "defaultMessage": "Mark all read",
+    "description": "Notifications: button that marks every notification as read; keep it short"
+  },
+  "web.routes.notifications.no_notifications_yet": {
+    "defaultMessage": "No notifications yet.",
+    "description": "Notifications: empty state shown when no cluster events have arrived yet"
+  },
+  "web.routes.notifications.notifications": {
+    "defaultMessage": "Notifications",
+    "description": "Notifications: page title at the top of the notifications screen; keep it short"
+  },
+  "web.routes.notifications.verb": {
+    "defaultMessage": "{verb, select, added {added} modified {modified} deleted {deleted} other {{verb}}}",
+    "description": "Notifications: colored pill naming what happened to an object; {verb} is the lower-cased event type (added, modified or deleted, otherwise the raw type)"
+  },
   "web.routes.server_detail.kill": {
     "defaultMessage": "Kill",
     "description": "Server detail: header button that force-kills a server that is still stopping; keep it short"
@@ -9383,9 +9399,17 @@
     "defaultMessage": "File name",
     "description": "Files tab: field label for the name of a new file in the new file prompt"
   },
+  "web.routes.tabs.files.file_view": {
+    "defaultMessage": "File view",
+    "description": "Files tab: accessible label of the List and Tree view switch; not shown as text"
+  },
   "web.routes.tabs.files.folder_name": {
     "defaultMessage": "Folder name",
     "description": "Files tab: field label for the name of a new folder in the new folder prompt"
+  },
+  "web.routes.tabs.files.folder_tree": {
+    "defaultMessage": "Folder tree",
+    "description": "Files tab: accessible label of the folder tree panel shown beside the files in tree view; not shown as text"
   },
   "web.routes.tabs.files.my_folder": {
     "defaultMessage": "my-folder",
@@ -9467,9 +9491,25 @@
     "defaultMessage": "This folder is empty.",
     "description": "Files tab: text shown in the file list when the current folder has no entries"
   },
+  "web.routes.tabs.files.tree_drop_hint": {
+    "defaultMessage": "Drop files or folders here to upload",
+    "description": "Files tab: hint at the bottom of the folder tree saying files or folders can be dropped in to upload them"
+  },
+  "web.routes.tabs.files.tree_load_failed": {
+    "defaultMessage": "Could not load",
+    "description": "Files tab: muted text in the folder tree where a folder's contents could not be loaded"
+  },
   "web.routes.tabs.files.uploading": {
     "defaultMessage": "Uploading…",
     "description": "Files tab: status shown beside the folder buttons while files are being uploaded"
+  },
+  "web.routes.tabs.files.view_list": {
+    "defaultMessage": "List",
+    "description": "Files tab: button of the view switch that shows the files of one folder as a list; keep it short"
+  },
+  "web.routes.tabs.files.view_tree": {
+    "defaultMessage": "Tree",
+    "description": "Files tab: button of the view switch that shows a folder tree beside the files; keep it short"
   },
   "web.routes.tabs.files.working": {
     "defaultMessage": "Working…",

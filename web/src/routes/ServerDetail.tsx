@@ -286,20 +286,27 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-border bg-background px-4 pt-4 md:px-6 md:pt-8">
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-4 md:pb-6">
-          <div className="flex min-w-0 items-start gap-4">
+      <header className="border-b border-border bg-background px-4 pt-3 md:px-6 md:pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
+          <div className="flex min-w-0 items-center gap-3">
             <GameIcon
               game={gs?.spec.templateRef.name}
               icon={tmpl?.spec.icon}
               code={gameCodes.get(gs?.spec.templateRef.name ?? "")}
               accentColor={tmpl?.spec.accentColor}
-              size="lg"
+              size="sm"
             />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="truncate font-mono text-2xl font-semibold text-foreground">{name}</h1>
+                <h1 className="truncate font-mono text-base font-semibold text-foreground">{name}</h1>
                 <PhaseChip phase={phase} asleep={asleep} />
+                <div className="hidden flex-wrap items-center gap-2 text-xs text-muted md:flex">
+                  <span>{intl.formatMessage({ id: "web.routes.server_detail.site_cluster", defaultMessage: "site: {cluster}", description: "Server detail: header line naming the cluster; {cluster} is the cluster name" }, { cluster: target.cluster })}</span><Dot />
+                  {gs?.spec.templateRef.name && <span>{gs.spec.templateRef.name}</span>}
+                  {version && <Dot />}{version && <span>{version}</span>}
+                  {gs?.metadata.namespace && <><Dot /><span>{intl.formatMessage({ id: "web.routes.server_detail.ns_namespace", defaultMessage: "ns: {namespace}", description: "Server detail: header line naming the namespace; {namespace} is the namespace name" }, { namespace: gs.metadata.namespace })}</span></>}
+                  {uptime !== "—" && <><Dot /><span>{intl.formatMessage({ id: "web.routes.server_detail.up_uptime", defaultMessage: "up {uptime}", description: "Server detail: header line with uptime; {uptime} is the formatted uptime" }, { uptime: uptime })}</span></>}
+                </div>
               </div>
               {provisioning && progressMessage && (
                 <div className="pt-1 flex items-center gap-1.5 text-xs text-warning">
@@ -315,19 +322,13 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
                   </span>
                 </div>
               )}
-              <div className="pt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
-                <span>{intl.formatMessage({ id: "web.routes.server_detail.site_cluster", defaultMessage: "site: {cluster}", description: "Server detail: header line naming the cluster; {cluster} is the cluster name" }, { cluster: target.cluster })}</span><Dot />
-                {gs?.spec.templateRef.name && <span>{gs.spec.templateRef.name}</span>}
-                {version && <Dot />}{version && <span>{version}</span>}
-                {gs?.metadata.namespace && <><Dot /><span>{intl.formatMessage({ id: "web.routes.server_detail.ns_namespace", defaultMessage: "ns: {namespace}", description: "Server detail: header line naming the namespace; {namespace} is the namespace name" }, { namespace: gs.metadata.namespace })}</span></>}
-                {uptime !== "—" && <><Dot /><span>{intl.formatMessage({ id: "web.routes.server_detail.up_uptime", defaultMessage: "up {uptime}", description: "Server detail: header line with uptime; {uptime} is the formatted uptime" }, { uptime: uptime })}</span></>}
-              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               className="rounded-full"
+              size="sm"
               onPress={() => act.mutate("restart")}
               isDisabled={!access?.canControl || !running || act.isPending}
             >
@@ -335,6 +336,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             <Button
               variant={stopping ? "danger" : "outline"}
               className="rounded-full"
+              size="sm"
               onPress={() => act.mutate(stopping ? "kill" : "stop")}
               isDisabled={!access?.canControl || (!running && !asleep && !stopping) || act.isPending}
             >
@@ -346,6 +348,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               <Button
                 variant="primary"
                 className="rounded-full"
+                size="sm"
                 onPress={() => act.mutate("wake")}
                 isDisabled={!access?.canControl || act.isPending}
               >
@@ -355,6 +358,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               <Button
                 variant="outline"
                 className="rounded-full"
+                size="sm"
                 onPress={() => act.mutate("start")}
                 isDisabled={act.isPending}
               >
@@ -370,7 +374,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
         </div>
 
         {act.error && (
-          <div className="pb-4">
+          <div className="pb-2">
             <ErrorBanner err={act.error} onDismiss={() => act.reset()} />
           </div>
         )}
