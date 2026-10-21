@@ -109,6 +109,7 @@ interface ViewProps {
   path: string;
   onNavigate: (path: string) => void;
   viewToggle?: ReactNode;
+  aside?: ReactNode;
 }
 
 export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: string; path: string; onNavigate: (path: string) => void }) {
@@ -121,25 +122,29 @@ export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: st
     writeView(next);
   }
 
-  const tree = view === "tree";
   return (
-    <div className={tree ? "flex min-h-full flex-col gap-3 p-4 md:flex-row md:p-6" : "contents"}>
-      {tree && <FileTree resourceTarget={resourceTarget} path={normalized} onNavigate={onNavigate} />}
-      <div className={tree ? "min-w-0 flex-1" : "contents"}>
-        <FilesBrowser
-          key={JSON.stringify(resourceKey(resourceTarget, "file-editor"))}
-          resourceTarget={resourceTarget}
-          path={normalized}
-          onNavigate={onNavigate}
-          viewToggle={<ViewToggle view={view} onChange={changeView} />}
-          embedded={tree}
-        />
-      </div>
+    <FilesBrowser
+      key={JSON.stringify(resourceKey(resourceTarget, "file-editor"))}
+      resourceTarget={resourceTarget}
+      path={normalized}
+      onNavigate={onNavigate}
+      viewToggle={<ViewToggle view={view} onChange={changeView} />}
+      aside={view === "tree" && <FileTree resourceTarget={resourceTarget} path={normalized} onNavigate={onNavigate} />}
+    />
+  );
+}
+
+function Split({ aside, children }: { aside?: ReactNode; children: ReactNode }) {
+  if (!aside) return children;
+  return (
+    <div className="flex flex-1 flex-col gap-3 md:flex-row">
+      {aside}
+      <div className="flex min-w-0 flex-1 flex-col gap-4">{children}</div>
     </div>
   );
 }
 
-function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, embedded = false }: ViewProps & { embedded?: boolean }) {
+function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside }: ViewProps) {
   const intl = useOptionalIntl();
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
@@ -153,35 +158,37 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, embedded =
   const entry = isRoot ? ROOT_ENTRY : parentListing.data?.entries.find((item) => item.name === baseName(path));
 
   return (
-    <div className={cn("flex min-h-full flex-col gap-4", !embedded && "p-6")}>
+    <div className="flex min-h-full flex-col gap-4 p-6">
       {entry?.dir ? (
-        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} />
+        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} />
       ) : entry ? (
-        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} />
+        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} />
       ) : (
         <>
           <Breadcrumbs path={path} onNavigate={onNavigate} />
-          {parentListing.error ? (
-            <ErrorBanner err={parentListing.error} />
-          ) : parentListing.isPending ? (
-            <Spinner />
-          ) : (
-            <div className="grid flex-1 place-items-center rounded-lg border border-border bg-surface/50 p-10 text-center">
-              <div className="space-y-3">
-                <p className="text-sm text-muted">{intl.formatMessage(FILES_MESSAGES.nothing_exists)}</p>
-                <Button variant="secondary" size="sm" onPress={() => onNavigate(parent)}>
-                  {intl.formatMessage({ id: "web.routes.tabs.files.open_folder", defaultMessage: "Open {folder}", description: "Files tab: button that opens the parent folder of a missing path; {folder} is the folder name or the root folder text" }, { folder: parent === ROOT ? intl.formatMessage(FILES_MESSAGES.root_folder) : baseName(parent) })}
-                </Button>
+          <Split aside={aside}>
+            {parentListing.error ? (
+              <ErrorBanner err={parentListing.error} />
+            ) : parentListing.isPending ? (
+              <Spinner />
+            ) : (
+              <div className="grid flex-1 place-items-center rounded-lg border border-border bg-surface/50 p-10 text-center">
+                <div className="space-y-3">
+                  <p className="text-sm text-muted">{intl.formatMessage(FILES_MESSAGES.nothing_exists)}</p>
+                  <Button variant="secondary" size="sm" onPress={() => onNavigate(parent)}>
+                    {intl.formatMessage({ id: "web.routes.tabs.files.open_folder", defaultMessage: "Open {folder}", description: "Files tab: button that opens the parent folder of a missing path; {folder} is the folder name or the root folder text" }, { folder: parent === ROOT ? intl.formatMessage(FILES_MESSAGES.root_folder) : baseName(parent) })}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </Split>
         </>
       )}
     </div>
   );
 }
 
-function DirectoryView({ resourceTarget, path, onNavigate, viewToggle }: ViewProps) {
+function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: ViewProps) {
   const intl = useOptionalIntl();
   const fmt = useFormat();
   const canControl = useResourceAccess()?.canControl === true;
@@ -358,108 +365,110 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle }: ViewPro
 
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
 
-      <div
-        data-testid="files-dropzone"
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        className={cn(
-          "relative overflow-hidden rounded-lg border border-border bg-surface/50 transition-colors",
-          dragging && "border-primary",
-        )}
-      >
-        <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-xs font-medium text-muted">
-          <SelectBox
-            label={intl.formatMessage(FILES_MESSAGES.select_all)}
-            isSelected={allSelected}
-            isIndeterminate={selection.length > 0 && !allSelected}
-            isDisabled={!entries?.length}
-            onChange={() => setSelected(allSelected ? new Set() : new Set(entries?.map((entry) => entry.path)))}
-          />
-          <span className="flex-1 pl-7">{intl.formatMessage(FILES_MESSAGES.column_name)}</span>
-          <span className="w-24 text-right">{intl.formatMessage(FILES_MESSAGES.column_size)}</span>
-          <span className="hidden w-28 text-right md:block">{intl.formatMessage(FILES_MESSAGES.column_modified)}</span>
-          <span className="w-[4.5rem]" />
-        </div>
-        {listing.error ? (
-          <div className="p-4">
-            <ErrorBanner err={listing.error} />
+      <Split aside={aside}>
+        <div
+          data-testid="files-dropzone"
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          className={cn(
+            "relative overflow-hidden rounded-lg border border-border bg-surface/50 transition-colors",
+            dragging && "border-primary",
+          )}
+        >
+          <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-xs font-medium text-muted">
+            <SelectBox
+              label={intl.formatMessage(FILES_MESSAGES.select_all)}
+              isSelected={allSelected}
+              isIndeterminate={selection.length > 0 && !allSelected}
+              isDisabled={!entries?.length}
+              onChange={() => setSelected(allSelected ? new Set() : new Set(entries?.map((entry) => entry.path)))}
+            />
+            <span className="flex-1 pl-7">{intl.formatMessage(FILES_MESSAGES.column_name)}</span>
+            <span className="w-24 text-right">{intl.formatMessage(FILES_MESSAGES.column_size)}</span>
+            <span className="hidden w-28 text-right md:block">{intl.formatMessage(FILES_MESSAGES.column_modified)}</span>
+            <span className="w-[4.5rem]" />
           </div>
-        ) : !entries ? (
-          <Spinner />
-        ) : entries.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-muted">{intl.formatMessage(FILES_MESSAGES.this_folder_is_empty)}</p>
-        ) : (
-          <ul>
-            {entries.map((entry) => (
-              <li
-                key={entry.path}
-                className={cn(
-                  "group flex items-center gap-3 border-b border-border pl-4 last:border-b-0 hover:bg-surface",
-                  selected.has(entry.path) && "bg-surface",
-                )}
-              >
-                <SelectBox label={intl.formatMessage({ id: "web.routes.tabs.files.select_entry", defaultMessage: "Select {name}", description: "Files tab: accessible label of the checkbox on a file or folder row; {name} is the file or folder name" }, { name: entry.name })} isSelected={selected.has(entry.path)} onChange={() => toggle(entry.path)} />
-                <button
-                  type="button"
-                  onClick={() => onNavigate(entry.path)}
-                  className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 text-left text-sm"
+          {listing.error ? (
+            <div className="p-4">
+              <ErrorBanner err={listing.error} />
+            </div>
+          ) : !entries ? (
+            <Spinner />
+          ) : entries.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted">{intl.formatMessage(FILES_MESSAGES.this_folder_is_empty)}</p>
+          ) : (
+            <ul>
+              {entries.map((entry) => (
+                <li
+                  key={entry.path}
+                  className={cn(
+                    "group flex items-center gap-3 border-b border-border pl-4 last:border-b-0 hover:bg-surface",
+                    selected.has(entry.path) && "bg-surface",
+                  )}
                 >
-                  <EntryIcon entry={entry} />
-                  <span className="min-w-0 flex-1 truncate text-foreground" title={entry.name}>{entry.name}</span>
-                  <span className="w-24 shrink-0 text-right text-xs text-muted">
-                    {entry.dir ? <DirSize resourceTarget={resourceTarget} path={entry.path} /> : formatBytes(entry.size)}
-                  </span>
-                  <span className="hidden w-28 shrink-0 text-right text-xs text-muted md:block">{formatRelative(entry.modTime, intl)}</span>
-                </button>
-                <div className="flex w-[4.5rem] shrink-0 justify-end gap-1 pr-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
-                  <Button
-                    isIconOnly
-                    variant="ghost"
-                    size="sm"
-                    aria-label={intl.formatMessage({ id: "web.routes.tabs.files.download_entry_aria", defaultMessage: "Download {name}", description: "Files: aria-label of the download button on a file or folder row; {name} is the file or folder name" }, { name: entry.name })}
-                    onPress={() =>
-                      download(
-                        entry.dir
-                          ? client.Files.archiveURL(name, [entry.path], ns)
-                          : client.Files.downloadURL(name, entry.path, ns),
-                      )
-                    }
+                  <SelectBox label={intl.formatMessage({ id: "web.routes.tabs.files.select_entry", defaultMessage: "Select {name}", description: "Files tab: accessible label of the checkbox on a file or folder row; {name} is the file or folder name" }, { name: entry.name })} isSelected={selected.has(entry.path)} onChange={() => toggle(entry.path)} />
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(entry.path)}
+                    className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 text-left text-sm"
                   >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    isIconOnly
-                    variant="ghost"
-                    size="sm"
-                    aria-label={intl.formatMessage({ id: "web.routes.tabs.files.delete_entry_aria", defaultMessage: "Delete {name}", description: "Files: aria-label of the delete button on a file or folder row; {name} is the file or folder name" }, { name: entry.name })}
-                    isDisabled={!canControl}
-                    onPress={() => setConfirmDelete(entry)}
-                    className="text-danger"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        {entries && total > entries.length && (
-          <p role="status" className="border-t border-border px-4 py-3 text-center text-xs text-muted">
-            {intl.formatMessage({ id: "web.routes.tabs.files.showing_entries", defaultMessage: "Showing {shown} of {total} entries. The file list limit is set in Settings → General.", description: "Files tab: note under a large folder listing saying only part of the entries is shown and where the limit is set; {shown} is the shown count and {total} the total count" }, { shown: fmt.number(entries.length), total: fmt.number(total) })}
+                    <EntryIcon entry={entry} />
+                    <span className="min-w-0 flex-1 truncate text-foreground" title={entry.name}>{entry.name}</span>
+                    <span className="w-24 shrink-0 text-right text-xs text-muted">
+                      {entry.dir ? <DirSize resourceTarget={resourceTarget} path={entry.path} /> : formatBytes(entry.size)}
+                    </span>
+                    <span className="hidden w-28 shrink-0 text-right text-xs text-muted md:block">{formatRelative(entry.modTime, intl)}</span>
+                  </button>
+                  <div className="flex w-[4.5rem] shrink-0 justify-end gap-1 pr-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+                    <Button
+                      isIconOnly
+                      variant="ghost"
+                      size="sm"
+                      aria-label={intl.formatMessage({ id: "web.routes.tabs.files.download_entry_aria", defaultMessage: "Download {name}", description: "Files: aria-label of the download button on a file or folder row; {name} is the file or folder name" }, { name: entry.name })}
+                      onPress={() =>
+                        download(
+                          entry.dir
+                            ? client.Files.archiveURL(name, [entry.path], ns)
+                            : client.Files.downloadURL(name, entry.path, ns),
+                        )
+                      }
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      isIconOnly
+                      variant="ghost"
+                      size="sm"
+                      aria-label={intl.formatMessage({ id: "web.routes.tabs.files.delete_entry_aria", defaultMessage: "Delete {name}", description: "Files: aria-label of the delete button on a file or folder row; {name} is the file or folder name" }, { name: entry.name })}
+                      isDisabled={!canControl}
+                      onPress={() => setConfirmDelete(entry)}
+                      className="text-danger"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {entries && total > entries.length && (
+            <p role="status" className="border-t border-border px-4 py-3 text-center text-xs text-muted">
+              {intl.formatMessage({ id: "web.routes.tabs.files.showing_entries", defaultMessage: "Showing {shown} of {total} entries. The file list limit is set in Settings → General.", description: "Files tab: note under a large folder listing saying only part of the entries is shown and where the limit is set; {shown} is the shown count and {total} the total count" }, { shown: fmt.number(entries.length), total: fmt.number(total) })}
+            </p>
+          )}
+          {dragging && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-sm font-medium text-primary">
+              <Upload className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.drop_files_to_upload)}
+            </div>
+          )}
+        </div>
+        {canControl && (
+          <p className="flex items-center gap-1.5 text-xs text-muted">
+            <Upload className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.drag_files_hint)}
           </p>
         )}
-        {dragging && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-sm font-medium text-primary">
-            <Upload className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.drop_files_to_upload)}
-          </div>
-        )}
-      </div>
-      {canControl && (
-        <p className="flex items-center gap-1.5 text-xs text-muted">
-          <Upload className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.drag_files_hint)}
-        </p>
-      )}
+      </Split>
 
       {confirmDelete && (
         <DeleteDialog
@@ -520,7 +529,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle }: ViewPro
   );
 }
 
-function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle }: ViewProps & { entry: FileEntry }) {
+function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside }: ViewProps & { entry: FileEntry }) {
   const intl = useOptionalIntl();
   const canControl = useResourceAccess()?.canControl === true;
   const { name, namespace: ns } = resourceTarget;
@@ -605,28 +614,30 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle }: Vie
       {failed && <ErrorBanner err={failed.error} onDismiss={() => setFailed(null)} />}
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
 
-      <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-lg border border-border bg-background">
-        {content.error ? (
-          <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
-        ) : draft === null ? (
-          <Spinner />
-        ) : (
-          <Editor
-            wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
-            theme="vs-dark"
-            language={guessLang(entry.name)}
-            value={draft.value}
-            onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
-            onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
-            options={{
-              minimap: { enabled: false },
-              fontFamily: "JetBrains Mono",
-              readOnly: !canControl,
-              scrollBeyondLastLine: false,
-            }}
-          />
-        )}
-      </div>
+      <Split aside={aside}>
+        <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-lg border border-border bg-background">
+          {content.error ? (
+            <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
+          ) : draft === null ? (
+            <Spinner />
+          ) : (
+            <Editor
+              wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
+              theme="vs-dark"
+              language={guessLang(entry.name)}
+              value={draft.value}
+              onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
+              onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
+              options={{
+                minimap: { enabled: false },
+                fontFamily: "JetBrains Mono",
+                readOnly: !canControl,
+                scrollBeyondLastLine: false,
+              }}
+            />
+          )}
+        </div>
+      </Split>
 
       {confirmDelete && (
         <DeleteDialog
@@ -836,7 +847,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:h-[calc(100vh-11rem)] md:w-[272px]",
+        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:max-h-[calc(100vh-3rem)] md:w-[272px] md:[contain:size]",
         dropDir === ROOT && "border-primary",
       )}
     >
