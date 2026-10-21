@@ -1,4 +1,4 @@
-import { useState, type ReactElement, type ReactNode } from "react";
+import { memo, useState, type ReactElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
@@ -66,10 +66,10 @@ const components: Components = {
   td: ({ children }) => <td className="whitespace-nowrap px-3 py-2">{children}</td>,
 };
 
-export function Markdown({ text }: { text: string }) {
+export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
     <div className="space-y-3 text-sm leading-relaxed">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{text}</ReactMarkdown>
     </div>
   );
-}
+});
