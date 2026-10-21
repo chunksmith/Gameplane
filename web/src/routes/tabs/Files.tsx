@@ -1,5 +1,5 @@
 import { useResourceClient, useResourceAccess, useResourceTarget, resourceKey, type ResourceTarget } from "@/lib/resourceTarget";
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Modal,
@@ -31,6 +31,7 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -773,8 +774,9 @@ interface TreeProps {
   resourceTarget: ResourceTarget;
   path: string;
   expanded: ReadonlySet<string>;
+  selected: ReadonlyMap<string, FileEntry>;
   dropDir: string | null;
-  onToggle: (dir: string) => void;
+  onSelect: (entry: FileEntry, event: MouseEvent) => void;
   onNavigate: (path: string) => void;
 }
 
@@ -786,12 +788,20 @@ interface TreeLevelProps extends TreeProps {
 function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewToggle">) {
   const intl = useOptionalIntl();
   const canControl = useResourceAccess()?.canControl === true;
+  const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(ancestorsOf(path)));
   const [trackedPath, setTrackedPath] = useState(path);
   const [dropDir, setDropDir] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [selected, setSelected] = useState<ReadonlyMap<string, FileEntry>>(new Map());
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const selection = [...selected.values()].filter((entry) => !ancestorsOf(entry.path).some((dir) => selected.has(dir)));
+  const selectionPaths = selection.map((entry) => entry.path);
+  const zipDir = selection.length > 0 ? commonParent(selectionPaths) : ROOT;
   if (trackedPath !== path) {
     setTrackedPath(path);
     setExpanded((current) => new Set([...current, ...ancestorsOf(path)]));
@@ -807,12 +817,78 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
     onError: (err: Error) => setError(err),
   });
 
-  function toggle(dir: string) {
+  async function refresh() {
+    setSelected(new Map());
+    void qc.invalidateQueries({ queryKey: ["fleet"] });
+    void qc.invalidateQueries({ queryKey: sizeKey(resourceTarget) });
+    await qc.invalidateQueries({ queryKey: resourceKey(resourceTarget, "files") });
+    setError(null);
+  }
+
+  const zip = useMutation({
+    mutationFn: (entryName: string) => client.Files.zip(name, joinPath(zipDir, entryName), selectionPaths, ns),
+    onSuccess: async () => {
+      setPrompt(false);
+      await refresh();
+    },
+    onError: (err: Error) => setError(err),
+  });
+
+  const removeSelected = useMutation({
+    mutationFn: async (targets: FileEntry[]) => {
+      for (const entry of targets) await client.Files.remove(name, entry.path, entry.dir, ns);
+    },
+    onSuccess: async (_result, targets) => {
+      setConfirmDelete(false);
+      const removed = targets.find((entry) => path === entry.path || path.startsWith(`${entry.path}/`));
+      if (removed) onNavigate(parentOf(removed.path));
+      await refresh();
+    },
+    onError: (err: Error) => {
+      setConfirmDelete(false);
+      setError(err);
+      void qc.invalidateQueries({ queryKey: resourceKey(resourceTarget, "files") });
+    },
+  });
+
+  function visibleEntries(dir: string): FileEntry[] {
+    const entries = qc.getQueryData<{ entries: FileEntry[] }>(listKey(resourceTarget, dir))?.entries ?? [];
+    return sortEntries(entries).flatMap((entry) => (entry.dir && expanded.has(entry.path) ? [entry, ...visibleEntries(entry.path)] : [entry]));
+  }
+
+  function select(entry: FileEntry, event: MouseEvent) {
+    if (event.shiftKey) {
+      const visible = visibleEntries(ROOT);
+      const to = visible.findIndex((item) => item.path === entry.path);
+      const from = visible.findIndex((item) => item.path === (anchor ?? path));
+      const range = from < 0 ? [entry] : visible.slice(Math.min(from, to), Math.max(from, to) + 1);
+      setSelected(new Map(range.map((item) => [item.path, item])));
+      return;
+    }
+    setAnchor(entry.path);
+    if (event.ctrlKey || event.metaKey) {
+      setSelected((current) => {
+        const next = new Map(current);
+        if (!next.delete(entry.path)) next.set(entry.path, entry);
+        return next;
+      });
+      return;
+    }
+    setSelected(new Map());
+    if (!entry.dir) {
+      onNavigate(entry.path);
+      return;
+    }
     setExpanded((current) => {
       const next = new Set(current);
-      if (!next.delete(dir)) next.add(dir);
+      if (!next.delete(entry.path)) next.add(entry.path);
       return next;
     });
+  }
+
+  function downloadSelection() {
+    const single = selection.length === 1 ? selection[0] : undefined;
+    download(single && !single.dir ? client.Files.downloadURL(name, single.path, ns) : client.Files.archiveURL(name, selectionPaths, ns));
   }
 
   function onDragOver(event: DragEvent<HTMLElement>) {
@@ -838,7 +914,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
     );
   }
 
-  const tree: TreeProps = { resourceTarget, path, expanded, dropDir, onToggle: toggle, onNavigate };
+  const tree: TreeProps = { resourceTarget, path, expanded, selected, dropDir, onSelect: select, onNavigate };
 
   return (
     <aside
@@ -856,7 +932,24 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
           <ErrorBanner err={error} onDismiss={() => setError(null)} />
         </div>
       )}
-      <ul role="tree" className="flex-1 overflow-auto p-2 scrollbar-thin">
+      {selection.length > 0 && (
+        <div role="toolbar" aria-label={intl.formatMessage(FILES_MESSAGES.selection_actions)} className="flex items-center gap-1 border-b border-border py-1.5 pl-3 pr-1.5">
+          <span className="flex-1 text-xs font-medium text-foreground">{intl.formatMessage({ id: "web.routes.tabs.files.selected_count", defaultMessage: "{count, plural, one {# selected} other {# selected}}", description: "Files tab: how many files and folders are selected, shown above the selection actions; {count} is the number selected" }, { count: selection.length })}</span>
+          <Button isIconOnly variant="ghost" size="sm" aria-label={intl.formatMessage(FILES_MESSAGES.download)} onPress={downloadSelection}>
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button isIconOnly variant="ghost" size="sm" aria-label={intl.formatMessage(FILES_MESSAGES.zip)} isDisabled={!canControl} onPress={() => setPrompt(true)}>
+            <FileArchive className="h-4 w-4" />
+          </Button>
+          <Button isIconOnly variant="ghost" size="sm" aria-label={intl.formatMessage(FILES_MESSAGES.delete)} isDisabled={!canControl} onPress={() => setConfirmDelete(true)} className="text-danger">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+          <Button isIconOnly variant="ghost" size="sm" aria-label={intl.formatMessage(FILES_MESSAGES.clear)} onPress={() => setSelected(new Map())}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      <ul role="tree" aria-multiselectable className="flex-1 overflow-auto p-2 scrollbar-thin">
         <TreeLevel {...tree} dir={ROOT} depth={0} />
       </ul>
       {upload.isPending && (
@@ -869,6 +962,29 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
           <Upload className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.tree_drop_hint)}
         </p>
       )}
+      {confirmDelete && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setConfirmDelete(false)}
+          title={intl.formatMessage({ id: "web.routes.tabs.files.delete_items_title", defaultMessage: "Delete {count, plural, one {# item} other {# items}}?", description: "Files tab: title of the confirm dialog for deleting the selected items; {count} is the number of items" }, { count: selection.length })}
+          description={intl.formatMessage(FILES_MESSAGES.delete_selected_body)}
+          destructive
+          confirmLabel={intl.formatMessage(FILES_MESSAGES.delete)}
+          busy={removeSelected.isPending}
+          onConfirm={() => removeSelected.mutate(selection)}
+        />
+      )}
+      <NamePromptDialog
+        open={prompt}
+        onOpenChange={setPrompt}
+        title={intl.formatMessage(FILES_MESSAGES.create_zip_archive)}
+        label={intl.formatMessage(FILES_MESSAGES.archive_name)}
+        placeholder={intl.formatMessage(FILES_MESSAGES.archive_zip)}
+        initialValue={archiveName(qc.getQueryData<{ entries: FileEntry[] }>(listKey(resourceTarget, zipDir))?.entries ?? [], selection)}
+        confirmLabel={intl.formatMessage(FILES_MESSAGES.create)}
+        busy={zip.isPending}
+        onSubmit={(entryName) => zip.mutate(entryName)}
+      />
     </aside>
   );
 }
@@ -890,16 +1006,17 @@ function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
   return sortEntries(listing.data.entries).map((entry) => {
     const isOpen = entry.dir && tree.expanded.has(entry.path);
     return (
-      <li key={entry.path} role="treeitem" aria-expanded={entry.dir ? isOpen : undefined} aria-selected={entry.path === tree.path}>
+      <li key={entry.path} role="treeitem" aria-expanded={entry.dir ? isOpen : undefined} aria-selected={tree.selected.has(entry.path) || entry.path === tree.path}>
         <button
           type="button"
           style={{ paddingLeft: 8 + depth * 14 }}
           data-drop-dir={entry.dir ? entry.path : undefined}
-          onClick={() => (entry.dir ? tree.onToggle(entry.path) : tree.onNavigate(entry.path))}
+          onClick={(event) => tree.onSelect(entry, event)}
           onDoubleClick={entry.dir ? () => tree.onNavigate(entry.path) : undefined}
           className={cn(
-            "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[13px] text-foreground hover:bg-border/60",
+            "flex w-full select-none items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[13px] text-foreground hover:bg-border/60",
             entry.path === tree.path && "bg-primary/10 text-primary",
+            tree.selected.has(entry.path) && "bg-primary/20 text-primary",
             tree.dropDir === entry.path && "bg-primary/10",
           )}
         >
@@ -1102,6 +1219,12 @@ function parentOf(path: string): string {
 
 function joinPath(dir: string, name: string): string {
   return dir === ROOT ? `/${name}` : `${dir}/${name}`;
+}
+
+function commonParent(paths: string[]): string {
+  let dir = parentOf(paths[0]);
+  while (dir !== ROOT && !paths.every((target) => target.startsWith(`${dir}/`))) dir = parentOf(dir);
+  return dir;
 }
 
 function ancestorsOf(path: string): string[] {
