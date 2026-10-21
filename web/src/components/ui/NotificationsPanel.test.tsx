@@ -3,6 +3,7 @@ import { screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithQuery } from "@/test/render";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 let sseCallback: ((ev: unknown) => void) | null = null;
 
@@ -32,7 +33,9 @@ let latest: NotificationFeed | undefined;
 
 function Harness({ enabled = true }: { enabled?: boolean }) {
   const feed = useNotificationFeed(enabled);
-  latest = feed;
+  useEffect(() => {
+    latest = feed;
+  });
   return (
     <>
       <output aria-label="unread">{feed.unread}</output>
