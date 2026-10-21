@@ -2,6 +2,7 @@ import { Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-ro
 import { useQuery } from "@tanstack/react-query";
 import {
   Archive,
+  Bell,
   ChartColumn,
   LayoutDashboard,
   Network,
@@ -24,7 +25,7 @@ import { AppShell } from "@/components/ui/AppShell";
 import { Sidebar, type SidebarNavGroup } from "@/components/ui/Sidebar";
 import { TopBar } from "@/components/ui/TopBar";
 import { Breadcrumbs, buildCrumbs } from "@/components/ui/Breadcrumbs";
-import { NotificationsPanel } from "@/components/ui/NotificationsPanel";
+import { NotificationsContext, useNotificationFeed } from "@/components/ui/NotificationsPanel";
 import { AppLoadingSkeleton } from "@/components/ui/AppLoadingSkeleton";
 import type { AppearanceMode } from "@/components/ui/AppearanceToggle";
 import { useDelayedLoading } from "@/lib/useDelayedLoading";
@@ -115,6 +116,7 @@ export function AppLayout() {
   const [safeMode, setSafeMode] = useState(() => isSafeModeActive());
   const [safeModeBannerDismissed, setSafeModeBannerDismissed] = useState(false);
   const showSkeleton = useDelayedLoading(isLoading);
+  const feed = useNotificationFeed(installation.data?.localCluster === true);
 
   useEffect(() => {
     if (error instanceof APIError && error.status === 401) {
@@ -178,6 +180,7 @@ export function AppLayout() {
         { to: "/modules", label: intl.formatMessage({ id: "web.components.app_layout.modules", defaultMessage: "Modules", description: "Sidebar: navigation link to modules" }), icon: Package },
         { to: "/backups", label: intl.formatMessage({ id: "web.components.app_layout.backups", defaultMessage: "Backups", description: "Sidebar: navigation link to backups" }), icon: Archive },
         ...(assistant.data?.enabled ? [{ to: "/assistant", label: intl.formatMessage({ id: "web.components.app_layout.assistant", defaultMessage: "Assistant", description: "Sidebar: navigation link to the AI assistant" }), icon: Sparkles }] : []),
+        { to: "/notifications", label: intl.formatMessage({ id: "web.components.app_layout.notifications", defaultMessage: "Notifications", description: "Sidebar: navigation link to the notifications page" }), icon: Bell, badge: feed.unread },
       ],
     },
     {
@@ -218,7 +221,7 @@ export function AppLayout() {
   );
 
   return (
-    <>
+    <NotificationsContext.Provider value={feed}>
       {/* Safe-mode banner: sticky at the top of the viewport so it stays
           reachable while recovering from broken custom CSS. Dismiss only
           hides it — safe mode remains active for the session. */}
@@ -243,7 +246,6 @@ export function AppLayout() {
             isCustomColorsActive={isCustomColorsActive}
             version={installation.data?.version}
             buildDate={import.meta.env.VITE_BUILD_DATE}
-            notifications={<NotificationsPanel enabled={installation.data?.localCluster === true} />}
           />
         }
         topBar={
@@ -287,6 +289,6 @@ export function AppLayout() {
         version={installation.data?.version}
         buildDate={import.meta.env.VITE_BUILD_DATE}
       />
-    </>
+    </NotificationsContext.Provider>
   );
 }

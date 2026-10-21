@@ -245,6 +245,32 @@ describe("Sidebar", () => {
     });
   });
 
+  describe("nav badges", () => {
+    const badgeNav = (badge: number): SidebarNavGroup[] => [
+      {
+        label: "General",
+        items: [{ to: "/notifications", label: "Notifications", icon: Archive, badge }],
+      },
+    ];
+
+    it("shows the badge count when it is positive", () => {
+      render(<Sidebar variant="fixed" navItems={badgeNav(3)} user={mockUser} onLogout={vi.fn()} />);
+      expect(screen.getByRole("link", { name: /Notifications/i })).toHaveTextContent("3");
+    });
+
+    it("shows 9+ when the badge exceeds nine", () => {
+      render(<Sidebar variant="fixed" navItems={badgeNav(12)} user={mockUser} onLogout={vi.fn()} />);
+      expect(screen.getByRole("link", { name: /Notifications/i })).toHaveTextContent("9+");
+    });
+
+    it("shows no badge when the count is zero", () => {
+      render(<Sidebar variant="fixed" navItems={badgeNav(0)} user={mockUser} onLogout={vi.fn()} />);
+      const link = screen.getByRole("link", { name: /Notifications/i });
+      expect(link.querySelectorAll("span")).toHaveLength(1);
+      expect(link).toHaveTextContent(/^Notifications$/);
+    });
+  });
+
   describe("drawer variant", () => {
     it("uses a distinct accessible name from the fixed sidebar's nav landmark", () => {
       // The fixed sidebar (mounted separately by AppLayout, see

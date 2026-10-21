@@ -80,8 +80,7 @@ describe("AppLayout", () => {
       expect(connect).not.toHaveBeenCalled();
       await waitFor(() => expect(view.client.getQueryData(["installation"])).toEqual({ standalone, localCluster: !standalone }));
       if (standalone) {
-        await userEvent.click(await screen.findByRole("button", { name: /notifications/i }));
-        expect(await screen.findByText("No recent activity.")).toBeInTheDocument();
+        expect(await screen.findByRole("link", { name: /notifications/i })).toHaveAttribute("href", "/notifications");
         expect(connect).not.toHaveBeenCalled();
       } else {
         await waitFor(() => expect(connect).toHaveBeenCalledWith("/events"));
@@ -142,11 +141,11 @@ describe("AppLayout", () => {
     expect(await screen.findByTestId("outlet")).toBeInTheDocument();
   });
 
-  it("notifications bell toggles a panel", async () => {
+  it("sidebar links to the notifications page", async () => {
     renderWithQuery(<AppLayout />);
-    const bell = await screen.findByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-    expect(await screen.findByText("Recent activity")).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: /notifications/i });
+    expect(link).toHaveAttribute("href", "/notifications");
+    expect(screen.queryByRole("button", { name: /notifications/i })).not.toBeInTheDocument();
   });
 
   it("hamburger opens the mobile nav drawer; scrim and nav clicks close it", async () => {
@@ -312,26 +311,10 @@ describe("AppLayout", () => {
     expect(within(header).getByText("AL")).toBeInTheDocument();
   });
 
-  it("notifications open and close with bell click", async () => {
+  it("notifications nav link shows no badge while nothing is unread", async () => {
     renderWithQuery(<AppLayout />);
-    const bell = await screen.findByRole("button", { name: /notifications/i });
-    // Dropdown closed initially
-    expect(screen.queryByText("No recent activity.")).not.toBeInTheDocument();
-    await userEvent.click(bell);
-    // Dropdown open
-    expect(screen.getByText("No recent activity.")).toBeInTheDocument();
-    await userEvent.click(bell);
-    // Dropdown closed
-    await waitFor(() => {
-      expect(screen.queryByText("No recent activity.")).not.toBeInTheDocument();
-    });
-  });
-
-  it("notifications badge shows unread count", async () => {
-    renderWithQuery(<AppLayout />);
-    await screen.findByRole("button", { name: /notifications/i });
-    // Initially no badge (unread count is 0)
-    expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: /notifications/i });
+    expect(within(link).queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 
   it("logout button navigates to login", async () => {

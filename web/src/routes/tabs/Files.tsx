@@ -25,6 +25,8 @@ import {
   Folder,
   FolderPlus,
   House,
+  List,
+  ListTree,
   Loader2,
   RefreshCw,
   Trash2,
@@ -33,7 +35,7 @@ import {
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import type { FileEntry } from "@/lib/endpoints";
+import type { FileEntry, ResourceClient } from "@/lib/endpoints";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
 import { defineMessages } from "react-intl";
@@ -46,6 +48,9 @@ const LIST_REFRESH_MS = 5_000;
 const MAX_UPLOAD_FILES = 64;
 const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
 const SIZE_CACHE_MS = 60_000;
+const VIEW_STORAGE_KEY = "gameplane.files.view";
+
+type FilesView = "list" | "tree";
 
 const FILES_MESSAGES = defineMessages({
   root_folder: { id: "web.routes.tabs.files.root_folder", defaultMessage: "root folder", description: "Files: lowercase name of the server data root, used in the open-folder button when the parent of a missing path is the root" },
@@ -84,6 +89,12 @@ const FILES_MESSAGES = defineMessages({
   path: { id: "web.routes.tabs.files.path", defaultMessage: "Path", description: "Files tab: accessible label of the breadcrumb path navigation; not shown as text" },
   calculating_size: { id: "web.routes.tabs.files.calculating_size", defaultMessage: "Calculating size", description: "Files tab: accessible label of the spinner shown while a folder size is being calculated" },
   empty_value: { id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" },
+  file_view: { id: "web.routes.tabs.files.file_view", defaultMessage: "File view", description: "Files tab: accessible label of the List and Tree view switch; not shown as text" },
+  view_list: { id: "web.routes.tabs.files.view_list", defaultMessage: "List", description: "Files tab: button of the view switch that shows the files of one folder as a list; keep it short" },
+  view_tree: { id: "web.routes.tabs.files.view_tree", defaultMessage: "Tree", description: "Files tab: button of the view switch that shows a folder tree beside the files; keep it short" },
+  folder_tree: { id: "web.routes.tabs.files.folder_tree", defaultMessage: "Folder tree", description: "Files tab: accessible label of the folder tree panel shown beside the files in tree view; not shown as text" },
+  tree_load_failed: { id: "web.routes.tabs.files.tree_load_failed", defaultMessage: "Could not load", description: "Files tab: muted text in the folder tree where a folder's contents could not be loaded" },
+  tree_drop_hint: { id: "web.routes.tabs.files.tree_drop_hint", defaultMessage: "Drop files or folders here to upload", description: "Files tab: hint at the bottom of the folder tree saying files or folders can be dropped in to upload them" },
 });
 
 const SAVE_STATES = defineMessages({
@@ -97,14 +108,38 @@ interface ViewProps {
   resourceTarget: ResourceTarget;
   path: string;
   onNavigate: (path: string) => void;
+  viewToggle?: ReactNode;
 }
 
 export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: string; path: string; onNavigate: (path: string) => void }) {
   const resourceTarget = useResourceTarget({ name, namespace: ns });
-  return <FilesBrowser key={JSON.stringify(resourceKey(resourceTarget, "file-editor"))} resourceTarget={resourceTarget} path={normalize(path)} onNavigate={onNavigate} />;
+  const [view, setView] = useState<FilesView>(readView);
+  const normalized = normalize(path);
+
+  function changeView(next: FilesView) {
+    setView(next);
+    writeView(next);
+  }
+
+  const tree = view === "tree";
+  return (
+    <div className={tree ? "flex min-h-full flex-col gap-3 p-4 md:flex-row md:p-6" : "contents"}>
+      {tree && <FileTree resourceTarget={resourceTarget} path={normalized} onNavigate={onNavigate} />}
+      <div className={tree ? "min-w-0 flex-1" : "contents"}>
+        <FilesBrowser
+          key={JSON.stringify(resourceKey(resourceTarget, "file-editor"))}
+          resourceTarget={resourceTarget}
+          path={normalized}
+          onNavigate={onNavigate}
+          viewToggle={<ViewToggle view={view} onChange={changeView} />}
+          embedded={tree}
+        />
+      </div>
+    </div>
+  );
 }
 
-function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
+function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, embedded = false }: ViewProps & { embedded?: boolean }) {
   const intl = useOptionalIntl();
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
@@ -118,11 +153,11 @@ function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
   const entry = isRoot ? ROOT_ENTRY : parentListing.data?.entries.find((item) => item.name === baseName(path));
 
   return (
-    <div className="flex min-h-full flex-col gap-4 p-6">
+    <div className={cn("flex min-h-full flex-col gap-4", !embedded && "p-6")}>
       {entry?.dir ? (
-        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} />
+        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} />
       ) : entry ? (
-        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} />
+        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} />
       ) : (
         <>
           <Breadcrumbs path={path} onNavigate={onNavigate} />
@@ -146,7 +181,7 @@ function FilesBrowser({ resourceTarget, path, onNavigate }: ViewProps) {
   );
 }
 
-function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
+function DirectoryView({ resourceTarget, path, onNavigate, viewToggle }: ViewProps) {
   const intl = useOptionalIntl();
   const fmt = useFormat();
   const canControl = useResourceAccess()?.canControl === true;
@@ -214,13 +249,7 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
   });
 
   const upload = useMutation({
-    mutationFn: async (groups: Map<string, File[]>) => {
-      for (const [dir, files] of groups) {
-        const target = dir ? joinPath(path, dir) : path;
-        if (files.length === 0) await client.Files.mkdir(name, target, ns);
-        for (const batch of uploadBatches(files)) await client.Files.upload(name, target, batch, ns);
-      }
-    },
+    mutationFn: (groups: Map<string, File[]>) => uploadGroups(client, resourceTarget, path, groups),
     onSuccess: refresh,
     onError: (err: Error) => setError(err),
   });
@@ -279,6 +308,28 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Breadcrumbs path={path} onNavigate={onNavigate} />
         <div className="flex flex-wrap items-center gap-2">
+          {selection.length > 0 && (
+            <div
+              role="toolbar"
+              aria-label={intl.formatMessage(FILES_MESSAGES.selection_actions)}
+              className="flex flex-wrap items-center gap-2 border-border pr-2 sm:border-r"
+            >
+              <span className="text-sm font-medium text-foreground">{intl.formatMessage({ id: "web.routes.tabs.files.selected_count", defaultMessage: "{count, plural, one {# selected} other {# selected}}", description: "Files tab: how many files and folders are selected, shown above the selection actions; {count} is the number selected" }, { count: selection.length })}</span>
+              <Button variant="ghost" size="sm" onPress={() => setSelected(new Set())}>
+                {intl.formatMessage(FILES_MESSAGES.clear)}
+              </Button>
+              <Button variant="secondary" size="sm" onPress={downloadSelection}>
+                <Download className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.download)}
+              </Button>
+              <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("zip")}>
+                <FileArchive className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.zip)}
+              </Button>
+              <Button variant="danger" size="sm" isDisabled={!canControl} onPress={() => setConfirmBulkDelete(true)}>
+                <Trash2 className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.delete)}
+              </Button>
+            </div>
+          )}
+          {viewToggle}
           <Button
             isIconOnly
             variant="ghost"
@@ -306,30 +357,6 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
       </div>
 
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
-
-      {selection.length > 0 && (
-        <div
-          role="toolbar"
-          aria-label={intl.formatMessage(FILES_MESSAGES.selection_actions)}
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-2"
-        >
-          <span className="text-sm font-medium text-foreground">{intl.formatMessage({ id: "web.routes.tabs.files.selected_count", defaultMessage: "{count, plural, one {# selected} other {# selected}}", description: "Files tab: how many files and folders are selected, shown above the selection actions; {count} is the number selected" }, { count: selection.length })}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" onPress={() => setSelected(new Set())}>
-              {intl.formatMessage(FILES_MESSAGES.clear)}
-            </Button>
-            <Button variant="secondary" size="sm" onPress={downloadSelection}>
-              <Download className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.download)}
-            </Button>
-            <Button variant="secondary" size="sm" isDisabled={!canControl} onPress={() => setPrompt("zip")}>
-              <FileArchive className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.zip)}
-            </Button>
-            <Button variant="danger" size="sm" isDisabled={!canControl} onPress={() => setConfirmBulkDelete(true)}>
-              <Trash2 className="h-4 w-4" /> {intl.formatMessage(FILES_MESSAGES.delete)}
-            </Button>
-          </div>
-        </div>
-      )}
 
       <div
         data-testid="files-dropzone"
@@ -493,7 +520,7 @@ function DirectoryView({ resourceTarget, path, onNavigate }: ViewProps) {
   );
 }
 
-function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { entry: FileEntry }) {
+function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle }: ViewProps & { entry: FileEntry }) {
   const intl = useOptionalIntl();
   const canControl = useResourceAccess()?.canControl === true;
   const { name, namespace: ns } = resourceTarget;
@@ -560,6 +587,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate }: ViewProps & { e
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Breadcrumbs path={path} onNavigate={onNavigate} />
         <div className="flex items-center gap-2">
+          {viewToggle}
           {draft && (
             <span role="status" className="flex items-center gap-1.5 pr-1 text-xs text-muted">
               {SAVE_ICONS[saveState]} {intl.formatMessage(SAVE_STATES[saveState])}
@@ -710,6 +738,176 @@ function EntryIcon({ entry }: { entry: FileEntry }) {
   if (entry.dir) return <Folder className="h-4 w-4 shrink-0 text-primary" />;
   const Icon = ARCHIVE_PATTERN.test(entry.name) ? FileArchive : FileText;
   return <Icon className="h-4 w-4 shrink-0 text-muted" />;
+}
+
+function ViewToggle({ view, onChange }: { view: FilesView; onChange: (view: FilesView) => void }) {
+  const intl = useOptionalIntl();
+  return (
+    <div role="group" aria-label={intl.formatMessage(FILES_MESSAGES.file_view)} className="inline-flex rounded-lg border border-border bg-surface p-0.5">
+      <button type="button" aria-pressed={view === "list"} onClick={() => onChange("list")} className={viewButtonClass(view === "list")}>
+        <List className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.view_list)}
+      </button>
+      <button type="button" aria-pressed={view === "tree"} onClick={() => onChange("tree")} className={viewButtonClass(view === "tree")}>
+        <ListTree className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.view_tree)}
+      </button>
+    </div>
+  );
+}
+
+function viewButtonClass(active: boolean) {
+  return cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium", active ? "bg-primary/10 text-primary" : "text-muted hover:text-foreground");
+}
+
+interface TreeProps {
+  resourceTarget: ResourceTarget;
+  path: string;
+  expanded: ReadonlySet<string>;
+  dropDir: string | null;
+  onToggle: (dir: string) => void;
+  onNavigate: (path: string) => void;
+}
+
+interface TreeLevelProps extends TreeProps {
+  dir: string;
+  depth: number;
+}
+
+function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewToggle">) {
+  const intl = useOptionalIntl();
+  const canControl = useResourceAccess()?.canControl === true;
+  const client = useResourceClient(resourceTarget);
+  const qc = useQueryClient();
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(ancestorsOf(path)));
+  const [trackedPath, setTrackedPath] = useState(path);
+  const [dropDir, setDropDir] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  if (trackedPath !== path) {
+    setTrackedPath(path);
+    setExpanded((current) => new Set([...current, ...ancestorsOf(path)]));
+  }
+
+  const upload = useMutation({
+    mutationFn: ({ base, groups }: { base: string; groups: Map<string, File[]> }) => uploadGroups(client, resourceTarget, base, groups),
+    onSuccess: async (_result, { base }) => {
+      void qc.invalidateQueries({ queryKey: sizeKey(resourceTarget) });
+      await qc.invalidateQueries({ queryKey: listKey(resourceTarget, base) });
+      setError(null);
+    },
+    onError: (err: Error) => setError(err),
+  });
+
+  function toggle(dir: string) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (!next.delete(dir)) next.add(dir);
+      return next;
+    });
+  }
+
+  function onDragOver(event: DragEvent<HTMLElement>) {
+    if (!canControl) return;
+    event.preventDefault();
+    setDropDir(dropTargetOf(event.target));
+  }
+
+  function onDragLeave(event: DragEvent<HTMLElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropDir(null);
+  }
+
+  function onDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    const base = dropTargetOf(event.target);
+    setDropDir(null);
+    if (!canControl) return;
+    void collectDropped(event.dataTransfer).then(
+      (groups) => {
+        if (groups.size > 0) upload.mutate({ base, groups });
+      },
+      (err: unknown) => setError(err instanceof Error ? err : new Error(String(err))),
+    );
+  }
+
+  const tree: TreeProps = { resourceTarget, path, expanded, dropDir, onToggle: toggle, onNavigate };
+
+  return (
+    <aside
+      aria-label={intl.formatMessage(FILES_MESSAGES.folder_tree)}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={cn(
+        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:h-[calc(100vh-11rem)] md:w-[272px]",
+        dropDir === ROOT && "border-primary",
+      )}
+    >
+      {error && (
+        <div className="p-2">
+          <ErrorBanner err={error} onDismiss={() => setError(null)} />
+        </div>
+      )}
+      <ul role="tree" className="flex-1 overflow-auto p-2 scrollbar-thin">
+        <TreeLevel {...tree} dir={ROOT} depth={0} />
+      </ul>
+      {upload.isPending && (
+        <p role="status" className="flex items-center justify-center gap-1.5 border-t border-border px-3 py-2.5 text-xs text-muted">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {intl.formatMessage(FILES_MESSAGES.uploading)}
+        </p>
+      )}
+      {canControl && (
+        <p className="flex items-center justify-center gap-1.5 border-t border-border px-3 py-2.5 text-center text-xs text-muted">
+          <Upload className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.tree_drop_hint)}
+        </p>
+      )}
+    </aside>
+  );
+}
+
+function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
+  const intl = useOptionalIntl();
+  const client = useResourceClient(tree.resourceTarget);
+  const { name, namespace: ns } = tree.resourceTarget;
+  const listing = useQuery({
+    queryKey: listKey(tree.resourceTarget, dir),
+    queryFn: ({ signal }) => client.withSignal(signal).Files.list(name, dir, ns),
+  });
+  if (!listing.data && listing.error) {
+    return <li role="none" style={{ paddingLeft: 8 + depth * 14 }} className="py-1 text-xs text-muted">{intl.formatMessage(FILES_MESSAGES.tree_load_failed)}</li>;
+  }
+  if (!listing.data) {
+    return <li role="none" style={{ paddingLeft: 8 + depth * 14 }} className="py-1"><Loader2 className="h-3.5 w-3.5 animate-spin text-muted" /></li>;
+  }
+  return sortEntries(listing.data.entries).map((entry) => {
+    const isOpen = entry.dir && tree.expanded.has(entry.path);
+    return (
+      <li key={entry.path} role="treeitem" aria-expanded={entry.dir ? isOpen : undefined} aria-selected={entry.path === tree.path}>
+        <button
+          type="button"
+          style={{ paddingLeft: 8 + depth * 14 }}
+          data-drop-dir={entry.dir ? entry.path : undefined}
+          onClick={() => (entry.dir ? tree.onToggle(entry.path) : tree.onNavigate(entry.path))}
+          onDoubleClick={entry.dir ? () => tree.onNavigate(entry.path) : undefined}
+          className={cn(
+            "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[13px] text-foreground hover:bg-border/60",
+            entry.path === tree.path && "bg-primary/10 text-primary",
+            tree.dropDir === entry.path && "bg-primary/10",
+          )}
+        >
+          {entry.dir ? (
+            <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 text-muted transition-transform", isOpen && "rotate-90")} />
+          ) : (
+            <span className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <EntryIcon entry={entry} />
+          <span className="truncate">{entry.name}</span>
+        </button>
+        {isOpen && (
+          <ul role="group">
+            <TreeLevel {...tree} dir={entry.path} depth={depth + 1} />
+          </ul>
+        )}
+      </li>
+    );
+  });
 }
 
 function Spinner() {
@@ -893,6 +1091,40 @@ function parentOf(path: string): string {
 
 function joinPath(dir: string, name: string): string {
   return dir === ROOT ? `/${name}` : `${dir}/${name}`;
+}
+
+function ancestorsOf(path: string): string[] {
+  const segments = path.split("/").filter(Boolean);
+  return segments.slice(0, -1).map((_, index) => `/${segments.slice(0, index + 1).join("/")}`);
+}
+
+function dropTargetOf(target: EventTarget): string {
+  return (target as Element).closest<HTMLElement>("[data-drop-dir]")?.dataset.dropDir ?? ROOT;
+}
+
+function readView(): FilesView {
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "tree" ? "tree" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+function writeView(view: FilesView) {
+  try {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  } catch {
+    return;
+  }
+}
+
+async function uploadGroups(client: ResourceClient, resourceTarget: ResourceTarget, base: string, groups: Map<string, File[]>) {
+  const { name, namespace: ns } = resourceTarget;
+  for (const [dir, files] of groups) {
+    const destination = dir ? joinPath(base, dir) : base;
+    if (files.length === 0) await client.Files.mkdir(name, destination, ns);
+    for (const batch of uploadBatches(files)) await client.Files.upload(name, destination, batch, ns);
+  }
 }
 
 async function collectDropped(dataTransfer: DataTransfer): Promise<Map<string, File[]>> {
