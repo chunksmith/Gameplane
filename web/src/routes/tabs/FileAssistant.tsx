@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, ListBox, ListBoxItem, Select, TextArea } from "@heroui/react";
+import { Button, ListBox, ListBoxItem, Select } from "@heroui/react";
 import { DiffEditor } from "@monaco-editor/react";
 import { Check, Loader2, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
 import { defineMessages } from "react-intl";
 
 import { Markdown } from "@/components/assistant/Markdown";
+import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import {
   ASSISTANT_MODES,
   Assistant,
   blocksOf,
   callLabel,
+  requestOf,
   useAssistantStatus,
   useAssistantStream,
+  withContextBlock,
   type AssistantMessage,
   type AssistantMode,
   type AssistantScope,
@@ -21,7 +24,6 @@ import {
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 
-const CONTEXT_MARKER = "\n\n<file-context>\n";
 const FENCE = /```[^\n]*\n([\s\S]*?)```/g;
 
 const MESSAGES = defineMessages({
@@ -31,6 +33,8 @@ const MESSAGES = defineMessages({
   unavailable: { id: "web.routes.tabs.file_assistant.unavailable", defaultMessage: "The AI assistant is not set up. An admin can turn it on under Admin settings → AI assistant.", description: "Files tab: text in the Claude chat panel when the AI assistant is turned off or has no API key" },
   working: { id: "web.routes.tabs.file_assistant.working", defaultMessage: "Working…", description: "Files tab: status in the Claude chat panel while Claude is working on a reply" },
   placeholder: { id: "web.routes.tabs.file_assistant.placeholder", defaultMessage: "Ask Claude about this file…", description: "Files tab: placeholder of the message box in the Claude chat panel beside the file editor" },
+  placeholder_folder: { id: "web.routes.tabs.file_assistant.placeholder_folder", defaultMessage: "Ask Claude… type @ to add a file or folder", description: "Files tab: placeholder of the message box in the Claude chat panel opened from a folder, with no file as context; typing @ picks a file or folder to add" },
+  empty_folder: { id: "web.routes.tabs.file_assistant.empty_folder", defaultMessage: "Ask Claude anything about this server. Type @ to add a file or folder as context.", description: "Files tab: hint in the empty Claude chat panel opened from a folder, with no file as context" },
   message: { id: "web.routes.tabs.file_assistant.message", defaultMessage: "Message Claude", description: "Files tab: accessible name of the message box in the Claude chat panel; keep it short" },
   mode: { id: "web.routes.tabs.file_assistant.mode", defaultMessage: "Permission mode", description: "Files tab: accessible name of the dropdown in the Claude chat panel that picks how Claude may change files; keep it short" },
   send: { id: "web.routes.tabs.file_assistant.send", defaultMessage: "Send", description: "Files tab: button in the Claude chat panel that sends the typed message; keep it short" },
@@ -41,18 +45,16 @@ const MESSAGES = defineMessages({
   decline: { id: "web.routes.tabs.file_assistant.decline", defaultMessage: "Decline", description: "Files tab: button in the Claude chat panel that rejects the waiting actions; keep it short" },
 });
 
-interface FileAssistantProps {
-  scope: AssistantScope;
+interface OpenFile {
   path: string;
   language: string;
   content: string;
   canControl: boolean;
   onApply: (next: string) => void;
   onSaved: () => void;
-  onClose: () => void;
 }
 
-export function FileAssistant({ scope, path, language, content, canControl, onApply, onSaved, onClose }: FileAssistantProps) {
+export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
   const intl = useOptionalIntl();
   const qc = useQueryClient();
   const status = useAssistantStatus();
@@ -63,7 +65,7 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
   const end = useRef<HTMLLIElement>(null);
   const wasRunning = useRef(false);
   const ready = !!status.data?.enabled && status.data.configured;
-  const file = path.split("/").pop() ?? path;
+  const fileName = file?.path.split("/").pop() ?? "";
 
   const detail = useQuery({
     queryKey: ["ai", "conversation", id],
@@ -75,11 +77,12 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
   const running = conv?.status === "running";
   const tail = useAssistantStream(id, running, () => qc.invalidateQueries({ queryKey: ["ai", "conversation", id] }));
   const mode = pickedMode ?? conv?.mode ?? status.data?.defaultMode ?? "default";
+  const onSaved = file?.onSaved;
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
 
   const submit = useMutation({
-    mutationFn: (text: string) => {
-      const body = withContext(text, path, content, mode);
+    mutationFn: async (text: string) => {
+      const body = withContextBlock(text, file ? fileContext(file.path, file.content, mode) : "", await mentionContext(scope, text));
       return id ? Assistant.send(id, body, mode) : Assistant.create(body, scope, mode);
     },
     onSuccess: (next) => {
@@ -92,7 +95,7 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
   const stop = useMutation({ mutationFn: () => Assistant.cancel(id ?? ""), onSuccess: refresh });
 
   useEffect(() => {
-    if (wasRunning.current && !running && conv?.mode === "bypassPermissions") onSaved();
+    if (wasRunning.current && !running && conv?.mode === "bypassPermissions") onSaved?.();
     wasRunning.current = running;
   }, [running, conv?.mode, onSaved]);
 
@@ -112,7 +115,7 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
       <header className="flex items-center gap-2 border-b border-border px-3 py-1.5">
         <Sparkles className="h-4 w-4 shrink-0 text-primary" />
         <span className="text-sm font-medium">{intl.formatMessage(MESSAGES.title)}</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted">{intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name" }, { file })}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted">{file && intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name" }, { file: fileName })}</span>
         <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.close)} onPress={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -121,17 +124,13 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
       <ol className="flex-1 space-y-4 overflow-y-auto bg-background p-4 scrollbar-thin">
         {status.isLoading && <li><Loader2 className="h-4 w-4 animate-spin text-muted" /></li>}
         {!status.isLoading && !ready && <li className="text-sm text-muted">{intl.formatMessage(MESSAGES.unavailable)}</li>}
-        {ready && !id && <li className="text-sm text-muted">{intl.formatMessage({ id: "web.routes.tabs.file_assistant.empty", defaultMessage: "Ask Claude to explain or change {file}.", description: "Files tab: hint in the empty Claude chat panel beside the file editor; {file} is the file name" }, { file })}</li>}
+        {ready && !id && <li className="text-sm text-muted">{file ? intl.formatMessage({ id: "web.routes.tabs.file_assistant.empty", defaultMessage: "Ask Claude to explain or change {file}.", description: "Files tab: hint in the empty Claude chat panel beside the file editor; {file} is the file name" }, { file: fileName }) : intl.formatMessage(MESSAGES.empty_folder)}</li>}
         {detail.data?.messages.map((message, index) => (
           <ChatMessage
             key={index}
             message={message}
             file={file}
-            language={language}
-            content={content}
-            canControl={canControl}
             dismissed={dismissed.has(index)}
-            onApply={onApply}
             onDismiss={() => setDismissed((current) => new Set(current).add(index))}
           />
         ))}
@@ -156,19 +155,16 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
 
       <div className="border-t border-border p-3">
         <div className="rounded-xl border border-border bg-surface p-2 transition-colors focus-within:border-primary/50">
-          <TextArea
+          <MentionTextArea
+            scope={scope}
             aria-label={intl.formatMessage(MESSAGES.message)}
             className="field-sizing-content max-h-32 min-h-[2.5rem] w-full resize-none border-0 bg-transparent px-2 py-1 shadow-none focus:ring-0"
             rows={2}
             value={prompt}
             disabled={!ready}
-            placeholder={intl.formatMessage(MESSAGES.placeholder)}
-            onChange={(event) => setPrompt(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" || event.shiftKey) return;
-              event.preventDefault();
-              send();
-            }}
+            placeholder={intl.formatMessage(file ? MESSAGES.placeholder : MESSAGES.placeholder_folder)}
+            onValueChange={setPrompt}
+            onEnter={send}
           />
           <div className="flex items-center justify-between gap-2 px-1 pt-1">
             <Select aria-label={intl.formatMessage(MESSAGES.mode)} selectedKey={mode} isDisabled={!ready} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
@@ -203,21 +199,17 @@ export function FileAssistant({ scope, path, language, content, canControl, onAp
 
 interface ChatMessageProps {
   message: AssistantMessage;
-  file: string;
-  language: string;
-  content: string;
-  canControl: boolean;
+  file?: OpenFile;
   dismissed: boolean;
-  onApply: (next: string) => void;
   onDismiss: () => void;
 }
 
-function ChatMessage({ message, file, language, content, canControl, dismissed, onApply, onDismiss }: ChatMessageProps) {
+function ChatMessage({ message, file, dismissed, onDismiss }: ChatMessageProps) {
   const intl = useOptionalIntl();
   const blocks = blocksOf(message);
   const text = blocks.filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n");
   if (message.role === "user") {
-    const request = text.split(CONTEXT_MARKER)[0];
+    const request = requestOf(text);
     if (!request) return null;
     return (
       <li className="flex justify-end">
@@ -225,7 +217,7 @@ function ChatMessage({ message, file, language, content, canControl, dismissed, 
       </li>
     );
   }
-  const suggestion = [...text.matchAll(FENCE)].at(-1)?.[1];
+  const suggestion = file && [...text.matchAll(FENCE)].at(-1)?.[1];
   const calls = blocks.filter((block) => block.type === "tool_use");
   const prose = suggestion === undefined ? text : text.replace(FENCE, "").trim();
   return (
@@ -234,14 +226,14 @@ function ChatMessage({ message, file, language, content, canControl, dismissed, 
       {calls.map((block) => (
         <code key={block.id} className="block truncate rounded-md bg-foreground/5 px-2 py-1 font-mono text-[11px] text-muted">{callLabel(block)}</code>
       ))}
-      {suggestion !== undefined && suggestion !== content && !dismissed && (
+      {file && suggestion !== undefined && suggestion !== file.content && !dismissed && (
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          <div className="border-b border-border px-3 py-2 font-mono text-xs font-medium">{file}</div>
+          <div className="border-b border-border px-3 py-2 font-mono text-xs font-medium">{file.path.split("/").pop()}</div>
           <div className="h-56">
             <DiffEditor
-              original={content}
+              original={file.content}
               modified={suggestion}
-              language={language}
+              language={file.language}
               theme="vs-dark"
               keepCurrentOriginalModel
               keepCurrentModifiedModel
@@ -257,7 +249,7 @@ function ChatMessage({ message, file, language, content, canControl, dismissed, 
             />
           </div>
           <div className="flex gap-2 border-t border-border p-2">
-            <Button size="sm" variant="primary" isDisabled={!canControl} onPress={() => onApply(suggestion)}>
+            <Button size="sm" variant="primary" isDisabled={!file.canControl} onPress={() => file.onApply(suggestion)}>
               <Check className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.apply)}
             </Button>
             <Button size="sm" variant="ghost" onPress={onDismiss}>{intl.formatMessage(MESSAGES.discard)}</Button>
@@ -268,10 +260,10 @@ function ChatMessage({ message, file, language, content, canControl, dismissed, 
   );
 }
 
-function withContext(request: string, path: string, content: string, mode: AssistantMode) {
+function fileContext(path: string, content: string, mode: AssistantMode) {
   const rule =
     mode === "bypassPermissions"
       ? `Save your changes to ${path} yourself through the files API.`
       : `Do not write, upload or delete any file. Reply with a short explanation and the complete updated ${path} in one fenced code block.`;
-  return `${request}${CONTEXT_MARKER}The user is editing ${path} in the Gameplane file editor. ${rule}\nCurrent content:\n\`\`\`\n${content}\n\`\`\``;
+  return `The user is editing ${path} in the Gameplane file editor. ${rule}\nCurrent content:\n\`\`\`\n${content}\n\`\`\``;
 }

@@ -99,6 +99,17 @@ export interface AssistantDetail {
   pending: AssistantPending[];
 }
 
+export const CONTEXT_MARKER = "\n\n<file-context>\n";
+
+export function withContextBlock(request: string, ...contexts: string[]): string {
+  const found = contexts.filter(Boolean);
+  return found.length ? `${request}${CONTEXT_MARKER}${found.join("\n\n")}` : request;
+}
+
+export function requestOf(text: string): string {
+  return text.split(CONTEXT_MARKER)[0];
+}
+
 export function scopeQuery(scope: AssistantScope, all: boolean): string {
   if (all) return "?scope=all";
   if (!scope.server) return "";
