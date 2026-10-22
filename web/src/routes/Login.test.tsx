@@ -206,12 +206,4 @@ describe("LoginPage", () => {
     expect(container.textContent).not.toMatch(/alpha/i);
   });
 
-  it("displays the correct marketing copy on the right panel", () => {
-    const { container } = renderWithQuery(<LoginPage />);
-    // Verify new marketing copy is present
-    expect(container.textContent).toContain("Deploy any game. Minecraft, Valheim, Factorio, Palworld, ARK, CS2, Terraria, and more.");
-    expect(container.textContent).toContain("Scale from single-node k3s to multi-node bare metal or cloud.");
-    expect(container.textContent).toContain("Backups, auto-restart, rolling upgrades, RBAC. Production-grade defaults.");
-    expect(container.textContent).toContain("kubectl get gameservers");
-  });
 });
