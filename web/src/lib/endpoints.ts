@@ -329,8 +329,12 @@ export const ServerGrants = {
 };
 
 export const Auth = {
-  login: (body: { username: string; password: string }) =>
-    api<LoginResponse>("/auth/login", { method: "POST", body }),
+  login: (body: { username: string; password: string }, turnstileToken?: string) =>
+    api<LoginResponse>("/auth/login", {
+      method: "POST",
+      body,
+      headers: turnstileToken ? { "CF-Turnstile-Response": turnstileToken } : undefined,
+    }),
   logout: () => api<void>("/auth/logout", { method: "POST" }),
   // Per-provider start route. The Helm-flag provider ("helm", or an old
   // response without names) uses the legacy path — its state cookies and
@@ -343,6 +347,7 @@ export const Auth = {
   providers: () => api<LoginProvidersResp>("/auth/providers"),
   // Public, pre-auth: the instance default language tag only (spec 019).
   locale: () => api<{ defaultLanguage: string }>("/auth/locale"),
+  turnstile: () => api<{ siteKey?: string }>("/auth/turnstile"),
 };
 
 // Managed clientSecret Secrets behind dashboard-added identity providers
