@@ -205,5 +205,4 @@ describe("LoginPage", () => {
     expect(container.textContent).not.toMatch(/v\d+\.\d+\.\d+/);
     expect(container.textContent).not.toMatch(/alpha/i);
   });
-
 });
