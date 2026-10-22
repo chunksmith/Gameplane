@@ -7,6 +7,7 @@ import { defineMessages } from "react-intl";
 
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { ModelPicker } from "@/components/assistant/ModelPicker";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import {
   ASSISTANT_MODES,
@@ -19,6 +20,7 @@ import {
   withContextBlock,
   type AssistantMessage,
   type AssistantMode,
+  type AssistantPick,
   type AssistantScope,
 } from "@/lib/assistant";
 import { useOptionalIntl } from "@/lib/i18n/format";
@@ -61,6 +63,7 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
   const [id, setId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
+  const [pickedModel, setPickedModel] = useState<AssistantPick>();
   const [dismissed, setDismissed] = useState<ReadonlySet<number>>(new Set());
   const end = useRef<HTMLLIElement>(null);
   const wasRunning = useRef(false);
@@ -77,13 +80,14 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
   const running = conv?.status === "running";
   const tail = useAssistantStream(id, running, () => qc.invalidateQueries({ queryKey: ["ai", "conversation", id] }));
   const mode = pickedMode ?? conv?.mode ?? status.data?.defaultMode ?? "default";
+  const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data?.defaultModel ?? "", effort: status.data?.defaultEffort ?? "" });
   const onSaved = file?.onSaved;
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
 
   const submit = useMutation({
     mutationFn: async (text: string) => {
       const body = withContextBlock(text, file ? fileContext(file.path, file.content, mode) : "", await mentionContext(scope, text));
-      return id ? Assistant.send(id, body, mode) : Assistant.create(body, scope, mode);
+      return id ? Assistant.send(id, body, mode, pickedModel) : Assistant.create(body, scope, mode, pickedModel);
     },
     onSuccess: (next) => {
       setPrompt("");
@@ -168,7 +172,7 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
           />
           <div className="flex items-center justify-between gap-2 px-1 pt-1">
             <Select aria-label={intl.formatMessage(MESSAGES.mode)} selectedKey={mode} isDisabled={!ready} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
-              <Select.Trigger className={cn("inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
+              <Select.Trigger data-chip className={cn("inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
                 <ShieldCheck className="h-3 w-3" />
                 <Select.Value />
                 <Select.Indicator className="h-3 w-3" />
@@ -181,6 +185,7 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
                 </ListBox>
               </Select.Popover>
             </Select>
+            <ModelPicker value={model} onChange={setPickedModel} isDisabled={!ready} className="mr-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs" />
             {running ? (
               <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={() => stop.mutate()}>
                 <Square className="h-4 w-4" />

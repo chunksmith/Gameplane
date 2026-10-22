@@ -394,6 +394,8 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	var body struct {
 		Prompt string `json:"prompt"`
 		Mode   string `json:"mode"`
+		Model  string `json:"model"`
+		Effort string `json:"effort"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
@@ -401,7 +403,8 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	}
 	prompt := strings.TrimSpace(body.Prompt)
 	conv.Mode = cmp.Or(body.Mode, conv.Mode)
-	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckMode(conv.Mode)); err != nil {
+	conv.Model, conv.Effort = cmp.Or(body.Model, conv.Model), cmp.Or(body.Effort, conv.Effort)
+	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode)); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -413,7 +416,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.store.DB.ExecContext(req.Context(), `UPDATE ai_conversations SET permission_mode = ? WHERE id = ?`, conv.Mode, conv.ID); err != nil {
+	if _, err := h.store.DB.ExecContext(req.Context(), `UPDATE ai_conversations SET permission_mode = ?, model = ?, effort = ? WHERE id = ?`, conv.Mode, conv.Model, conv.Effort, conv.ID); err != nil {
 		h.settle(req.Context(), conv.ID, runID, aiFailed, "Could not save the permission mode.")
 		httperr.Write(w, req, err)
 		return

@@ -506,6 +506,20 @@ input:-webkit-autofill:focus {
   color: var(--field-foreground);
 }
 
+.select__trigger[data-chip] {
+  min-height: 0;
+  padding: revert-layer;
+  font-size: revert-layer;
+  background-color: revert-layer;
+  border: 0;
+  border-radius: revert-layer;
+  color: revert-layer;
+}
+
+.select__trigger[data-chip] .select__value {
+  font-size: inherit;
+}
+
 .dropdown__popover {
   border-radius: 8px;
 }

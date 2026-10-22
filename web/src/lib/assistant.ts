@@ -18,6 +18,23 @@ export const ASSISTANT_EFFORTS: ReadonlyArray<{ id: string; label: string }> = [
   { id: "max", label: "Max" },
 ];
 
+const PICK_MESSAGES = defineMessages({
+  opus: { id: "web.lib.assistant.pick_opus", defaultMessage: "Most capable · {effort} effort", description: "Assistant model picker: line under Opus in the model menu; {effort} is the fixed effort level such as medium or high; keep it short" },
+  sonnet: { id: "web.lib.assistant.pick_sonnet", defaultMessage: "Balanced · {effort} effort", description: "Assistant model picker: line under Sonnet in the model menu; {effort} is the fixed effort level such as medium or high; keep it short" },
+  haiku: { id: "web.lib.assistant.pick_haiku", defaultMessage: "Fastest · {effort} effort", description: "Assistant model picker: line under Haiku in the model menu; {effort} is the fixed effort level such as medium or high; keep it short" },
+});
+
+export interface AssistantPick {
+  model: string;
+  effort: string;
+}
+
+export const ASSISTANT_PICKS: ReadonlyArray<AssistantPick & { label: string; hint: MessageDescriptor }> = [
+  { model: "claude-opus-5-5", effort: "medium", label: "Opus 5.5", hint: PICK_MESSAGES.opus },
+  { model: "claude-sonnet-5-5", effort: "high", label: "Sonnet 5.5", hint: PICK_MESSAGES.sonnet },
+  { model: "claude-haiku-5-5", effort: "medium", label: "Haiku 5.5", hint: PICK_MESSAGES.haiku },
+];
+
 export type AssistantMode = "default" | "auto" | "bypassPermissions";
 
 const MODE_MESSAGES = defineMessages({
@@ -123,10 +140,10 @@ export const Assistant = {
   status: () => api<AssistantStatus>("/ai/status"),
   list: (scope: AssistantScope, all: boolean) => api<AssistantConversation[]>(`/ai/conversations${scopeQuery(scope, all)}`),
   get: (id: string) => api<AssistantDetail>(conversationPath(id)),
-  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode) =>
-    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode } }),
-  send: (id: string, prompt: string, mode?: AssistantMode) =>
-    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode } }),
+  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick) =>
+    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick } }),
+  send: (id: string, prompt: string, mode?: AssistantMode, pick?: AssistantPick) =>
+    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick } }),
   decide: (id: string, approve: boolean) =>
     api<AssistantConversation>(conversationPath(id, "/approval"), { method: "POST", body: { approve } }),
   cancel: (id: string) => api<void>(conversationPath(id, "/cancel"), { method: "POST" }),
