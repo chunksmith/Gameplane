@@ -31,9 +31,9 @@ func TestTurnstileMiddleware(t *testing.T) {
 		{"bad", http.StatusForbidden},
 		{"", http.StatusForbidden},
 	} {
-		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", nil)
 		if tc.token != "" {
-			req.Header.Set(TurnstileHeader, tc.token)
+			req.Header.Set(turnstileHeader, tc.token)
 		}
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)

@@ -14,9 +14,10 @@ import (
 
 const (
 	turnstileVerifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
-	TurnstileHeader    = "CF-Turnstile-Response"
+	turnstileHeader    = "CF-Turnstile-Response"
 )
 
+// Turnstile verifies Cloudflare Turnstile tokens on the password login.
 type Turnstile struct {
 	SiteKey   string
 	secret    string
@@ -24,6 +25,7 @@ type Turnstile struct {
 	client    *http.Client
 }
 
+// NewTurnstile returns nil, which disables the check, unless both keys are set.
 func NewTurnstile(siteKey, secret string) *Turnstile {
 	if siteKey == "" || secret == "" {
 		return nil
@@ -36,12 +38,13 @@ func NewTurnstile(siteKey, secret string) *Turnstile {
 	}
 }
 
+// Middleware rejects requests without a token Cloudflare accepts; a nil Turnstile passes everything through.
 func (t *Turnstile) Middleware(next http.Handler) http.Handler {
 	if t == nil {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !t.verify(r.Context(), r.Header.Get(TurnstileHeader)) {
+		if !t.verify(r.Context(), r.Header.Get(turnstileHeader)) {
 			httperr.WriteMessage(w, r, messages.New("server.auth.captcha_failed", nil))
 			return
 		}
