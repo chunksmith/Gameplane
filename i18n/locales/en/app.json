@@ -655,6 +655,10 @@
     "defaultMessage": "already exists",
     "description": "API error when creating a resource whose name is already taken."
   },
+  "server.auth.captcha_failed": {
+    "defaultMessage": "human verification failed",
+    "description": "Login error when the Cloudflare Turnstile check on the sign-in form is missing or rejected."
+  },
   "server.auth.csrf_mismatch": {
     "defaultMessage": "csrf mismatch",
     "description": "API error from the session layer (sessions.go:Authenticate)."
@@ -7831,21 +7835,13 @@
     "defaultMessage": "Your game servers and resources across authorized locations.",
     "description": "Dashboard: subtitle under the page title saying the page shows game servers and resources in the locations the user may access"
   },
-  "web.routes.login.agpl_3_0": {
-    "defaultMessage": "AGPL-3.0",
-    "description": "Login: small badge above the side panel headline showing the license name; AGPL-3.0 is a technical term, usually left untranslated; keep it short"
-  },
   "web.routes.login.agpl_3_0_licensed": {
     "defaultMessage": "AGPL-3.0 licensed",
     "description": "Login: footer line below the sign-in form stating the license; AGPL-3.0 is the license name, a technical term usually left untranslated"
   },
-  "web.routes.login.an_open_source_alternative_to": {
-    "defaultMessage": "An open-source alternative to proprietary game panels — CRDs, Operators, and StatefulSets all the way down.",
-    "description": "Login: paragraph under the side panel headline describing the product; CRDs, Operators and StatefulSets are technical terms, usually left untranslated"
-  },
-  "web.routes.login.backups_auto_restart_rolling_upgrades": {
-    "defaultMessage": "Backups, auto-restart, rolling upgrades, RBAC. Production-grade defaults.",
-    "description": "Login: feature point on the side panel listing backups, auto-restart, rolling upgrades and RBAC as production-ready defaults; RBAC is a technical term, usually left untranslated"
+  "web.routes.login.captcha_failed": {
+    "defaultMessage": "Human verification failed. Please try again.",
+    "description": "Login: error shown when the Cloudflare Turnstile check on the sign-in form is rejected or expired"
   },
   "web.routes.login.contact_your_administrator_to_reset": {
     "defaultMessage": "Contact your administrator to reset your password.",
@@ -7855,33 +7851,17 @@
     "defaultMessage": "Continue with {label}",
     "description": "Login: sentence with label in Button"
   },
-  "web.routes.login.deploy_any_game_minecraft_valheim": {
-    "defaultMessage": "Deploy any game. Minecraft, Valheim, Factorio, Palworld, ARK, CS2, Terraria, and more.",
-    "description": "Login: first feature point on the side panel saying any game can be deployed; the game names are product names, usually kept as is"
-  },
   "web.routes.login.email_or_username": {
     "defaultMessage": "Email or username",
     "description": "Login: label of the username field on the sign-in form; the field accepts an email address or a username"
   },
-  "web.routes.login.forgot": {
-    "defaultMessage": "Forgot?",
-    "description": "Login: small button beside the password label that shows the password-reset hint; keep it short"
-  },
-  "web.routes.login.game_server_control_panel": {
-    "defaultMessage": "game server control panel",
-    "description": "Login: tagline under the product name next to the logo on the sign-in page"
-  },
-  "web.routes.login.game_server_hosting": {
-    "defaultMessage": "game server hosting.",
-    "description": "Login: second line of the large headline on the side panel, completing the phrase that starts with the first line"
+  "web.routes.login.forgot_password": {
+    "defaultMessage": "Forgot password?",
+    "description": "Login: small link beside the password label that shows the password-reset hint; keep it short"
   },
   "web.routes.login.gameplane": {
     "defaultMessage": "gameplane",
     "description": "Login: product name shown next to the logo at the top of the sign-in page; a brand name, usually kept as is"
-  },
-  "web.routes.login.gitops_friendly": {
-    "defaultMessage": "GitOps-friendly.",
-    "description": "Login: opening words of the last feature point on the side panel; GitOps is a technical term, usually left untranslated; a command sample and closing words follow"
   },
   "web.routes.login.hide_password": {
     "defaultMessage": "Hide password",
@@ -7891,17 +7871,9 @@
     "defaultMessage": "Invalid credentials",
     "description": "Login: error shown when the username or password is rejected; deliberately generic"
   },
-  "web.routes.login.just_works": {
-    "defaultMessage": "just works.",
-    "description": "Login: closing words after the command sample in the last feature point on the side panel"
-  },
-  "web.routes.login.kubectl_get_gameservers": {
-    "defaultMessage": "kubectl get gameservers",
-    "description": "Login: command sample shown in code style inside the last feature point; kubectl is a technical term, usually left untranslated"
-  },
-  "web.routes.login.kubernetes_native": {
-    "defaultMessage": "Kubernetes-native",
-    "description": "Login: first line of the large headline on the side panel of the sign-in page; Kubernetes-native is a technical term, usually left untranslated"
+  "web.routes.login.need_access": {
+    "defaultMessage": "Need access? Ask your administrator.",
+    "description": "Login: footer hint telling people without an account to ask an administrator"
   },
   "web.routes.login.network_error": {
     "defaultMessage": "Network error",
@@ -7915,29 +7887,29 @@
     "defaultMessage": "Password",
     "description": "Login: label of the password field on the sign-in form"
   },
-  "web.routes.login.scale_from_single_node_k3s_to_multi": {
-    "defaultMessage": "Scale from single-node k3s to multi-node bare metal or cloud.",
-    "description": "Login: feature point on the side panel about scaling from a single k3s node to multi-node bare metal or cloud; k3s is a technical term, usually left untranslated"
-  },
   "web.routes.login.show_password": {
     "defaultMessage": "Show password",
     "description": "Login: aria-label of the button that reveals the password"
   },
   "web.routes.login.sign_in": {
     "defaultMessage": "Sign in",
-    "description": "Login: main heading of the sign-in form"
-  },
-  "web.routes.login.sign_in_2": {
-    "defaultMessage": "Sign in →",
     "description": "Login: main submit button of the sign-in form; a spinner shows while the sign-in runs; keep it short"
   },
-  "web.routes.login.sign_in_with_safe_mode_custom_styling": {
-    "defaultMessage": "Sign in with safe mode (custom styling disabled)",
+  "web.routes.login.sign_in_to_manage": {
+    "defaultMessage": "Sign in to manage your game servers.",
+    "description": "Login: line under the sign-in heading explaining what signing in is for"
+  },
+  "web.routes.login.sign_in_with_safe_mode": {
+    "defaultMessage": "Sign in with safe mode",
     "description": "Login: link below the sign-in form that signs in with safe mode, which turns off custom styling"
   },
-  "web.routes.login.welcome_to_gameplane": {
-    "defaultMessage": "Welcome to Gameplane.",
-    "description": "Login: short line under the sign-in heading that greets the user"
+  "web.routes.login.trouble_with_custom_styling": {
+    "defaultMessage": "Trouble with custom styling?",
+    "description": "Login: muted lead-in before the safe-mode sign-in link below the form"
+  },
+  "web.routes.login.welcome_back": {
+    "defaultMessage": "Welcome back",
+    "description": "Login: main heading of the sign-in card"
   },
   "web.routes.modules.all_categories": {
     "defaultMessage": "All categories",

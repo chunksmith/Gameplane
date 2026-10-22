@@ -474,6 +474,17 @@ spec:
                   name: {{ $steamKey.name }}
                   key:  {{ $steamKey.key | default "api-key" }}
             {{- end }}
+            {{- $turnstile := .Values.api.turnstile | default dict }}
+            {{- $turnstileSecret := $turnstile.secretKeySecretRef | default dict }}
+            {{- if and $turnstile.siteKey $turnstileSecret.name }}
+            - name: GAMEPLANE_TURNSTILE_SITE_KEY
+              value: {{ $turnstile.siteKey | quote }}
+            - name: GAMEPLANE_TURNSTILE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $turnstileSecret.name }}
+                  key:  {{ $turnstileSecret.key | default "secret-key" }}
+            {{- end }}
             {{- $steamCache := $steam.cache | default dict }}
             {{- with $steamCache.maxEntries }}
             - name: GAMEPLANE_STEAM_CACHE_MAX_ENTRIES
