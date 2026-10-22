@@ -415,7 +415,6 @@ func main() {
 		handlers.MountModulesWithRegistry(p, reg, cfg.namespace)
 		handlers.MountRegistrySecrets(p, k8s, cfg.namespace)
 		handlers.MountAISecret(p, k8s, cfg.namespace)
-		handlers.MountAILinearSecret(p, k8s, cfg.namespace)
 		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.AILinearKeyReader(k8s, cfg.namespace))
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over

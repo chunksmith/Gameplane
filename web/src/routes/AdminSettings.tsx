@@ -1378,13 +1378,13 @@ function LinearSettings({ draft, update, stageSecret }: { draft: AICfg; update: 
           <div className="text-sm font-semibold">{intl.formatMessage({ id: "web.routes.admin_settings.linear", defaultMessage: "Linear", description: "Admin settings: title of the Linear block in the AI assistant card; a product name, usually left untranslated" })}</div>
           <div className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.admin_settings.linear_subtitle", defaultMessage: "Lets the assistant read and update Linear through Linear's MCP server. Users type @linear to ask about the workspace or attach a single issue.", description: "Admin settings: subtitle of the Linear block; explains that the assistant reaches Linear over its MCP server and users type @linear" })}</div>
         </div>
-        <span className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs", draft.linearKeySet ? "bg-success/15 text-success" : "bg-muted/15 text-muted")}>
+        {draft.linearEnabled && <span className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs", draft.linearKeySet ? "bg-success/15 text-success" : "bg-muted/15 text-muted")}>
           <span className="h-1.5 w-1.5 rounded-full bg-current" />
           {draft.linearKeySet ? intl.formatMessage({ id: "web.routes.admin_settings.configured", defaultMessage: "Configured", description: "Admin settings: badge on a mod registry whose API key is set" }) : intl.formatMessage({ id: "web.routes.admin_settings.not_configured", defaultMessage: "Not configured", description: "Admin settings: badge on a mod registry whose API key is not set" })}
-        </span>
+        </span>}
       </div>
       {switchRow(toggles[0])}
-      <div className="flex flex-wrap items-center gap-3 py-3.5">
+      {draft.linearEnabled && <div className="flex flex-wrap items-center gap-3 py-3.5">
         <div className="min-w-48 flex-1">
           <div className="text-sm font-medium">{intl.formatMessage({ id: "web.routes.admin_settings.linear_api_key", defaultMessage: "Linear API key", description: "Admin settings: label of the Linear API key row" })}</div>
           <div className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.admin_settings.linear_api_key_hint", defaultMessage: "Create one in Linear under Settings → Security & access. Changes show up in Linear as the key's owner.", description: "Admin settings: hint under the Linear API key row; where to create the key and that changes appear under its owner's name" })}</div>
@@ -1408,8 +1408,8 @@ function LinearSettings({ draft, update, stageSecret }: { draft: AICfg; update: 
             </div>
           </div>
         )}
-      </div>
-      {toggles.slice(1).map(switchRow)}
+      </div>}
+      {draft.linearEnabled && toggles.slice(1).map(switchRow)}
     </div>
   );
 

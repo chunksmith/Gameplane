@@ -69,10 +69,10 @@ type aiSettings struct {
 	DefaultMode     string `json:"defaultMode"`
 	APIKeySet       bool   `json:"apiKeySet"`
 	SubscriptionSet bool   `json:"subscriptionSet,omitempty"`
-	LinearEnabled   bool   `json:"linearEnabled"`
-	LinearKeySet    bool   `json:"linearKeySet"`
-	LinearComment   bool   `json:"linearComment"`
-	LinearWrite     bool   `json:"linearWrite"`
+	LinearEnabled   bool   `json:"linearEnabled,omitempty"`
+	LinearKeySet    bool   `json:"linearKeySet,omitempty"`
+	LinearComment   bool   `json:"linearComment,omitempty"`
+	LinearWrite     bool   `json:"linearWrite,omitempty"`
 }
 
 type aiConversation struct {
@@ -124,7 +124,7 @@ func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(contex
 	(&aiHandler{store: store, router: router, key: key, linearKey: linearKey, dialLinear: dialLinear, send: sendClaude, spawn: spawnClaude}).mount(r)
 }
 
-// MountAISecret wires the admin routes that store and remove the assistant's Claude credential.
+// MountAISecret wires the admin routes that store and remove the assistant's Claude credential and Linear API key.
 func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 	r.Put("/admin/ai/secret", func(w http.ResponseWriter, req *http.Request) {
 		var body struct {
@@ -158,6 +158,7 @@ func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mountAILinearSecret(r, k, controlNS)
 }
 
 // AIKeyReader returns a lookup of the assistant's Claude credential in its labelled Secret: the subscription token (true) when one is set, otherwise the API key; the lookup yields "" when neither is set.

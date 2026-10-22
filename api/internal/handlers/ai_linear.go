@@ -46,8 +46,7 @@ func (b aiBearer) RoundTrip(req *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(req)
 }
 
-// MountAILinearSecret wires the admin routes that store and remove the assistant's Linear API key.
-func MountAILinearSecret(r chi.Router, k *kube.Client, controlNS string) {
+func mountAILinearSecret(r chi.Router, k *kube.Client, controlNS string) {
 	r.Put("/admin/ai/linear/secret", func(w http.ResponseWriter, req *http.Request) {
 		var body struct {
 			APIKey string `json:"apiKey"`
