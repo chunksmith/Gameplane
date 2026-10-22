@@ -1395,6 +1395,14 @@
     "defaultMessage": "text",
     "description": "Markdown code block: label above a code block that has no language, shown in uppercase; keep it short"
   },
+  "web.components.assistant.model_picker.label": {
+    "defaultMessage": "Model",
+    "description": "Assistant model picker: accessible name of the dropdown above the message box that picks the Claude model; keep it short"
+  },
+  "web.components.assistant.model_picker.value": {
+    "defaultMessage": "{model} · {effort}",
+    "description": "Assistant model picker: text of the dropdown button; {model} is the model name and {effort} its fixed effort level such as medium or high"
+  },
   "web.components.backups.active_backups.bytes_done_of_total": {
     "defaultMessage": "{done} of {total}",
     "description": "Active backups: progress of a running backup as copied size out of total size; {done} and {total} are formatted sizes"
@@ -4586,6 +4594,18 @@
   "web.lib.assistant.mode_default": {
     "defaultMessage": "Ask permissions",
     "description": "Assistant permission mode that pauses deletes, data wipes and restores until the user approves them; keep it short"
+  },
+  "web.lib.assistant.pick_haiku": {
+    "defaultMessage": "Fastest · {effort} effort",
+    "description": "Assistant model picker: line under Haiku in the model menu; {effort} is the fixed effort level such as medium or high; keep it short"
+  },
+  "web.lib.assistant.pick_opus": {
+    "defaultMessage": "Most capable · {effort} effort",
+    "description": "Assistant model picker: line under Opus in the model menu; {effort} is the fixed effort level such as medium or high; keep it short"
+  },
+  "web.lib.assistant.pick_sonnet": {
+    "defaultMessage": "Balanced · {effort} effort",
+    "description": "Assistant model picker: line under Sonnet in the model menu; {effort} is the fixed effort level such as medium or high; keep it short"
   },
   "web.lib.backup_groups.daily": {
     "defaultMessage": "Daily at {time}",

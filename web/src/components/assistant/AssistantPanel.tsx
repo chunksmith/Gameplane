@@ -26,6 +26,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { ModelPicker } from "@/components/assistant/ModelPicker";
 import { can, useMe } from "@/lib/auth";
 import { cn, formatRelative } from "@/lib/utils";
 import {
@@ -46,6 +47,7 @@ import {
   type AssistantDetail,
   type AssistantMessage,
   type AssistantMode,
+  type AssistantPick,
   type AssistantScope,
 } from "@/lib/assistant";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
@@ -145,6 +147,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
+  const [pickedModel, setPickedModel] = useState<AssistantPick>();
   const ready = !!status.data?.enabled && status.data.configured;
 
   const list = useQuery({
@@ -175,7 +178,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const submit = useMutation({
     mutationFn: async (text: string) => {
       const body = withContextBlock(text, await mentionContext(scope, text));
-      return selected ? Assistant.send(selected, body, pickedMode) : Assistant.create(body, scope, pickedMode);
+      return selected ? Assistant.send(selected, body, pickedMode, pickedModel) : Assistant.create(body, scope, pickedMode, pickedModel);
     },
     onSuccess: (conv) => {
       setPrompt("");
@@ -203,10 +206,12 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const starters = scope.server ? serverStarters : fleetStarters;
   const pending = detail.data?.pending ?? [];
   const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
+  const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data.defaultModel, effort: status.data.defaultEffort });
   const modeLabel = intl.formatMessage({ id: "web.components.assistant.assistant_panel.permission_mode", defaultMessage: "Permission mode", description: "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short" });
   const open = (id: string | null) => {
     setSelected(id);
     setPickedMode(undefined);
+    setPickedModel(undefined);
     setListOpen(false);
   };
   const send = () => {
@@ -375,7 +380,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             {scope.server && <span className={chipClass}><Server className="h-3 w-3" />{scope.server}</span>}
             <span className={chipClass}><Lock className="h-3 w-3" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.acts_with_your_permissions", defaultMessage: "Acts with your permissions", description: "Assistant panel: chip above the message box reminding that the assistant acts with the user's own permissions; keep it short" })}</span>
             <Select aria-label={modeLabel} selectedKey={mode} isDisabled={!own} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
-              <Select.Trigger className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
+              <Select.Trigger data-chip className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
                 <ShieldCheck className="h-3 w-3" />
                 <Select.Value />
                 <Select.Indicator className="h-3 w-3" />
@@ -388,6 +393,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 </ListBox>
               </Select.Popover>
             </Select>
+            <ModelPicker value={model} onChange={setPickedModel} isDisabled={!own} className={chipClass} />
           </div>
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
             <MentionTextArea
