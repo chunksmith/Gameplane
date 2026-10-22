@@ -1207,6 +1207,10 @@
     "defaultMessage": "Decline",
     "description": "Assistant panel: button that rejects the actions waiting for approval; keep it short"
   },
+  "web.components.assistant.assistant_panel.enter_sends_mentions": {
+    "defaultMessage": "Enter sends · Shift + Enter adds a line · @ adds a file or folder",
+    "description": "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context"
+  },
   "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line": {
     "defaultMessage": "Enter sends · Shift + Enter adds a line",
     "description": "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do"
@@ -9339,6 +9343,10 @@
     "defaultMessage": "Ask Claude to explain or change {file}.",
     "description": "Files tab: hint in the empty Claude chat panel beside the file editor; {file} is the file name"
   },
+  "web.routes.tabs.file_assistant.empty_folder": {
+    "defaultMessage": "Ask Claude anything about this server. Type @ to add a file or folder as context.",
+    "description": "Files tab: hint in the empty Claude chat panel opened from a folder, with no file as context"
+  },
   "web.routes.tabs.file_assistant.message": {
     "defaultMessage": "Message Claude",
     "description": "Files tab: accessible name of the message box in the Claude chat panel; keep it short"
@@ -9354,6 +9362,10 @@
   "web.routes.tabs.file_assistant.placeholder": {
     "defaultMessage": "Ask Claude about this file…",
     "description": "Files tab: placeholder of the message box in the Claude chat panel beside the file editor"
+  },
+  "web.routes.tabs.file_assistant.placeholder_folder": {
+    "defaultMessage": "Ask Claude… type @ to add a file or folder",
+    "description": "Files tab: placeholder of the message box in the Claude chat panel opened from a folder, with no file as context; typing @ picks a file or folder to add"
   },
   "web.routes.tabs.file_assistant.send": {
     "defaultMessage": "Send",
@@ -9385,7 +9397,7 @@
   },
   "web.routes.tabs.files.ask_claude": {
     "defaultMessage": "Ask Claude",
-    "description": "Files tab: icon-only button beside the List and Tree switch that opens the Claude chat next to the file editor; read by screen readers; keep it short"
+    "description": "Files tab: icon-only button beside the List and Tree switch that opens the Claude chat next to the open file or folder; read by screen readers; keep it short"
   },
   "web.routes.tabs.files.calculating_size": {
     "defaultMessage": "Calculating size",

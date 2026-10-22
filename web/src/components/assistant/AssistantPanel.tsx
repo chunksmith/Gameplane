@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Input, ListBox, ListBoxItem, Select, TextArea } from "@heroui/react";
+import { Button, Card, Input, ListBox, ListBoxItem, Select } from "@heroui/react";
 import {
   Activity,
   Archive,
@@ -25,6 +25,7 @@ import {
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { Markdown } from "@/components/assistant/Markdown";
+import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
 import { can, useMe } from "@/lib/auth";
 import { cn, formatRelative } from "@/lib/utils";
 import {
@@ -33,11 +34,13 @@ import {
   blocksOf,
   callLabel,
   modelLabel,
+  requestOf,
   resultStatus,
   resultText,
   scopeQuery,
   useAssistantStatus,
   useAssistantStream,
+  withContextBlock,
   type AssistantBlock,
   type AssistantConversation,
   type AssistantDetail,
@@ -170,7 +173,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
   const submit = useMutation({
-    mutationFn: (text: string) => (selected ? Assistant.send(selected, text, pickedMode) : Assistant.create(text, scope, pickedMode)),
+    mutationFn: async (text: string) => {
+      const body = withContextBlock(text, await mentionContext(scope, text));
+      return selected ? Assistant.send(selected, body, pickedMode) : Assistant.create(body, scope, pickedMode);
+    },
     onSuccess: (conv) => {
       setPrompt("");
       setSelected(conv.id);
@@ -384,7 +390,8 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             </Select>
           </div>
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
-            <TextArea
+            <MentionTextArea
+              scope={scope}
               aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.message_the_assistant", defaultMessage: "Message the assistant", description: "Assistant panel: accessible name of the message box where the user types a prompt" })}
               className="field-sizing-content max-h-40 min-h-[2.5rem] w-full resize-none border-0 bg-transparent px-2 py-1 shadow-none focus:ring-0"
               rows={2}
@@ -395,16 +402,13 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.placeholder_server_example", defaultMessage: "e.g. \"Set max-players to 50 in server.properties\"", description: "Assistant panel: example prompt shown as the placeholder of the message box when the assistant is scoped to one server; keep the example command as it is" })
                   : intl.formatMessage({ id: "web.components.assistant.assistant_panel.placeholder_lobby_example", defaultMessage: "e.g. \"On lobby, change the MOTD\"", description: "Assistant panel: example prompt shown as the placeholder of the message box when the assistant covers all servers; keep the example as it is" })
                 : intl.formatMessage({ id: "web.components.assistant.assistant_panel.read_only_other_user", defaultMessage: "Read-only: this conversation belongs to another user", description: "Assistant panel: placeholder of the message box when the conversation belongs to another user, so it cannot be changed" })}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
+              onValueChange={setPrompt}
+              onEnter={send}
             />
             <div className="flex items-center gap-2 px-1 pt-1">
-              <p className="flex-1 text-[11px] text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
+              <p className="flex-1 text-[11px] text-muted">{scope.server
+                ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file or folder", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context" })
+                : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
               {running && own ? (
                 <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={() => stop.mutate()}><Square className="h-4 w-4" /></Button>
               ) : (
@@ -455,7 +459,7 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
         const turns = turnsOf(message);
         if (turns.length === 0) return null;
         if (message.role === "user") {
-          const text = turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n");
+          const text = requestOf(turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n"));
           return text ? (
             <li key={i} className="flex justify-end">
               <p className="w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-sm text-accent-foreground shadow-sm">{text}</p>
