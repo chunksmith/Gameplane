@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
 import { ModelPicker } from "@/components/assistant/ModelPicker";
@@ -32,8 +33,12 @@ import { cn, formatRelative } from "@/lib/utils";
 import {
   ASSISTANT_MODES,
   Assistant,
+  LINEAR_METHOD,
   blocksOf,
   callLabel,
+  linearArgument,
+  linearMentions,
+  linearTool,
   modelLabel,
   requestOf,
   resultStatus,
@@ -362,7 +367,14 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
               <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                 {pending.map((p) => (
                   <li key={p.id}>
-                    <code className="rounded-lg bg-foreground/10 px-2 py-1 font-mono text-xs">{p.method} {p.path}</code>
+                    {p.method === LINEAR_METHOD ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs">
+                        <LinearLogo className="h-3.5 w-3.5" />
+                        <code className="font-mono">{p.path}</code>
+                      </span>
+                    ) : (
+                      <code className="rounded-lg bg-foreground/10 px-2 py-1 font-mono text-xs">{p.method} {p.path}</code>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -398,6 +410,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
             <MentionTextArea
               scope={scope}
+              linear={!!status.data.linear}
               aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.message_the_assistant", defaultMessage: "Message the assistant", description: "Assistant panel: accessible name of the message box where the user types a prompt" })}
               className="field-sizing-content max-h-40 min-h-[2.5rem] w-full resize-none border-0 bg-transparent px-2 py-1 shadow-none focus:ring-0"
               rows={2}
@@ -413,8 +426,12 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             />
             <div className="flex items-center gap-2 px-1 pt-1">
               <p className="flex-1 text-[11px] text-muted">{scope.server
-                ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file or folder", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context" })
-                : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
+                ? status.data.linear
+                  ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file, a folder or Linear", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file, a folder or the Linear workspace to give as context" })
+                  : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file or folder", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context" })
+                : status.data.linear
+                  ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @linear adds Linear", description: "Assistant panel: hint under the message box explaining the Enter and Shift + Enter keys and that typing @linear gives the assistant the Linear workspace or one of its issues" })
+                  : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
               {running && own ? (
                 <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={() => stop.mutate()}><Square className="h-4 w-4" /></Button>
               ) : (
@@ -467,8 +484,19 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
         if (message.role === "user") {
           const text = requestOf(turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n"));
           return text ? (
-            <li key={i} className="flex justify-end">
+            <li key={i} className="flex flex-col items-end gap-1.5">
               <p className="w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-sm text-accent-foreground shadow-sm">{text}</p>
+              {linearMentions(text).map((issue) => (
+                <span key={issue} className="flex max-w-[85%] items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs">
+                  <LinearLogo className="h-5 w-5" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{issue || intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_workspace", defaultMessage: "Linear workspace", description: "Assistant panel: card under a user message that mentioned @linear, meaning the whole Linear workspace was given as context; keep it short" })}</span>
+                    <span className="block text-[11px] text-muted">{issue
+                      ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_issue_hint", defaultMessage: "Linear issue", description: "Assistant panel: second line of the card under a user message that mentioned one Linear issue; keep it short" })
+                      : intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_workspace_hint", defaultMessage: "Issues, projects and cycles", description: "Assistant panel: second line of the Linear workspace card under a user message; lists what the assistant can read; keep it short" })}</span>
+                  </span>
+                </span>
+              ))}
             </li>
           ) : null;
         }
@@ -516,8 +544,9 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
 const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean }) {
   const intl = useOptionalIntl();
   const text = result ? resultText(result) : "";
-  const body = block.input?.body;
-  const label = callLabel(block);
+  const tool = linearTool(block);
+  const body = tool ? block.input : block.input?.body;
+  const label = tool ? `${tool} ${linearArgument(block)}`.trim() : callLabel(block);
   const [method, ...rest] = label.split(" ");
   let badge = <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.not_run", defaultMessage: "not run", description: "Assistant panel: badge on a tool call that has not produced a result yet; keep it short" })}</span>;
   if (result) {
@@ -538,8 +567,19 @@ const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { b
       <details className="group overflow-hidden rounded-xl border border-border bg-surface-secondary/60 text-xs transition-colors hover:border-border/80">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2">
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted transition-transform group-open:rotate-90" />
-          <span aria-hidden="true" className={cn("shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold", methodTone[method] ?? "bg-foreground/5 text-muted")}>{method}</span>
-          <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-muted">{rest.join(" ")}</code>
+          {tool ? (
+            <>
+              <LinearLogo />
+              <span aria-hidden="true" className="shrink-0 font-medium text-foreground">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear", defaultMessage: "Linear", description: "Assistant panel: name shown on a tool call that went to Linear; a product name, usually left untranslated" })}</span>
+              <span aria-hidden="true" className="shrink-0 text-muted">{tool}</span>
+              <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-accent">{linearArgument(block)}</code>
+            </>
+          ) : (
+            <>
+              <span aria-hidden="true" className={cn("shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold", methodTone[method] ?? "bg-foreground/5 text-muted")}>{method}</span>
+              <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-muted">{rest.join(" ")}</code>
+            </>
+          )}
           <span className="sr-only">{label}</span>
           {badge}
         </summary>

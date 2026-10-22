@@ -1211,9 +1211,17 @@
     "defaultMessage": "Decline",
     "description": "Assistant panel: button that rejects the actions waiting for approval; keep it short"
   },
+  "web.components.assistant.assistant_panel.enter_sends_linear": {
+    "defaultMessage": "Enter sends · Shift + Enter adds a line · @linear adds Linear",
+    "description": "Assistant panel: hint under the message box explaining the Enter and Shift + Enter keys and that typing @linear gives the assistant the Linear workspace or one of its issues"
+  },
   "web.components.assistant.assistant_panel.enter_sends_mentions": {
     "defaultMessage": "Enter sends · Shift + Enter adds a line · @ adds a file or folder",
     "description": "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context"
+  },
+  "web.components.assistant.assistant_panel.enter_sends_mentions_linear": {
+    "defaultMessage": "Enter sends · Shift + Enter adds a line · @ adds a file, a folder or Linear",
+    "description": "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file, a folder or the Linear workspace to give as context"
   },
   "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line": {
     "defaultMessage": "Enter sends · Shift + Enter adds a line",
@@ -1230,6 +1238,22 @@
   "web.components.assistant.assistant_panel.i_can_read_and_change_server": {
     "defaultMessage": "I can read and change {server}'s files, plugins, players and backups — only what your own permissions allow.",
     "description": "Assistant panel: intro under the heading of the empty chat when the assistant is scoped to one server; {server} is the server name"
+  },
+  "web.components.assistant.assistant_panel.linear": {
+    "defaultMessage": "Linear",
+    "description": "Assistant panel: name shown on a tool call that went to Linear; a product name, usually left untranslated"
+  },
+  "web.components.assistant.assistant_panel.linear_issue_hint": {
+    "defaultMessage": "Linear issue",
+    "description": "Assistant panel: second line of the card under a user message that mentioned one Linear issue; keep it short"
+  },
+  "web.components.assistant.assistant_panel.linear_workspace": {
+    "defaultMessage": "Linear workspace",
+    "description": "Assistant panel: card under a user message that mentioned @linear, meaning the whole Linear workspace was given as context; keep it short"
+  },
+  "web.components.assistant.assistant_panel.linear_workspace_hint": {
+    "defaultMessage": "Issues, projects and cycles",
+    "description": "Assistant panel: second line of the Linear workspace card under a user message; lists what the assistant can read; keep it short"
   },
   "web.components.assistant.assistant_panel.list_all_my_servers": {
     "defaultMessage": "List all my servers",
@@ -1394,6 +1418,22 @@
   "web.components.assistant.markdown.plain_text": {
     "defaultMessage": "text",
     "description": "Markdown code block: label above a code block that has no language, shown in uppercase; keep it short"
+  },
+  "web.components.assistant.mentions.linear": {
+    "defaultMessage": "Linear",
+    "description": "Assistant mention menu: name of the Linear workspace option; a product name, usually left untranslated"
+  },
+  "web.components.assistant.mentions.linear_keys_hint": {
+    "defaultMessage": "↑↓ choose · Enter attaches · type an issue key such as ABC-12 after @linear",
+    "description": "Assistant mention menu: keyboard hint under the Linear options; ABC-12 is an example Linear issue key, keep it as it is"
+  },
+  "web.components.assistant.mentions.linear_workspace_hint": {
+    "defaultMessage": "Whole workspace · issues, projects, cycles",
+    "description": "Assistant mention menu: text after the Linear option explaining that it gives the assistant the whole Linear workspace"
+  },
+  "web.components.assistant.mentions.recent_issues": {
+    "defaultMessage": "Recent issues",
+    "description": "Assistant mention menu: heading above the recently updated Linear issues; keep it short"
   },
   "web.components.assistant.model_picker.label": {
     "defaultMessage": "Model",
@@ -5466,6 +5506,54 @@
   "web.routes.admin_settings.like": {
     "defaultMessage": "— like",
     "description": "Admin settings: the words for example in the scopes hint, introducing the example scope named groups"
+  },
+  "web.routes.admin_settings.linear": {
+    "defaultMessage": "Linear",
+    "description": "Admin settings: title of the Linear block in the AI assistant card; a product name, usually left untranslated"
+  },
+  "web.routes.admin_settings.linear_api_key": {
+    "defaultMessage": "Linear API key",
+    "description": "Admin settings: label of the Linear API key row"
+  },
+  "web.routes.admin_settings.linear_api_key_hint": {
+    "defaultMessage": "Create one in Linear under Settings → Security & access. Changes show up in Linear as the key's owner.",
+    "description": "Admin settings: hint under the Linear API key row; where to create the key and that changes appear under its owner's name"
+  },
+  "web.routes.admin_settings.linear_comment": {
+    "defaultMessage": "Post comments",
+    "description": "Admin settings: label of the switch that lets the assistant post comments on Linear issues"
+  },
+  "web.routes.admin_settings.linear_comment_hint": {
+    "defaultMessage": "The assistant asks the user first, unless the chat is in Bypass permissions.",
+    "description": "Admin settings: hint under the Linear comment switch; posting waits for the user's approval except in Bypass permissions mode"
+  },
+  "web.routes.admin_settings.linear_enable": {
+    "defaultMessage": "Enable Linear in the assistant",
+    "description": "Admin settings: label of the switch that gives the AI assistant access to Linear"
+  },
+  "web.routes.admin_settings.linear_enable_hint": {
+    "defaultMessage": "Adds @linear to the Assistant page and the server Assistant tab for every user.",
+    "description": "Admin settings: hint under the Linear switch; turning it on lets every user type @linear in the assistant"
+  },
+  "web.routes.admin_settings.linear_read": {
+    "defaultMessage": "Read issues, projects and comments",
+    "description": "Admin settings: label of the always-on Linear permission that lets the assistant read Linear"
+  },
+  "web.routes.admin_settings.linear_read_hint": {
+    "defaultMessage": "Always on while Linear is enabled.",
+    "description": "Admin settings: hint under the Linear read permission, which cannot be turned off"
+  },
+  "web.routes.admin_settings.linear_subtitle": {
+    "defaultMessage": "Lets the assistant read and update Linear through Linear's MCP server. Users type @linear to ask about the workspace or attach a single issue.",
+    "description": "Admin settings: subtitle of the Linear block; explains that the assistant reaches Linear over its MCP server and users type @linear"
+  },
+  "web.routes.admin_settings.linear_write": {
+    "defaultMessage": "Create and change issues",
+    "description": "Admin settings: label of the switch that lets the assistant create and change Linear issues"
+  },
+  "web.routes.admin_settings.linear_write_hint": {
+    "defaultMessage": "New issues, status, assignee and labels. Asks the user first, like comments.",
+    "description": "Admin settings: hint under the switch that lets the assistant create and change Linear issues"
   },
   "web.routes.admin_settings.loading_clusters": {
     "defaultMessage": "Loading clusters…",

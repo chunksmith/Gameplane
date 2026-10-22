@@ -25,6 +25,10 @@
 
 - Q: Should the assistant have permission modes like Claude Code? → A: Yes. Three modes: `default` (deletes, data wipes and restores wait for approval, as before), `auto` (Claude Code's auto mode: its classifier approves safe shell commands and blocks risky ones; panel approvals stay) and `bypassPermissions` (nothing waits for approval, the CLI never refuses a shell or `kubectl` command, and the model does not ask for confirmation). The admin picks the default; each user picks the mode per conversation in the composer and can change it with the next message. Settled.
 
+### Session 2026-10-23 (maintainer, in chat)
+
+- Q: Should the assistant reach Linear? → A: Yes, through Linear's MCP server, configured in Admin settings; typing `@linear` gives the assistant the whole workspace (so it can answer questions such as "how many issues are open?") and `@linear ABC-123` points at one issue. The Linear logo shows on the mention menu, attachment cards and tool calls. Figma frames approved: `Gameplane Dashboard` → `Assistant / Composer / Linear mention / *`, `Assistant / Thread / Linear * / *`, `Admin / Settings / Linear MCP card / *` (dark, light, mobile). Settled.
+
 ## Design
 
 ### Model access
@@ -58,6 +62,14 @@
 - The shell runs in the API container as the API user. The runtime image is `buildpack-deps:trixie-curl` (Debian trixie with curl and wget; Bash needs a shell; it was `distroless/cc`) with `kubectl` 1.37.1. `kubectl` uses the API's in-cluster ServiceAccount (`KUBERNETES_SERVICE_HOST`/`KUBERNETES_SERVICE_PORT` are passed to the CLI); local cluster only.
 - The API's games-namespace Role also grants `pods/exec` (get, create; revised 2026-10-17, maintainer in chat), so `kubectl exec` into game pods works without extra setup; it is no wider than the `pods/attach` the console already holds. The Helm value `api.ai.clusterRole` (empty by default) binds the named ClusterRole (for example `view`, `edit` or `cluster-admin`) to `gameplane-api` (ClusterRoleBinding `<release>-api-ai`); this widens the API pod itself.
 - Shell commands bypass the API router: RBAC, approvals, server pinning and the Gameplane audit log do not apply to them. They are kept in `ai_messages` with the rest of the conversation. The shell can read the API's data volume and every Secret the ServiceAccount can read, including the Claude credential (`gameplane-ai`), backup destination and auth-provider Secrets.
+
+### Linear
+
+- Config section `ai` adds `linearEnabled`, `linearKeySet`, `linearComment`, `linearWrite`. The admin's Linear API key lives in the labelled Secret `gameplane-ai-linear` (`gameplane.local/ai=true`, key `apiKey`) via `PUT /admin/ai/linear/secret {apiKey}` and `DELETE /admin/ai/linear/secret`. Changes made in Linear appear under the key's owner.
+- While Linear is enabled and its key is set, each run opens an MCP client session to `https://mcp.linear.app/mcp` (streamable HTTP, `Authorization: Bearer <key>`) and offers Linear's tools as `linear_<tool>`: on the API-key path as extra custom tools, in subscription mode through the local `gameplane` MCP endpoint (`mcp__gameplane__linear_<tool>` in `--allowedTools`), so the key never reaches the CLI. A failed connection leaves the run without Linear tools.
+- Tools named `get_*`, `list_*`, `search_*`, `extract_*` are reads and always offered; `save_comment` needs `linearComment`; every other tool needs `linearWrite`. Non-read calls follow the approval rule (`awaiting_approval`, pending entry `{method: "LINEAR", path: <tool>}`) except in `bypassPermissions`.
+- `GET /ai/status` adds `linear` (enabled and key set). `GET /ai/linear/issues` returns the 25 most recently updated issues `[{id, title, status, statusType}]` for the mention menu.
+- Web: the composer's `@` menu offers "Linear" (inserts `@linear `) and recent issues (`@linear ABC-123 `; typing an issue key after `@linear` filters them). User messages show a Linear card per mention; Linear tool calls show the logo, tool name and main argument.
 
 ### Records
 
