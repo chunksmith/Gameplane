@@ -22,6 +22,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
@@ -68,6 +69,10 @@ type aiSettings struct {
 	DefaultMode     string `json:"defaultMode"`
 	APIKeySet       bool   `json:"apiKeySet"`
 	SubscriptionSet bool   `json:"subscriptionSet,omitempty"`
+	LinearEnabled   bool   `json:"linearEnabled,omitempty"`
+	LinearKeySet    bool   `json:"linearKeySet,omitempty"`
+	LinearComment   bool   `json:"linearComment,omitempty"`
+	LinearWrite     bool   `json:"linearWrite,omitempty"`
 }
 
 type aiConversation struct {
@@ -98,26 +103,28 @@ type aiCreds struct {
 }
 
 type aiHandler struct {
-	store   *db.Store
-	router  http.Handler
-	key     func(context.Context) (string, bool)
-	send    func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
-	spawn   func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
-	mcpOnce sync.Once
-	mcpURL  string
-	mu      sync.Mutex
-	live    map[string]*aiLive
+	store      *db.Store
+	router     http.Handler
+	key        func(context.Context) (string, bool)
+	linearKey  func(context.Context) string
+	dialLinear func(context.Context, string) (*mcp.ClientSession, error)
+	send       func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
+	spawn      func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
+	mcpOnce    sync.Once
+	mcpURL     string
+	mu         sync.Mutex
+	live       map[string]*aiLive
 
 	streamMu sync.Mutex
 	streams  map[string]*aiStream
 }
 
 // MountAI wires the AI assistant routes; its tool calls replay through router with the caller's own session.
-func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool)) {
-	(&aiHandler{store: store, router: router, key: key, send: sendClaude, spawn: spawnClaude}).mount(r)
+func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool), linearKey func(context.Context) string) {
+	(&aiHandler{store: store, router: router, key: key, linearKey: linearKey, dialLinear: dialLinear, send: sendClaude, spawn: spawnClaude}).mount(r)
 }
 
-// MountAISecret wires the admin routes that store and remove the assistant's Claude credential.
+// MountAISecret wires the admin routes that store and remove the assistant's Claude credential and Linear API key.
 func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 	r.Put("/admin/ai/secret", func(w http.ResponseWriter, req *http.Request) {
 		var body struct {
@@ -151,6 +158,7 @@ func MountAISecret(r chi.Router, k *kube.Client, controlNS string) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mountAILinearSecret(r, k, controlNS)
 }
 
 // AIKeyReader returns a lookup of the assistant's Claude credential in its labelled Secret: the subscription token (true) when one is set, otherwise the API key; the lookup yields "" when neither is set.
@@ -177,6 +185,7 @@ func (h *aiHandler) mount(r chi.Router) {
 		slog.Warn("reset interrupted ai runs", "err", err)
 	}
 	r.Get("/ai/status", h.status)
+	r.Get("/ai/linear/issues", h.linearIssues)
 	r.Get("/ai/conversations", h.list)
 	r.Post("/ai/conversations", h.create)
 	r.Get("/ai/conversations/{id}", h.get)
@@ -263,6 +272,7 @@ func (h *aiHandler) status(w http.ResponseWriter, req *http.Request) {
 		"defaultModel":  s.DefaultModel,
 		"defaultEffort": s.DefaultEffort,
 		"defaultMode":   s.DefaultMode,
+		"linear":        s.linearOn(),
 	})
 }
 
@@ -378,8 +388,8 @@ func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
 		pending = append(pending, map[string]string{"id": aiPendingID(msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
 	} else if conv.Status == aiAwaiting {
 		for _, use := range aiToolUses(msgs) {
-			if use.input.needsApproval() {
-				pending = append(pending, map[string]string{"id": use.id, "method": strings.ToUpper(use.input.Method), "path": use.input.Path})
+			if use.needsApproval() {
+				pending = append(pending, map[string]string{"id": use.id, "method": use.method(), "path": use.target()})
 			}
 		}
 	}

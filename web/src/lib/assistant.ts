@@ -55,7 +55,18 @@ export interface AssistantStatus {
   defaultModel: string;
   defaultEffort: string;
   defaultMode: AssistantMode;
+  linear?: boolean;
 }
+
+export interface LinearIssue {
+  id: string;
+  title: string;
+  status: string;
+  statusType: string;
+}
+
+export const LINEAR_METHOD = "LINEAR";
+export const LINEAR_PREFIX = "linear_";
 
 export interface AssistantScope {
   server?: string;
@@ -88,7 +99,8 @@ export interface AssistantBlock {
   type: string;
   text?: string;
   id?: string;
-  input?: { method?: string; path?: string; query?: unknown; body?: unknown; command?: unknown };
+  name?: string;
+  input?: { method?: string; path?: string; query?: unknown; body?: unknown; command?: unknown; [key: string]: unknown };
   tool_use_id?: string;
   content?: string | Array<{ type: string; text?: string }>;
   is_error?: boolean;
@@ -147,13 +159,32 @@ export const Assistant = {
   decide: (id: string, approve: boolean) =>
     api<AssistantConversation>(conversationPath(id, "/approval"), { method: "POST", body: { approve } }),
   cancel: (id: string) => api<void>(conversationPath(id, "/cancel"), { method: "POST" }),
+  linearIssues: () => api<LinearIssue[]>("/ai/linear/issues"),
 };
 
 export const AssistantAdmin = {
   putSecret: (apiKey: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { apiKey } }),
   putToken: (oauthToken: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { oauthToken } }),
   deleteSecret: () => api<void>("/admin/ai/secret", { method: "DELETE" }),
+  putLinearKey: (apiKey: string) => api<{ name: string; keys: string[] }>("/admin/ai/linear/secret", { method: "PUT", body: { apiKey } }),
+  deleteLinearKey: () => api<void>("/admin/ai/linear/secret", { method: "DELETE" }),
 };
+
+export function linearTool(block: AssistantBlock): string {
+  return block.name?.startsWith(LINEAR_PREFIX) ? block.name.slice(LINEAR_PREFIX.length) : "";
+}
+
+export function linearArgument(block: AssistantBlock): string {
+  const input = block.input ?? {};
+  const value = input.id ?? input.issueId ?? input.query ?? input.team ?? input.project;
+  return typeof value === "string" ? value : "";
+}
+
+const LINEAR_MENTION = /(?:^|\s)@linear(?:\s+([A-Za-z][A-Za-z0-9]*-\d+))?(?=\s|$)/g;
+
+export function linearMentions(text: string): string[] {
+  return [...new Set([...text.matchAll(LINEAR_MENTION)].map((match) => match[1] ?? ""))];
+}
 
 export function useAssistantStatus() {
   return useQuery({ queryKey: ["ai", "status"], queryFn: Assistant.status, staleTime: 60_000 });

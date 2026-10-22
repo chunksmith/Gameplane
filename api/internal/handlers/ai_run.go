@@ -60,6 +60,8 @@ type aiToolInput struct {
 
 type aiToolUse struct {
 	id    string
+	name  string
+	raw   json.RawMessage
 	input aiToolInput
 	err   error
 }
@@ -68,6 +70,31 @@ func (in aiToolInput) needsApproval() bool {
 	method := strings.ToUpper(in.Method)
 	return method == http.MethodDelete || strings.HasSuffix(in.Path, ":wipe-data") ||
 		(method == http.MethodPost && strings.HasPrefix(in.Path, "/restores"))
+}
+
+func (use aiToolUse) linear() (string, bool) {
+	return strings.CutPrefix(use.name, aiLinearPrefix)
+}
+
+func (use aiToolUse) needsApproval() bool {
+	if tool, ok := use.linear(); ok {
+		return !aiLinearRead(tool)
+	}
+	return use.input.needsApproval()
+}
+
+func (use aiToolUse) method() string {
+	if _, ok := use.linear(); ok {
+		return aiLinearMethod
+	}
+	return strings.ToUpper(use.input.Method)
+}
+
+func (use aiToolUse) target() string {
+	if tool, ok := use.linear(); ok {
+		return tool
+	}
+	return use.input.Path
 }
 
 func sendClaude(ctx context.Context, key string, params anthropic.BetaMessageNewParams, onText func(string)) (*anthropic.BetaMessage, error) {
@@ -91,6 +118,8 @@ func sendClaude(ctx context.Context, key string, params anthropic.BetaMessageNew
 
 func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds, key, runID string, approved *bool) {
 	defer h.pushFlush(conv.ID)
+	linear := h.openLinear(ctx)
+	defer linear.close()
 	for calls := 0; calls < aiMaxSteps; {
 		msgs, err := h.messages(ctx, conv.ID)
 		if err != nil {
@@ -98,11 +127,11 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			return
 		}
 		if uses := aiToolUses(msgs); len(uses) > 0 {
-			if approved == nil && conv.Mode != aiModeBypass && slices.ContainsFunc(uses, func(use aiToolUse) bool { return use.input.needsApproval() }) {
+			if approved == nil && conv.Mode != aiModeBypass && slices.ContainsFunc(uses, aiToolUse.needsApproval) {
 				h.settle(ctx, conv.ID, runID, aiAwaiting, "")
 				return
 			}
-			results := h.execute(ctx, conv, creds, runID, uses, approved)
+			results := h.execute(ctx, conv, creds, runID, uses, approved, linear)
 			approved = nil
 			if h.appendMessage(ctx, conv.ID, runID, anthropic.NewBetaUserMessage(results...)) != nil {
 				return
@@ -118,7 +147,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			return
 		}
 		calls++
-		resp, err := h.send(ctx, key, aiParams(conv, history), func(text string) { h.pushText(conv.ID, text) })
+		resp, err := h.send(ctx, key, linear.extend(aiParams(conv, history)), func(text string) { h.pushText(conv.ID, text) })
 		if err != nil {
 			h.settle(ctx, conv.ID, runID, aiFailed, aiErrorText(err))
 			return
@@ -142,7 +171,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 	h.settle(ctx, conv.ID, runID, aiFailed, fmt.Sprintf("Stopped after %d model calls. Send a message to continue.", aiMaxSteps))
 }
 
-func (h *aiHandler) execute(ctx context.Context, conv aiConversation, creds aiCreds, runID string, uses []aiToolUse, approved *bool) []anthropic.BetaContentBlockParamUnion {
+func (h *aiHandler) execute(ctx context.Context, conv aiConversation, creds aiCreds, runID string, uses []aiToolUse, approved *bool, linear *aiLinear) []anthropic.BetaContentBlockParamUnion {
 	out := make([]anthropic.BetaContentBlockParamUnion, 0, len(uses))
 	for _, use := range uses {
 		if !h.active(ctx, conv.ID, runID) {
@@ -150,11 +179,14 @@ func (h *aiHandler) execute(ctx context.Context, conv aiConversation, creds aiCr
 		}
 		var text string
 		var failed bool
+		_, isLinear := use.linear()
 		switch {
 		case use.err != nil:
 			text, failed = "Invalid tool input: "+use.err.Error(), true
-		case approved != nil && !*approved && use.input.needsApproval():
+		case approved != nil && !*approved && use.needsApproval():
 			text, failed = "The user declined this action.", true
+		case isLinear:
+			text, failed = linear.call(ctx, use.name, use.raw)
 		default:
 			status, body := h.tool(ctx, conv, creds, use.input)
 			text, failed = fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
@@ -293,6 +325,7 @@ func aiToolUses(msgs []json.RawMessage) []aiToolUse {
 		Content []struct {
 			Type  string          `json:"type"`
 			ID    string          `json:"id"`
+			Name  string          `json:"name"`
 			Input json.RawMessage `json:"input"`
 		} `json:"content"`
 	}
@@ -304,8 +337,10 @@ func aiToolUses(msgs []json.RawMessage) []aiToolUse {
 		if block.Type != "tool_use" {
 			continue
 		}
-		use := aiToolUse{id: block.ID}
-		use.err = json.Unmarshal(block.Input, &use.input)
+		use := aiToolUse{id: block.ID, name: block.Name, raw: block.Input}
+		if _, ok := use.linear(); !ok {
+			use.err = json.Unmarshal(block.Input, &use.input)
+		}
 		uses = append(uses, use)
 	}
 	return uses

@@ -248,6 +248,7 @@
   --color-default-soft-foreground: var(--default-soft-foreground);
   --color-sleep: var(--sleep); /* Asleep/sleep status color */
   --color-violet: hsl(258 90% 66%); /* operator role chips */
+  --color-linear: oklch(56.4% 0.152 277.6); /* #5E6AD2 Linear brand mark */
   --color-chart-stat: var(--chart-stat); /* stat-card icon accent, OD-9 — settled 2026-09-16 */
   --color-chart-inbound: var(--chart-inbound);
   --color-chart-outbound: var(--chart-outbound);
