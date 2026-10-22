@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { server } from "@/test/server";
 import { renderWithQuery } from "@/test/render";
@@ -23,6 +23,11 @@ function conv(over: Partial<AssistantConversation> = {}): AssistantConversation 
 
 function mockStatus(enabled = true) {
   server.use(http.get("/ai/status", () => HttpResponse.json({ enabled, configured: true, defaultModel: "claude-opus-5-5", defaultEffort: "medium", defaultMode: "default" })));
+}
+
+async function send(text: string) {
+  fireEvent.change(await screen.findByRole("textbox", { name: "Message Claude" }), { target: { value: text } });
+  await userEvent.click(screen.getByRole("button", { name: /Send/ }));
 }
 
 const file = (over: Partial<{ onApply: (next: string) => void; onSaved: () => void }> = {}) => ({
@@ -52,45 +57,55 @@ describe("FileAssistant", () => {
     expect(screen.getByRole("button", { name: /Model/ })).toHaveTextContent("Opus 5.5 · medium");
     await userEvent.click(screen.getByRole("button", { name: /Model/ }));
     await userEvent.click(screen.getByRole("option", { name: /Sonnet 5.5/ }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Message Claude" }), "Set the delay to 3");
-    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await send("Set the delay to 3");
     await waitFor(() => expect(body.model).toBe("claude-sonnet-5-5"));
     expect(body.effort).toBe("high");
-    expect(String(body.prompt)).toContain("Current content:\n```\ndelay: 0\n```");
+    expect(String(body.prompt)).toContain("Current content:\n```\ndelay: 0\n");
   });
 
-  it("applies or discards a suggested change and answers an approval", async () => {
+  const suggestion: AssistantDetail = {
+    conversation: conv({ status: "awaiting_approval" }),
+    messages: [
+      { role: "user", content: "Set the delay to 3" },
+      { role: "assistant", content: [{ type: "text", text: "Here it is:\n```yaml\ndelay: 3\n```" }, { type: "tool_use", id: "t1", input: { method: "POST", path: "/servers/lobby/files/write" } }] },
+    ],
+    pending: [{ id: "t1", method: "POST", path: "/servers/lobby/files/write" }],
+  };
+
+  function mockSuggestion() {
     mockStatus();
-    const onApply = vi.fn();
-    let decided: unknown;
-    const detail: AssistantDetail = {
-      conversation: conv({ status: "awaiting_approval" }),
-      messages: [
-        { role: "user", content: "Set the delay to 3" },
-        { role: "assistant", content: [{ type: "text", text: "Here it is:\n```yaml\ndelay: 3\n```" }, { type: "tool_use", id: "t1", input: { method: "POST", path: "/servers/lobby/files/write" } }] },
-      ],
-      pending: [{ id: "t1", method: "POST", path: "/servers/lobby/files/write" }],
-    };
     server.use(
       http.post("/ai/conversations", () => HttpResponse.json(conv({ status: "awaiting_approval" }), { status: 201 })),
-      http.get("/ai/conversations/:id", () => HttpResponse.json(detail)),
+      http.get("/ai/conversations/:id", () => HttpResponse.json(suggestion)),
+    );
+  }
+
+  it("applies or discards a suggested change", async () => {
+    mockSuggestion();
+    const onApply = vi.fn();
+    renderWithQuery(<FileAssistant scope={{}} file={file({ onApply })} onClose={vi.fn()} />);
+    await send("Set the delay to 3");
+    expect(await screen.findByTestId("diff")).toHaveTextContent("delay: 3");
+    expect(screen.getByText("POST /servers/lobby/files/write")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Apply to editor/ }));
+    expect(onApply).toHaveBeenCalledWith("delay: 3\n");
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(screen.queryByTestId("diff")).not.toBeInTheDocument();
+  });
+
+  it("answers an approval", async () => {
+    mockSuggestion();
+    let decided: unknown;
+    server.use(
       http.post("/ai/conversations/:id/approval", async ({ request }) => {
         decided = await request.json();
         return HttpResponse.json(conv());
       }),
     );
-    renderWithQuery(<FileAssistant scope={{}} file={file({ onApply })} onClose={vi.fn()} />);
-    await userEvent.type(await screen.findByRole("textbox", { name: "Message Claude" }), "Set the delay to 3");
-    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
-    expect(await screen.findByTestId("diff")).toHaveTextContent("delay: 3");
-    expect(screen.getByText("Set the delay to 3")).toBeInTheDocument();
-    expect(screen.getByText("POST /servers/lobby/files/write")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Apply to editor/ }));
-    expect(onApply).toHaveBeenCalledWith("delay: 3\n");
-    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    renderWithQuery(<FileAssistant scope={{}} file={file()} onClose={vi.fn()} />);
+    await send("Set the delay to 3");
+    await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
     await waitFor(() => expect(decided).toEqual({ approve: true }));
-    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
-    expect(screen.queryByTestId("diff")).not.toBeInTheDocument();
   });
 
   it("closes from the header", async () => {
