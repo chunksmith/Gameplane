@@ -118,7 +118,7 @@ func sendClaude(ctx context.Context, key string, params anthropic.BetaMessageNew
 
 func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds, key, runID string, approved *bool) {
 	defer h.pushFlush(conv.ID)
-	linear := h.openLinear(ctx)
+	linear := h.openLinear(ctx, conv.UserID)
 	defer linear.close()
 	for calls := 0; calls < aiMaxSteps; {
 		msgs, err := h.messages(ctx, conv.ID)

@@ -58,6 +58,14 @@ export interface AssistantStatus {
   linear?: boolean;
 }
 
+export interface LinearAccess {
+  enabled: boolean;
+  comment: boolean;
+  write: boolean;
+  keySet: boolean;
+  keyHint: string;
+}
+
 export interface LinearIssue {
   id: string;
   title: string;
@@ -160,14 +168,15 @@ export const Assistant = {
     api<AssistantConversation>(conversationPath(id, "/approval"), { method: "POST", body: { approve } }),
   cancel: (id: string) => api<void>(conversationPath(id, "/cancel"), { method: "POST" }),
   linearIssues: () => api<LinearIssue[]>("/ai/linear/issues"),
+  linear: () => api<LinearAccess>("/ai/linear"),
+  putLinearKey: (apiKey: string) => api<void>("/ai/linear/key", { method: "PUT", body: { apiKey } }),
+  deleteLinearKey: () => api<void>("/ai/linear/key", { method: "DELETE" }),
 };
 
 export const AssistantAdmin = {
   putSecret: (apiKey: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { apiKey } }),
   putToken: (oauthToken: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { oauthToken } }),
   deleteSecret: () => api<void>("/admin/ai/secret", { method: "DELETE" }),
-  putLinearKey: (apiKey: string) => api<{ name: string; keys: string[] }>("/admin/ai/linear/secret", { method: "PUT", body: { apiKey } }),
-  deleteLinearKey: () => api<void>("/admin/ai/linear/secret", { method: "DELETE" }),
 };
 
 export function linearTool(block: AssistantBlock): string {

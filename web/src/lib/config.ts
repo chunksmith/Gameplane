@@ -148,7 +148,6 @@ export interface AICfg {
   apiKeySet: boolean;
   subscriptionSet?: boolean;
   linearEnabled?: boolean;
-  linearKeySet?: boolean;
   linearComment?: boolean;
   linearWrite?: boolean;
 }

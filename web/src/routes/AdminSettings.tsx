@@ -175,7 +175,6 @@ export function AdminSettingsPage() {
 
 const OAUTH_TOKEN_PLACEHOLDER = "sk-ant-oat01-…";
 const API_KEY_PLACEHOLDER = "sk-ant-…";
-const LINEAR_KEY_PLACEHOLDER = "lin_api_…";
 
 function SectionCard({
   title,
@@ -1340,31 +1339,15 @@ function AISection({ initial }: { initial?: AICfg }) {
         <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_effort", defaultMessage: "Default effort", description: "Admin settings: label of the default effort dropdown of the AI assistant" })} value={f.draft.defaultEffort} options={ASSISTANT_EFFORTS} onChange={(defaultEffort) => f.update({ defaultEffort })} />
         <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_permission_mode", defaultMessage: "Default permission mode", description: "Admin settings: label of the dropdown that picks the AI assistant's default permission mode for new conversations" })} value={f.draft.defaultMode ?? "default"} options={ASSISTANT_MODES.map((mode) => ({ id: mode.id, label: intl.formatMessage(mode.label) }))} onChange={(defaultMode) => f.update({ defaultMode })} />
       </div>
-      <LinearSettings draft={f.draft} update={f.update} stageSecret={f.stageSecret} />
+      <LinearSettings draft={f.draft} update={f.update} />
     </SectionCard>
   );
 }
 
-function LinearSettings({ draft, update, stageSecret }: { draft: AICfg; update: (patch: Partial<AICfg>) => void; stageSecret: ReturnType<typeof useSectionForm<AICfg>>["stageSecret"] }) {
+function LinearSettings({ draft, update }: { draft: AICfg; update: (patch: Partial<AICfg>) => void }) {
   const intl = useOptionalIntl();
-  const [editing, setEditing] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const closeForm = () => {
-    setApiKey("");
-    setEditing(false);
-  };
-  const stageKey = () => {
-    const key = apiKey.trim();
-    stageSecret("ai:linear", { kind: "write", run: () => AssistantAdmin.putLinearKey(key) });
-    update({ linearKeySet: true });
-    closeForm();
-  };
-  const removeKey = () => {
-    stageSecret("ai:linear", { kind: "remove", run: () => AssistantAdmin.deleteLinearKey() });
-    update({ linearKeySet: false });
-  };
   const toggles: Array<{ key: "linearEnabled" | "linearComment" | "linearWrite" | null; label: string; hint: string }> = [
-    { key: "linearEnabled", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_enable", defaultMessage: "Enable Linear in the assistant", description: "Admin settings: label of the switch that gives the AI assistant access to Linear" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_enable_hint", defaultMessage: "Adds @linear to the Assistant page and the server Assistant tab for every user.", description: "Admin settings: hint under the Linear switch; turning it on lets every user type @linear in the assistant" }) },
+    { key: "linearEnabled", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_enable", defaultMessage: "Enable Linear in the assistant", description: "Admin settings: label of the switch that gives the AI assistant access to Linear" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_enable_hint", defaultMessage: "Adds @linear for every user who connects their own Linear API key in Settings → Integrations.", description: "Admin settings: hint under the Linear switch; users who add their own Linear API key on the Integrations settings page can then type @linear in the assistant" }) },
     { key: null, label: intl.formatMessage({ id: "web.routes.admin_settings.linear_read", defaultMessage: "Read issues, projects and comments", description: "Admin settings: label of the always-on Linear permission that lets the assistant read Linear" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_read_hint", defaultMessage: "Always on while Linear is enabled.", description: "Admin settings: hint under the Linear read permission, which cannot be turned off" }) },
     { key: "linearComment", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_comment", defaultMessage: "Post comments", description: "Admin settings: label of the switch that lets the assistant post comments on Linear issues" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_comment_hint", defaultMessage: "The assistant asks the user first, unless the chat is in Bypass permissions.", description: "Admin settings: hint under the Linear comment switch; posting waits for the user's approval except in Bypass permissions mode" }) },
     { key: "linearWrite", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_write", defaultMessage: "Create and change issues", description: "Admin settings: label of the switch that lets the assistant create and change Linear issues" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_write_hint", defaultMessage: "New issues, status, assignee and labels. Asks the user first, like comments.", description: "Admin settings: hint under the switch that lets the assistant create and change Linear issues" }) },
@@ -1378,37 +1361,14 @@ function LinearSettings({ draft, update, stageSecret }: { draft: AICfg; update: 
           <div className="text-sm font-semibold">{intl.formatMessage({ id: "web.routes.admin_settings.linear", defaultMessage: "Linear", description: "Admin settings: title of the Linear block in the AI assistant card; a product name, usually left untranslated" })}</div>
           <div className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.admin_settings.linear_subtitle", defaultMessage: "Lets the assistant read and update Linear through Linear's MCP server. Users type @linear to ask about the workspace or attach a single issue.", description: "Admin settings: subtitle of the Linear block; explains that the assistant reaches Linear over its MCP server and users type @linear" })}</div>
         </div>
-        {draft.linearEnabled && <span className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs", draft.linearKeySet ? "bg-success/15 text-success" : "bg-muted/15 text-muted")}>
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-          {draft.linearKeySet ? intl.formatMessage({ id: "web.routes.admin_settings.configured", defaultMessage: "Configured", description: "Admin settings: badge on a mod registry whose API key is set" }) : intl.formatMessage({ id: "web.routes.admin_settings.not_configured", defaultMessage: "Not configured", description: "Admin settings: badge on a mod registry whose API key is not set" })}
-        </span>}
+        {draft.linearEnabled && (
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs text-success">
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {intl.formatMessage({ id: "web.routes.admin_settings.linear_enabled_badge", defaultMessage: "Enabled", description: "Admin settings: badge on the Linear block while Linear is turned on for the assistant" })}
+          </span>
+        )}
       </div>
       {switchRow(toggles[0])}
-      {draft.linearEnabled && <div className="flex flex-wrap items-center gap-3 py-3.5">
-        <div className="min-w-48 flex-1">
-          <div className="text-sm font-medium">{intl.formatMessage({ id: "web.routes.admin_settings.linear_api_key", defaultMessage: "Linear API key", description: "Admin settings: label of the Linear API key row" })}</div>
-          <div className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.admin_settings.linear_api_key_hint", defaultMessage: "Create one in Linear under Settings → Security & access. Changes show up in Linear as the key's owner.", description: "Admin settings: hint under the Linear API key row; where to create the key and that changes appear under its owner's name" })}</div>
-        </div>
-        {!editing && (
-          <Button variant="secondary" size="sm" onPress={() => setEditing(true)}>
-            {draft.linearKeySet ? intl.formatMessage({ id: "web.routes.admin_settings.replace_verb", defaultMessage: "Replace", description: "Admin settings: verb on the button that replaces a stored API key" }) : intl.formatMessage({ id: "web.routes.admin_settings.set_api_key", defaultMessage: "Set API key", description: "Admin settings: button on an unconfigured module registry that opens the dialog to add its API key; keep it short" })}
-          </Button>
-        )}
-        {!editing && draft.linearKeySet && (
-          <Button variant="danger" size="sm" onPress={removeKey}>{intl.formatMessage({ id: "web.routes.admin_settings.remove", defaultMessage: "Remove", description: "Admin settings: button that removes the API key entry of a module registry; keep it short" })}</Button>
-        )}
-        {editing && (
-          <div className="w-full space-y-3">
-            <Field label={intl.formatMessage({ id: "web.routes.admin_settings.api_key", defaultMessage: "API key", description: "Admin settings: label of the API key field in the dialog that sets the key for a module registry" })}>
-              <HeroInput type="password" autoFocus value={apiKey} placeholder={LINEAR_KEY_PLACEHOLDER} onChange={(e) => setApiKey(e.target.value)} spellCheck={false} />
-            </Field>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onPress={closeForm}>{intl.formatMessage({ id: "web.routes.admin_settings.cancel", defaultMessage: "Cancel", description: "Admin settings: button that closes an add or set form without saving; keep it short" })}</Button>
-              <Button isDisabled={apiKey.trim() === ""} onPress={stageKey}>{intl.formatMessage({ id: "web.routes.admin_settings.use_this_key", defaultMessage: "Use this key", description: "Admin settings: button that saves the Claude API key entered in the form" })}</Button>
-            </div>
-          </div>
-        )}
-      </div>}
       {draft.linearEnabled && toggles.slice(1).map(switchRow)}
     </div>
   );

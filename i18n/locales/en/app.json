@@ -4479,6 +4479,10 @@
     "defaultMessage": "General",
     "description": "Settings nav: label of the General settings section"
   },
+  "web.components.ui.settings_nav.integrations": {
+    "defaultMessage": "Integrations",
+    "description": "Settings nav: label of the personal Integrations settings page, where a user connects their own Linear account"
+  },
   "web.components.ui.settings_nav.mod_registries": {
     "defaultMessage": "Mod registries",
     "description": "Settings nav: label of the Mod registries settings section"
@@ -5511,14 +5515,6 @@
     "defaultMessage": "Linear",
     "description": "Admin settings: title of the Linear block in the AI assistant card; a product name, usually left untranslated"
   },
-  "web.routes.admin_settings.linear_api_key": {
-    "defaultMessage": "Linear API key",
-    "description": "Admin settings: label of the Linear API key row"
-  },
-  "web.routes.admin_settings.linear_api_key_hint": {
-    "defaultMessage": "Create one in Linear under Settings → Security & access. Changes show up in Linear as the key's owner.",
-    "description": "Admin settings: hint under the Linear API key row; where to create the key and that changes appear under its owner's name"
-  },
   "web.routes.admin_settings.linear_comment": {
     "defaultMessage": "Post comments",
     "description": "Admin settings: label of the switch that lets the assistant post comments on Linear issues"
@@ -5532,8 +5528,12 @@
     "description": "Admin settings: label of the switch that gives the AI assistant access to Linear"
   },
   "web.routes.admin_settings.linear_enable_hint": {
-    "defaultMessage": "Adds @linear to the Assistant page and the server Assistant tab for every user.",
-    "description": "Admin settings: hint under the Linear switch; turning it on lets every user type @linear in the assistant"
+    "defaultMessage": "Adds @linear for every user who connects their own Linear API key in Settings → Integrations.",
+    "description": "Admin settings: hint under the Linear switch; users who add their own Linear API key on the Integrations settings page can then type @linear in the assistant"
+  },
+  "web.routes.admin_settings.linear_enabled_badge": {
+    "defaultMessage": "Enabled",
+    "description": "Admin settings: badge on the Linear block while Linear is turned on for the assistant"
   },
   "web.routes.admin_settings.linear_read": {
     "defaultMessage": "Read issues, projects and comments",
@@ -7946,6 +7946,98 @@
   "web.routes.dashboard.your_game_servers_and_resources_across": {
     "defaultMessage": "Your game servers and resources across authorized locations.",
     "description": "Dashboard: subtitle under the page title saying the page shows game servers and resources in the locations the user may access"
+  },
+  "web.routes.integrations.allowed": {
+    "defaultMessage": "Allowed",
+    "description": "Integrations settings: status of a Linear permission the admin allows"
+  },
+  "web.routes.integrations.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "Integrations settings: button that closes the Linear API key form"
+  },
+  "web.routes.integrations.description": {
+    "defaultMessage": "Connect your own accounts to the assistant.",
+    "description": "Integrations settings: description under the page title"
+  },
+  "web.routes.integrations.linear": {
+    "defaultMessage": "Linear",
+    "description": "Integrations settings: title of the Linear card; a product name, usually left untranslated"
+  },
+  "web.routes.integrations.linear_asks_first": {
+    "defaultMessage": "Set by your admin. The assistant asks you first.",
+    "description": "Integrations settings: hint under an allowed Linear change; the assistant waits for the user's approval"
+  },
+  "web.routes.integrations.linear_comment": {
+    "defaultMessage": "Post comments",
+    "description": "Integrations settings: Linear permission that lets the assistant post comments"
+  },
+  "web.routes.integrations.linear_connect": {
+    "defaultMessage": "Add API key",
+    "description": "Integrations settings: button that opens the form to add a Linear API key"
+  },
+  "web.routes.integrations.linear_connected": {
+    "defaultMessage": "Connected",
+    "description": "Integrations settings: badge on the Linear card once the user's API key is stored"
+  },
+  "web.routes.integrations.linear_disabled": {
+    "defaultMessage": "Your admin has not turned on Linear for the assistant.",
+    "description": "Integrations settings: shown in the Linear card while the admin has Linear turned off"
+  },
+  "web.routes.integrations.linear_key": {
+    "defaultMessage": "Personal API key",
+    "description": "Integrations settings: label of the user's Linear API key row"
+  },
+  "web.routes.integrations.linear_key_field": {
+    "defaultMessage": "Linear API key",
+    "description": "Integrations settings: label of the field where the user pastes their Linear API key"
+  },
+  "web.routes.integrations.linear_key_hint": {
+    "defaultMessage": "Create one in Linear under Settings → Security & access. Only you can use it.",
+    "description": "Integrations settings: hint under the Linear API key row; where to create the key and that only this user's assistant chats use it"
+  },
+  "web.routes.integrations.linear_key_masked": {
+    "defaultMessage": "lin_api_••••••••{hint}",
+    "description": "Integrations settings: the stored Linear API key, masked except its last four characters"
+  },
+  "web.routes.integrations.linear_off_by_admin": {
+    "defaultMessage": "Turned off by your admin.",
+    "description": "Integrations settings: hint under a Linear permission the admin has turned off"
+  },
+  "web.routes.integrations.linear_read": {
+    "defaultMessage": "Read issues, projects and comments",
+    "description": "Integrations settings: what the assistant may do in Linear; reading is always allowed"
+  },
+  "web.routes.integrations.linear_read_hint": {
+    "defaultMessage": "Set by your admin. Reads run without asking.",
+    "description": "Integrations settings: hint under the Linear read permission"
+  },
+  "web.routes.integrations.linear_remove": {
+    "defaultMessage": "Remove",
+    "description": "Integrations settings: button that deletes the stored Linear API key"
+  },
+  "web.routes.integrations.linear_replace": {
+    "defaultMessage": "Replace",
+    "description": "Integrations settings: button that replaces the stored Linear API key"
+  },
+  "web.routes.integrations.linear_subtitle": {
+    "defaultMessage": "Connect your Linear account. When you type @linear, the assistant reads and updates Linear as you, with your own API key.",
+    "description": "Integrations settings: subtitle of the Linear card"
+  },
+  "web.routes.integrations.linear_write": {
+    "defaultMessage": "Create and change issues",
+    "description": "Integrations settings: Linear permission that lets the assistant create and change issues"
+  },
+  "web.routes.integrations.off": {
+    "defaultMessage": "Off",
+    "description": "Integrations settings: status of a Linear permission the admin has turned off"
+  },
+  "web.routes.integrations.save_key": {
+    "defaultMessage": "Save key",
+    "description": "Integrations settings: button that stores the Linear API key entered in the form"
+  },
+  "web.routes.integrations.title": {
+    "defaultMessage": "Integrations",
+    "description": "Integrations settings: page title"
   },
   "web.routes.login.agpl_3_0_licensed": {
     "defaultMessage": "AGPL-3.0 licensed",
