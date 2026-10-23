@@ -53,8 +53,8 @@ mcp-server/          read-only MCP server
 svcutil/             env parsing + graceful shutdown helpers
 tunnel/              relay client supervisor (frp, Tailscale, playit)
 web/                 React 19 + strict TS + Vite dashboard; src/{routes,components,lib,router,styles,test}/
-modules/             SUBMODULE GameplanePanel/module (OCI game templates)
-website/             SUBMODULE GameplanePanel/website (Astro docs/marketing; has its own CLAUDE.md and AGENTS.md)
+modules/             SUBMODULE chunksmith/module, fork of GameplanePanel/module (OCI game templates)
+website/             SUBMODULE chunksmith/gameplane-website, fork of GameplanePanel/website (Astro docs/marketing; has its own CLAUDE.md and AGENTS.md)
 charts/gameplane/    Helm chart (crd-manifests/, hooks)
 deploy/kind/         local Kind scripts
 test/e2e/            Kind E2E suite (//go:build e2e)
@@ -107,7 +107,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 16. **Archival:** once every task is complete/withdrawn and the PR is merged into `master`, `git mv specs/<NNN>-<slug> specs/done_<NNN>-<slug>` and update in-repo references in the same commit.
 17. **Mechanical UI waves** (token re-skins): scripted, blind updates at `haiku`. Precompute change lists with `grep`/`jq`; one script applies them. Verify by browser screenshots, not code dumps.
 18. **Scout once, brief many:** one scout reads code/docs/failures and writes a factual brief (exact `file:line`, before/after code, justification). Fix agents get only the brief and edit blind at `haiku` — never tell them to re-read files, test suites, or `CLAUDE.md` and `AGENTS.md`. Reviewers check git diffs against the brief.
-19. **PRs only on chunksmith, NEVER upstream:** every PR is `chunksmith/Gameplane:<branch>` → `chunksmith/Gameplane:master`. Never open a PR against `GameplanePanel/*` or any other upstream repo, under any circumstances. `origin` is a fork, so a bare `gh pr create` targets upstream: always run `gh pr create --repo chunksmith/Gameplane --base master --head <branch>`. Submodules (`website/`, `modules/`) have no chunksmith fork: never open PRs for them; stop and ask.
+19. **PRs only on chunksmith, NEVER upstream:** every PR is `chunksmith/Gameplane:<branch>` → `chunksmith/Gameplane:master`. Never open a PR against `GameplanePanel/*` or any other upstream repo, under any circumstances. `origin` is a fork, so a bare `gh pr create` targets upstream: always run `gh pr create --repo chunksmith/Gameplane --base master --head <branch>`. Submodules point at their chunksmith forks (`modules/` → `chunksmith/module`, `website/` → `chunksmith/gameplane-website`, default branch `main`): commit and push there, never to `GameplanePanel/*`.
 20. **Localized text (spec 019):** every user-visible dashboard string goes through `intl.formatMessage({ id, defaultMessage, description }, values?)` with `const intl = useOptionalIntl()` from `@/lib/i18n/format` (module constants: `defineMessages`); the formatjs ESLint rules cover all of `web/src` except tests.
     - Ids are `web.<path>.<slug>`; reuse an existing id only for identical English (`web.common.empty_value` "—", `web.common.separator_dot` "·"). Descriptions are literal translator notes ("<Screen>: what it is and where it appears").
     - No literal text in JSX: not even `{" "}`, "·", "/" or template literals in children or in `aria-label`/`title`/`placeholder`/`alt`. Interpolate with ICU placeholders and plurals (`{count, plural, one {# server} other {# servers}}`); rich text only with `<b>`.
@@ -142,7 +142,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 - **CRD field:** edit `operator/api/v1alpha1/<kind>_types.go` → `make generate && make manifests` → reconciler `operator/internal/controller/<kind>_controller.go` → mirror in `web/src/types.ts` + affected `web/src/routes/` → envtest `<kind>_envtest_test.go`.
 - **API route:** handler in `api/internal/handlers/` → mount in `api/cmd/main.go` with RBAC middleware (`api/internal/rbac/`) → `api/internal/handlers/<name>_envtest_test.go` → client method in `web/src/lib/api.ts`.
 - **Dashboard screen:** `web/src/routes/<name>.tsx`, register in `web/src/router/tree.tsx` → data via `web/src/lib/api.ts` + TanStack Query → `web/src/routes/<name>.test.tsx`.
-- **Game module:** edit `modules/<name>/` (`module.yaml`, `template.yaml`, `README.md`) → `make modules-push` → commit in `GameplanePanel/module` → `git add modules` + commit pointer bump in root.
+- **Game module:** edit `modules/<name>/` (`module.yaml`, `template.yaml`, `README.md`) → `make modules-push` → commit in `chunksmith/module` → `git add modules` + commit pointer bump in root.
 - **Website:** change `website/` per its own CLAUDE.md and AGENTS.md → commit in `website/` (default branch `main`; no PRs, rule 19) → `git add website` + commit pointer bump in root.
 - **DB migration:** new sequential `api/internal/db/migrations/common/<NNN>_<name>.sql` (013 onward) — portable SQL both SQLite and PostgreSQL run unchanged (no `datetime('now')`/`strftime`, `AUTOINCREMENT`, `INSERT OR …`, `COLLATE NOCASE`; bind timestamps from Go). `migrations/sqlite/` and `migrations/postgres/` hold the frozen per-dialect 001–012 sets; see `api/internal/db/migrations/README.md`. Append-only, applied on API startup.
 
