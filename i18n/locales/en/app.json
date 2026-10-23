@@ -11755,6 +11755,10 @@
     "defaultMessage": "Recurring backups of this server's data volume.",
     "description": "Settings: one-line description under the Scheduled backups section heading"
   },
+  "web.routes.tabs.settings.section_description_startup": {
+    "defaultMessage": "How Java launches this server: heap size and extra JVM flags.",
+    "description": "Settings: one-line description under the Startup section heading"
+  },
   "web.routes.tabs.settings.section_environment": {
     "defaultMessage": "Environment",
     "description": "Settings: name of the Environment section in the settings tab list"
@@ -11798,6 +11802,10 @@
   "web.routes.tabs.settings.section_share_links": {
     "defaultMessage": "Share links",
     "description": "Settings: name of the Share links section in the settings tab list"
+  },
+  "web.routes.tabs.settings.section_startup": {
+    "defaultMessage": "Startup",
+    "description": "Settings: name of the Startup section (Java heap and JVM flags) in the settings tab list"
   },
   "web.routes.tabs.settings.section_version": {
     "defaultMessage": "Version",
@@ -11998,6 +12006,102 @@
   "web.routes.tabs.settings.share_links.you_will_not_see_this_link_again": {
     "defaultMessage": "You will not see this link again",
     "description": "Share links: bold warning title in the created-link dialog saying the link cannot be seen again"
+  },
+  "web.routes.tabs.settings.startup.auto_size": {
+    "defaultMessage": "Auto ({size})",
+    "description": "Startup: placeholder of the empty max heap field; {size} is the automatically computed heap"
+  },
+  "web.routes.tabs.settings.startup.command_preview": {
+    "defaultMessage": "Startup command preview",
+    "description": "Startup: title of the card showing the resulting java command"
+  },
+  "web.routes.tabs.settings.startup.copy": {
+    "defaultMessage": "Copy",
+    "description": "Startup: button that copies the startup command preview"
+  },
+  "web.routes.tabs.settings.startup.flag_preset": {
+    "defaultMessage": "JVM flag preset",
+    "description": "Startup: accessible label of the JVM flag preset switch; not shown as text"
+  },
+  "web.routes.tabs.settings.startup.flags_note": {
+    "defaultMessage": "Space- or newline-separated. Heap flags (-Xms/-Xmx) belong in Java heap above.",
+    "description": "Startup: note under the JVM flags box"
+  },
+  "web.routes.tabs.settings.startup.flags_placeholder": {
+    "defaultMessage": "-XX:+UseG1GC -XX:MaxGCPauseMillis=200",
+    "description": "Startup: example placeholder in the empty JVM flags box; Java flags, keep untranslated"
+  },
+  "web.routes.tabs.settings.startup.heap_over_limit": {
+    "defaultMessage": "Heap {heap} reaches the {limit} container limit. The server will be OOM-killed.",
+    "description": "Startup: danger note under the heap bar when the max heap is at or above the container memory limit; {heap} and {limit} are sizes"
+  },
+  "web.routes.tabs.settings.startup.heap_usage": {
+    "defaultMessage": "Heap {heap} of {limit} container limit · {free} left for non-heap memory",
+    "description": "Startup: caption under the heap bar; {heap}, {limit} and {free} are sizes"
+  },
+  "web.routes.tabs.settings.startup.initial_above_max": {
+    "defaultMessage": "Initial heap can't be larger than max heap.",
+    "description": "Startup: inline error under the initial heap field when it is larger than the max heap"
+  },
+  "web.routes.tabs.settings.startup.initial_heap": {
+    "defaultMessage": "Initial heap (-Xms)",
+    "description": "Startup: label of the initial JVM heap size field; -Xms is the Java flag, keep it untranslated"
+  },
+  "web.routes.tabs.settings.startup.initial_heap_hint": {
+    "defaultMessage": "Starting heap. Leave empty to match max heap.",
+    "description": "Startup: hint under the initial heap field"
+  },
+  "web.routes.tabs.settings.startup.invalid_size": {
+    "defaultMessage": "Use a whole number with an optional K, M or G suffix, like 3G or 3072M.",
+    "description": "Startup: inline error under a heap size field whose value is not a valid JVM size"
+  },
+  "web.routes.tabs.settings.startup.java_heap": {
+    "defaultMessage": "Java heap",
+    "description": "Startup: title of the card with the JVM heap size fields"
+  },
+  "web.routes.tabs.settings.startup.java_heap_hint": {
+    "defaultMessage": "Leave empty to size automatically to {percent}% of the container memory limit.",
+    "description": "Startup: hint under the Java heap title; {percent} is the share of the container memory limit used when the fields are empty"
+  },
+  "web.routes.tabs.settings.startup.jvm_flags": {
+    "defaultMessage": "JVM flags",
+    "description": "Startup: title of the card with extra JVM flags"
+  },
+  "web.routes.tabs.settings.startup.jvm_flags_hint": {
+    "defaultMessage": "Extra flags passed to java before -jar. Start from a preset or write your own.",
+    "description": "Startup: hint under the JVM flags title"
+  },
+  "web.routes.tabs.settings.startup.max_heap": {
+    "defaultMessage": "Max heap (-Xmx)",
+    "description": "Startup: label of the max JVM heap size field; -Xmx is the Java flag, keep it untranslated"
+  },
+  "web.routes.tabs.settings.startup.max_heap_hint": {
+    "defaultMessage": "e.g. 3G or 3072M. Keep about 25% below the limit.",
+    "description": "Startup: hint under the max heap field with example values"
+  },
+  "web.routes.tabs.settings.startup.preset_aikar": {
+    "defaultMessage": "Aikar's flags",
+    "description": "Startup: JVM flag preset option with Aikar's recommended G1GC flags; Aikar is a person's name"
+  },
+  "web.routes.tabs.settings.startup.preset_custom": {
+    "defaultMessage": "Custom",
+    "description": "Startup: JVM flag preset option for hand-written flags"
+  },
+  "web.routes.tabs.settings.startup.preset_none": {
+    "defaultMessage": "None",
+    "description": "Startup: JVM flag preset option with no extra flags"
+  },
+  "web.routes.tabs.settings.startup.preview_note": {
+    "defaultMessage": "Read-only. The image's launcher adds the server jar and its own arguments.",
+    "description": "Startup: note under the startup command preview"
+  },
+  "web.routes.tabs.settings.startup.same_as_max": {
+    "defaultMessage": "Same as max ({size})",
+    "description": "Startup: placeholder of the empty initial heap field; {size} is the max heap it falls back to"
+  },
+  "web.routes.tabs.settings.startup.saving_restarts": {
+    "defaultMessage": "Saving changes restarts the server so they apply.",
+    "description": "Startup: warning note saying that saving restarts the server so the changes apply"
   },
   "web.routes.tabs.settings.to_discard_your_edits_and_load_the": {
     "defaultMessage": "to discard your edits and load the latest.",

@@ -3,6 +3,7 @@ import { AlertCircle, AlertTriangle } from "lucide-react";
 import { Alert, Button, Input } from "@heroui/react";
 
 import { ConfigFields } from "@/components/server/ConfigFields";
+import { STARTUP_KEYS } from "./Startup";
 import { useResourceAccess } from "@/lib/resourceTarget";
 import { CONFIG_REDACTED_MARKER, validateConfig } from "@/lib/validation";
 import type { SectionProps } from "./types";
@@ -24,6 +25,7 @@ export function GameConfigSection({ draft, onChange, template, moduleText, store
   const access = useResourceAccess();
   const canWrite = access?.canWrite === true;
   const schema = useMemo(() => template?.spec.configSchema ?? [], [template]);
+  const visibleSchema = useMemo(() => schema.filter((f) => !STARTUP_KEYS.includes(f.name)), [schema]);
   const values = useMemo(() => draft.spec.config ?? {}, [draft.spec.config]);
 
   const errors = useMemo(() => validateConfig(schema, values, intl), [schema, values, intl]);
@@ -157,13 +159,13 @@ export function GameConfigSection({ draft, onChange, template, moduleText, store
         </Alert>
       )}
 
-      {schema.length === 0 && orphans.length === 0 && (
+      {visibleSchema.length === 0 && orphans.length === 0 && (
         <p className="text-sm text-muted">{intl.formatMessage({ id: "web.routes.tabs.settings.game_config.this_template_has_no_configurable", defaultMessage: "This template has no configurable settings.", description: "Game config: empty-state text shown when the game template has no configurable settings" })}</p>
       )}
 
       <div className="space-y-5">
         <ConfigFields
-          schema={schema}
+          schema={visibleSchema}
           values={values}
           onChange={setValue}
           variant="settings"
