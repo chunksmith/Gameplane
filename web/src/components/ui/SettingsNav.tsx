@@ -8,6 +8,7 @@ import {
   Info,
   Key,
   Palette,
+  Plug,
   RefreshCcw,
   ShieldCheck,
   Sparkles,
@@ -30,6 +31,7 @@ import { useOptionalIntl } from "@/lib/i18n/format";
 export type SettingsNavKey =
   | "general"
   | "theme"
+  | "integrations"
   | "auth"
   | "backups"
   | "modules"
@@ -41,12 +43,15 @@ export type SettingsNavKey =
   | "about";
 
 // Section keys handled by the admin settings page itself (every key except
-// the theme page's own "theme").
-export type SettingsSectionKey = Exclude<SettingsNavKey, "theme">;
+// the personal pages, which are routes of their own).
+export type SettingsSectionKey = Exclude<SettingsNavKey, "theme" | "integrations">;
+
+const personalRoutes = { theme: "/settings/theme", integrations: "/settings/integrations" } as const;
 
 const navMessages = defineMessages({
   general: { id: "web.components.ui.settings_nav.general", defaultMessage: "General", description: "Settings nav: label of the General settings section" },
   theme: { id: "web.components.ui.settings_nav.theme", defaultMessage: "Theme", description: "Settings nav: label of the Theme settings page" },
+  integrations: { id: "web.components.ui.settings_nav.integrations", defaultMessage: "Integrations", description: "Settings nav: label of the personal Integrations settings page, where a user connects their own Linear account" },
   auth: { id: "web.components.ui.settings_nav.authentication", defaultMessage: "Authentication", description: "Settings nav: label of the Authentication settings section" },
   backups: { id: "web.components.ui.settings_nav.backup_destinations", defaultMessage: "Backup destinations", description: "Settings nav: label of the Backup destinations settings section" },
   modules: { id: "web.components.ui.settings_nav.module_sources", defaultMessage: "Module sources", description: "Settings nav: label of the Module sources settings section" },
@@ -61,6 +66,7 @@ const navMessages = defineMessages({
 const navItems: Array<{ key: SettingsNavKey; label: MessageDescriptor; icon: ComponentType<{ className?: string }> }> = [
   { key: "general",       label: navMessages.general,       icon: Cog },
   { key: "theme",         label: navMessages.theme,         icon: Palette },
+  { key: "integrations",  label: navMessages.integrations,  icon: Plug },
   { key: "auth",          label: navMessages.auth,          icon: ShieldCheck },
   { key: "backups",       label: navMessages.backups,       icon: Archive },
   { key: "modules",       label: navMessages.modules,       icon: Boxes },
@@ -86,16 +92,16 @@ export function SettingsNav({
 }: {
   active: SettingsNavKey;
   onSelect: (key: SettingsSectionKey) => void;
-  /** false hides every admin section (they need config:manage), leaving only Theme. */
+  /** false hides every admin section (they need config:manage), leaving the personal pages. */
   showAdminSections: boolean;
 }) {
   const intl = useOptionalIntl();
-  const items = showAdminSections ? navItems : navItems.filter((i) => i.key === "theme");
+  const items = showAdminSections ? navItems : navItems.filter((i) => i.key in personalRoutes);
   return (
     <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 scrollbar-thin lg:sticky lg:top-6 lg:mx-0 lg:block lg:space-y-0.5 lg:self-start lg:overflow-visible lg:px-0 lg:pb-0" aria-label={intl.formatMessage({ id: "web.components.ui.settings_nav.settings_sections", defaultMessage: "Settings sections", description: "Settings navigation: screen-reader name of the list of settings sections; not visible on screen" })}>
       {items.map(({ key, label, icon: Icon }) =>
-        key === "theme" ? (
-          <Link key={key} to="/settings/theme" className={itemClass(active === key)} aria-current={active === key ? "page" : undefined}>
+        key === "theme" || key === "integrations" ? (
+          <Link key={key} to={personalRoutes[key]} className={itemClass(active === key)} aria-current={active === key ? "page" : undefined}>
             <Icon className="h-4 w-4 shrink-0" />
             <span>{intl.formatMessage(label)}</span>
           </Link>

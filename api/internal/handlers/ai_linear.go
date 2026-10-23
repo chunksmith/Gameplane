@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/go-chi/chi/v5"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
 )
@@ -46,53 +47,77 @@ func (b aiBearer) RoundTrip(req *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(req)
 }
 
-func mountAILinearSecret(r chi.Router, k *kube.Client, controlNS string) {
-	r.Put("/admin/ai/linear/secret", func(w http.ResponseWriter, req *http.Request) {
-		var body struct {
-			APIKey string `json:"apiKey"`
-		}
-		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-			http.Error(w, "invalid json", http.StatusBadRequest)
-			return
-		}
-		key := strings.TrimSpace(body.APIKey)
-		if key == "" {
-			http.Error(w, "apiKey is required", http.StatusUnprocessableEntity)
-			return
-		}
-		err := upsertLabelledSecret(req.Context(), k, controlNS, aiLinearSecret, aiSecretLabel, map[string]string{"apiKey": key})
-		if errors.Is(err, errNotManagedSecret) {
-			http.Error(w, err.Error(), http.StatusConflict)
-			return
-		}
-		if err != nil {
-			httperr.Write(w, req, err)
-			return
-		}
-		writeJSON(w, map[string]any{"name": aiLinearSecret, "keys": []string{"apiKey"}})
-	})
-	r.Delete("/admin/ai/linear/secret", func(w http.ResponseWriter, req *http.Request) {
-		if err := deleteManagedSecret(req.Context(), k, controlNS, aiLinearSecret, aiSecretLabel); err != nil {
-			httperr.Write(w, req, err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	})
+// AILinearKeys keeps each user's Linear API key in a labelled Secret of their own.
+type AILinearKeys struct {
+	k  *kube.Client
+	ns string
 }
 
-// AILinearKeyReader returns a lookup of the assistant's Linear API key in its labelled Secret; the lookup yields "" when none is set.
-func AILinearKeyReader(k *kube.Client, controlNS string) func(context.Context) string {
-	return func(ctx context.Context) string {
-		secrets := k.Secrets(controlNS)
-		if secrets == nil {
-			return ""
-		}
-		sec, err := secrets.Get(ctx, aiLinearSecret, metav1.GetOptions{})
-		if err != nil || sec.Labels[aiSecretLabel] != "true" {
-			return ""
-		}
-		return string(sec.Data["apiKey"])
+// NewAILinearKeys returns the per-user Linear key store in the control namespace.
+func NewAILinearKeys(k *kube.Client, controlNS string) AILinearKeys {
+	return AILinearKeys{k: k, ns: controlNS}
+}
+
+func (s AILinearKeys) name(user int64) string {
+	return aiLinearSecret + "-" + strconv.FormatInt(user, 10)
+}
+
+func (s AILinearKeys) get(ctx context.Context, user int64) string {
+	secrets := s.k.Secrets(s.ns)
+	if secrets == nil {
+		return ""
 	}
+	sec, err := secrets.Get(ctx, s.name(user), metav1.GetOptions{})
+	if err != nil || sec.Labels[aiSecretLabel] != "true" {
+		return ""
+	}
+	return string(sec.Data["apiKey"])
+}
+
+func (h *aiHandler) myLinear(w http.ResponseWriter, req *http.Request) {
+	s := h.settings(req.Context())
+	key := h.linearKeys.get(req.Context(), auth.UserFromContext(req.Context()).ID)
+	hint := ""
+	if len(key) > 4 {
+		hint = key[len(key)-4:]
+	}
+	writeJSON(w, map[string]any{"enabled": s.LinearEnabled, "comment": s.LinearComment, "write": s.LinearWrite, "keySet": key != "", "keyHint": hint})
+}
+
+func (h *aiHandler) putLinearKey(w http.ResponseWriter, req *http.Request) {
+	var body struct {
+		APIKey string `json:"apiKey"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	key := strings.TrimSpace(body.APIKey)
+	if key == "" {
+		http.Error(w, "apiKey is required", http.StatusUnprocessableEntity)
+		return
+	}
+	user := auth.UserFromContext(req.Context()).ID
+	err := upsertLabelledSecret(req.Context(), h.linearKeys.k, h.linearKeys.ns, h.linearKeys.name(user), aiSecretLabel, map[string]string{"apiKey": key})
+	if errors.Is(err, errNotManagedSecret) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	if err != nil {
+		httperr.Write(w, req, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *aiHandler) deleteLinearKey(w http.ResponseWriter, req *http.Request) {
+	user := auth.UserFromContext(req.Context()).ID
+	err := deleteManagedSecret(req.Context(), h.linearKeys.k, h.linearKeys.ns, h.linearKeys.name(user), aiSecretLabel)
+	if err != nil && !apierrors.IsNotFound(err) {
+		httperr.Write(w, req, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func dialLinear(ctx context.Context, key string) (*mcp.ClientSession, error) {
@@ -113,10 +138,6 @@ func aiLinearRead(name string) bool {
 	return strings.HasPrefix(name, "get_") || strings.HasPrefix(name, "list_") || strings.HasPrefix(name, "search_") || strings.HasPrefix(name, "extract_")
 }
 
-func (s aiSettings) linearOn() bool {
-	return s.LinearEnabled && s.LinearKeySet
-}
-
 func (s aiSettings) linearAllows(name string) bool {
 	switch {
 	case aiLinearRead(name):
@@ -127,12 +148,12 @@ func (s aiSettings) linearAllows(name string) bool {
 	return s.LinearWrite
 }
 
-func (h *aiHandler) openLinear(ctx context.Context) *aiLinear {
+func (h *aiHandler) openLinear(ctx context.Context, user int64) *aiLinear {
 	s := h.settings(ctx)
-	if !s.linearOn() {
+	if !s.LinearEnabled {
 		return nil
 	}
-	key := h.linearKey(ctx)
+	key := h.linearKeys.get(ctx, user)
 	if key == "" {
 		return nil
 	}
@@ -222,7 +243,7 @@ func (h *aiHandler) linearIssues(w http.ResponseWriter, req *http.Request) {
 	if _, _, _, ok := h.ready(w, req); !ok {
 		return
 	}
-	l := h.openLinear(req.Context())
+	l := h.openLinear(req.Context(), auth.UserFromContext(req.Context()).ID)
 	if l == nil {
 		http.Error(w, "Linear is not available to the assistant", http.StatusServiceUnavailable)
 		return

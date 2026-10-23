@@ -20,6 +20,7 @@ import { UserEditPage } from "@/routes/UserEdit";
 import { NetworkDetailPage } from "@/routes/NetworkDetail";
 import { AdminSettingsPage } from "@/routes/AdminSettings";
 import { ThemeSettingsPage } from "@/routes/ThemeSettings";
+import { IntegrationsSettingsPage } from "@/routes/IntegrationsSettings";
 import { CreateServerWizard } from "@/routes/CreateServer";
 import { BackupsPage } from "@/routes/Backups";
 import { AssistantPage } from "@/routes/Assistant";
@@ -202,6 +203,12 @@ const themeSettingsRoute = new Route({
   component: ThemeSettingsPage,
 });
 
+const integrationsSettingsRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/settings/integrations",
+  component: IntegrationsSettingsPage,
+});
+
 const auditLogRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/admin/audit",
@@ -274,6 +281,7 @@ export const routeTree = rootRoute.addChildren([
     networkDetailRoute,
     adminRoute,
     themeSettingsRoute,
+    integrationsSettingsRoute,
     auditLogRoute,
     adminLogsRoute,
     backupsRoute,

@@ -97,7 +97,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 		h.settle(ctx, conv.ID, runID, aiFailed, "The assistant tool endpoint could not start.")
 		return
 	}
-	linear := h.openLinear(runCtx)
+	linear := h.openLinear(runCtx, conv.UserID)
 	defer linear.close()
 	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, token: rand.Text(), done: runCtx.Done(), cancel: cancel}
 	h.track(run)
