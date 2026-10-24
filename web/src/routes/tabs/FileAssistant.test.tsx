@@ -108,6 +108,28 @@ describe("FileAssistant", () => {
     await waitFor(() => expect(decided).toEqual({ approve: true }));
   });
 
+  it("opens, switches and closes chat tabs", async () => {
+    mockSuggestion();
+    const onClose = vi.fn();
+    renderWithQuery(<FileAssistant scope={{}} onClose={onClose} />);
+    await send("Set the delay to 3");
+    expect(await screen.findByRole("tab", { name: "Edit config" })).toHaveAttribute("aria-selected", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "New chat" }));
+    expect(screen.getByRole("tab", { name: "New chat" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText(/Type @ to add a file or folder as context/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Edit config" }));
+    expect(await screen.findByText("Set the delay to 3")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close Edit config" }));
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["New chat"]);
+    expect(onClose).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close New chat" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("closes from the header", async () => {
     mockStatus();
     const onClose = vi.fn();
