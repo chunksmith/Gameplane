@@ -235,28 +235,30 @@ func main() {
 	// namespace and sets GAMEPLANE_USAGE_PROC) the agent reports the game
 	// process's CPU/memory from /proc and uses the operator-supplied limits
 	// as the denominator; otherwise it falls back to its own cgroup.
-	go heartbeat.Run(ctx, heartbeat.Config{
-		ServerName: serverName,
-		Template:   templateName,
-		Game:       gameName,
-		Version:    Version,
-		RCON:       rconClient,
-		Interval:   20 * time.Second,
-		PlayerList: func() *caps.PlayerList {
-			if playerActions != nil {
-				return playerActions.List
-			}
-			return nil
-		}(),
-		Usage: usage.New(usage.Config{
-			DataDir:            dataRoot,
-			ProcMode:           envOr("GAMEPLANE_USAGE_PROC", "") == "1",
-			CPULimitMillicores: envInt("GAMEPLANE_CPU_LIMIT_MILLICORES"),
-			MemLimitBytes:      envInt("GAMEPLANE_MEM_LIMIT_BYTES"),
-			DiskLimitBytes:     envInt("GAMEPLANE_DISK_LIMIT_BYTES"),
-		}),
-		Metrics: m,
-	})
+	if envOr("GAMEPLANE_HEARTBEAT", "true") != "false" {
+		go heartbeat.Run(ctx, heartbeat.Config{
+			ServerName: serverName,
+			Template:   templateName,
+			Game:       gameName,
+			Version:    Version,
+			RCON:       rconClient,
+			Interval:   20 * time.Second,
+			PlayerList: func() *caps.PlayerList {
+				if playerActions != nil {
+					return playerActions.List
+				}
+				return nil
+			}(),
+			Usage: usage.New(usage.Config{
+				DataDir:            dataRoot,
+				ProcMode:           envOr("GAMEPLANE_USAGE_PROC", "") == "1",
+				CPULimitMillicores: envInt("GAMEPLANE_CPU_LIMIT_MILLICORES"),
+				MemLimitBytes:      envInt("GAMEPLANE_MEM_LIMIT_BYTES"),
+				DiskLimitBytes:     envInt("GAMEPLANE_DISK_LIMIT_BYTES"),
+			}),
+			Metrics: m,
+		})
+	}
 
 	go func() {
 		logger.Info("agent listening", "addr", addr, "tls", srv.TLSConfig != nil, "version", Version)
