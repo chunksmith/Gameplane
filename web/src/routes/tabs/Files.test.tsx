@@ -857,6 +857,27 @@ describe("FilesTab", () => {
     expect(await screen.findByRole("complementary", { name: "Folder tree" })).toBeInTheDocument();
   });
 
+  it("resizes the folder tree by drag and arrow keys and remembers the width", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    window.localStorage.setItem("gameplane.files.treeWidth", "300");
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    const handle = await screen.findByRole("separator", { name: "Resize folder tree" });
+    expect(handle).toHaveAttribute("aria-valuenow", "300");
+    handle.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 2000 });
+    expect(handle).toHaveAttribute("aria-valuenow", "640");
+    fireEvent.pointerMove(handle, { clientX: 150 });
+    fireEvent.pointerUp(handle);
+    fireEvent.pointerMove(handle, { clientX: 400 });
+    expect(handle).toHaveAttribute("aria-valuenow", "350");
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    fireEvent.keyDown(handle, { key: "Enter" });
+    expect(handle).toHaveAttribute("aria-valuenow", "334");
+    expect(window.localStorage.getItem("gameplane.files.treeWidth")).toBe("334");
+  });
+
   it("expands a folder in the tree without opening it", async () => {
     window.localStorage.setItem("gameplane.files.view", "tree");
     const onNavigate = vi.fn();
