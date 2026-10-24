@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, ListBox, ListBoxItem, Select } from "@heroui/react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Check, Loader2, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
+import { Check, Loader2, Plus, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
 import { defineMessages } from "react-intl";
 
 import { Markdown } from "@/components/assistant/Markdown";
@@ -45,7 +45,22 @@ const MESSAGES = defineMessages({
   discard: { id: "web.routes.tabs.file_assistant.discard", defaultMessage: "Discard", description: "Files tab: button under Claude's suggested change that hides it without changing the file; keep it short" },
   approve: { id: "web.routes.tabs.file_assistant.approve", defaultMessage: "Approve", description: "Files tab: button in the Claude chat panel that approves the waiting actions; keep it short" },
   decline: { id: "web.routes.tabs.file_assistant.decline", defaultMessage: "Decline", description: "Files tab: button in the Claude chat panel that rejects the waiting actions; keep it short" },
+  chats: { id: "web.routes.tabs.file_assistant.chats", defaultMessage: "Claude chats", description: "Files tab: accessible label of the row of tabs above the Claude chat panel, one tab per chat; not shown as text" },
+  new_chat: { id: "web.routes.tabs.file_assistant.new_chat", defaultMessage: "New chat", description: "Files tab: title of a Claude chat tab before its first message, and accessible label of the + button that opens a new chat tab; keep it short" },
 });
+
+interface ChatTab {
+  key: number;
+  id: string | null;
+}
+
+interface ChatTabs {
+  tabs: ChatTab[];
+  active: number;
+}
+
+const FRESH_TABS: ChatTabs = { tabs: [{ key: 0, id: null }], active: 0 };
+const openChats = new Map<string, ChatTabs>();
 
 interface OpenFile {
   path: string;
@@ -58,9 +73,78 @@ interface OpenFile {
 
 export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
   const intl = useOptionalIntl();
+  const storeKey = [scope.cluster, scope.namespace, scope.server].join("/");
+  const [chats, setChats] = useState(() => openChats.get(storeKey) ?? FRESH_TABS);
+  const current = chats.tabs.find((tab) => tab.key === chats.active) ?? chats.tabs[0];
+
+  useEffect(() => void openChats.set(storeKey, chats), [storeKey, chats]);
+
+  const add = () => {
+    const key = Math.max(...chats.tabs.map((tab) => tab.key)) + 1;
+    setChats({ tabs: [...chats.tabs, { key, id: null }], active: key });
+  };
+  const remove = (key: number) => {
+    const index = chats.tabs.findIndex((tab) => tab.key === key);
+    const rest = chats.tabs.filter((tab) => tab.key !== key);
+    if (rest.length === 0) {
+      setChats(FRESH_TABS);
+      onClose();
+      return;
+    }
+    setChats({ tabs: rest, active: key === chats.active ? rest[Math.min(index, rest.length - 1)].key : chats.active });
+  };
+  const start = (id: string) => setChats((state) => ({ ...state, tabs: state.tabs.map((tab) => (tab.key === current.key ? { ...tab, id } : tab)) }));
+
+  return (
+    <div className="absolute inset-0 flex flex-col gap-2">
+      <div role="tablist" aria-label={intl.formatMessage(MESSAGES.chats)} className="flex shrink-0 items-center gap-1 overflow-x-auto rounded-lg border border-border bg-surface p-1 scrollbar-thin">
+        {chats.tabs.map((tab) => (
+          <ChatTabButton key={tab.key} id={tab.id} active={tab.key === current.key} onSelect={() => setChats({ ...chats, active: tab.key })} onClose={() => remove(tab.key)} />
+        ))}
+        <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.new_chat)} onPress={add}>
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="relative flex-1">
+        <ChatPanel key={current.key} id={current.id} onStarted={start} scope={scope} file={file} onClose={onClose} />
+      </div>
+    </div>
+  );
+}
+
+function ChatTabButton({ id, active, onSelect, onClose }: { id: string | null; active: boolean; onSelect: () => void; onClose: () => void }) {
+  const intl = useOptionalIntl();
+  const detail = useQuery({
+    queryKey: ["ai", "conversation", id],
+    queryFn: () => Assistant.get(id ?? ""),
+    enabled: !!id,
+    refetchInterval: (query) => (query.state.data?.conversation.status === "running" ? 1500 : false),
+  });
+  const conv = detail.data?.conversation;
+  const title = conv?.title || intl.formatMessage(MESSAGES.new_chat);
+  const busy = !active && (conv?.status === "running" || conv?.status === "awaiting_approval");
+  return (
+    <div className={cn("flex max-w-48 shrink-0 items-center gap-1 rounded-md py-1 pl-2.5 pr-1 text-xs font-medium", active ? "bg-default text-foreground" : "text-muted hover:bg-foreground/5")}>
+      <button type="button" role="tab" aria-selected={active} onClick={onSelect} className="flex min-w-0 items-center gap-1.5 focus-visible:outline-none">
+        {busy && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+        <span className="truncate">{title}</span>
+      </button>
+      <button
+        type="button"
+        aria-label={intl.formatMessage({ id: "web.routes.tabs.file_assistant.close_chat_tab", defaultMessage: "Close {title}", description: "Files tab: accessible label of the x button on a Claude chat tab that closes that chat; {title} is the chat title; not shown as text" }, { title })}
+        onClick={onClose}
+        className="rounded p-0.5 text-muted hover:bg-foreground/10 hover:text-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null; onStarted: (id: string) => void; scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
+  const intl = useOptionalIntl();
   const qc = useQueryClient();
   const status = useAssistantStatus();
-  const [id, setId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const [pickedModel, setPickedModel] = useState<AssistantPick>();
@@ -91,7 +175,7 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
     },
     onSuccess: (next) => {
       setPrompt("");
-      setId(next.id);
+      onStarted(next.id);
       refresh();
     },
   });

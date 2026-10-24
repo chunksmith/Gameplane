@@ -9495,9 +9495,17 @@
     "defaultMessage": "Claude wants to run {count, plural, one {an action} other {# actions}} that need your approval.",
     "description": "Files tab: text in the Claude chat panel when actions wait for approval; {count} is the number of actions"
   },
+  "web.routes.tabs.file_assistant.chats": {
+    "defaultMessage": "Claude chats",
+    "description": "Files tab: accessible label of the row of tabs above the Claude chat panel, one tab per chat; not shown as text"
+  },
   "web.routes.tabs.file_assistant.close": {
     "defaultMessage": "Close chat",
     "description": "Files tab: icon-only button that closes the Claude chat panel beside the file editor; read by screen readers; keep it short"
+  },
+  "web.routes.tabs.file_assistant.close_chat_tab": {
+    "defaultMessage": "Close {title}",
+    "description": "Files tab: accessible label of the x button on a Claude chat tab that closes that chat; {title} is the chat title; not shown as text"
   },
   "web.routes.tabs.file_assistant.context": {
     "defaultMessage": "Context: {file}",
@@ -9526,6 +9534,10 @@
   "web.routes.tabs.file_assistant.mode": {
     "defaultMessage": "Permission mode",
     "description": "Files tab: accessible name of the dropdown in the Claude chat panel that picks how Claude may change files; keep it short"
+  },
+  "web.routes.tabs.file_assistant.new_chat": {
+    "defaultMessage": "New chat",
+    "description": "Files tab: title of a Claude chat tab before its first message, and accessible label of the + button that opens a new chat tab; keep it short"
   },
   "web.routes.tabs.file_assistant.panel": {
     "defaultMessage": "Claude chat",
