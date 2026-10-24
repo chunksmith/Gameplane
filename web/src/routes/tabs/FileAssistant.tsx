@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Button, ListBox, ListBoxItem, Select } from "@heroui/react";
 import { DiffEditor } from "@monaco-editor/react";
 import { Check, Loader2, Plus, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
@@ -60,7 +60,7 @@ interface ChatTabs {
 }
 
 const FRESH_TABS: ChatTabs = { tabs: [{ key: 0, id: null }], active: 0 };
-const openChats = new Map<string, ChatTabs>();
+const openChats = new WeakMap<QueryClient, Map<string, ChatTabs>>();
 
 interface OpenFile {
   path: string;
@@ -74,10 +74,11 @@ interface OpenFile {
 export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
   const intl = useOptionalIntl();
   const storeKey = [scope.cluster, scope.namespace, scope.server].join("/");
-  const [chats, setChats] = useState(() => openChats.get(storeKey) ?? FRESH_TABS);
+  const qc = useQueryClient();
+  const [chats, setChats] = useState(() => openChats.get(qc)?.get(storeKey) ?? FRESH_TABS);
   const current = chats.tabs.find((tab) => tab.key === chats.active) ?? chats.tabs[0];
 
-  useEffect(() => void openChats.set(storeKey, chats), [storeKey, chats]);
+  useEffect(() => void openChats.set(qc, (openChats.get(qc) ?? new Map<string, ChatTabs>()).set(storeKey, chats)), [qc, storeKey, chats]);
 
   const add = () => {
     const key = Math.max(...chats.tabs.map((tab) => tab.key)) + 1;
