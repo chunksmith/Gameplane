@@ -9703,6 +9703,14 @@
     "defaultMessage": "Refresh",
     "description": "Files tab: icon-only button that reloads the file list; read by screen readers; keep it short"
   },
+  "web.routes.tabs.files.resize_assistant": {
+    "defaultMessage": "Resize Claude panel",
+    "description": "Files tab: accessible label of the drag handle between the open file or folder and the Claude chat that changes the chat width; not shown as text"
+  },
+  "web.routes.tabs.files.resize_tree": {
+    "defaultMessage": "Resize folder tree",
+    "description": "Files tab: accessible label of the drag handle between the folder tree and the files that changes the tree width; not shown as text"
+  },
   "web.routes.tabs.files.root_folder": {
     "defaultMessage": "root folder",
     "description": "Files: lowercase name of the server data root, used in the open-folder button when the parent of a missing path is the root"
