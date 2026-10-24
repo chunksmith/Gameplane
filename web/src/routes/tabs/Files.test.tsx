@@ -120,6 +120,10 @@ function row(entryName: string) {
   return screen.getByText(entryName).closest("li") as HTMLElement;
 }
 
+function openFiles() {
+  return within(screen.getByRole("tablist", { name: "Open files" }));
+}
+
 function toolbar() {
   return screen.getByRole("toolbar", { name: "Selection actions" });
 }
@@ -890,22 +894,23 @@ describe("FilesTab", () => {
       "GET /servers/mc-survival/files/read?path=%2Fconfig.yaml": () => textRes("config"),
     });
     renderWithQuery(<Harness initialPath="/server.properties" />);
+    await screen.findByTestId("monaco");
     const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
     fireEvent.click(await folderTree.findByRole("button", { name: "config.yaml" }));
-    const openFiles = within(await screen.findByRole("tablist", { name: "Open files" }));
-    await waitFor(() => expect(openFiles.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["server.properties", "config.yaml"]));
-    expect(openFiles.getByRole("tab", { name: "config.yaml" })).toHaveAttribute("aria-selected", "true");
+    await screen.findByRole("tablist", { name: "Open files" });
+    await waitFor(() => expect(openFiles().getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["server.properties", "config.yaml"]));
+    expect(openFiles().getByRole("tab", { name: "config.yaml" })).toHaveAttribute("aria-selected", "true");
 
-    fireEvent.click(openFiles.getByRole("tab", { name: "server.properties" }));
+    fireEvent.click(openFiles().getByRole("tab", { name: "server.properties" }));
     await waitFor(() => expect(currentPath()).toBe("/server.properties"));
-    fireEvent.click(openFiles.getByRole("tab", { name: "server.properties" }));
-    expect(openFiles.getAllByRole("tab")).toHaveLength(2);
+    fireEvent.click(openFiles().getByRole("tab", { name: "server.properties" }));
+    expect(openFiles().getAllByRole("tab")).toHaveLength(2);
 
-    fireEvent.click(openFiles.getByRole("button", { name: "Close config.yaml" }));
+    fireEvent.click(openFiles().getByRole("button", { name: "Close config.yaml" }));
     expect(currentPath()).toBe("/server.properties");
-    expect(openFiles.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["server.properties"]);
+    expect(openFiles().getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["server.properties"]);
 
-    fireEvent.click(openFiles.getByRole("button", { name: "Close server.properties" }));
+    fireEvent.click(openFiles().getByRole("button", { name: "Close server.properties" }));
     await waitFor(() => expect(currentPath()).toBe("/"));
     expect(screen.queryByRole("tablist", { name: "Open files" })).not.toBeInTheDocument();
   });
@@ -919,6 +924,7 @@ describe("FilesTab", () => {
       "DELETE /servers/mc-survival/files/delete?path=%2Fconfig.yaml": () => new Response(null, { status: 204 }),
     });
     renderWithQuery(<Harness initialPath="/config.yaml" />);
+    await screen.findByTestId("monaco");
     const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
     fireEvent.click(await folderTree.findByRole("button", { name: "server.properties" }));
     await waitFor(() => expect(currentPath()).toBe("/server.properties"));
