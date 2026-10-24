@@ -9595,6 +9595,10 @@
     "defaultMessage": "Clear",
     "description": "Files tab: button that clears the current file selection; keep it short"
   },
+  "web.routes.tabs.files.close_tab": {
+    "defaultMessage": "Close {name}",
+    "description": "Files tab: accessible label of the x button on an editor tab that closes that open file; {name} is the file name; not shown as text"
+  },
   "web.routes.tabs.files.column_modified": {
     "defaultMessage": "Modified",
     "description": "Files tab: column heading of the last modified time in the file list"
@@ -9698,6 +9702,10 @@
   "web.routes.tabs.files.nothing_exists_at_this_path": {
     "defaultMessage": "Nothing exists at this path.",
     "description": "Files tab: text shown when nothing exists at the current path"
+  },
+  "web.routes.tabs.files.open_files": {
+    "defaultMessage": "Open files",
+    "description": "Files tab: accessible label of the row of tabs above the editor in tree view, one tab per open file; not shown as text"
   },
   "web.routes.tabs.files.open_folder": {
     "defaultMessage": "Open {folder}",
