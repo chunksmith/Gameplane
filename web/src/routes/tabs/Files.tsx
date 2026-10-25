@@ -1,5 +1,5 @@
 import { useResourceClient, useResourceAccess, useResourceTarget, resourceKey, type ResourceTarget } from "@/lib/resourceTarget";
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Modal,
@@ -52,6 +52,9 @@ const MAX_UPLOAD_FILES = 64;
 const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
 const SIZE_CACHE_MS = 60_000;
 const VIEW_STORAGE_KEY = "gameplane.files.view";
+const TREE_WIDTH = { key: "gameplane.files.treeWidth", fallback: 272, min: 180, max: 640 };
+const ASSISTANT_WIDTH = { key: "gameplane.files.assistantWidth", fallback: 480, min: 300, max: 960 };
+const RESIZE_STEP_PX = 16;
 
 type FilesView = "list" | "tree";
 
@@ -99,6 +102,9 @@ const FILES_MESSAGES = defineMessages({
   tree_load_failed: { id: "web.routes.tabs.files.tree_load_failed", defaultMessage: "Could not load", description: "Files tab: muted text in the folder tree where a folder's contents could not be loaded" },
   tree_drop_hint: { id: "web.routes.tabs.files.tree_drop_hint", defaultMessage: "Drop files or folders here to upload", description: "Files tab: hint at the bottom of the folder tree saying files or folders can be dropped in to upload them" },
   ask_claude: { id: "web.routes.tabs.files.ask_claude", defaultMessage: "Ask Claude", description: "Files tab: icon-only button beside the List and Tree switch that opens the Claude chat next to the open file or folder; read by screen readers; keep it short" },
+  open_files: { id: "web.routes.tabs.files.open_files", defaultMessage: "Open files", description: "Files tab: accessible label of the row of tabs above the editor in tree view, one tab per open file; not shown as text" },
+  resize_tree: { id: "web.routes.tabs.files.resize_tree", defaultMessage: "Resize folder tree", description: "Files tab: accessible label of the drag handle between the folder tree and the files that changes the tree width; not shown as text" },
+  resize_assistant: { id: "web.routes.tabs.files.resize_assistant", defaultMessage: "Resize Claude panel", description: "Files tab: accessible label of the drag handle between the open file or folder and the Claude chat that changes the chat width; not shown as text" },
 });
 
 const SAVE_STATES = defineMessages({
@@ -107,6 +113,12 @@ const SAVE_STATES = defineMessages({
   saving: { id: "web.routes.tabs.files.saving", defaultMessage: "Saving…", description: "Files tab: status beside the open file while changes are being saved" },
   saved: { id: "web.routes.tabs.files.saved", defaultMessage: "Saved", description: "Files tab: status beside the open file when all changes are saved" },
 });
+
+interface EditorTabsProps {
+  paths: string[];
+  onOpen: (path: string) => void;
+  onClose: (path: string) => void;
+}
 
 interface ViewProps {
   resourceTarget: ResourceTarget;
@@ -132,6 +144,7 @@ export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: st
       resourceTarget={resourceTarget}
       path={normalized}
       onNavigate={onNavigate}
+      tabbed={view === "tree"}
       viewToggle={<ViewToggle view={view} onChange={changeView} />}
       aside={view === "tree" && <FileTree resourceTarget={resourceTarget} path={normalized} onNavigate={onNavigate} />}
     />
@@ -139,19 +152,97 @@ export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: st
 }
 
 function Split({ aside, children }: { aside?: ReactNode; children: ReactNode }) {
+  const intl = useOptionalIntl();
+  const [width, setWidth] = useStoredWidth(TREE_WIDTH);
   if (!aside) return children;
   return (
-    <div className="flex flex-1 flex-col gap-3 md:flex-row">
+    <div className="flex flex-1 flex-col gap-3 md:flex-row md:gap-0" style={{ "--files-tree-w": `${width}px` } as CSSProperties}>
       {aside}
+      <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_tree)} width={width} bounds={TREE_WIDTH} onResize={setWidth} className="hidden md:flex" />
       <div className="flex min-w-0 flex-1 flex-col gap-4">{children}</div>
     </div>
   );
 }
 
-function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside }: ViewProps) {
+function AssistantSplit({ main, assistant }: { main: ReactNode; assistant: ReactNode }) {
+  const intl = useOptionalIntl();
+  const [width, setWidth] = useStoredWidth(ASSISTANT_WIDTH);
+  return (
+    <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:gap-0" style={{ "--files-assistant-w": `${width}px` } as CSSProperties}>
+      <div className="flex min-w-0 flex-1 flex-col gap-4">{main}</div>
+      <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_assistant)} width={width} bounds={ASSISTANT_WIDTH} onResize={setWidth} invert className="hidden lg:flex" />
+      <div className="relative min-h-[60vh] lg:w-[var(--files-assistant-w)] lg:shrink-0">
+        {assistant}
+      </div>
+    </div>
+  );
+}
+
+type WidthBounds = typeof TREE_WIDTH;
+
+function ResizeHandle({ label, width, bounds, onResize, invert, className }: { label: string; width: number; bounds: WidthBounds; onResize: (width: number) => void; invert?: boolean; className?: string }) {
+  const start = useRef<{ x: number; width: number } | null>(null);
+  const direction = invert ? -1 : 1;
+
+  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    start.current = { x: event.clientX, width };
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (start.current) onResize(clampWidth(start.current.width + (event.clientX - start.current.x) * direction, bounds));
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step = { ArrowLeft: -RESIZE_STEP_PX, ArrowRight: RESIZE_STEP_PX }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    onResize(clampWidth(width + step * direction, bounds));
+  }
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuenow={width}
+      aria-valuemin={bounds.min}
+      aria-valuemax={bounds.max}
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={() => (start.current = null)}
+      onKeyDown={onKeyDown}
+      className={cn("group w-3 shrink-0 cursor-col-resize touch-none select-none justify-center focus-visible:outline-none", className)}
+    >
+      <span className="w-0.5 rounded-full bg-transparent transition-colors group-hover:bg-border group-focus-visible:bg-primary group-active:bg-primary" />
+    </div>
+  );
+}
+
+function useStoredWidth(bounds: WidthBounds) {
+  const [width, setWidth] = useState(() => readWidth(bounds));
+  useEffect(() => writeWidth(bounds.key, width), [bounds.key, width]);
+  return [width, setWidth] as const;
+}
+
+function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tabbed }: ViewProps & { tabbed: boolean }) {
   const intl = useOptionalIntl();
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
+  const [openFiles, setOpenFiles] = useState<string[]>([]);
+  const [openedPath, setOpenedPath] = useState<string | null>(null);
+  const tabs: EditorTabsProps | undefined = tabbed ? {
+    paths: openFiles,
+    onOpen: onNavigate,
+    onClose: (file) => {
+      const index = openFiles.indexOf(file);
+      const rest = openFiles.filter((item) => item !== file);
+      setOpenFiles(rest);
+      if (file === path) onNavigate(rest[Math.min(index, rest.length - 1)] ?? parentOf(file));
+    },
+  } : undefined;
   const parent = parentOf(path);
   const isRoot = path === ROOT;
   const parentListing = useQuery({
@@ -160,13 +251,17 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside }: V
     enabled: !isRoot,
   });
   const entry = isRoot ? ROOT_ENTRY : parentListing.data?.entries.find((item) => item.name === baseName(path));
+  if (tabbed && entry && !entry.dir && openedPath !== path) {
+    setOpenedPath(path);
+    if (!openFiles.includes(path)) setOpenFiles([...openFiles, path]);
+  }
 
   return (
     <div className="flex min-h-full flex-col gap-4 p-6">
       {entry?.dir ? (
         <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} />
       ) : entry ? (
-        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} />
+        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} tabs={tabs} />
       ) : (
         <>
           <Breadcrumbs path={path} onNavigate={onNavigate} />
@@ -480,12 +575,10 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
 
       <Split aside={aside}>
         {aside && assistantOpen ? (
-          <div className="grid flex-1 gap-3 lg:grid-cols-2">
-            <div className="flex min-w-0 flex-col gap-4">{browser}</div>
-            <div className="relative min-h-[60vh]">
-              <FileAssistant scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }} onClose={() => setAssistantOpen(false)} />
-            </div>
-          </div>
+          <AssistantSplit
+            main={browser}
+            assistant={<FileAssistant scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }} onClose={() => setAssistantOpen(false)} />}
+          />
         ) : (
           browser
         )}
@@ -550,7 +643,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
   );
 }
 
-function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside }: ViewProps & { entry: FileEntry }) {
+function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside, tabs }: ViewProps & { entry: FileEntry; tabs?: EditorTabsProps }) {
   const intl = useOptionalIntl();
   const canControl = useResourceAccess()?.canControl === true;
   const { name, namespace: ns } = resourceTarget;
@@ -619,27 +712,30 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
   }
 
   const editor = (
-    <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-lg border border-border bg-background">
-      {content.error ? (
-        <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
-      ) : draft === null ? (
-        <Spinner />
-      ) : (
-        <Editor
-          wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
-          theme="vs-dark"
-          language={guessLang(entry.name)}
-          value={draft.value}
-          onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
-          onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
-          options={{
-            minimap: { enabled: false },
-            fontFamily: "JetBrains Mono",
-            readOnly: !canControl,
-            scrollBeyondLastLine: false,
-          }}
-        />
-      )}
+    <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background">
+      {tabs && <EditorTabs {...tabs} active={path} />}
+      <div className="relative flex flex-1 flex-col">
+        {content.error ? (
+          <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
+        ) : draft === null ? (
+          <Spinner />
+        ) : (
+          <Editor
+            wrapperProps={{ style: { display: "flex", position: "absolute", inset: 0 } }}
+            theme="vs-dark"
+            language={guessLang(entry.name)}
+            value={draft.value}
+            onChange={(next) => setDraft((current) => current && { ...current, value: next ?? "" })}
+            onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined)}
+            options={{
+              minimap: { enabled: false },
+              fontFamily: "JetBrains Mono",
+              readOnly: !canControl,
+              scrollBeyondLastLine: false,
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 
@@ -669,9 +765,9 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
 
       <Split aside={aside}>
         {assistantOpen ? (
-          <div className="grid flex-1 gap-3 lg:grid-cols-2">
-            {editor}
-            <div className="relative min-h-[60vh]">
+          <AssistantSplit
+            main={editor}
+            assistant={
               <FileAssistant
                 scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }}
                 file={{
@@ -684,8 +780,8 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
                 }}
                 onClose={() => setAssistantOpen(false)}
               />
-            </div>
-          </div>
+            }
+          />
         ) : (
           editor
         )}
@@ -698,12 +794,39 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
           onClose={() => setConfirmDelete(false)}
           onDeleted={() => {
             deleted.current = true;
-            onNavigate(parentOf(path));
+            if (tabs) tabs.onClose(path);
+            else onNavigate(parentOf(path));
           }}
           onError={setError}
         />
       )}
     </>
+  );
+}
+
+function EditorTabs({ paths, active, onOpen, onClose }: EditorTabsProps & { active: string }) {
+  const intl = useOptionalIntl();
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    list.current?.querySelector('[aria-selected="true"]')?.parentElement?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active]);
+  return (
+    <div ref={list} role="tablist" aria-label={intl.formatMessage(FILES_MESSAGES.open_files)} className="flex shrink-0 gap-px overflow-x-auto border-b border-border bg-border scrollbar-thin">
+      {paths.map((tabPath) => {
+        const isActive = tabPath === active;
+        return (
+          <div key={tabPath} className={cn("flex h-11 shrink-0 items-center gap-2 pl-3.5 pr-2", isActive ? "bg-background text-foreground" : "bg-surface text-muted hover:text-foreground")}>
+            <button type="button" role="tab" aria-selected={isActive} title={tabPath} onClick={() => onOpen(tabPath)} className="flex items-center gap-2 font-mono text-[13px] font-medium">
+              <FileText className={cn("h-3.5 w-3.5", isActive && "text-primary")} />
+              {baseName(tabPath)}
+            </button>
+            <button type="button" aria-label={intl.formatMessage({ id: "web.routes.tabs.files.close_tab", defaultMessage: "Close {name}", description: "Files tab: accessible label of the x button on an editor tab that closes that open file; {name} is the file name; not shown as text" }, { name: baseName(tabPath) })} onClick={() => onClose(tabPath)} className="rounded p-0.5 text-muted hover:bg-border hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -991,7 +1114,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:max-h-[calc(100vh-3rem)] md:w-[272px] md:[contain:size]",
+        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:max-h-[calc(100vh-3rem)] md:w-[var(--files-tree-w)] md:[contain:size]",
         dropDir === ROOT && "border-primary",
       )}
     >
@@ -1315,6 +1438,27 @@ function readView(): FilesView {
 function writeView(view: FilesView) {
   try {
     window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  } catch {
+    return;
+  }
+}
+
+function clampWidth(width: number, bounds: WidthBounds) {
+  return Math.round(Math.min(bounds.max, Math.max(bounds.min, width)));
+}
+
+function readWidth(bounds: WidthBounds): number {
+  try {
+    const stored = Number(window.localStorage.getItem(bounds.key));
+    return stored ? clampWidth(stored, bounds) : bounds.fallback;
+  } catch {
+    return bounds.fallback;
+  }
+}
+
+function writeWidth(key: string, width: number) {
+  try {
+    window.localStorage.setItem(key, String(width));
   } catch {
     return;
   }

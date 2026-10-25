@@ -9495,9 +9495,17 @@
     "defaultMessage": "Claude wants to run {count, plural, one {an action} other {# actions}} that need your approval.",
     "description": "Files tab: text in the Claude chat panel when actions wait for approval; {count} is the number of actions"
   },
+  "web.routes.tabs.file_assistant.chats": {
+    "defaultMessage": "Claude chats",
+    "description": "Files tab: accessible label of the row of tabs above the Claude chat panel, one tab per chat; not shown as text"
+  },
   "web.routes.tabs.file_assistant.close": {
     "defaultMessage": "Close chat",
     "description": "Files tab: icon-only button that closes the Claude chat panel beside the file editor; read by screen readers; keep it short"
+  },
+  "web.routes.tabs.file_assistant.close_chat_tab": {
+    "defaultMessage": "Close {title}",
+    "description": "Files tab: accessible label of the x button on a Claude chat tab that closes that chat; {title} is the chat title; not shown as text"
   },
   "web.routes.tabs.file_assistant.context": {
     "defaultMessage": "Context: {file}",
@@ -9526,6 +9534,10 @@
   "web.routes.tabs.file_assistant.mode": {
     "defaultMessage": "Permission mode",
     "description": "Files tab: accessible name of the dropdown in the Claude chat panel that picks how Claude may change files; keep it short"
+  },
+  "web.routes.tabs.file_assistant.new_chat": {
+    "defaultMessage": "New chat",
+    "description": "Files tab: title of a Claude chat tab before its first message, and accessible label of the + button that opens a new chat tab; keep it short"
   },
   "web.routes.tabs.file_assistant.panel": {
     "defaultMessage": "Claude chat",
@@ -9582,6 +9594,10 @@
   "web.routes.tabs.files.clear": {
     "defaultMessage": "Clear",
     "description": "Files tab: button that clears the current file selection; keep it short"
+  },
+  "web.routes.tabs.files.close_tab": {
+    "defaultMessage": "Close {name}",
+    "description": "Files tab: accessible label of the x button on an editor tab that closes that open file; {name} is the file name; not shown as text"
   },
   "web.routes.tabs.files.column_modified": {
     "defaultMessage": "Modified",
@@ -9687,6 +9703,10 @@
     "defaultMessage": "Nothing exists at this path.",
     "description": "Files tab: text shown when nothing exists at the current path"
   },
+  "web.routes.tabs.files.open_files": {
+    "defaultMessage": "Open files",
+    "description": "Files tab: accessible label of the row of tabs above the editor in tree view, one tab per open file; not shown as text"
+  },
   "web.routes.tabs.files.open_folder": {
     "defaultMessage": "Open {folder}",
     "description": "Files tab: button that opens the parent folder of a missing path; {folder} is the folder name or the root folder text"
@@ -9702,6 +9722,14 @@
   "web.routes.tabs.files.refresh": {
     "defaultMessage": "Refresh",
     "description": "Files tab: icon-only button that reloads the file list; read by screen readers; keep it short"
+  },
+  "web.routes.tabs.files.resize_assistant": {
+    "defaultMessage": "Resize Claude panel",
+    "description": "Files tab: accessible label of the drag handle between the open file or folder and the Claude chat that changes the chat width; not shown as text"
+  },
+  "web.routes.tabs.files.resize_tree": {
+    "defaultMessage": "Resize folder tree",
+    "description": "Files tab: accessible label of the drag handle between the folder tree and the files that changes the tree width; not shown as text"
   },
   "web.routes.tabs.files.root_folder": {
     "defaultMessage": "root folder",

@@ -396,6 +396,10 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		logger.Error(err, "reconcile StatefulSet")
 		return ctrl.Result{}, err
 	}
+	if err := r.reconcileFilesPod(ctx, &gs, &tmpl, ver, wantFilesPod(&gs, idle, replicas)); err != nil {
+		logger.Error(err, "reconcile files pod")
+		return ctrl.Result{}, err
+	}
 	// Node placement is a cosmetic annotation for the dashboard; a transient
 	// pod-get hiccup shouldn't stall the rest of reconciliation, so log and go.
 	if err := r.reconcileNodePlacement(ctx, &gs); err != nil {
@@ -1553,16 +1557,9 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 				Name:         "data",
 				VolumeSource: dataVolume,
 			},
-			{
-				// Per-GameServer Secret with tls.crt, tls.key, ca.crt.
-				// Reconciled by reconcileAgentTLS before this StatefulSet.
-				Name: "agent-tls",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: agentTLSSecretName(gs),
-					},
-				},
-			},
+			// Per-GameServer Secret with tls.crt, tls.key, ca.crt.
+			// Reconciled by reconcileAgentTLS before this StatefulSet.
+			agentTLSVolume(gs),
 			captureVolume(),
 		}
 		// Extra volumes (spec.storage.extra / template's), one PVC each,
@@ -1575,16 +1572,8 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 		// template's referenced Secret) so the agent sidecar can read it
 		// via --rcon-password-file. Added only when the game exposes RCON
 		// and doesn't use a game-managed password file.
-		if rc := resolveRCON(gs, tmpl); rc.enabled && rc.passwordFile == "" && rc.secretName != "" {
-			volumes = append(volumes, corev1.Volume{
-				Name: "rcon-password",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: rc.secretName,
-						Items:      []corev1.KeyToPath{{Key: rc.secretKey, Path: "password"}},
-					},
-				},
-			})
+		if v := rconPasswordVolume(gs, tmpl); v != nil {
+			volumes = append(volumes, *v)
 		}
 		// Volumes and InitContainers are assigned wholesale so removing
 		// configFiles from the template strips them on the next reconcile.
