@@ -139,9 +139,9 @@ api:
   # metrics are reachable only in-cluster; the ServiceMonitor scrapes it.
   # Templates fall back to 9090 when this key is absent (helm --reuse-values).
   metricsPort: 9090
-  # The AI assistant in subscription mode keeps up to three Claude Code CLI
-  # processes (150-250Mi each) resident inside this pod: raise limits.memory
-  # to at least 1Gi when you use it (specs/027-ai-assistant/spec.md).
+  # The AI assistant in subscription mode runs up to ten Claude Code CLI
+  # processes (150-250Mi each) inside this pod: raise limits.memory to at
+  # least 3Gi when you use it (specs/027-ai-assistant/spec.md).
   resources:
     requests: { cpu: 100m, memory: 64Mi }
     limits:   { cpu: 500m, memory: 256Mi }

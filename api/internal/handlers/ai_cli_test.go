@@ -307,6 +307,30 @@ func TestAICLIProcessCap(t *testing.T) {
 	}
 }
 
+func TestAICLIProcessCapBusy(t *testing.T) {
+	f, spawns := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
+		emit(cliInit)
+		<-call.in
+		<-call.in
+	})
+	var convs []aiConversation
+	for i := range aiCLIMax {
+		convs = append(convs, f.create(map[string]any{"prompt": "hi " + strconv.Itoa(i)}))
+	}
+	t.Cleanup(func() {
+		for _, conv := range convs {
+			f.h.stop(conv.ID)
+		}
+	})
+	for deadline := time.Now().Add(5 * time.Second); len(spawns()) < aiCLIMax && time.Now().Before(deadline); {
+		time.Sleep(5 * time.Millisecond)
+	}
+	conv := f.create(map[string]any{"prompt": "one too many"})
+	if got := f.wait(conv.ID, aiFailed); got.Error != "10 assistant conversations are already running. Try again when one finishes." || len(spawns()) != aiCLIMax {
+		t.Errorf("error = %q, spawns = %d", got.Error, len(spawns()))
+	}
+}
+
 func waitWarm(t *testing.T, h *aiHandler, key string, spawns func() []*aiSpawn, want int) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
