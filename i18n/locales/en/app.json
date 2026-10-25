@@ -9535,6 +9535,18 @@
     "defaultMessage": "Ask Claude anything about this server. Type @ to add a file or folder as context.",
     "description": "Files tab: hint in the empty Claude chat panel opened from a folder, with no file as context"
   },
+  "web.routes.tabs.file_assistant.history": {
+    "defaultMessage": "Recent chats",
+    "description": "Files tab: accessible label of the clock button above the Claude chat panel and heading of the list of this server's earlier chats it opens; keep it short"
+  },
+  "web.routes.tabs.file_assistant.history_empty": {
+    "defaultMessage": "No chats yet",
+    "description": "Files tab: text in the recent chats list above the Claude chat panel when this server has no earlier chats"
+  },
+  "web.routes.tabs.file_assistant.history_open": {
+    "defaultMessage": "Open",
+    "description": "Files tab: small badge in the recent chats list on a chat that is already open in a tab; keep it short"
+  },
   "web.routes.tabs.file_assistant.message": {
     "defaultMessage": "Message Claude",
     "description": "Files tab: accessible name of the message box in the Claude chat panel; keep it short"
