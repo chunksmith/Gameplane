@@ -73,10 +73,11 @@ export function AllocationsSection({ draft, onChange }: SectionProps) {
             <div className="divide-y divide-border">
               {allocations.map((allocation) => {
                 const host = endpoints.find((endpoint) => endpoint.name === allocation.name)?.host;
+                const allocationProtocol: Protocol = allocation.protocol ?? "TCP";
                 return (
                   <div key={allocation.name} className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3", GRID)}>
                     <span className="min-w-0 truncate text-[13px] font-medium text-fg">{allocation.name}</span>
-                    <span className="w-fit rounded-md bg-default px-2 py-0.5 font-mono text-[11px] font-medium text-fg">{allocation.protocol ?? "TCP"}</span>
+                    <span className="w-fit rounded-md bg-default px-2 py-0.5 font-mono text-[11px] font-medium text-fg">{allocationProtocol}</span>
                     <span className="font-mono text-[13px] text-fg">{allocation.port}</span>
                     <span className={cn("min-w-0 truncate font-mono text-[13px]", host ? "text-fg" : "text-muted")}>
                       {host
