@@ -382,7 +382,7 @@ func TestAIHelpers(t *testing.T) {
 
 func TestAIParams(t *testing.T) {
 	p := aiParams(aiConversation{Model: "claude-opus-5-5", Effort: "high"}, nil)
-	if len(p.Betas) != 1 || p.OutputConfig.Effort != "high" || len(p.Tools) != 1 {
+	if len(p.Betas) != 1 || p.OutputConfig.Effort != "high" || len(p.Tools) != len(aiTools) {
 		t.Errorf("opus params = %+v", p)
 	}
 	if p := aiParams(aiConversation{Model: "claude-haiku-5-5", Effort: "low"}, nil); len(p.Betas) != 0 {

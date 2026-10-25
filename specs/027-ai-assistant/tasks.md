@@ -67,3 +67,10 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T035 Tests: `TestValidateAI`, `TestAIStatusAndGuards`, `TestAIRunBypass` in `ai_test.go`; `TestAICLIModes`, `TestAICLIBypass` in `ai_cli_test.go`
 - [X] T036 `ASSISTANT_MODES` and `mode` on create and send (`web/src/lib/assistant.ts`); composer mode picker (`web/src/components/assistant/AssistantPanel.tsx`); admin default permission mode (`web/src/routes/AdminSettings.tsx`, `web/src/lib/config.ts`); tests in `assistant.test.ts`, `AssistantPanel.test.tsx`, `AdminSettings_ai.test.tsx`
 - [X] T037 Document the modes in `api/specs.md` and `web/specs.md`
+
+## Phase 8: File tools
+
+- [X] T038 `read_file`, `edit_file`, `write_file` tool specs and handlers (`api/internal/handlers/ai_files.go`); shared `aiTools` list feeds the Messages API tools, the MCP server and `--allowedTools`; `aiMaxResult` 45000, `MaxTokens` 64000, system prompt steers file changes to the tools (`ai_run.go`, `ai_cli.go`)
+- [X] T039 Tests `api/internal/handlers/ai_files_test.go` (`TestAINumbered`, `TestAIFileTool`, `TestAIFileToolsRun`, `TestAICLIFileTool`); `cliCall` helper and tool-list assertions in `ai_cli_test.go`, `TestAIParams` in `ai_test.go`
+- [X] T040 Web: `INLINE_LIMIT` and `READ|EDIT|WRITE <path>` labels (`web/src/lib/assistant.ts`); files over the limit go by path in the Files tab chat and `@` mentions (`web/src/routes/tabs/FileAssistant.tsx`, `web/src/components/assistant/Mentions.tsx`); tests in `assistant.test.ts`, `FileAssistant.test.tsx`
+- [X] T041 Document the file tools in `api/specs.md`, `web/specs.md` and this spec

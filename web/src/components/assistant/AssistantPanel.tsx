@@ -545,7 +545,7 @@ const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { b
   const intl = useOptionalIntl();
   const text = result ? resultText(result) : "";
   const tool = linearTool(block);
-  const body = tool ? block.input : block.input?.body;
+  const body = tool || "file_path" in (block.input ?? {}) ? block.input : block.input?.body;
   const label = tool ? `${tool} ${linearArgument(block)}`.trim() : callLabel(block);
   const [method, ...rest] = label.split(" ");
   let badge = <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.not_run", defaultMessage: "not run", description: "Assistant panel: badge on a tool call that has not produced a result yet; keep it short" })}</span>;

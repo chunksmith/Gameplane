@@ -91,6 +91,11 @@ func (h headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func cliTool(t *testing.T, args []string, input map[string]any) string {
 	t.Helper()
+	return cliCall(t, args, "gameplane_api", input)
+}
+
+func cliCall(t *testing.T, args []string, name string, input map[string]any) string {
+	t.Helper()
 	var cfg struct {
 		MCPServers map[string]struct {
 			URL     string            `json:"url"`
@@ -110,7 +115,7 @@ func cliTool(t *testing.T, args []string, input map[string]any) string {
 		return ""
 	}
 	defer func() { _ = session.Close() }()
-	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "gameplane_api", Arguments: input})
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: input})
 	if err != nil || len(res.Content) == 0 {
 		t.Errorf("call tool: %v", err)
 		return ""
@@ -166,7 +171,7 @@ func TestAICLIRun(t *testing.T) {
 	first := spawns()[0]
 	if first.stdin != "check the fleet" || slices.Contains(first.args, "--resume") ||
 		!hasArg(first.args, "--model", "claude-opus-5-5") || !hasArg(first.args, "--effort", "medium") ||
-		!hasArg(first.args, "--tools", "") || !hasArg(first.args, "--allowedTools", aiMCPTool) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
+		!hasArg(first.args, "--tools", "") || !hasArg(first.args, "--allowedTools", strings.Join(aiMCPTools(), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
 		!slices.Contains(first.args, "--include-partial-messages") {
 		t.Errorf("first spawn = %+v", first)
 	}
@@ -430,11 +435,11 @@ func TestAICLIAdminShell(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
 	conv := aiConversation{Model: "claude-opus-5-5", Effort: "medium"}
 	user := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", false)
-	if !hasArg(user, "--tools", "") || !hasArg(user, "--allowedTools", aiMCPTool) || strings.Contains(user[slices.Index(user, "--system-prompt")+1], "kubectl") {
+	if !hasArg(user, "--tools", "") || !hasArg(user, "--allowedTools", strings.Join(aiMCPTools(), ",")) || strings.Contains(user[slices.Index(user, "--system-prompt")+1], "kubectl") {
 		t.Errorf("user args = %v", user)
 	}
 	admin := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
-	if !hasArg(admin, "--tools", "Bash") || !hasArg(admin, "--allowedTools", aiMCPTool+",Bash") || !strings.Contains(admin[slices.Index(admin, "--system-prompt")+1], "kubectl") {
+	if !hasArg(admin, "--tools", "Bash") || !hasArg(admin, "--allowedTools", strings.Join(append(aiMCPTools(), "Bash"), ",")) || !strings.Contains(admin[slices.Index(admin, "--system-prompt")+1], "kubectl") {
 		t.Errorf("admin args = %v", admin)
 	}
 	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") {

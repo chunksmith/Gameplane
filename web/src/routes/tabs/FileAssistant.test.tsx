@@ -63,6 +63,23 @@ describe("FileAssistant", () => {
     expect(String(body.prompt)).toContain("Current content:\n```\ndelay: 0\n");
   });
 
+  it("points Claude at read_file instead of inlining a large file", async () => {
+    mockStatus();
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post("/ai/conversations", async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(conv(), { status: 201 });
+      }),
+      http.get("/ai/conversations/:id", () => HttpResponse.json({ conversation: conv(), messages: [], pending: [] })),
+    );
+    const content = "x: 1\n".repeat(3000);
+    renderWithQuery(<FileAssistant scope={{}} file={{ ...file(), content }} onClose={vi.fn()} />);
+    await send("Translate it");
+    await waitFor(() => expect(String(body.prompt)).toContain("read it with read_file"));
+    expect(String(body.prompt)).not.toContain("x: 1\nx: 1");
+  });
+
   const suggestion: AssistantDetail = {
     conversation: conv({ status: "awaiting_approval" }),
     messages: [
