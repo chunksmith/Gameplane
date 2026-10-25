@@ -27,6 +27,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { QueuedMessages, useMessageQueue } from "@/components/assistant/MessageQueue";
 import { ModelPicker } from "@/components/assistant/ModelPicker";
 import { can, useMe } from "@/lib/auth";
 import { cn, formatRelative } from "@/lib/utils";
@@ -186,7 +187,6 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
       return selected ? Assistant.send(selected, body, pickedMode, pickedModel) : Assistant.create(body, scope, pickedMode, pickedModel);
     },
     onSuccess: (conv) => {
-      setPrompt("");
       setSelected(conv.id);
       refresh();
     },
@@ -199,6 +199,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   }, [ready, selected, warmStatus, scope.server, scope.namespace, scope.cluster, pickedMode, pickedModel]);
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(selected ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(selected ?? ""), onSuccess: refresh });
+  const queue = useMessageQueue(warmStatus === "running" || warmStatus === "awaiting_approval", (text) => submit.mutate(text), () => stop.mutate());
 
   if (status.isLoading) {
     return <div className="flex items-center gap-2 p-6 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.loading_assistant", defaultMessage: "Loading assistant…", description: "Assistant panel: loading text shown in place of the panel while the assistant status is fetched" })}</div>;
@@ -221,13 +222,22 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const modeLabel = intl.formatMessage({ id: "web.components.assistant.assistant_panel.permission_mode", defaultMessage: "Permission mode", description: "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short" });
   const open = (id: string | null) => {
     setSelected(id);
+    queue.drain();
     setPickedMode(undefined);
     setPickedModel(undefined);
     setListOpen(false);
   };
   const send = () => {
     const text = prompt.trim();
-    if (text && !busy) submit.mutate(text);
+    if (!text) return;
+    if (busy) {
+      queue.add(text);
+      setPrompt("");
+    } else submit.mutate(text, { onSuccess: () => setPrompt("") });
+  };
+  const interrupt = () => {
+    setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
+    stop.mutate();
   };
   const actionError = submit.error ?? decide.error ?? stop.error;
   const subtitle = conv
@@ -394,6 +404,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
         {actionError && <div className="mx-4 mb-3"><ErrorBanner err={actionError} /></div>}
 
         <div className="space-y-2 border-t border-border bg-surface/60 p-3 sm:px-4">
+          <QueuedMessages items={queue.items} disabled={submit.isPending || stop.isPending} onSendNow={queue.sendNow} />
           <div className="flex flex-wrap items-center gap-1.5">
             {scope.server && <span className={chipClass}><Server className="h-3 w-3" />{scope.server}</span>}
             <span className={chipClass}><Lock className="h-3 w-3" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.acts_with_your_permissions", defaultMessage: "Acts with your permissions", description: "Assistant panel: chip above the message box reminding that the assistant acts with the user's own permissions; keep it short" })}</span>
@@ -438,11 +449,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 : status.data.linear
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @linear adds Linear", description: "Assistant panel: hint under the message box explaining the Enter and Shift + Enter keys and that typing @linear gives the assistant the Linear workspace or one of its issues" })
                   : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
-              {running && own ? (
-                <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={() => stop.mutate()}><Square className="h-4 w-4" /></Button>
-              ) : (
-                <Button size="sm" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.send", defaultMessage: "Send", description: "Assistant panel: icon button that sends the typed message; keep it short" })} isDisabled={!own || busy || !prompt.trim()} onPress={send}><Send className="h-4 w-4" /></Button>
+              {running && own && (
+                <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={interrupt}><Square className="h-4 w-4" /></Button>
               )}
+              <Button size="sm" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.send", defaultMessage: "Send", description: "Assistant panel: icon button that sends the typed message; keep it short" })} isDisabled={!own || !prompt.trim()} onPress={send}><Send className="h-4 w-4" /></Button>
             </div>
           </div>
         </div>
