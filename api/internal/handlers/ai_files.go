@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"archive/zip"
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
+	"path"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -16,11 +21,14 @@ import (
 )
 
 const (
-	aiReadFile  = "read_file"
-	aiEditFile  = "edit_file"
-	aiWriteFile = "write_file"
-	aiReadLines = 2000
-	aiLineLimit = 2000
+	aiReadFile    = "read_file"
+	aiEditFile    = "edit_file"
+	aiWriteFile   = "write_file"
+	aiReadArchive = "read_archive"
+	aiReadLines   = 2000
+	aiLineLimit   = 2000
+	aiArchiveMax  = 64 << 20
+	aiEntryMax    = 2 << 20
 )
 
 type aiToolSpec struct {
@@ -69,10 +77,15 @@ var aiTools = []aiToolSpec{
 	aiFileSpec(aiWriteFile, "Create or overwrite a file on a server's data volume with the given content. Use edit_file for changes to an existing file.", []string{"content"}, map[string]any{
 		"content": map[string]any{"type": "string", "description": "The complete file content"},
 	}),
+	aiFileSpec(aiReadArchive, "Look inside a .jar or .zip archive on a server's data volume. Without entry it lists the files in the archive; with entry it shows that text file with line numbers, for example plugin.yml, paper-plugin.yml, fabric.mod.json or a bundled default config.yml. A last resort: use it only when the server's own files do not show which settings or values a plugin or mod supports.", nil, map[string]any{
+		"entry":  map[string]any{"type": "string", "description": "Path of a text file inside the archive as listed, for example plugin.yml; omit it to list the archive"},
+		"offset": map[string]any{"type": "integer", "description": "First line of entry to show, 1-based (default 1)"},
+		"limit":  map[string]any{"type": "integer", "description": "Number of lines of entry to show (default 2000)"},
+	}),
 }
 
 func aiIsFileTool(name string) bool {
-	return name == aiReadFile || name == aiEditFile || name == aiWriteFile
+	return name == aiReadFile || name == aiEditFile || name == aiWriteFile || name == aiReadArchive
 }
 
 func aiMCPTools() []string {
@@ -102,6 +115,7 @@ type aiFileInput struct {
 	New        string `json:"new_string"`
 	ReplaceAll bool   `json:"replace_all"`
 	Content    string `json:"content"`
+	Entry      string `json:"entry"`
 }
 
 func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiCreds, name string, raw json.RawMessage) (string, bool) {
@@ -117,6 +131,8 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 		return h.readFile(ctx, conv, creds, in)
 	case aiEditFile:
 		return h.editFile(ctx, conv, creds, in)
+	case aiReadArchive:
+		return h.readArchive(ctx, conv, creds, in)
 	}
 	return h.storeFile(ctx, conv, creds, in, in.Content, fmt.Sprintf("Wrote %d bytes to %s", len(in.Content), in.Path))
 }
@@ -135,6 +151,10 @@ func aiCheckFile(conv aiConversation, in aiFileInput) error {
 }
 
 func (h *aiHandler) fileCall(ctx context.Context, conv aiConversation, creds aiCreds, method, op string, in aiFileInput, body []byte) (int, []byte) {
+	return h.request(ctx, conv, creds, aiFileCall(conv, method, op, in), body, "application/octet-stream")
+}
+
+func aiFileCall(conv aiConversation, method, op string, in aiFileInput) aiToolInput {
 	call := aiToolInput{Method: method, Path: "/servers/" + cmp.Or(conv.Server, in.Server) + "/files/" + op, Query: map[string]string{"path": in.Path}}
 	if conv.Server == "" {
 		call.Query["namespace"] = in.Namespace
@@ -142,7 +162,77 @@ func (h *aiHandler) fileCall(ctx context.Context, conv aiConversation, creds aiC
 			call.Query["cluster"] = in.Cluster
 		}
 	}
-	return h.request(ctx, conv, creds, call, body, "application/octet-stream")
+	return call
+}
+
+func (h *aiHandler) readArchive(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
+	dir := in
+	dir.Path = path.Dir(in.Path)
+	status, data := h.fileCall(ctx, conv, creds, http.MethodGet, "list", dir, nil)
+	if status != http.StatusOK {
+		return fmt.Sprintf("HTTP %d\n%s", status, aiResultText(data)), true
+	}
+	var entries []aiListEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return "Could not list " + dir.Path + ": " + err.Error(), true
+	}
+	index := slices.IndexFunc(entries, func(entry aiListEntry) bool { return entry.Name == path.Base(in.Path) && !entry.Dir })
+	switch {
+	case index < 0:
+		return in.Path + " was not found", true
+	case entries[index].Size > aiArchiveMax:
+		return fmt.Sprintf("%s is larger than %d MiB", in.Path, aiArchiveMax>>20), true
+	}
+	target, err := h.authorize(ctx, conv, creds, http.MethodGet, aiFileCall(conv, http.MethodGet, "read", in))
+	if err != nil {
+		return err.Error(), true
+	}
+	status, data = h.call(ctx, creds, http.MethodGet, strings.Replace(target, "/files/read", "/files/download", 1), nil, "")
+	if status != http.StatusOK {
+		return fmt.Sprintf("HTTP %d\n%s", status, aiResultText(data)), true
+	}
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return fmt.Sprintf("%s is not a jar or zip archive: %v", in.Path, err), true
+	}
+	if in.Entry == "" {
+		return aiArchiveListing(archive), false
+	}
+	file, err := archive.Open(strings.TrimPrefix(in.Entry, "/"))
+	if err != nil {
+		return fmt.Sprintf("%s has no entry %s", in.Path, in.Entry), true
+	}
+	defer func() { _ = file.Close() }()
+	content, err := io.ReadAll(io.LimitReader(file, aiEntryMax))
+	switch {
+	case err != nil:
+		return fmt.Sprintf("Could not read %s: %v", in.Entry, err), true
+	case !utf8.Valid(content):
+		return fmt.Sprintf("%s is a binary entry (%d bytes)", in.Entry, len(content)), true
+	}
+	return aiNumbered(string(content), in.Offset, in.Limit), false
+}
+
+type aiListEntry struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+	Dir  bool   `json:"dir"`
+}
+
+func aiArchiveListing(archive *zip.Reader) string {
+	var b strings.Builder
+	classes := 0
+	for _, file := range archive.File {
+		switch {
+		case file.FileInfo().IsDir():
+		case strings.HasSuffix(file.Name, ".class"):
+			classes++
+		default:
+			fmt.Fprintf(&b, "%s\t%d bytes\n", file.Name, file.UncompressedSize64)
+		}
+	}
+	fmt.Fprintf(&b, "(%d .class files not listed)", classes)
+	return aiClip(b.String(), aiMaxResult)
 }
 
 func (h *aiHandler) readFile(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
