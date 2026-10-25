@@ -183,7 +183,7 @@ func TestRead(t *testing.T) {
 	})
 
 	t.Run("too large for limit", func(t *testing.T) {
-		resp := get(t, srvURL, "/files/read", url.Values{"path": []string{"/hello.txt"}, "limit": []string{"1"}})
+		resp := get(t, srvURL, "/files/read", url.Values{"path": []string{"/a.txt"}, "limit": []string{"1"}})
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusRequestEntityTooLarge {
 			t.Fatalf("status=%d", resp.StatusCode)
