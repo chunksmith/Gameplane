@@ -92,3 +92,10 @@ description: "Task list for Feature 027: AI assistant"
 
 - [X] T049 `aiCLIMax` counts busy processes and rises to 10; a run that finds ten processes in a turn fails with `errAICLIFull` (`process` and `runCLI` in `api/internal/handlers/ai_cli.go`); test `TestAICLIProcessCapBusy` in `api/internal/handlers/ai_cli_test.go`
 - [X] T050 Document the cap and the 3Gi requirement in `spec.md`, `api/specs.md` and the `api.resources` comment in `charts/gameplane/values.yaml`
+
+## Phase 12: Server shell and archive tools
+
+- [X] T051 `read_archive` tool (`readArchive`, `aiArchiveListing` in `api/internal/handlers/ai_files.go`) and the last-resort jar rule plus the ported Claude Code working rules in `aiSystemPrompt` (`api/internal/handlers/ai_run.go`)
+- [X] T052 `POST /servers/{name}/shell` (`MountShell`, `execShell` in `api/internal/ws/exec.go`, mounted in `api/cmd/main.go`) with audit of the command; tests in `api/internal/ws/exec_test.go`
+- [X] T053 `shell` assistant tool (`shell`, `aiShellOutput`, `aiCheckServer` in `api/internal/handlers/ai_files.go`), prompt rules, `ARCHIVE` label in `web/src/lib/assistant.ts`; tests in `api/internal/handlers/ai_files_test.go`
+- [X] T054 Document both tools in `spec.md` and `api/specs.md`
