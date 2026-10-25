@@ -306,15 +306,15 @@ function ClusterSystemLogs() {
                 );
 
                 return (
-                  <div key={idx} className="flex w-max min-w-full gap-3 px-4 leading-[18px] hover:bg-white/5">
+                  <div key={idx} className="flex gap-3 px-4 leading-[18px] hover:bg-white/5">
                     {timestamp && (
                       <span className="shrink-0 text-zinc-500">{timestamp}</span>
                     )}
-                    <span className={`whitespace-pre ${levelColor}`}>
+                    <span className={`min-w-0 whitespace-pre-wrap break-all ${levelColor}`}>
                       {message}
                     </span>
                     {structuredFields.length > 0 && (
-                      <span className="whitespace-pre text-zinc-500">
+                      <span className="min-w-0 whitespace-pre-wrap break-all text-zinc-500">
                         {structuredFields.map(([key, val]) => `${key}=${val}`).join(" ")}
                       </span>
                     )}
