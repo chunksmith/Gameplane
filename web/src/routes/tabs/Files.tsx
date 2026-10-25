@@ -164,10 +164,10 @@ function Split({ aside, children }: { aside?: ReactNode; children: ReactNode }) 
   const [width, setWidth] = useStoredWidth(TREE_WIDTH);
   if (!aside) return children;
   return (
-    <div className="flex flex-1 flex-col gap-3 md:flex-row md:gap-0" style={{ "--files-tree-w": `${width}px` } as CSSProperties}>
+    <div className="flex flex-1 flex-col gap-3 md:min-h-0 md:flex-row md:gap-0" style={{ "--files-tree-w": `${width}px` } as CSSProperties}>
       {aside}
       <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_tree)} width={width} bounds={TREE_WIDTH} onResize={setWidth} className="hidden md:flex" />
-      <div className="flex min-w-0 flex-1 flex-col gap-4">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 md:min-h-0 md:overflow-auto">{children}</div>
     </div>
   );
 }
@@ -176,10 +176,10 @@ function AssistantSplit({ main, assistant }: { main: ReactNode; assistant: React
   const intl = useOptionalIntl();
   const [width, setWidth] = useStoredWidth(ASSISTANT_WIDTH);
   return (
-    <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:gap-0" style={{ "--files-assistant-w": `${width}px` } as CSSProperties}>
-      <div className="flex min-w-0 flex-1 flex-col gap-4">{main}</div>
+    <div className="flex flex-1 flex-col gap-3 lg:min-h-0 lg:flex-row lg:gap-0" style={{ "--files-assistant-w": `${width}px` } as CSSProperties}>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-h-0">{main}</div>
       <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_assistant)} width={width} bounds={ASSISTANT_WIDTH} onResize={setWidth} invert className="hidden lg:flex" />
-      <div className="relative min-h-[60vh] lg:sticky lg:top-0 lg:h-[calc(100vh-3rem)] lg:w-[var(--files-assistant-w)] lg:shrink-0 lg:self-start">
+      <div className="relative min-h-[60vh] lg:sticky lg:top-0 lg:h-[calc(100vh-3rem)] lg:max-h-full lg:min-h-0 lg:w-[var(--files-assistant-w)] lg:shrink-0 lg:self-start">
         {assistant}
       </div>
     </div>
@@ -266,7 +266,7 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tab
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4 p-6">
+    <div className={cn("flex min-h-full flex-col gap-4 p-6", tabbed && "md:h-full")}>
       {entry?.dir ? (
         <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} assistantOpen={assistantOpen} onAssistantOpen={setAssistantOpen} />
       ) : entry ? (
@@ -719,7 +719,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
   }
 
   const editor = (
-    <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background">
+    <div className={cn("flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background", tabs && "md:min-h-0")}>
       {tabs && <EditorTabs {...tabs} active={path} />}
       <div className="relative flex flex-1 flex-col">
         {content.error ? (
@@ -1136,7 +1136,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:max-h-[calc(100vh-3rem)] md:w-[var(--files-tree-w)] md:[contain:size]",
+        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:w-[var(--files-tree-w)] md:[contain:size]",
         dropDir === ROOT && "border-primary",
       )}
     >
