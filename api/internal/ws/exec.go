@@ -71,14 +71,14 @@ func runShell(w http.ResponseWriter, req *http.Request, k *kube.Client, auditor 
 		httperr.WriteMessage(w, req, messages.New("server.ws.invalid_server_name", nil))
 		return
 	}
-	body, err := decodeShell(req.Body)
-	if err != nil {
-		httperr.Write(w, req, apierrors.NewBadRequest(err.Error()))
-		return
-	}
 	pod, err := serverPod(req.Context(), k, ns, name)
 	if err != nil {
 		httperr.Write(w, req, err)
+		return
+	}
+	body, err := decodeShell(req.Body)
+	if err != nil {
+		httperr.Write(w, req, apierrors.NewBadRequest(err.Error()))
 		return
 	}
 	ctx, cancel := context.WithTimeout(req.Context(), shellTimeout(body.TimeoutSeconds))
