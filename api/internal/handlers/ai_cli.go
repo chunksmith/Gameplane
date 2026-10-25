@@ -205,7 +205,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	allowedTools := []string{aiMCPTool}
+	allowedTools := aiMCPTools()
 	for _, name := range linear {
 		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
@@ -275,11 +275,9 @@ func spawnClaude(ctx context.Context, env []string, stdin string, args ...string
 
 func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "gameplane", Version: "1"}, nil)
-	server.AddTool(&mcp.Tool{
-		Name:        aiTool.OfTool.Name,
-		Description: aiToolDescription,
-		InputSchema: map[string]any{"type": "object", "properties": aiToolProperties, "required": aiToolRequired},
-	}, h.mcpCall)
+	for _, spec := range aiTools {
+		server.AddTool(spec.mcp(), h.mcpCall)
+	}
 	if run != nil && run.linear != nil {
 		for _, tool := range run.linear.tools {
 			server.AddTool(&mcp.Tool{Name: aiLinearPrefix + tool.Name, Description: tool.Description, InputSchema: tool.InputSchema}, h.mcpLinearCall)
@@ -321,17 +319,23 @@ func (h *aiHandler) mcpCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 	if run == nil {
 		return nil, errors.New("this assistant run has ended")
 	}
-	var in aiToolInput
-	text, failed := "", true
-	if err := json.Unmarshal(req.Params.Arguments, &in); err != nil {
-		text = "Invalid tool input: " + err.Error()
-	} else if run.conv.Mode != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
-		text = "The user declined this action."
-	} else {
-		status, body := h.tool(ctx, run.conv, run.creds, in)
-		text, failed = fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
-	}
+	text, failed := h.mcpInvoke(ctx, run, req.Params.Name, req.Params.Arguments)
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}, IsError: failed}, nil
+}
+
+func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, args json.RawMessage) (string, bool) {
+	if aiIsFileTool(name) {
+		return h.fileTool(ctx, run.conv, run.creds, name, args)
+	}
+	var in aiToolInput
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "Invalid tool input: " + err.Error(), true
+	}
+	if run.conv.Mode != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
+		return "The user declined this action.", true
+	}
+	status, body := h.tool(ctx, run.conv, run.creds, in)
+	return fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
 }
 
 func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {

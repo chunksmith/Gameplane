@@ -246,9 +246,15 @@ function queryString(query: unknown): string {
   return new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)])).toString();
 }
 
+export const INLINE_LIMIT = 12_000;
+
+const FILE_TOOLS = new Map([["read_file", "READ"], ["edit_file", "EDIT"], ["write_file", "WRITE"]]);
+
 export function callLabel(block: AssistantBlock): string {
   const input = block.input ?? {};
   if (typeof input.command === "string") return `BASH ${input.command}`;
+  const fileTool = FILE_TOOLS.get(block.name ?? "");
+  if (fileTool) return `${fileTool} ${String(input.file_path ?? "")}`.trim();
   const query = queryString(input.query);
   return `${String(input.method ?? "").toUpperCase()} ${String(input.path ?? "")}${query ? `?${query}` : ""}`.trim();
 }

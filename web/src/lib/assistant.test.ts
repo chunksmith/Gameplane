@@ -84,4 +84,9 @@ describe("assistant helpers", () => {
   it("labels shell commands", () => {
     expect(callLabel({ type: "tool_use", input: { command: "kubectl get pods -A" } })).toBe("BASH kubectl get pods -A");
   });
+
+  it("labels file tools", () => {
+    expect(callLabel({ type: "tool_use", name: "edit_file", input: { file_path: "/config.yml", old_string: "a", new_string: "b" } })).toBe("EDIT /config.yml");
+    expect(callLabel({ type: "tool_use", name: "read_file", input: {} })).toBe("READ");
+  });
 });

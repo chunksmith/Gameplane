@@ -5,7 +5,7 @@ import { FileText, Folder } from "lucide-react";
 
 import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { createResourceClient, type FileEntry } from "@/lib/endpoints";
-import { Assistant, type AssistantScope, type LinearIssue } from "@/lib/assistant";
+import { Assistant, INLINE_LIMIT, type AssistantScope, type LinearIssue } from "@/lib/assistant";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 
@@ -190,7 +190,9 @@ export async function mentionContext(scope: AssistantScope, text: string): Promi
           const { entries } = await client.Files.list(server, path, scope.namespace);
           return `Folder ${path}:\n${entries.map((entry) => (entry.dir ? `${entry.name}/` : entry.name)).join("\n")}`;
         }
-        return `File ${path}:\n\`\`\`\n${await client.Files.read(server, path, scope.namespace)}\n\`\`\``;
+        const content = await client.Files.read(server, path, scope.namespace);
+        if (content.length > INLINE_LIMIT) return `File ${path}: ${content.length} characters; read it with read_file.`;
+        return `File ${path}:\n\`\`\`\n${content}\n\`\`\``;
       } catch {
         return "";
       }

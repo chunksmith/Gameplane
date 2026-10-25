@@ -29,15 +29,20 @@
 
 - Q: Should the assistant reach Linear? → A: Yes, through Linear's MCP server, configured in Admin settings; typing `@linear` gives the assistant the whole workspace (so it can answer questions such as "how many issues are open?") and `@linear ABC-123` points at one issue. The Linear logo shows on the mention menu, attachment cards and tool calls. Figma frames approved: `Gameplane Dashboard` → `Assistant / Composer / Linear mention / *`, `Assistant / Thread / Linear * / *`, `Admin / Settings / Linear MCP card / *` (dark, light, mobile). Settled.
 
+### Session 2026-10-25 (maintainer, in chat)
+
+- Q: The assistant is far slower than Claude Code and refuses a 140 KB plugin file as "too long"; can file access work the way Claude Code reads and writes? → A: Yes. Every file change went through `files/write` with the whole file as the tool input (a 140 KB translation meant ~50k output tokens per save), reads were cut at 60000 bytes (and Claude Code stores MCP results over 50,000 characters in a file the CLI could not read with built-in tools off), and the Files tab pasted the whole file into every prompt, where the 20000-character prompt limit rejected it. The assistant now gets Claude Code-shaped file tools (`read_file` paged with line numbers, `edit_file` by exact old/new string, `write_file`), tool results stay under 45000 bytes, and the web passes files over 12000 characters by path instead of inline. Settled.
+
 ## Design
 
 ### Model access
 
-- Anthropic Go SDK (`github.com/anthropics/anthropic-sdk-go`), beta Messages API, one custom tool `gameplane_api`.
+- Anthropic Go SDK (`github.com/anthropics/anthropic-sdk-go`), beta Messages API, custom tools `gameplane_api`, `read_file`, `edit_file` and `write_file` (`aiTools` in `api/internal/handlers/ai_files.go`).
+- File tools (both credential paths): `read_file {file_path, offset?, limit?}` returns `cat -n`-style numbered lines, 2000 at a time, lines clipped at 2000 characters, with a `continue with offset=N` trailer when more follow; `edit_file {file_path, old_string, new_string, replace_all?}` reads the file, requires `old_string` to match exactly once (or `replace_all`) and writes the result back; `write_file {file_path, content}` creates or overwrites. General conversations also take `server`, `namespace` and `cluster`; server conversations ignore them. Each tool is a `files/read` and `files/write` call through `authorize` and the in-process router, so RBAC, server pinning and the audit log apply unchanged, and no file write waits for approval (as `files/write` never did). Tool results are cut at 45000 bytes (`aiMaxResult`) so the CLI never spills them into a file. `MaxTokens` on the Messages API path is 64000 (streamed).
 - Models: `claude-opus-5-5` (default), `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`. Effort: `low`, `medium` (default), `high`, `xhigh`, `max` via `output_config.effort`. Thinking is left at the model default (adaptive).
 - Server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`) on every model except Haiku. A `refusal` stop reason ends the turn with an error.
-- Subscription mode: when the Secret holds `oauthToken`, each run spawns `/usr/local/bin/claude -p` (Claude Code 2.1.301, baked into the API image) with `CLAUDE_CODE_OAUTH_TOKEN`, `--output-format stream-json`, `--model`, `--effort`, `--max-turns 40`, the panel system prompt (`--system-prompt`), built-in tools off (`--tools ""`), only `mcp__gameplane__gameplane_api` allowed, `--permission-mode` from the conversation's mode (see Permission modes); admins also get `Bash` (see Admin shell), and `--resume <session_id>` for follow-ups. Claude Code's state lives in `/data/claude`.
-- The CLI reaches `gameplane_api` over MCP (streamable HTTP, stateless) on a listener bound to `127.0.0.1` inside the API process. Each run gets a random bearer token; the tool runs the same `authorize` and in-process router call as API-key mode.
+- Subscription mode: when the Secret holds `oauthToken`, each run spawns `/usr/local/bin/claude -p` (Claude Code 2.1.301, baked into the API image) with `CLAUDE_CODE_OAUTH_TOKEN`, `--output-format stream-json`, `--model`, `--effort`, `--max-turns 40`, the panel system prompt (`--system-prompt`), built-in tools off (`--tools ""`), only the `mcp__gameplane__*` tools allowed, `--permission-mode` from the conversation's mode (see Permission modes); admins also get `Bash` (see Admin shell), and `--resume <session_id>` for follow-ups. Claude Code's state lives in `/data/claude`.
+- The CLI reaches `gameplane_api` and the file tools over MCP (streamable HTTP, stateless) on a listener bound to `127.0.0.1` inside the API process. Each run gets a random bearer token; the tool runs the same `authorize` and in-process router call as API-key mode.
 - The CLI runs inside the API container, so subscription mode needs `api.resources.limits.memory` of at least 1Gi.
 
 ### Permission model
@@ -93,7 +98,7 @@
 
 - Sidebar "General" → "Assistant" (`/assistant`), shown while the assistant is enabled; conversation history with an admin "All users" toggle.
 - Server detail → "Assistant" tab with the same panel scoped to the server.
-- Panel: conversation list, transcript (text, tool calls with method/path/status, shell commands as `BASH <command>`), approval card, stop button, composer with a permission mode picker (the conversation's mode, or the admin default for a new one; a picked mode is sent with the next message; red for Bypass permissions). New conversations use the admin's default model and effort (the API also accepts `model`/`effort` per conversation; the panel has no picker).
+- Panel: conversation list, transcript (text, tool calls with method/path/status, file tools as `READ|EDIT|WRITE <path>`, shell commands as `BASH <command>`), approval card, stop button, composer with a permission mode picker (the conversation's mode, or the admin default for a new one; a picked mode is sent with the next message; red for Bypass permissions). New conversations use the admin's default model and effort (the API also accepts `model`/`effort` per conversation; the panel has no picker).
 - Admin settings → "AI assistant": enable switch, Claude credential (write-only Console API key or `claude setup-token` subscription token), default model, effort and permission mode.
 
 ## Out of scope

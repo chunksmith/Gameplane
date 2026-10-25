@@ -78,6 +78,8 @@ describe("AssistantPanel", () => {
           { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "HTTP 200\nmotd=old" }] },
           toolUse("t2", "POST", "/servers/lobby/files/write", { body: "motd=Welcome" }),
           { role: "user", content: [{ type: "tool_result", tool_use_id: "t2", content: "HTTP 403\nforbidden", is_error: true }] },
+          { role: "assistant", content: [{ type: "tool_use", id: "t3", name: "edit_file", input: { file_path: "/server.properties", old_string: "motd=old", new_string: "motd=Hi" } }] },
+          { role: "user", content: [{ type: "tool_result", tool_use_id: "t3", content: "Edited /server.properties: 1 replacement(s)" }] },
           { role: "assistant", content: "You are not allowed to edit files on lobby." },
         ],
       },
@@ -97,6 +99,9 @@ describe("AssistantPanel", () => {
     expect(screen.getByText("200")).toBeInTheDocument();
     expect(screen.getByText("403")).toBeInTheDocument();
     expect(screen.getByText("motd=Welcome")).toBeInTheDocument();
+    expect(screen.getByText("EDIT /server.properties")).toBeInTheDocument();
+    expect(screen.getByText(/"new_string": "motd=Hi"/)).toBeInTheDocument();
+    expect(screen.getByText("ok")).toBeInTheDocument();
     expect(screen.getByText("You are not allowed to edit files on lobby.")).toBeInTheDocument();
     expect(screen.getByText("Claude Opus 5.5 · medium")).toBeInTheDocument();
     expect(screen.getByText("1,234 tokens")).toBeInTheDocument();
