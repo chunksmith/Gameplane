@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Tabs } from "@heroui/react";
 import {
   AlertTriangle,
+  Cable,
   CalendarClock,
   Check,
   HardDrive,
@@ -33,6 +34,7 @@ import { VersionSection } from "./settings/Version";
 import { GameConfigSection } from "./settings/GameConfig";
 import { ResourcesSection } from "./settings/Resources";
 import { NetworkingSection } from "./settings/Networking";
+import { AllocationsSection } from "./settings/Allocations";
 import { EnvVarsSection } from "./settings/EnvVars";
 import { LifecycleSection } from "./settings/Lifecycle";
 import { BackupsSection } from "./settings/Backups";
@@ -53,6 +55,7 @@ type SectionKey =
   | "config"
   | "resources"
   | "networking"
+  | "allocations"
   | "env"
   | "lifecycle"
   | "backups"
@@ -77,6 +80,7 @@ const SECTION_LABELS = defineMessages({
   config: { id: "web.routes.tabs.settings.section_game_configuration", defaultMessage: "Game configuration", description: "Settings: name of the Game configuration section in the settings tab list" },
   resources: { id: "web.routes.tabs.settings.section_resources", defaultMessage: "Resources", description: "Settings: name of the Resources section in the settings tab list" },
   networking: { id: "web.routes.tabs.settings.section_networking", defaultMessage: "Networking", description: "Settings: name of the Networking section in the settings tab list" },
+  allocations: { id: "web.routes.tabs.settings.section_allocations", defaultMessage: "Allocations", description: "Settings: name of the Allocations section (extra public ports) in the settings tab list" },
   env: { id: "web.routes.tabs.settings.section_environment", defaultMessage: "Environment", description: "Settings: name of the Environment section in the settings tab list" },
   lifecycle: { id: "web.routes.tabs.settings.section_lifecycle", defaultMessage: "Lifecycle", description: "Settings: name of the Lifecycle section in the settings tab list" },
   backups: { id: "web.routes.tabs.settings.section_scheduled_backups", defaultMessage: "Scheduled backups", description: "Settings: name of the Scheduled backups section in the settings tab list" },
@@ -91,6 +95,7 @@ const SECTION_DESCRIPTIONS = defineMessages({
   general: { id: "web.routes.tabs.settings.section_description_general", defaultMessage: "Identity, description, container image and labels.", description: "Settings: one-line description under the General section heading" },
   resources: { id: "web.routes.tabs.settings.section_description_resources", defaultMessage: "CPU, memory and storage reserved for the game container.", description: "Settings: one-line description under the Resources section heading" },
   networking: { id: "web.routes.tabs.settings.section_description_networking", defaultMessage: "Service exposure, tunnels and ports that players connect through.", description: "Settings: one-line description under the Networking section heading" },
+  allocations: { id: "web.routes.tabs.settings.section_description_allocations", defaultMessage: "Extra public ports for this server, such as a voice chat UDP port.", description: "Settings: one-line description under the Allocations section heading" },
   env: { id: "web.routes.tabs.settings.section_description_environment", defaultMessage: "Environment variables passed to the game container.", description: "Settings: one-line description under the Environment section heading" },
   lifecycle: { id: "web.routes.tabs.settings.section_description_lifecycle", defaultMessage: "Auto-restart, graceful shutdown, health probes and idle auto-sleep.", description: "Settings: one-line description under the Lifecycle section heading" },
   backups: { id: "web.routes.tabs.settings.section_description_scheduled_backups", defaultMessage: "Recurring backups of this server's data volume.", description: "Settings: one-line description under the Scheduled backups section heading" },
@@ -106,6 +111,7 @@ const SECTIONS: Section[] = [
   { key: "config",     label: SECTION_LABELS.config,     icon: SlidersHorizontal },
   { key: "resources",  label: SECTION_LABELS.resources,  icon: HardDrive,         framed: true, divider: true, description: SECTION_DESCRIPTIONS.resources },
   { key: "networking", label: SECTION_LABELS.networking, icon: Network,           framed: true, description: SECTION_DESCRIPTIONS.networking },
+  { key: "allocations", label: SECTION_LABELS.allocations, icon: Cable,          description: SECTION_DESCRIPTIONS.allocations },
   { key: "env",        label: SECTION_LABELS.env,        icon: Variable,          framed: true, description: SECTION_DESCRIPTIONS.env },
   { key: "lifecycle",  label: SECTION_LABELS.lifecycle,  icon: Sliders,           framed: true, divider: true, description: SECTION_DESCRIPTIONS.lifecycle },
   { key: "backups",    label: SECTION_LABELS.backups,    icon: CalendarClock,     framed: true, description: SECTION_DESCRIPTIONS.backups },
@@ -337,6 +343,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
               {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
               {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "networking" && <NetworkingSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.networking} />}
+              {section === "allocations" && <AllocationsSection draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "env"        && <EnvVarsSection    draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "lifecycle"  && <LifecycleSection  draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "backups"    && <BackupsSection    draft={draft} onChange={onChangeDraft} template={template} />}

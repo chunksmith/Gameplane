@@ -383,6 +383,10 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		logger.Error(err, "reconcile Service")
 		return ctrl.Result{}, err
 	}
+	if err := r.reconcileAllocations(ctx, &gs); err != nil {
+		logger.Error(err, "reconcile allocations")
+		return ctrl.Result{}, err
+	}
 
 	replicas, stopRequeue, err := r.desiredReplicas(ctx, &gs, &tmpl, idle, &wipeState)
 	if err != nil {
@@ -1090,7 +1094,7 @@ func (r *GameServerReconciler) reconcileNetworkPolicy(
 		ObjectMeta: metav1.ObjectMeta{Name: gameIngressPolicyName(gs), Namespace: gs.Namespace},
 	}
 
-	ports := networkPolicyPortsFromTemplate(tmpl)
+	ports := append(networkPolicyPortsFromTemplate(tmpl), allocationPolicyPorts(gs)...)
 	if !r.GameIngressPolicyEnabled || len(ports) == 0 {
 		// Get (served from the informer cache) instead of an unconditional
 		// Delete (always a live apiserver write): the agent's heartbeat

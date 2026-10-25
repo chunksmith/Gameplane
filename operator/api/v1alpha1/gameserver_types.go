@@ -367,6 +367,29 @@ type GameServerNetworking struct {
 	// composes with idle auto-sleep and wake-on-connect.
 	// +optional
 	Tunnel *GameServerTunnel `json:"tunnel,omitempty"`
+
+	// +kubebuilder:validation:MaxItems=16
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	Allocations []PortAllocation `json:"allocations,omitempty"`
+}
+
+// PortAllocation exposes one extra pod port on its own LoadBalancer Service.
+type PortAllocation struct {
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=15
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port"`
+
+	// +kubebuilder:validation:Enum=TCP;UDP
+	// +kubebuilder:default=TCP
+	// +optional
+	Protocol corev1.Protocol `json:"protocol,omitempty"`
 }
 
 // PortOverride pins or remaps one of the template's declared ports.
@@ -573,6 +596,10 @@ type GameServerStatus struct {
 	// +kubebuilder:validation:MaxItems=32
 	// +optional
 	TunnelEndpoints []GameServerEndpoint `json:"tunnelEndpoints,omitempty"`
+
+	// +kubebuilder:validation:MaxItems=16
+	// +optional
+	AllocationEndpoints []GameServerEndpoint `json:"allocationEndpoints,omitempty"`
 }
 
 // IdleStatus is the observed state of idle auto-sleep. It is a read model:

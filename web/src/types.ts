@@ -434,6 +434,13 @@ export interface GameServerNetworking {
   // operator-side, not by the CRD.
   address?: string;
   tunnel?: GameServerTunnel;
+  allocations?: PortAllocation[];
+}
+
+export interface PortAllocation {
+  name: string;
+  port: number;
+  protocol?: "TCP" | "UDP";
 }
 
 export interface GameServerStorage {
@@ -588,6 +595,7 @@ export interface GameServer {
   status?: {
     phase?: GameServerPhase;
     endpoints?: GameServerEndpoint[];
+    allocationEndpoints?: GameServerEndpoint[];
     agent?: {
       lastHeartbeat?: string;
       version?: string;

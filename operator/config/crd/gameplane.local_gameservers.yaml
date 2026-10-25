@@ -2939,6 +2939,38 @@ spec:
                     maxLength: 63
                     pattern: ^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)(\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$
                     type: string
+                  allocations:
+                    items:
+                      description: PortAllocation exposes one extra pod port on its
+                        own LoadBalancer Service.
+                      properties:
+                        name:
+                          maxLength: 15
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        port:
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        protocol:
+                          default: TCP
+                          description: Protocol defines network protocols supported
+                            for things like container ports.
+                          enum:
+                          - TCP
+                          - UDP
+                          type: string
+                      required:
+                      - name
+                      - port
+                      type: object
+                    maxItems: 16
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   expose:
                     default: ClusterIP
                     description: |-
@@ -4009,6 +4041,48 @@ spec:
                   version:
                     type: string
                 type: object
+              allocationEndpoints:
+                items:
+                  description: |-
+                    GameServerEndpoint is a single externally reachable (host, port)
+                    associated with a named template port.
+                  properties:
+                    host:
+                      type: string
+                    name:
+                      type: string
+                    pool:
+                      description: |-
+                        Pool is the load-balancer address pool this endpoint's address was
+                        requested from. It is reconciler-owned — users express the preference
+                        through spec.networking.addressPool, never here — and is empty when no
+                        pool was requested or the cluster has no address manager configured.
+                      type: string
+                    port:
+                      format: int32
+                      type: integer
+                    private:
+                      description: |-
+                        Private indicates the endpoint is reachable only from a private mesh
+                        (e.g. Tailscale), not the public internet. The dashboard must label
+                        it accordingly.
+                      type: boolean
+                    protocol:
+                      description: Protocol defines network protocols supported for
+                        things like container ports.
+                      type: string
+                    tunnelProvider:
+                      description: |-
+                        TunnelProvider is set when this endpoint is served by a tunnel
+                        provider (frp, tailscale, playit) rather than the backing Service.
+                      type: string
+                  required:
+                  - host
+                  - name
+                  - port
+                  type: object
+                maxItems: 16
+                type: array
               capture:
                 description: Capture reports the observed state of the capture system
                   for this GameServer.
