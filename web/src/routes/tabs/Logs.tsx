@@ -380,11 +380,13 @@ export function LogsTab({
                 return (
                   <div
                     key={v.key}
+                    data-index={v.index}
+                    ref={rowVirtualizer.measureElement}
                     style={{
                       position: "absolute", top: 0, left: 0, right: 0,
-                      transform: `translateY(${v.start}px)`, height: v.size,
+                      transform: `translateY(${v.start}px)`,
                     }}
-                    className={cn("whitespace-pre px-4 leading-[18px] hover:bg-white/5", row.level && LEVEL_CLASS[row.level])}
+                    className={cn("whitespace-pre-wrap break-all px-4 leading-[18px] hover:bg-white/5", row.level && LEVEL_CLASS[row.level])}
                   >
                     {row.segments.map((segment, index) =>
                       segment.style ? <span key={index} style={segment.style}>{segment.text}</span> : segment.text,

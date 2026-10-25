@@ -12155,6 +12155,10 @@
     "defaultMessage": "You will not see this link again",
     "description": "Share links: bold warning title in the created-link dialog saying the link cannot be seen again"
   },
+  "web.routes.tabs.settings.startup.applies_on_restart": {
+    "defaultMessage": "Saved changes apply the next time the server restarts.",
+    "description": "Startup: note saying that saved startup changes do not restart the server and take effect on its next restart"
+  },
   "web.routes.tabs.settings.startup.auto_size": {
     "defaultMessage": "Auto ({size})",
     "description": "Startup: placeholder of the empty max heap field; {size} is the automatically computed heap"
@@ -12246,10 +12250,6 @@
   "web.routes.tabs.settings.startup.same_as_max": {
     "defaultMessage": "Same as max ({size})",
     "description": "Startup: placeholder of the empty initial heap field; {size} is the max heap it falls back to"
-  },
-  "web.routes.tabs.settings.startup.saving_restarts": {
-    "defaultMessage": "Saving changes restarts the server so they apply.",
-    "description": "Startup: warning note saying that saving restarts the server so the changes apply"
   },
   "web.routes.tabs.settings.to_discard_your_edits_and_load_the": {
     "defaultMessage": "to discard your edits and load the latest.",
