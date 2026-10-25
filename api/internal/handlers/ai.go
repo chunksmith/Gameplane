@@ -108,11 +108,13 @@ type aiHandler struct {
 	linearKeys AILinearKeys
 	dialLinear func(context.Context, string) (*mcp.ClientSession, error)
 	send       func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
-	spawn      func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
+	spawn      func(context.Context, []string, ...string) (io.WriteCloser, io.ReadCloser, func() error, error)
+	idle       time.Duration
 	mcpOnce    sync.Once
 	mcpURL     string
 	mu         sync.Mutex
 	live       map[string]*aiLive
+	procs      map[string]*aiProc
 
 	streamMu sync.Mutex
 	streams  map[string]*aiStream
