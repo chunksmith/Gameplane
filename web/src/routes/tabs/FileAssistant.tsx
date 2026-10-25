@@ -364,7 +364,7 @@ function fileContext(path: string, content: string, mode: AssistantMode) {
   const rule =
     mode === "bypassPermissions"
       ? `Change ${path} yourself with edit_file, or write_file for a complete rewrite.`
-      : `Do not write, upload or delete any file. Reply with a short explanation and the complete updated ${path} in one fenced code block.`;
+      : `Do not change ${path} with tools: reply with a short explanation and the complete updated ${path} in one fenced code block, the only code block in your reply. Change other files yourself with edit_file, or write_file for a new file or a complete rewrite.`;
   const current = content.length > INLINE_LIMIT ? `The file is ${content.length} characters long: read it with read_file.` : `Current content:\n\`\`\`\n${content}\n\`\`\``;
   return `The user is editing ${path} in the Gameplane file editor. ${rule}\n${current}`;
 }
