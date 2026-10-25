@@ -8,8 +8,8 @@
 #   so a fresh clone of the superproject cannot fetch it. Spec 013 G6 / OD-1.
 #
 # Checked submodules (path -> upstream URL, overridable through env):
-#   modules -> ${SUBMODULE_URL_MODULES:-https://github.com/GameplanePanel/module}
-#   website -> ${SUBMODULE_URL_WEBSITE:-https://github.com/GameplanePanel/website}
+#   modules -> ${SUBMODULE_URL_MODULES:-https://github.com/chunksmith/module}
+#   website -> ${SUBMODULE_URL_WEBSITE:-https://github.com/chunksmith/gameplane-website}
 #   Upstream branch: ${SUBMODULE_BRANCH:-main}
 #
 # Environment:
@@ -28,8 +28,8 @@ else
 fi
 
 BRANCH="${SUBMODULE_BRANCH:-main}"
-URL_MODULES="${SUBMODULE_URL_MODULES:-https://github.com/GameplanePanel/module}"
-URL_WEBSITE="${SUBMODULE_URL_WEBSITE:-https://github.com/GameplanePanel/website}"
+URL_MODULES="${SUBMODULE_URL_MODULES:-https://github.com/chunksmith/module}"
+URL_WEBSITE="${SUBMODULE_URL_WEBSITE:-https://github.com/chunksmith/gameplane-website}"
 
 PAIRS=(
   "modules ${URL_MODULES}"
