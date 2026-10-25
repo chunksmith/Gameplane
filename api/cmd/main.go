@@ -446,7 +446,7 @@ func main() {
 		}
 		handlers.MountServerCapabilities(p, reg, ws.NewCaptureGatewayClient(reg, cfg.namespace), captureConfig)
 		handlers.MountCapture(p, reg, auditor, captureConfig, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey)
-		ws.MountWithPlayerNames(p, reg, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, playerNames, ws.AgentGatewayOptions{Namespace: cfg.namespace, FileListLimit: fileListLimit(store), Auditor: auditor})
+		ws.MountWithPlayerNames(p, reg, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, playerNames, ws.AgentGatewayOptions{Namespace: cfg.namespace, FileListLimit: fileListLimit(store), FileReadLimit: fileReadLimit(store), Auditor: auditor})
 	})
 
 	// Usage telemetry. Run returns at once when the resolved destination is
@@ -718,6 +718,21 @@ func fileListLimit(store *db.Store) func(context.Context) int {
 			return defaultFileListLimit
 		}
 		return general.FileListLimit
+	}
+}
+
+const defaultFileReadLimitMB = 32
+
+func fileReadLimit(store *db.Store) func(context.Context) int {
+	return func(ctx context.Context) int {
+		var general struct {
+			FileReadLimitMB int `json:"fileReadLimitMB"`
+		}
+		raw, ok, err := store.ConfigValue(ctx, "general")
+		if err != nil || !ok || json.Unmarshal([]byte(raw), &general) != nil || general.FileReadLimitMB <= 0 {
+			return defaultFileReadLimitMB << 20
+		}
+		return general.FileReadLimitMB << 20
 	}
 }
 

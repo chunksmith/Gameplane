@@ -8,6 +8,7 @@ export interface GeneralCfg {
   externalURL: string;
   defaultNamespace: string;
   fileListLimit?: number;
+  fileReadLimitMB?: number;
 }
 
 export type AuthKind = "local" | "oidc" | "google" | "github";
