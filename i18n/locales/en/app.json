@@ -9711,6 +9711,10 @@
     "defaultMessage": "Nothing exists at this path.",
     "description": "Files tab: text shown when nothing exists at the current path"
   },
+  "web.routes.tabs.files.open": {
+    "defaultMessage": "Open",
+    "description": "Files tab: item of the right-click menu on a folder tree entry that opens the file or folder; keep it short"
+  },
   "web.routes.tabs.files.open_files": {
     "defaultMessage": "Open files",
     "description": "Files tab: accessible label of the row of tabs above the editor in tree view, one tab per open file; not shown as text"
