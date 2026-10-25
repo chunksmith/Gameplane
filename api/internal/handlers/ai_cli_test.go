@@ -555,14 +555,10 @@ func TestAICLIApproval(t *testing.T) {
 }
 
 func TestAICLICancel(t *testing.T) {
-	var mu sync.Mutex
-	var result string
+	result := make(chan string, 1)
 	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
 		emit(cliInit)
-		text := cliTool(t, call.args, map[string]any{"method": "DELETE", "path": "/servers/lobby/files/delete", "query": map[string]string{"path": "/x"}})
-		mu.Lock()
-		result = text
-		mu.Unlock()
+		result <- cliTool(t, call.args, map[string]any{"method": "DELETE", "path": "/servers/lobby/files/delete", "query": map[string]string{"path": "/x"}})
 		emit(cliDone)
 	})
 	conv := f.create(map[string]any{"prompt": "delete x", "server": "lobby", "namespace": "games"})
@@ -574,9 +570,12 @@ func TestAICLICancel(t *testing.T) {
 		t.Errorf("error = %q", got.Error)
 	}
 	waitUntracked(t, f.h, conv.ID)
-	mu.Lock()
-	got := result
-	mu.Unlock()
+	var got string
+	select {
+	case got = <-result:
+	case <-time.After(5 * time.Second):
+		t.Fatal("tool result never arrived")
+	}
 	f.mu.Lock()
 	deleted := slices.ContainsFunc(f.calls, func(c aiCall) bool { return c.method == http.MethodDelete })
 	f.mu.Unlock()
