@@ -264,6 +264,7 @@ func (r *GameServerReconciler) reconcileStatus(
 	if tunnelPlan.wantTunnel && len(tunnelPlan.endpoints) > 0 {
 		gs.Status.Endpoints = append(tunnelPlan.endpoints, gs.Status.Endpoints...)
 	}
+	gs.Status.AllocationEndpoints = r.allocationEndpoints(ctx, gs)
 	if phase == gameplanev1alpha1.GameServerPhaseRunning {
 		// Track the running game container's start so the dashboard's
 		// "up …" reflects the current pod, not the first time the server

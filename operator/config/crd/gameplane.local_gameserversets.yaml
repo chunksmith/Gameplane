@@ -2968,6 +2968,38 @@ spec:
                         maxLength: 63
                         pattern: ^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)(\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$
                         type: string
+                      allocations:
+                        items:
+                          description: PortAllocation exposes one extra pod port on
+                            its own LoadBalancer Service.
+                          properties:
+                            name:
+                              maxLength: 15
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                            port:
+                              format: int32
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
+                            protocol:
+                              default: TCP
+                              description: Protocol defines network protocols supported
+                                for things like container ports.
+                              enum:
+                              - TCP
+                              - UDP
+                              type: string
+                          required:
+                          - name
+                          - port
+                          type: object
+                        maxItems: 16
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       expose:
                         default: ClusterIP
                         description: |-

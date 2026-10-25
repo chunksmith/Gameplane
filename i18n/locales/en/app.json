@@ -10743,6 +10743,118 @@
     "defaultMessage": "Remove {name}",
     "description": "Access: aria-label of the remove button on a collaborator chip; {name} is the collaborator's username"
   },
+  "web.routes.tabs.settings.allocations.add": {
+    "defaultMessage": "Add",
+    "description": "Allocations: button that adds the allocation from the form"
+  },
+  "web.routes.tabs.settings.allocations.add_allocation": {
+    "defaultMessage": "Add allocation",
+    "description": "Allocations: title of the card with the form that adds a port"
+  },
+  "web.routes.tabs.settings.allocations.add_allocation_hint": {
+    "defaultMessage": "Use the same port in the plugin's config, e.g. port in voicechat-server.properties.",
+    "description": "Allocations: hint under the Add allocation title; voicechat-server.properties is a file name, keep it untranslated"
+  },
+  "web.routes.tabs.settings.allocations.address": {
+    "defaultMessage": "{host}:{port}",
+    "description": "Allocations: public address shown as host and port; keep the format"
+  },
+  "web.routes.tabs.settings.allocations.allocated_ports": {
+    "defaultMessage": "Allocated ports",
+    "description": "Allocations: title of the card listing the allocated ports"
+  },
+  "web.routes.tabs.settings.allocations.allocated_ports_hint": {
+    "defaultMessage": "Each port gets its own LoadBalancer on the cluster's public IP and forwards to the same port in the pod.",
+    "description": "Allocations: hint under the Allocated ports title explaining how each allocation is exposed"
+  },
+  "web.routes.tabs.settings.allocations.assigned": {
+    "defaultMessage": "Assigned",
+    "description": "Allocations: status badge when the public address is assigned"
+  },
+  "web.routes.tabs.settings.allocations.column_address": {
+    "defaultMessage": "Public address",
+    "description": "Allocations: column heading for the public IP and port players connect to"
+  },
+  "web.routes.tabs.settings.allocations.column_name": {
+    "defaultMessage": "Name",
+    "description": "Allocations: column heading for the allocation name"
+  },
+  "web.routes.tabs.settings.allocations.column_port": {
+    "defaultMessage": "Port",
+    "description": "Allocations: column heading for the port number"
+  },
+  "web.routes.tabs.settings.allocations.column_protocol": {
+    "defaultMessage": "Protocol",
+    "description": "Allocations: column heading for the TCP or UDP protocol"
+  },
+  "web.routes.tabs.settings.allocations.column_status": {
+    "defaultMessage": "Status",
+    "description": "Allocations: column heading for whether the public address is assigned"
+  },
+  "web.routes.tabs.settings.allocations.duplicate_name": {
+    "defaultMessage": "An allocation with this name already exists.",
+    "description": "Allocations: inline error under the name field when another allocation already uses the name"
+  },
+  "web.routes.tabs.settings.allocations.duplicate_port": {
+    "defaultMessage": "This port is already allocated.",
+    "description": "Allocations: inline error under the port field when the same port and protocol is already allocated"
+  },
+  "web.routes.tabs.settings.allocations.empty": {
+    "defaultMessage": "No extra ports allocated yet.",
+    "description": "Allocations: empty state shown when the server has no allocations"
+  },
+  "web.routes.tabs.settings.allocations.invalid_name": {
+    "defaultMessage": "Use up to 15 lowercase letters, digits or dashes.",
+    "description": "Allocations: inline error under the name field when the name is not a valid port name"
+  },
+  "web.routes.tabs.settings.allocations.invalid_port": {
+    "defaultMessage": "Port must be 1–65535.",
+    "description": "Allocations: inline error under the port field when the port is out of range"
+  },
+  "web.routes.tabs.settings.allocations.name": {
+    "defaultMessage": "Name",
+    "description": "Allocations: label of the allocation name field"
+  },
+  "web.routes.tabs.settings.allocations.name_placeholder": {
+    "defaultMessage": "voicechat",
+    "description": "Allocations: example placeholder in the name field; an example value, not a default"
+  },
+  "web.routes.tabs.settings.allocations.pending": {
+    "defaultMessage": "Pending",
+    "description": "Allocations: status badge while the public address is not assigned yet"
+  },
+  "web.routes.tabs.settings.allocations.port": {
+    "defaultMessage": "Port",
+    "description": "Allocations: label of the port number field"
+  },
+  "web.routes.tabs.settings.allocations.port_placeholder": {
+    "defaultMessage": "24454",
+    "description": "Allocations: example placeholder in the port field; an example port, not a default"
+  },
+  "web.routes.tabs.settings.allocations.protocol": {
+    "defaultMessage": "Protocol",
+    "description": "Allocations: label of the TCP or UDP protocol switch"
+  },
+  "web.routes.tabs.settings.allocations.remove": {
+    "defaultMessage": "Remove",
+    "description": "Allocations: button that removes an allocation row"
+  },
+  "web.routes.tabs.settings.allocations.remove_named": {
+    "defaultMessage": "Remove {name}",
+    "description": "Allocations: accessible name of the button that removes the allocation {name}"
+  },
+  "web.routes.tabs.settings.allocations.tcp": {
+    "defaultMessage": "TCP",
+    "description": "Allocations: TCP protocol option; keep untranslated"
+  },
+  "web.routes.tabs.settings.allocations.udp": {
+    "defaultMessage": "UDP",
+    "description": "Allocations: UDP protocol option; keep untranslated"
+  },
+  "web.routes.tabs.settings.allocations.waiting": {
+    "defaultMessage": "Waiting for address…",
+    "description": "Allocations: shown instead of the public address while it is not assigned yet"
+  },
   "web.routes.tabs.settings.backups.active": {
     "defaultMessage": "Active",
     "description": "Backups: status label next to the suspend switch when off"
@@ -11739,9 +11851,17 @@
     "defaultMessage": "Saving…",
     "description": "Settings: label of the save button while the save is running"
   },
+  "web.routes.tabs.settings.section_allocations": {
+    "defaultMessage": "Allocations",
+    "description": "Settings: name of the Allocations section (extra public ports) in the settings tab list"
+  },
   "web.routes.tabs.settings.section_danger_zone": {
     "defaultMessage": "Danger zone",
     "description": "Settings: name of the Danger zone section in the settings tab list"
+  },
+  "web.routes.tabs.settings.section_description_allocations": {
+    "defaultMessage": "Extra public ports for this server, such as a voice chat UDP port.",
+    "description": "Settings: one-line description under the Allocations section heading"
   },
   "web.routes.tabs.settings.section_description_danger_zone": {
     "defaultMessage": "Irreversible actions for this server. Proceed with care.",
