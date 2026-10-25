@@ -9517,7 +9517,7 @@
   },
   "web.routes.tabs.file_assistant.context": {
     "defaultMessage": "Context: {file}",
-    "description": "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name"
+    "description": "Files tab: tooltip of the chip in the Claude message box naming the file Claude sees; {file} is the file path"
   },
   "web.routes.tabs.file_assistant.decline": {
     "defaultMessage": "Decline",
@@ -9578,10 +9578,6 @@
   "web.routes.tabs.file_assistant.stop": {
     "defaultMessage": "Stop",
     "description": "Files tab: icon-only button in the Claude chat panel that stops the running reply; keep it short"
-  },
-  "web.routes.tabs.file_assistant.title": {
-    "defaultMessage": "Claude",
-    "description": "Files tab: title in the header of the Claude chat panel beside the file editor; keep it short"
   },
   "web.routes.tabs.file_assistant.unavailable": {
     "defaultMessage": "The AI assistant is not set up. An admin can turn it on under Admin settings → AI assistant.",

@@ -266,7 +266,7 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tab
   }
 
   return (
-    <div className={cn("flex min-h-full flex-col gap-4 p-6", tabbed && "md:h-full")}>
+    <div className={cn("flex min-h-full flex-col gap-3 px-6 pb-6 pt-4", tabbed && "md:h-full")}>
       {entry?.dir ? (
         <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} assistantOpen={assistantOpen} onAssistantOpen={setAssistantOpen} />
       ) : entry ? (
