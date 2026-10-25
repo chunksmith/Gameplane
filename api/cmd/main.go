@@ -446,8 +446,7 @@ func main() {
 		}
 		handlers.MountServerCapabilities(p, reg, ws.NewCaptureGatewayClient(reg, cfg.namespace), captureConfig)
 		handlers.MountCapture(p, reg, auditor, captureConfig, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey)
-		ws.MountWithPlayerNames(p, reg, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, playerNames, ws.AgentGatewayOptions{Namespace: cfg.namespace, FileListLimit: fileListLimit(store)})
-		ws.MountShell(p, reg, auditor)
+		ws.MountWithPlayerNames(p, reg, cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, playerNames, ws.AgentGatewayOptions{Namespace: cfg.namespace, FileListLimit: fileListLimit(store), Auditor: auditor})
 	})
 
 	// Usage telemetry. Run returns at once when the resolved destination is

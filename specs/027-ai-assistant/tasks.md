@@ -96,6 +96,6 @@ description: "Task list for Feature 027: AI assistant"
 ## Phase 12: Server shell and archive tools
 
 - [X] T051 `read_archive` tool (`readArchive`, `aiArchiveListing` in `api/internal/handlers/ai_files.go`) and the last-resort jar rule plus the ported Claude Code working rules in `aiSystemPrompt` (`api/internal/handlers/ai_run.go`)
-- [X] T052 `POST /servers/{name}/shell` (`MountShell`, `execShell` in `api/internal/ws/exec.go`, mounted in `api/cmd/main.go`) with audit of the command; tests in `api/internal/ws/exec_test.go`
+- [X] T052 `POST /servers/{name}/shell` (`mountShell`, `execShell` in `api/internal/ws/exec.go`, mounted by `MountWithPlayerNames` with `AgentGatewayOptions.Auditor` from `api/cmd/main.go`) with audit of the command; tests in `api/internal/ws/exec_test.go`
 - [X] T053 `shell` assistant tool (`shell`, `aiShellOutput`, `aiCheckServer` in `api/internal/handlers/ai_files.go`), prompt rules, `ARCHIVE` label in `web/src/lib/assistant.ts`; tests in `api/internal/handlers/ai_files_test.go`
 - [X] T054 Document both tools in `spec.md` and `api/specs.md`

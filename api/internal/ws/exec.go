@@ -46,7 +46,7 @@ type shellResponse struct {
 	Truncated bool   `json:"truncated"`
 }
 
-func MountShell(r chi.Router, reg *kube.Registry, auditor *audit.Auditor) {
+func mountShell(r chi.Router, reg *kube.Registry, auditor *audit.Auditor) {
 	r.Post("/servers/{name}/shell", func(w http.ResponseWriter, req *http.Request) {
 		k, ok := streamClient(w, req, reg)
 		if !ok {
