@@ -158,7 +158,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	linear := h.openLinear(runCtx, conv.UserID)
 	defer linear.close()
 	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, done: runCtx.Done(), cancel: cancel}
-	if err := h.attach(run, token, prompt); err != nil {
+	if err := h.attach(ctx, run, token, prompt); err != nil {
 		slog.Warn("start claude", "err", err)
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code could not be started.")
 		return
@@ -187,10 +187,10 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	}
 }
 
-func (h *aiHandler) attach(run *aiLive, token, prompt string) error {
+func (h *aiHandler) attach(ctx context.Context, run *aiLive, token, prompt string) error {
 	names := run.linear.names()
 	for retry := range 2 {
-		proc, fresh, err := h.process(run.conv, token, run.creds.admin, names)
+		proc, fresh, err := h.process(ctx, run.conv, token, run.creds.admin, names)
 		if err != nil {
 			return err
 		}
@@ -357,7 +357,7 @@ func spawnClaude(ctx context.Context, env []string, args ...string) (io.WriteClo
 	}, nil
 }
 
-func (h *aiHandler) process(conv aiConversation, token string, admin bool, linear []string) (*aiProc, bool, error) {
+func (h *aiHandler) process(ctx context.Context, conv aiConversation, token string, admin bool, linear []string) (*aiProc, bool, error) {
 	spec := aiCLISpec(conv, token, admin, linear)
 	h.mu.Lock()
 	proc := h.procs[conv.ID]
@@ -383,12 +383,12 @@ func (h *aiHandler) process(conv aiConversation, token string, admin bool, linea
 	if proc != nil {
 		proc.stop(graceful)
 	}
-	proc, err := h.spawnProc(conv, token, admin, linear, spec)
+	proc, err := h.spawnProc(ctx, conv, token, admin, linear, spec)
 	return proc, true, err
 }
 
-func (h *aiHandler) spawnProc(conv aiConversation, token string, admin bool, linear []string, spec string) (*aiProc, error) {
-	ctx, kill := context.WithCancel(context.Background())
+func (h *aiHandler) spawnProc(ctx context.Context, conv aiConversation, token string, admin bool, linear []string, spec string) (*aiProc, error) {
+	ctx, kill := context.WithCancel(context.WithoutCancel(ctx))
 	proc := &aiProc{id: conv.ID, token: rand.Text(), spec: spec, kill: kill, exited: make(chan struct{}), busy: true}
 	stdin, stdout, wait, err := h.spawn(ctx, aiCLIEnv(token, admin), aiCLIArgs(conv, h.mcpURL, proc.token, admin, linear...)...)
 	if err != nil {
