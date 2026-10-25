@@ -310,8 +310,8 @@ func TestAICLIProcessCap(t *testing.T) {
 func TestAICLIProcessCapBusy(t *testing.T) {
 	f, spawns := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
 		emit(cliInit)
-		for range call.in {
-		}
+		<-call.in
+		<-call.in
 	})
 	var convs []aiConversation
 	for i := range aiCLIMax {
