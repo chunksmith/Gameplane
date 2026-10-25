@@ -122,7 +122,7 @@ func TestAIEditFileCRLF(t *testing.T) {
 func TestAICLIFileTool(t *testing.T) {
 	var mu sync.Mutex
 	var result string
-	f, _ := newCLIFixture(t, func(call aiSpawn, emit func(string)) {
+	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
 		emit(cliInit)
 		text := cliCall(t, call.args, aiReadFile, map[string]any{"file_path": "/config.yml", "limit": 1})
 		mu.Lock()

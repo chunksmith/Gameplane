@@ -74,3 +74,9 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T039 Tests `api/internal/handlers/ai_files_test.go` (`TestAINumbered`, `TestAIFileTool`, `TestAIFileToolsRun`, `TestAICLIFileTool`); `cliCall` helper and tool-list assertions in `ai_cli_test.go`, `TestAIParams` in `ai_test.go`
 - [X] T040 Web: `INLINE_LIMIT` and `READ|EDIT|WRITE <path>` labels (`web/src/lib/assistant.ts`); files over the limit go by path in the Files tab chat and `@` mentions (`web/src/routes/tabs/FileAssistant.tsx`, `web/src/components/assistant/Mentions.tsx`); tests in `assistant.test.ts`, `FileAssistant.test.tsx`
 - [X] T041 Document the file tools in `api/specs.md`, `web/specs.md` and this spec
+
+## Phase 9: Process reuse
+
+- [X] T042 One Claude Code process per conversation (`aiProc`, `--input-format stream-json`, user messages as stdin lines, turn ends at `result`, closed after 10 idle minutes, restarted with `--resume` on a settings change, Stop or a dead process, at most 3 resident with the longest idle evicted) in `api/internal/handlers/ai_cli.go`; `spawn` returns stdin (`api/internal/handlers/ai.go`)
+- [X] T043 Tests: stdin-reading fake process in `newCLIFixture`, two turns through one process and the between-turn refusal in `TestAICLIRun`, `TestAICLIProcessRestart` (model change, idle window) and `TestAICLIProcessCap` in `api/internal/handlers/ai_cli_test.go`
+- [X] T044 Document the process lifecycle and the 1Gi requirement in `spec.md`, `api/specs.md` and the `api.resources` comment in `charts/gameplane/values.yaml`
