@@ -68,6 +68,7 @@ func MountWithPlayerNames(r chi.Router, reg *kube.Registry, caBundle, clientCert
 	// (also no agent mTLS needed), so download/config output is visible
 	// before the game's own log file exists. Mounted unconditionally.
 	mountPodLogs(r, reg)
+	mountShell(r, reg, options.Auditor)
 	r.Route("/servers/{name}/files", func(r chi.Router) {
 		r.Get("/list", withListLimit(options.FileListLimit, p.agentHTTP("/files/list")))
 		r.Get("/size", p.agentHTTP("/files/size"))

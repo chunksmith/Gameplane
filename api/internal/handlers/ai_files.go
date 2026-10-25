@@ -25,6 +25,7 @@ const (
 	aiEditFile    = "edit_file"
 	aiWriteFile   = "write_file"
 	aiReadArchive = "read_archive"
+	aiShell       = "shell"
 	aiReadLines   = 2000
 	aiLineLimit   = 2000
 	aiArchiveMax  = 64 << 20
@@ -63,6 +64,14 @@ func aiFileSpec(name, description string, required []string, extra map[string]an
 	return aiToolSpec{name: name, description: description, properties: properties, required: append([]string{"file_path"}, required...)}
 }
 
+var aiShellProperties = map[string]any{
+	"command":         map[string]any{"type": "string", "description": "The shell command, run with sh -c in the data volume folder"},
+	"timeout_seconds": map[string]any{"type": "integer", "description": "Stop the command after this many seconds (default 30, at most 55)"},
+	"server":          aiFileScope["server"],
+	"namespace":       aiFileScope["namespace"],
+	"cluster":         aiFileScope["cluster"],
+}
+
 var aiTools = []aiToolSpec{
 	{name: "gameplane_api", description: aiToolDescription, properties: aiToolProperties, required: aiToolRequired},
 	aiFileSpec(aiReadFile, "Read a text file from a server's data volume with line numbers, 2000 lines at a time. Use offset (first line, 1-based) and limit (number of lines) to page through long files.", nil, map[string]any{
@@ -82,10 +91,11 @@ var aiTools = []aiToolSpec{
 		"offset": map[string]any{"type": "integer", "description": "First line of entry to show, 1-based (default 1)"},
 		"limit":  map[string]any{"type": "integer", "description": "Number of lines of entry to show (default 2000)"},
 	}),
+	{name: aiShell, description: "Run a shell command (sh -c) in the server's game container, inside its data volume: the same files read_file shows, so read_file's /plugins is ./plugins here. Use it like a terminal to search and inspect: grep -rn, find, ls -la, head, tail, wc, unzip -l some.jar, unzip -p some.jar plugin.yml. Returns the exit code, stdout and stderr; a command stops after timeout_seconds (default 30, at most 55). Change files with edit_file or write_file, not with shell redirects or sed. Available programs depend on the game image; when one is missing, use read_file or read_archive instead.", properties: aiShellProperties, required: []string{"command"}},
 }
 
 func aiIsFileTool(name string) bool {
-	return name == aiReadFile || name == aiEditFile || name == aiWriteFile || name == aiReadArchive
+	return name == aiReadFile || name == aiEditFile || name == aiWriteFile || name == aiReadArchive || name == aiShell
 }
 
 func aiMCPTools() []string {
@@ -116,12 +126,17 @@ type aiFileInput struct {
 	ReplaceAll bool   `json:"replace_all"`
 	Content    string `json:"content"`
 	Entry      string `json:"entry"`
+	Command    string `json:"command"`
+	Timeout    int    `json:"timeout_seconds"`
 }
 
 func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiCreds, name string, raw json.RawMessage) (string, bool) {
 	var in aiFileInput
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return "Invalid tool input: " + err.Error(), true
+	}
+	if name == aiShell {
+		return h.shell(ctx, conv, creds, in)
 	}
 	if err := aiCheckFile(conv, in); err != nil {
 		return err.Error(), true
@@ -141,6 +156,10 @@ func aiCheckFile(conv aiConversation, in aiFileInput) error {
 	if !strings.HasPrefix(in.Path, "/") {
 		return errors.New("file_path must be an absolute path inside the server's data volume")
 	}
+	return aiCheckServer(conv, in)
+}
+
+func aiCheckServer(conv aiConversation, in aiFileInput) error {
 	if conv.Server == "" && (!dnsLabelRE.MatchString(in.Server) || in.Namespace == "") {
 		return errors.New("server and namespace are required in this conversation")
 	}
@@ -148,6 +167,45 @@ func aiCheckFile(conv aiConversation, in aiFileInput) error {
 		return fmt.Errorf("this conversation is limited to server %s", conv.Server)
 	}
 	return nil
+}
+
+func (h *aiHandler) shell(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
+	if err := aiCheckServer(conv, in); err != nil {
+		return err.Error(), true
+	}
+	call := aiFileCall(conv, http.MethodPost, "", in)
+	call.Path = "/servers/" + cmp.Or(conv.Server, in.Server) + "/shell"
+	delete(call.Query, "path")
+	body, err := json.Marshal(map[string]any{"command": in.Command, "timeoutSeconds": in.Timeout})
+	if err != nil {
+		return "Invalid shell input: " + err.Error(), true
+	}
+	status, data := h.request(ctx, conv, creds, call, body, "application/json")
+	if status != http.StatusOK {
+		return fmt.Sprintf("HTTP %d\n%s", status, aiResultText(data)), true
+	}
+	var out struct {
+		Stdout    string `json:"stdout"`
+		Stderr    string `json:"stderr"`
+		ExitCode  int    `json:"exitCode"`
+		Truncated bool   `json:"truncated"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return "Invalid shell response: " + err.Error(), true
+	}
+	return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode, out.Truncated), out.ExitCode != 0
+}
+
+func aiShellOutput(stdout, stderr string, exitCode int, truncated bool) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "exit %d\n%s", exitCode, stdout)
+	if stderr != "" {
+		b.WriteString("\n[stderr]\n" + stderr)
+	}
+	if truncated {
+		b.WriteString("\n(output cut at 1 MiB)")
+	}
+	return aiClip(b.String(), aiMaxResult)
 }
 
 func (h *aiHandler) fileCall(ctx context.Context, conv aiConversation, creds aiCreds, method, op string, in aiFileInput, body []byte) (int, []byte) {

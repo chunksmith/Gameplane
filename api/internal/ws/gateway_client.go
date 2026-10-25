@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/GameplanePanel/gameplane/api/internal/audit"
 	"github.com/GameplanePanel/gameplane/api/internal/gatewayprotocol"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
@@ -34,6 +35,7 @@ var errGatewayUnavailable = errors.New("agent gateway not configured")
 type AgentGatewayOptions struct {
 	Namespace     string
 	FileListLimit func(context.Context) int
+	Auditor       *audit.Auditor
 }
 
 type agentGatewayResolver struct {
