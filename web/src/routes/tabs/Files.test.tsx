@@ -861,6 +861,17 @@ describe("FilesTab", () => {
     expect(await screen.findByRole("complementary", { name: "Folder tree" })).toBeInTheDocument();
   });
 
+  it("opens the Claude chat from the list view", async () => {
+    mockServerProperties({ "GET /ai/status": () => jsonRes({ enabled: false, configured: false }) });
+    renderWithQuery(<Harness />);
+    await screen.findByText("server.properties");
+    const ask = screen.getByRole("button", { name: "Ask Claude" });
+    expect(ask).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(ask);
+    expect(await screen.findByRole("region", { name: "Claude chat" })).toBeInTheDocument();
+    expect(ask).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("resizes the folder tree by drag and arrow keys and remembers the width", async () => {
     window.localStorage.setItem("gameplane.files.view", "tree");
     window.localStorage.setItem("gameplane.files.treeWidth", "300");

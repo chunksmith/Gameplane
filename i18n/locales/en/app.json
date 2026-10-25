@@ -1435,6 +1435,14 @@
     "defaultMessage": "Recent issues",
     "description": "Assistant mention menu: heading above the recently updated Linear issues; keep it short"
   },
+  "web.components.assistant.message_queue.queued": {
+    "defaultMessage": "Queued: sends when the current reply finishes",
+    "description": "Assistant chat: muted note under messages typed while Claude is still working, saying they are sent once the current reply ends"
+  },
+  "web.components.assistant.message_queue.send_now": {
+    "defaultMessage": "Send now",
+    "description": "Assistant chat: button under queued messages that stops Claude's current reply and sends them right away; keep it short"
+  },
   "web.components.assistant.model_picker.label": {
     "defaultMessage": "Model",
     "description": "Assistant model picker: accessible name of the dropdown above the message box that picks the Claude model; keep it short"

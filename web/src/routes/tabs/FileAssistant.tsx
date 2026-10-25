@@ -7,6 +7,7 @@ import { defineMessages } from "react-intl";
 
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { QueuedMessages, useMessageQueue } from "@/components/assistant/MessageQueue";
 import { ModelPicker } from "@/components/assistant/ModelPicker";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import {
@@ -176,13 +177,13 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
       return id ? Assistant.send(id, body, mode, pickedModel) : Assistant.create(body, scope, mode, pickedModel);
     },
     onSuccess: (next) => {
-      setPrompt("");
       onStarted(next.id);
       refresh();
     },
   });
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(id ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(id ?? ""), onSuccess: refresh });
+  const queue = useMessageQueue(running || conv?.status === "awaiting_approval", (text) => submit.mutate(text), () => stop.mutate());
 
   useEffect(() => {
     if (wasRunning.current && !running && conv?.mode === "bypassPermissions") onSaved?.();
@@ -196,7 +197,15 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
   const busy = running || conv?.status === "awaiting_approval" || submit.isPending;
   const send = () => {
     const text = prompt.trim();
-    if (text && !busy) submit.mutate(text);
+    if (!text) return;
+    if (busy) {
+      queue.add(text);
+      setPrompt("");
+    } else submit.mutate(text, { onSuccess: () => setPrompt("") });
+  };
+  const interrupt = () => {
+    setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
+    stop.mutate();
   };
   const actionError = submit.error ?? decide.error ?? stop.error;
 
@@ -243,7 +252,8 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
       )}
       {actionError && <div className="px-3 pt-2"><ErrorBanner err={actionError} /></div>}
 
-      <div className="border-t border-border p-3">
+      <div className="space-y-2 border-t border-border p-3">
+        <QueuedMessages items={queue.items} disabled={submit.isPending || stop.isPending} onSendNow={queue.sendNow} />
         <div className="rounded-xl border border-border bg-surface p-2 transition-colors focus-within:border-primary/50">
           <MentionTextArea
             scope={scope}
@@ -272,15 +282,14 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
               </Select.Popover>
             </Select>
             <ModelPicker value={model} onChange={setPickedModel} isDisabled={!ready} className="mr-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs" />
-            {running ? (
-              <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={() => stop.mutate()}>
+            {running && (
+              <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={interrupt}>
                 <Square className="h-4 w-4" />
               </Button>
-            ) : (
-              <Button size="sm" variant="primary" isDisabled={!ready || busy || !prompt.trim()} onPress={send}>
-                <Send className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.send)}
-              </Button>
             )}
+            <Button size="sm" variant="primary" isDisabled={!ready || !prompt.trim()} onPress={send}>
+              <Send className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.send)}
+            </Button>
           </div>
         </div>
       </div>

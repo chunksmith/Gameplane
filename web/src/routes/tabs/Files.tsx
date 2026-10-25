@@ -171,7 +171,7 @@ function AssistantSplit({ main, assistant }: { main: ReactNode; assistant: React
     <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:gap-0" style={{ "--files-assistant-w": `${width}px` } as CSSProperties}>
       <div className="flex min-w-0 flex-1 flex-col gap-4">{main}</div>
       <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_assistant)} width={width} bounds={ASSISTANT_WIDTH} onResize={setWidth} invert className="hidden lg:flex" />
-      <div className="relative min-h-[60vh] lg:w-[var(--files-assistant-w)] lg:shrink-0">
+      <div className="relative min-h-[60vh] lg:sticky lg:top-0 lg:h-[calc(100vh-3rem)] lg:w-[var(--files-assistant-w)] lg:shrink-0 lg:self-start">
         {assistant}
       </div>
     </div>
@@ -544,7 +544,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
             </div>
           )}
           {viewToggle}
-          {aside && <AskClaudeButton open={assistantOpen} onToggle={() => setAssistantOpen(!assistantOpen)} />}
+          <AskClaudeButton open={assistantOpen} onToggle={() => setAssistantOpen(!assistantOpen)} />
           <Button
             isIconOnly
             variant="ghost"
@@ -574,7 +574,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
 
       <Split aside={aside}>
-        {aside && assistantOpen ? (
+        {assistantOpen ? (
           <AssistantSplit
             main={browser}
             assistant={<FileAssistant scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }} onClose={() => setAssistantOpen(false)} />}
