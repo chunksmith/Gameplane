@@ -63,7 +63,7 @@ describe("StartupSection", () => {
   it("sizes the heap from the memory limit when the fields are empty", () => {
     const onValidityChange = vi.fn();
     render(<Harness initial={server()} onValidityChange={onValidityChange} />);
-    expect(screen.getByText("Saving changes restarts the server so they apply.")).toBeInTheDocument();
+    expect(screen.getByText("Saved changes apply the next time the server restarts.")).toBeInTheDocument();
     expect(maxHeap()).toHaveAttribute("placeholder", "Auto (3072M)");
     expect(initialHeap()).toHaveAttribute("placeholder", "Same as max (3072M)");
     expect(screen.getByText(/of .* container limit/)).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe("StartupSection", () => {
 
   it("is read-only without write access", () => {
     render(<Harness initial={server()} access={READER} />);
-    expect(screen.queryByText("Saving changes restarts the server so they apply.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved changes apply the next time the server restarts.")).not.toBeInTheDocument();
     expect(maxHeap()).toBeDisabled();
     expect(initialHeap()).toBeDisabled();
     expect(flags()).toBeDisabled();
