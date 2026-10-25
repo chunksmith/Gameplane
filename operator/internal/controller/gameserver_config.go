@@ -67,6 +67,17 @@ func configSecretName(gs *gameplanev1alpha1.GameServer) string {
 	return gs.Name + "-config"
 }
 
+func configSecretEnv(gs *gameplanev1alpha1.GameServer, name string, optional bool) corev1.EnvVar {
+	ref := &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{Name: configSecretName(gs)},
+		Key:                  name,
+	}
+	if optional {
+		ref.Optional = &optional
+	}
+	return corev1.EnvVar{Name: name, ValueFrom: &corev1.EnvVarSource{SecretKeyRef: ref}}
+}
+
 // filesSecretName returns the per-GameServer Secret holding rendered
 // configFiles, mounted into the config-init container. Owned by the
 // GameServer so it's GC'd on delete.
@@ -126,6 +137,9 @@ func materializeConfig(
 			}
 			// Unset optional field: no env var at all, so the game
 			// falls back to its own default instead of seeing "".
+			if f.ApplyOnRestart && f.Target != "file" {
+				mc.env = append(mc.env, configSecretEnv(gs, f.Name, true))
+			}
 			continue
 		}
 		// Type/Target carry kubebuilder defaults ("string"/"env") that
@@ -164,7 +178,9 @@ func materializeConfig(
 			}
 		}
 		values[f.Name] = val
-		hashParts = append(hashParts, f.Name+"="+val)
+		if !f.ApplyOnRestart {
+			hashParts = append(hashParts, f.Name+"="+val)
+		}
 		if f.Target == "file" {
 			// File-target values exist only inside rendered
 			// configFiles — no env var, and password values reach
@@ -173,20 +189,12 @@ func materializeConfig(
 			fileFieldSet = true
 			continue
 		}
-		if f.Type == "password" {
+		if f.Type == "password" || f.ApplyOnRestart {
 			if mc.secretData == nil {
 				mc.secretData = map[string][]byte{}
 			}
 			mc.secretData[f.Name] = []byte(val)
-			mc.env = append(mc.env, corev1.EnvVar{
-				Name: f.Name,
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: configSecretName(gs)},
-						Key:                  f.Name,
-					},
-				},
-			})
+			mc.env = append(mc.env, configSecretEnv(gs, f.Name, f.ApplyOnRestart))
 		} else {
 			mc.env = append(mc.env, corev1.EnvVar{Name: f.Name, Value: val})
 		}

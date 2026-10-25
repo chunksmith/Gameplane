@@ -1135,6 +1135,8 @@ type ConfigField struct {
 	// +optional
 	AutoFromMemoryLimit *AutoFromMemoryLimit `json:"autoFromMemoryLimit,omitempty"`
 
+	ApplyOnRestart bool `json:"applyOnRestart,omitempty"`
+
 	// Min is the minimum numeric value for int-typed fields. Bounds are
 	// inclusive. Ignored for non-int field types.
 	// +optional

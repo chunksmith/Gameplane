@@ -115,7 +115,7 @@ export function StartupSection({ draft, onChange, template, onValidityChange }: 
           <Alert.Indicator>
             <AlertTriangle className="h-5 w-5 shrink-0" />
           </Alert.Indicator>
-          <Alert.Content>{intl.formatMessage({ id: "web.routes.tabs.settings.startup.saving_restarts", defaultMessage: "Saving changes restarts the server so they apply.", description: "Startup: warning note saying that saving restarts the server so the changes apply" })}</Alert.Content>
+          <Alert.Content>{intl.formatMessage({ id: "web.routes.tabs.settings.startup.applies_on_restart", defaultMessage: "Saved changes apply the next time the server restarts.", description: "Startup: note saying that saved startup changes do not restart the server and take effect on its next restart" })}</Alert.Content>
         </Alert>
       )}
 

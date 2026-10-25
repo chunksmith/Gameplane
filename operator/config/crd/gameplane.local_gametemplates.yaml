@@ -1055,6 +1055,8 @@ spec:
                   description: ConfigField is a single user-tunable setting surfaced
                     in the wizard.
                   properties:
+                    applyOnRestart:
+                      type: boolean
                     autoFromMemoryLimit:
                       description: |-
                         AutoFromMemoryLimit, when set, computes this field's value from the
