@@ -191,7 +191,9 @@ func (h *aiHandler) mount(r chi.Router) {
 	r.Get("/ai/linear/issues", h.linearIssues)
 	r.Get("/ai/conversations", h.list)
 	r.Post("/ai/conversations", h.create)
+	r.Post("/ai/warm", h.warm)
 	r.Get("/ai/conversations/{id}", h.get)
+	r.Post("/ai/conversations/{id}/warm", h.warm)
 	r.Get("/ai/conversations/{id}/stream", h.sse)
 	r.Post("/ai/conversations/{id}/messages", h.post)
 	r.Post("/ai/conversations/{id}/approval", h.approval)
@@ -372,8 +374,49 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		httperr.Write(w, req, err)
 		return
 	}
+	h.adopt(aiNewChat(u.ID), conv.ID)
 	h.begin(ctx, conv, creds, key, sub, runID, prompt)
 	writeJSONCreated(w, conv)
+}
+
+func (h *aiHandler) warm(w http.ResponseWriter, req *http.Request) {
+	var body struct {
+		Server    string `json:"server"`
+		Namespace string `json:"namespace"`
+		Cluster   string `json:"cluster"`
+		Model     string `json:"model"`
+		Effort    string `json:"effort"`
+		Mode      string `json:"mode"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	s, key, sub, ok := h.ready(w, req)
+	if !ok {
+		return
+	}
+	u := auth.UserFromContext(req.Context())
+	conv := aiConversation{ID: aiNewChat(u.ID), UserID: u.ID, Model: s.DefaultModel, Effort: s.DefaultEffort, Mode: s.DefaultMode}
+	conv.Server, conv.Namespace, conv.Cluster = aiScope(body.Server, body.Namespace, body.Cluster)
+	if chi.URLParam(req, "id") != "" {
+		if conv, ok = h.load(w, req, true); !ok {
+			return
+		}
+	}
+	conv.Model, conv.Effort, conv.Mode = cmp.Or(body.Model, conv.Model), cmp.Or(body.Effort, conv.Effort), cmp.Or(body.Mode, conv.Mode)
+	err := cmp.Or(aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode))
+	if err == nil && conv.Server != "" && (!dnsLabelRE.MatchString(conv.Server) || conv.Namespace == "") {
+		err = errors.New("server must be a DNS label and namespace is required")
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if sub && conv.Status != aiRunning && conv.Status != aiAwaiting {
+		go h.warmCLI(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {

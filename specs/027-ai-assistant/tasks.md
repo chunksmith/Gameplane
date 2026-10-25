@@ -80,3 +80,10 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T042 One Claude Code process per conversation (`aiProc`, `--input-format stream-json`, user messages as stdin lines, turn ends at `result`, closed after 10 idle minutes, restarted with `--resume` on a settings change, Stop or a dead process, at most 3 resident with the longest idle evicted) in `api/internal/handlers/ai_cli.go`; `spawn` returns stdin (`api/internal/handlers/ai.go`)
 - [X] T043 Tests: stdin-reading fake process in `newCLIFixture`, two turns through one process and the between-turn refusal in `TestAICLIRun`, `TestAICLIProcessRestart` (model change, idle window) and `TestAICLIProcessCap` in `api/internal/handlers/ai_cli_test.go`
 - [X] T044 Document the process lifecycle and the 1Gi requirement in `spec.md`, `api/specs.md` and the `api.resources` comment in `charts/gameplane/values.yaml`
+
+## Phase 10: Warm start
+
+- [X] T045 `POST /ai/warm` and `POST /ai/conversations/{id}/warm` start the conversation's CLI process before the first message (`warm` in `api/internal/handlers/ai.go`; `warmCLI`, `adopt`, `aiNewChat` and the warm guard in `process` in `api/internal/handlers/ai_cli.go`); `create` adopts the user's new-chat process
+- [X] T046 Web: `Assistant.warm` (`web/src/lib/assistant.ts`), called from `AssistantPanel` on open and on a mode or model change
+- [ ] T047 Tests: warm then message reuses one process, new-chat adoption, warm skipped while a turn runs (`api/internal/handlers/ai_cli_test.go`)
+- [X] T048 Document warm start in `spec.md`, `api/specs.md` and `web/specs.md`

@@ -190,7 +190,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 func (h *aiHandler) attach(ctx context.Context, run *aiLive, token, prompt string) error {
 	names := run.linear.names()
 	for retry := range 2 {
-		proc, fresh, err := h.process(ctx, run.conv, token, run.creds.admin, names)
+		proc, fresh, err := h.process(ctx, run.conv, token, run.creds.admin, names, false)
 		if err != nil {
 			return err
 		}
@@ -357,10 +357,56 @@ func spawnClaude(ctx context.Context, env []string, args ...string) (io.WriteClo
 	}, nil
 }
 
-func (h *aiHandler) process(ctx context.Context, conv aiConversation, token string, admin bool, linear []string) (*aiProc, bool, error) {
+func aiNewChat(user int64) string {
+	return "new:" + strconv.FormatInt(user, 10)
+}
+
+func (h *aiHandler) warmCLI(ctx context.Context, conv aiConversation, creds aiCreds, token string) {
+	h.mcpOnce.Do(func() { h.startMCP(ctx) })
+	if h.mcpURL == "" {
+		return
+	}
+	linear := h.openLinear(ctx, conv.UserID)
+	linear.close()
+	proc, fresh, err := h.process(ctx, conv, token, creds.admin, linear.names(), true)
+	if err != nil {
+		slog.Warn("warm claude", "err", err)
+		return
+	}
+	if proc == nil {
+		return
+	}
+	if fresh {
+		done, cancel := context.WithCancel(ctx)
+		cancel()
+		h.track(&aiLive{conv: conv, creds: creds, linear: linear, proc: proc, done: done.Done(), cancel: cancel})
+	}
+	h.release(proc)
+}
+
+func (h *aiHandler) adopt(from, to string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	proc := h.procs[from]
+	if proc == nil {
+		return
+	}
+	delete(h.procs, from)
+	proc.id, h.procs[to] = to, proc
+	if run := h.live[from]; run != nil {
+		delete(h.live, from)
+		run.conv.ID, h.live[to] = to, run
+	}
+}
+
+func (h *aiHandler) process(ctx context.Context, conv aiConversation, token string, admin bool, linear []string, warm bool) (*aiProc, bool, error) {
 	spec := aiCLISpec(conv, token, admin, linear)
 	h.mu.Lock()
 	proc := h.procs[conv.ID]
+	if warm && proc != nil && proc.busy {
+		h.mu.Unlock()
+		return nil, false, nil
+	}
 	if proc != nil && !proc.busy && proc.spec == spec && proc.alive() {
 		proc.busy = true
 		proc.timer.Stop()

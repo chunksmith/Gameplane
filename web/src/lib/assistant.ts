@@ -164,6 +164,8 @@ export const Assistant = {
     api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick } }),
   send: (id: string, prompt: string, mode?: AssistantMode, pick?: AssistantPick) =>
     api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick } }),
+  warm: (id: string | null, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick) =>
+    api<void>(id ? conversationPath(id, "/warm") : "/ai/warm", { method: "POST", body: { ...scope, mode, ...pick } }),
   decide: (id: string, approve: boolean) =>
     api<AssistantConversation>(conversationPath(id, "/approval"), { method: "POST", body: { approve } }),
   cancel: (id: string) => api<void>(conversationPath(id, "/cancel"), { method: "POST" }),
