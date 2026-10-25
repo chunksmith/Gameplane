@@ -173,6 +173,7 @@ function NodeBody({ data, range, updatedAt }: { data: StatisticsNodeDetail; rang
             sub={node.cpuUsed === null ? undefined : intl.formatMessage(messages.cpuSub, { used: oneDecimal(node.cpuUsed), cores: format.number(node.cpuCapacity), load: amount(node.load1, { maximumFractionDigits: 2 }) })}
             delta={trendOf(seriesDelta(cpuLive), pointsDelta)}
             series={cpuLive.map(([, value]) => value)}
+            formatPoint={oneDecimal}
             peak={peakOf(cpuLive, percentLabel)}
           />
           <LiveCard
@@ -184,6 +185,7 @@ function NodeBody({ data, range, updatedAt }: { data: StatisticsNodeDetail; rang
             sub={node.memoryUsed === null ? undefined : intl.formatMessage(overview.memorySub, { used: formatBytes(node.memoryUsed), capacity: formatBytes(node.memoryCapacity) })}
             delta={trendOf(seriesDelta(memoryLive), pointsDelta)}
             series={memoryLive.map(([, value]) => value)}
+            formatPoint={oneDecimal}
             peak={peakOf(memoryLive, percentLabel)}
           />
           <LiveCard
@@ -196,6 +198,7 @@ function NodeBody({ data, range, updatedAt }: { data: StatisticsNodeDetail; rang
             placeholder={node.rx === null ? intl.formatMessage(overview.needsPrometheus) : undefined}
             delta={trendOf(percentChange(live.rxSeries), percentDelta)}
             series={live.rxSeries.map(([, value]) => value)}
+            formatPoint={(value) => mbps(value, format)}
             peak={peakOf(live.rxSeries, (value) => intl.formatMessage(overview.rateMbps, { value: mbps(value, format) }))}
           />
           <LiveCard
@@ -208,6 +211,7 @@ function NodeBody({ data, range, updatedAt }: { data: StatisticsNodeDetail; rang
             placeholder={node.tx === null ? intl.formatMessage(overview.needsPrometheus) : undefined}
             delta={trendOf(percentChange(live.txSeries), percentDelta)}
             series={live.txSeries.map(([, value]) => value)}
+            formatPoint={(value) => mbps(value, format)}
             peak={peakOf(live.txSeries, (value) => intl.formatMessage(overview.rateMbps, { value: mbps(value, format) }))}
           />
         </div>

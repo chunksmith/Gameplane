@@ -109,7 +109,7 @@ describe("LoginPage", () => {
   it("reveals a reset hint when Forgot is clicked", async () => {
     renderWithQuery(<LoginPage />);
     expect(screen.queryByText(/contact your administrator/i)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Forgot?" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password?" }));
     expect(screen.getByText(/contact your administrator to reset/i)).toBeInTheDocument();
   });
 
@@ -156,13 +156,13 @@ describe("LoginPage", () => {
     expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
-  it("renders the full SSO-only card (brand, heading, provider button, caption, right panel) with no username field", async () => {
+  it("renders the full SSO-only card (brand, heading, provider button, caption) with no username field", async () => {
     providers = [{ name: "corp", kind: "oidc", label: "Acme SSO" }];
     renderWithQuery(<LoginPage />);
 
     // Brand + heading render regardless of provider mix.
     expect(screen.getByText("gameplane")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
 
     // The SSO provider button renders once the providers fetch resolves.
     expect(
@@ -174,9 +174,8 @@ describe("LoginPage", () => {
     expect(screen.queryByLabelText(/^password$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^sign in/i })).not.toBeInTheDocument();
 
-    // Footer caption and marketing right panel still render.
+    // Footer caption still renders.
     expect(screen.getByText("AGPL-3.0 licensed")).toBeInTheDocument();
-    expect(screen.getByText(/Kubernetes-native/)).toBeInTheDocument();
   });
 
   it("keeps the password form when the providers fetch fails", async () => {
@@ -205,14 +204,5 @@ describe("LoginPage", () => {
     const { container } = renderWithQuery(<LoginPage />);
     expect(container.textContent).not.toMatch(/v\d+\.\d+\.\d+/);
     expect(container.textContent).not.toMatch(/alpha/i);
-  });
-
-  it("displays the correct marketing copy on the right panel", () => {
-    const { container } = renderWithQuery(<LoginPage />);
-    // Verify new marketing copy is present
-    expect(container.textContent).toContain("Deploy any game. Minecraft, Valheim, Factorio, Palworld, ARK, CS2, Terraria, and more.");
-    expect(container.textContent).toContain("Scale from single-node k3s to multi-node bare metal or cloud.");
-    expect(container.textContent).toContain("Backups, auto-restart, rolling upgrades, RBAC. Production-grade defaults.");
-    expect(container.textContent).toContain("kubectl get gameservers");
   });
 });

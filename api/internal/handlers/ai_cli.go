@@ -29,7 +29,8 @@ import (
 const (
 	aiClaudeBin    = "/usr/local/bin/claude"
 	aiClaudeHome   = "/data/claude"
-	aiMCPTool      = "mcp__gameplane__gameplane_api"
+	aiMCPPrefix    = "mcp__gameplane__"
+	aiMCPTool      = aiMCPPrefix + "gameplane_api"
 	aiApprovalWait = 30 * time.Minute
 )
 
@@ -57,6 +58,7 @@ func aiCLIMode(mode string) string {
 type aiLive struct {
 	conv   aiConversation
 	creds  aiCreds
+	linear *aiLinear
 	runID  string
 	token  string
 	done   <-chan struct{}
@@ -95,10 +97,12 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 		h.settle(ctx, conv.ID, runID, aiFailed, "The assistant tool endpoint could not start.")
 		return
 	}
-	run := &aiLive{conv: conv, creds: creds, runID: runID, token: rand.Text(), done: runCtx.Done(), cancel: cancel}
+	linear := h.openLinear(runCtx, conv.UserID)
+	defer linear.close()
+	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, token: rand.Text(), done: runCtx.Done(), cancel: cancel}
 	h.track(run)
 	defer h.untrack(run)
-	out, wait, err := h.spawn(runCtx, aiCLIEnv(token, creds.admin), prompt, aiCLIArgs(conv, h.mcpURL, run.token, creds.admin)...)
+	out, wait, err := h.spawn(runCtx, aiCLIEnv(token, creds.admin), prompt, aiCLIArgs(conv, h.mcpURL, run.token, creds.admin, linear.names()...)...)
 	if err != nil {
 		slog.Warn("start claude", "err", err)
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code could not be started.")
@@ -174,8 +178,9 @@ func aiCLIMessage(role string, raw json.RawMessage) ([]byte, bool) {
 		return nil, false
 	}
 	for _, block := range msg.Content {
-		if string(block["name"]) == strconv.Quote(aiMCPTool) {
-			block["name"] = json.RawMessage(strconv.Quote(aiTool.OfTool.Name))
+		var name string
+		if json.Unmarshal(block["name"], &name) == nil && strings.HasPrefix(name, aiMCPPrefix) {
+			block["name"] = json.RawMessage(strconv.Quote(strings.TrimPrefix(name, aiMCPPrefix)))
 		}
 	}
 	data, err := json.Marshal(map[string]any{"role": role, "content": msg.Content})
@@ -196,14 +201,22 @@ func aiCLIDelta(raw json.RawMessage) string {
 	return ev.Delta.Text
 }
 
-func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool) []string {
+func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...string) []string {
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	tools, allowed, system := "", aiMCPTool, aiSystemPrompt(conv)
-	if admin {
-		tools, allowed, system = "Bash", aiMCPTool+",Bash", system+aiShellText(conv.Mode)
+	allowedTools := []string{aiMCPTool}
+	for _, name := range linear {
+		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
+	tools, system := "", aiSystemPrompt(conv)
+	if len(linear) > 0 {
+		system += aiLinearPrompt
+	}
+	if admin {
+		tools, allowedTools, system = "Bash", append(allowedTools, "Bash"), system+aiShellText(conv.Mode)
+	}
+	allowed := strings.Join(allowedTools, ",")
 	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--model", conv.Model, "--effort", conv.Effort, "--max-turns", strconv.Itoa(aiMaxSteps),
 		"--system-prompt", system,
@@ -260,14 +273,25 @@ func spawnClaude(ctx context.Context, env []string, stdin string, args ...string
 	}, nil
 }
 
-func (h *aiHandler) startMCP(ctx context.Context) {
+func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "gameplane", Version: "1"}, nil)
 	server.AddTool(&mcp.Tool{
 		Name:        aiTool.OfTool.Name,
 		Description: aiToolDescription,
 		InputSchema: map[string]any{"type": "object", "properties": aiToolProperties, "required": aiToolRequired},
 	}, h.mcpCall)
-	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true})
+	if run != nil && run.linear != nil {
+		for _, tool := range run.linear.tools {
+			server.AddTool(&mcp.Tool{Name: aiLinearPrefix + tool.Name, Description: tool.Description, InputSchema: tool.InputSchema}, h.mcpLinearCall)
+		}
+	}
+	return server
+}
+
+func (h *aiHandler) startMCP(ctx context.Context) {
+	handler := mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server {
+		return h.mcpServer(h.liveByToken(req.Header.Get("Authorization")))
+	}, &mcp.StreamableHTTPOptions{Stateless: true})
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -306,6 +330,22 @@ func (h *aiHandler) mcpCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 	} else {
 		status, body := h.tool(ctx, run.conv, run.creds, in)
 		text, failed = fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}, IsError: failed}, nil
+}
+
+func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	var run *aiLive
+	if req.Extra != nil {
+		run = h.liveByToken(req.Extra.Header.Get("Authorization"))
+	}
+	if run == nil {
+		return nil, errors.New("this assistant run has ended")
+	}
+	use := aiToolUse{name: req.Params.Name, raw: req.Params.Arguments}
+	text, failed := "The user declined this action.", true
+	if run.conv.Mode == aiModeBypass || !use.needsApproval() || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}) {
+		text, failed = run.linear.call(ctx, use.name, use.raw)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}, IsError: failed}, nil
 }
@@ -419,20 +459,28 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 	for _, raw := range msgs {
 		var msg struct {
 			Content []struct {
-				Type      string      `json:"type"`
-				ID        string      `json:"id"`
-				ToolUseID string      `json:"tool_use_id"`
-				Input     aiToolInput `json:"input"`
+				Type      string          `json:"type"`
+				ID        string          `json:"id"`
+				Name      string          `json:"name"`
+				ToolUseID string          `json:"tool_use_id"`
+				Input     json.RawMessage `json:"input"`
 			} `json:"content"`
 		}
 		if json.Unmarshal(raw, &msg) != nil {
 			continue
 		}
 		for _, block := range msg.Content {
+			var input aiToolInput
+			linear, isLinear := strings.CutPrefix(block.Name, aiLinearPrefix)
 			switch {
 			case block.Type == "tool_result":
 				resolved[block.ToolUseID] = true
-			case block.Type == "tool_use" && strings.EqualFold(block.Input.Method, in.Method) && block.Input.Path == in.Path && maps.Equal(block.Input.Query, in.Query):
+			case block.Type != "tool_use":
+			case isLinear:
+				if in.Method == aiLinearMethod && in.Path == linear {
+					id = block.ID
+				}
+			case json.Unmarshal(block.Input, &input) == nil && strings.EqualFold(input.Method, in.Method) && input.Path == in.Path && maps.Equal(input.Query, in.Query):
 				id = block.ID
 			}
 		}

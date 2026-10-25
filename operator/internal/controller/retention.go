@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 	"time"
 
@@ -26,12 +27,20 @@ func (r *BackupScheduleReconciler) trimBackups(
 		return nil
 	}
 
-	var list gameplanev1alpha1.BackupList
-	if err := r.List(ctx, &list,
-		client.InNamespace(sched.Namespace),
-		client.MatchingLabels{gameplanev1alpha1.BackupScheduleLabel: sched.Name},
-	); err != nil {
+	var all gameplanev1alpha1.BackupList
+	if err := r.List(ctx, &all, client.InNamespace(sched.Namespace)); err != nil {
 		return err
+	}
+	targets, err := r.scheduleTargets(ctx, sched)
+	if err != nil {
+		return err
+	}
+	var list gameplanev1alpha1.BackupList
+	for _, b := range all.Items {
+		owner, labelled := b.Labels[gameplanev1alpha1.BackupScheduleLabel]
+		if owner == sched.Name || (!labelled && slices.Contains(targets, b.Spec.ServerRef.Name)) {
+			list.Items = append(list.Items, b)
+		}
 	}
 
 	// Don't yank a backup out from under an in-flight Restore.

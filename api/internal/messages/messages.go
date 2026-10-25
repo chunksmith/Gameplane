@@ -115,6 +115,12 @@ var entries = []Entry{
 		Status:      http.StatusUnauthorized,
 	},
 	{
+		ID:          "server.auth.captcha_failed",
+		English:     "human verification failed",
+		Description: "Login error when the Cloudflare Turnstile check on the sign-in form is missing or rejected.",
+		Status:      http.StatusForbidden,
+	},
+	{
 		ID:          "server.generic.400",
 		English:     "The request was not accepted.",
 		Description: "Generic sentence shown before the detail text for an HTTP 400 response.",

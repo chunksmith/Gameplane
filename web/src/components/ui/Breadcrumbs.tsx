@@ -22,6 +22,7 @@ const routeLabelMessages = defineMessages({
   logs: { id: "web.components.ui.breadcrumbs.system_logs", defaultMessage: "System logs", description: "Breadcrumb: label for the system logs crumb" },
   backups: { id: "web.components.ui.breadcrumbs.backups", defaultMessage: "Backups", description: "Breadcrumb: label for the backups crumb" },
   statistics: { id: "web.components.ui.breadcrumbs.statistics", defaultMessage: "Statistics", description: "Breadcrumb: label for the statistics crumb" },
+  notifications: { id: "web.components.ui.breadcrumbs.notifications", defaultMessage: "Notifications", description: "Breadcrumb: label for the notifications crumb" },
   new: { id: "web.components.ui.breadcrumbs.new", defaultMessage: "New", description: "Breadcrumb: label for the create-new crumb" },
 });
 

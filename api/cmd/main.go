@@ -206,6 +206,7 @@ func main() {
 	sessions := auth.NewSessionStore(store)
 	sessions.StartGC(ctx, time.Hour)
 	localAuth := auth.NewLocal(store)
+	turnstile := auth.NewTurnstile(cfg.turnstileSiteKey, cfg.turnstileSecretKey)
 	// The Helm-flag OIDC provider (if any) is built once at startup; the
 	// registry lists it as the read-only "helm" provider next to the
 	// dashboard-managed providers it resolves live from the auth config.
@@ -338,10 +339,11 @@ func main() {
 		// tag is returned, never more (login privacy); not rate-limited, like
 		// /providers.
 		r.Get("/locale", handlers.AuthLocaleHandler(store))
+		r.Get("/turnstile", handlers.AuthTurnstileHandler(turnstile))
 		// Rate-limit /login specifically — argon2id is ~200 ms of
 		// single-core CPU per attempt, so an unlimited path invites a
 		// trivial DoS.
-		r.With(auth.LoginLimiter.Middleware).Post("/login", localAuth.HandleLogin(sessions, authRegistry))
+		r.With(auth.LoginLimiter.Middleware, turnstile.Middleware).Post("/login", localAuth.HandleLogin(sessions, authRegistry))
 		r.Post("/logout", sessions.HandleLogout())
 		// Dashboard-managed providers, resolved live per request. The
 		// callback triggers an IdP token exchange + DB write per hit; cap
@@ -393,6 +395,7 @@ func main() {
 		handlers.MountShareLinks(p, reg, store)
 		handlers.MountOwnership(p, reg, store)
 		handlers.MountUsers(p, store, sessions, reg)
+		handlers.MountServerGrants(p, reg, store)
 		handlers.MountRoles(p, store)
 		handlers.MountAudit(p, auditor)
 		telemetrySettings := handlers.TelemetrySettings{Dest: telemetryDest, Interval: cfg.telemetryInterval, Deps: telemetryDeps}
@@ -412,7 +415,7 @@ func main() {
 		handlers.MountModulesWithRegistry(p, reg, cfg.namespace)
 		handlers.MountRegistrySecrets(p, k8s, cfg.namespace)
 		handlers.MountAISecret(p, k8s, cfg.namespace)
-		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace))
+		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.NewAILinearKeys(k8s, cfg.namespace))
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over
 		// the startup --curseforge-api-key flag, so adding/rotating a key
@@ -567,6 +570,8 @@ type config struct {
 	auditWebhookAuth       string
 	prometheusURL          string
 	steamAPIKey            string
+	turnstileSiteKey       string
+	turnstileSecretKey     string
 	steamCacheMaxEntries   int
 	steamCacheTTL          time.Duration
 	steamCacheNegativeTTL  time.Duration
@@ -648,6 +653,8 @@ func (c *config) bindFlags(fs *flag.FlagSet) {
 	// The Steam Web API key is a credential (a mounted Secret), so like the
 	// tokens above it comes from the environment only, never a flag.
 	c.steamAPIKey = envOr("GAMEPLANE_STEAM_API_KEY", "")
+	fs.StringVar(&c.turnstileSiteKey, "turnstile-site-key", envOr("GAMEPLANE_TURNSTILE_SITE_KEY", ""), "Cloudflare Turnstile site key for the login form (empty = disabled)")
+	c.turnstileSecretKey = envOr("GAMEPLANE_TURNSTILE_SECRET_KEY", "")
 	fs.IntVar(&c.steamCacheMaxEntries, "steam-cache-max-entries", envOrInt("GAMEPLANE_STEAM_CACHE_MAX_ENTRIES", steam.DefaultMaxEntries),
 		"maximum in-memory Steam display-name cache entries (non-positive = default)")
 	fs.DurationVar(&c.steamCacheTTL, "steam-cache-ttl", envOrDuration("GAMEPLANE_STEAM_CACHE_TTL", steam.DefaultTTL),

@@ -16,7 +16,7 @@ const TEXT = defineMessages({
   uptime: { id: "web.components.server.server_stat_cards.uptime", defaultMessage: "Uptime", description: "Server stat cards: label of the card showing how long the server has been running" },
 });
 
-export function ServerStatCards({ gs }: { gs?: GameServer }) {
+export function ServerStatCards({ gs, vertical = false }: { gs?: GameServer; vertical?: boolean }) {
   const intl = useOptionalIntl();
   const empty = intl.formatMessage(TEXT.empty_value);
   const status = gs?.status;
@@ -49,10 +49,12 @@ export function ServerStatCards({ gs }: { gs?: GameServer }) {
   const netTxTotal = netTotalKnown ? (agent?.networkTxBytes as number) : 0;
 
   return (
-    <div className="-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto scrollbar-thin px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:p-0 lg:grid-cols-3 xl:grid-cols-5">
+    <div className={vertical
+      ? "-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto scrollbar-thin px-4 pb-2 lg:mx-0 lg:flex-col lg:gap-2.5 lg:overflow-visible lg:p-0"
+      : "-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto scrollbar-thin px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:p-0 xl:grid-cols-5"}>
       <ResourceCard
         label={intl.formatMessage(TEXT.cpu)}
-        icon={<Cpu className="h-4 w-4" />}
+        icon={<Cpu className="h-3.5 w-3.5" />}
         value={
           cpuKnown ? (cpuLimitMilli ? `${cpuPct.toFixed(0)}%` : formatCpuPercent(cpuMilli / 1000)) : empty
         }
@@ -67,7 +69,7 @@ export function ServerStatCards({ gs }: { gs?: GameServer }) {
       />
       <ResourceCard
         label={intl.formatMessage(TEXT.memory)}
-        icon={<MemoryStick className="h-4 w-4" />}
+        icon={<MemoryStick className="h-3.5 w-3.5" />}
         value={memKnown ? (memLimit ? `${memPct.toFixed(0)}%` : formatBytes(memUsed)) : empty}
         sub={
           memKnown ? intl.formatMessage({ id: "web.components.server.server_stat_cards.used_of_total", defaultMessage: "{used} / {total}", description: "Server stat cards: memory or disk usage against its limit; {used} is the amount in use, {total} the limit" }, { used: formatBytes(memUsed), total: memLimit ? formatBytes(memLimit) : empty }) : undefined
@@ -78,7 +80,7 @@ export function ServerStatCards({ gs }: { gs?: GameServer }) {
       />
       <ResourceCard
         label={intl.formatMessage(TEXT.disk)}
-        icon={<HardDrive className="h-4 w-4" />}
+        icon={<HardDrive className="h-3.5 w-3.5" />}
         value={diskKnown ? (diskTotal ? `${diskPct.toFixed(0)}%` : formatBytes(diskUsed)) : empty}
         sub={
           diskKnown ? intl.formatMessage({ id: "web.components.server.server_stat_cards.used_of_total", defaultMessage: "{used} / {total}", description: "Server stat cards: memory or disk usage against its limit; {used} is the amount in use, {total} the limit" }, { used: formatBytes(diskUsed), total: diskTotal ? formatBytes(diskTotal) : empty }) : undefined
@@ -89,7 +91,7 @@ export function ServerStatCards({ gs }: { gs?: GameServer }) {
       />
       <ResourceCard
         label={intl.formatMessage(TEXT.network)}
-        icon={<ArrowDownUp className="h-4 w-4" />}
+        icon={<ArrowDownUp className="h-3.5 w-3.5" />}
         value={netRateKnown ? `${formatBytes(netRxRate + netTxRate)}/s` : empty}
         sub={
           netRateKnown || netTotalKnown ? (
@@ -106,7 +108,7 @@ export function ServerStatCards({ gs }: { gs?: GameServer }) {
       />
       <ResourceCard
         label={intl.formatMessage(TEXT.uptime)}
-        icon={<Clock className="h-4 w-4" />}
+        icon={<Clock className="h-3.5 w-3.5" />}
         value={status?.phase === "Running" ? formatUptime(status.startedAt, intl) : empty}
         accent="success"
       />
@@ -160,22 +162,22 @@ function ResourceCard({
   }[accent ?? "primary"];
   const history = useMetricHistory(trend);
   return (
-    <Card className="flex w-40 shrink-0 snap-start flex-col gap-2 border border-border bg-card p-4 md:w-auto">
-      <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.5px] text-muted">
+    <Card className="flex w-40 shrink-0 snap-start flex-col gap-1.5 border border-border bg-card p-3 md:w-auto">
+      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.5px] text-muted">
         <span>{label}</span>
         <span className="text-muted">{icon}</span>
       </div>
-      <div className="font-mono text-2xl font-bold text-foreground">{value}</div>
-      <Sparkline data={history} className={accentText} />
+      <div className="font-mono text-lg font-bold text-foreground">{value}</div>
+      <Sparkline data={history} className={`h-4 ${accentText}`} />
       {progress !== undefined && (
-        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--default)]">
+        <div className="h-1 overflow-hidden rounded-full bg-[var(--default)]">
           <div
             className={`h-full ${accentClass}`}
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           />
         </div>
       )}
-      {sub && <div className="space-y-0.5 text-xs text-muted">{sub}</div>}
+      {sub && <div className="space-y-0.5 text-[11px] text-muted">{sub}</div>}
     </Card>
   );
 }

@@ -18,6 +18,23 @@ export const ASSISTANT_EFFORTS: ReadonlyArray<{ id: string; label: string }> = [
   { id: "max", label: "Max" },
 ];
 
+const PICK_MESSAGES = defineMessages({
+  opus: { id: "web.lib.assistant.pick_opus", defaultMessage: "Most capable · {effort} effort", description: "Assistant model picker: line under Opus in the model menu; {effort} is the fixed effort level such as medium or high; keep it short" },
+  sonnet: { id: "web.lib.assistant.pick_sonnet", defaultMessage: "Balanced · {effort} effort", description: "Assistant model picker: line under Sonnet in the model menu; {effort} is the fixed effort level such as medium or high; keep it short" },
+  haiku: { id: "web.lib.assistant.pick_haiku", defaultMessage: "Fastest · {effort} effort", description: "Assistant model picker: line under Haiku in the model menu; {effort} is the fixed effort level such as medium or high; keep it short" },
+});
+
+export interface AssistantPick {
+  model: string;
+  effort: string;
+}
+
+export const ASSISTANT_PICKS: ReadonlyArray<AssistantPick & { label: string; hint: MessageDescriptor }> = [
+  { model: "claude-opus-5-5", effort: "medium", label: "Opus 5.5", hint: PICK_MESSAGES.opus },
+  { model: "claude-sonnet-5-5", effort: "high", label: "Sonnet 5.5", hint: PICK_MESSAGES.sonnet },
+  { model: "claude-haiku-5-5", effort: "medium", label: "Haiku 5.5", hint: PICK_MESSAGES.haiku },
+];
+
 export type AssistantMode = "default" | "auto" | "bypassPermissions";
 
 const MODE_MESSAGES = defineMessages({
@@ -38,7 +55,26 @@ export interface AssistantStatus {
   defaultModel: string;
   defaultEffort: string;
   defaultMode: AssistantMode;
+  linear?: boolean;
 }
+
+export interface LinearAccess {
+  enabled: boolean;
+  comment: boolean;
+  write: boolean;
+  keySet: boolean;
+  keyHint: string;
+}
+
+export interface LinearIssue {
+  id: string;
+  title: string;
+  status: string;
+  statusType: string;
+}
+
+export const LINEAR_METHOD = "LINEAR";
+export const LINEAR_PREFIX = "linear_";
 
 export interface AssistantScope {
   server?: string;
@@ -71,7 +107,8 @@ export interface AssistantBlock {
   type: string;
   text?: string;
   id?: string;
-  input?: { method?: string; path?: string; query?: unknown; body?: unknown; command?: unknown };
+  name?: string;
+  input?: { method?: string; path?: string; query?: unknown; body?: unknown; command?: unknown; [key: string]: unknown };
   tool_use_id?: string;
   content?: string | Array<{ type: string; text?: string }>;
   is_error?: boolean;
@@ -99,6 +136,17 @@ export interface AssistantDetail {
   pending: AssistantPending[];
 }
 
+export const CONTEXT_MARKER = "\n\n<file-context>\n";
+
+export function withContextBlock(request: string, ...contexts: string[]): string {
+  const found = contexts.filter(Boolean);
+  return found.length ? `${request}${CONTEXT_MARKER}${found.join("\n\n")}` : request;
+}
+
+export function requestOf(text: string): string {
+  return text.split(CONTEXT_MARKER)[0];
+}
+
 export function scopeQuery(scope: AssistantScope, all: boolean): string {
   if (all) return "?scope=all";
   if (!scope.server) return "";
@@ -112,13 +160,17 @@ export const Assistant = {
   status: () => api<AssistantStatus>("/ai/status"),
   list: (scope: AssistantScope, all: boolean) => api<AssistantConversation[]>(`/ai/conversations${scopeQuery(scope, all)}`),
   get: (id: string) => api<AssistantDetail>(conversationPath(id)),
-  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode) =>
-    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode } }),
-  send: (id: string, prompt: string, mode?: AssistantMode) =>
-    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode } }),
+  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick) =>
+    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick } }),
+  send: (id: string, prompt: string, mode?: AssistantMode, pick?: AssistantPick) =>
+    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick } }),
   decide: (id: string, approve: boolean) =>
     api<AssistantConversation>(conversationPath(id, "/approval"), { method: "POST", body: { approve } }),
   cancel: (id: string) => api<void>(conversationPath(id, "/cancel"), { method: "POST" }),
+  linearIssues: () => api<LinearIssue[]>("/ai/linear/issues"),
+  linear: () => api<LinearAccess>("/ai/linear"),
+  putLinearKey: (apiKey: string) => api<void>("/ai/linear/key", { method: "PUT", body: { apiKey } }),
+  deleteLinearKey: () => api<void>("/ai/linear/key", { method: "DELETE" }),
 };
 
 export const AssistantAdmin = {
@@ -126,6 +178,22 @@ export const AssistantAdmin = {
   putToken: (oauthToken: string) => api<{ name: string; keys: string[] }>("/admin/ai/secret", { method: "PUT", body: { oauthToken } }),
   deleteSecret: () => api<void>("/admin/ai/secret", { method: "DELETE" }),
 };
+
+export function linearTool(block: AssistantBlock): string {
+  return block.name?.startsWith(LINEAR_PREFIX) ? block.name.slice(LINEAR_PREFIX.length) : "";
+}
+
+export function linearArgument(block: AssistantBlock): string {
+  const input = block.input ?? {};
+  const value = input.id ?? input.issueId ?? input.query ?? input.team ?? input.project;
+  return typeof value === "string" ? value : "";
+}
+
+const LINEAR_MENTION = /(?:^|\s)@linear(?:\s+([A-Za-z][A-Za-z0-9]*-\d+))?(?=\s|$)/g;
+
+export function linearMentions(text: string): string[] {
+  return [...new Set([...text.matchAll(LINEAR_MENTION)].map((match) => match[1] ?? ""))];
+}
 
 export function useAssistantStatus() {
   return useQuery({ queryKey: ["ai", "status"], queryFn: Assistant.status, staleTime: 60_000 });

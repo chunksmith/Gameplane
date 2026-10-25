@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { Card } from "@heroui/react";
 import { defineMessages } from "react-intl";
@@ -43,6 +43,7 @@ export function LiveCard({
   sub,
   delta,
   series,
+  formatPoint,
   peak,
   placeholder,
 }: {
@@ -54,6 +55,7 @@ export function LiveCard({
   sub?: string;
   delta?: { text: string; direction: "up" | "down" | "flat" };
   series: number[];
+  formatPoint?: (value: number) => string;
   peak?: string;
   placeholder?: string;
 }) {
@@ -62,6 +64,15 @@ export function LiveCard({
   const unavailable = value === null && placeholder !== undefined;
   const subText = unavailable ? placeholder : sub;
   const TrendIcon = delta ? TREND_ICON[delta.direction] : Minus;
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const hoverable = formatPoint !== undefined && series.length > 1;
+  const shownValue = hoverable && hoverIndex !== null ? formatPoint(series[hoverIndex]) : value;
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const fraction = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 1;
+    setHoverIndex(Math.min(series.length - 1, Math.max(0, Math.round(fraction * (series.length - 1)))));
+  };
 
   return (
     <Card className="min-w-0 gap-3 border border-border bg-card p-4">
@@ -84,7 +95,7 @@ export function LiveCard({
       </div>
       <div>
         <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-3xl font-semibold text-foreground">{value ?? intl.formatMessage(TEXT.empty_value)}</span>
+          <span className="font-mono text-3xl font-semibold text-foreground">{shownValue ?? intl.formatMessage(TEXT.empty_value)}</span>
           {unit && <span className="font-mono text-sm text-muted">{unit}</span>}
         </div>
         {subText && <p className="mt-1 min-h-8 text-xs text-muted">{subText}</p>}
@@ -94,8 +105,19 @@ export function LiveCard({
           {intl.formatMessage(TEXT.no_bandwidth)}
         </div>
       ) : (
-        <div className="h-14" style={{ color }}>
+        <div
+          className="relative h-14"
+          style={{ color }}
+          onPointerMove={hoverable ? handlePointerMove : undefined}
+          onPointerLeave={() => setHoverIndex(null)}
+        >
           <Sparkline data={series} area fixedMin={0} className="h-full" />
+          {hoverable && hoverIndex !== null && (
+            <span
+              className="pointer-events-none absolute inset-y-0 w-px bg-current opacity-50"
+              style={{ left: `${(hoverIndex / (series.length - 1)) * 100}%` }}
+            />
+          )}
         </div>
       )}
       {peak !== undefined && !unavailable && (

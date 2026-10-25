@@ -147,6 +147,9 @@ export interface AICfg {
   defaultMode?: string;
   apiKeySet: boolean;
   subscriptionSet?: boolean;
+  linearEnabled?: boolean;
+  linearComment?: boolean;
+  linearWrite?: boolean;
 }
 
 // AllConfig is the shape of GET /admin/config — every section is optional

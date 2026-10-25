@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { server } from "@/test/server";
 import { renderWithQuery } from "@/test/render";
-import { makeServer, makeUser } from "@/test/factories";
+import { makeUser } from "@/test/factories";
 import { setCurrentCluster } from "@/lib/cluster";
 import {
   SAFE_MODE_SESSION_KEY,
@@ -32,23 +32,6 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 import { AppLayout } from "./AppLayout";
-
-function fleetServers(names: string[]) {
-  return {
-    items: names.map((name) => ({
-      target: { cluster: "local", namespace: "gameplane-games", name, uid: `${name}-uid` },
-      resource: makeServer({ metadata: { name, uid: `${name}-uid` } }),
-      permissions: ["servers:read"],
-    })),
-    partial: false,
-    issues: [],
-    totalReturned: names.length,
-  };
-}
-
-function searchResultID(name: string) {
-  return `search-result-${JSON.stringify(["local", "gameplane-games", name, `${name}-uid`])}`;
-}
 
 // HeroUI's Breadcrumbs.Item always renders `role="link"` — even the
 // disabled, href-less current-page crumb (see Breadcrumbs.tsx) — so a
@@ -97,8 +80,7 @@ describe("AppLayout", () => {
       expect(connect).not.toHaveBeenCalled();
       await waitFor(() => expect(view.client.getQueryData(["installation"])).toEqual({ standalone, localCluster: !standalone }));
       if (standalone) {
-        await userEvent.click(await screen.findByRole("button", { name: /notifications/i }));
-        expect(await screen.findByText("No recent activity.")).toBeInTheDocument();
+        expect(await screen.findByRole("link", { name: /notifications/i })).toHaveAttribute("href", "/notifications");
         expect(connect).not.toHaveBeenCalled();
       } else {
         await waitFor(() => expect(connect).toHaveBeenCalledWith("/events"));
@@ -159,11 +141,11 @@ describe("AppLayout", () => {
     expect(await screen.findByTestId("outlet")).toBeInTheDocument();
   });
 
-  it("notifications bell toggles a panel", async () => {
+  it("sidebar links to the notifications page", async () => {
     renderWithQuery(<AppLayout />);
-    const bell = await screen.findByRole("button", { name: /notifications/i });
-    await userEvent.click(bell);
-    expect(await screen.findByText("Recent activity")).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: /notifications/i });
+    expect(link).toHaveAttribute("href", "/notifications");
+    expect(screen.queryByRole("button", { name: /notifications/i })).not.toBeInTheDocument();
   });
 
   it("hamburger opens the mobile nav drawer; scrim and nav clicks close it", async () => {
@@ -209,26 +191,6 @@ describe("AppLayout", () => {
     // Close button should be gone, drawer is closed.
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /close navigation/i })).not.toBeInTheDocument(),
-    );
-  });
-
-  it("global search filters servers by name and navigates to detail", async () => {
-    server.use(
-      http.get("/fleet/servers", () =>
-        HttpResponse.json(fleetServers(["alpha", "beta"])),
-      ),
-    );
-    renderWithQuery(<AppLayout />);
-    const search = await screen.findByLabelText(/search servers/i);
-    await userEvent.type(search, "alph");
-    const result = await screen.findByTestId(searchResultID("alpha"));
-    expect(result).toBeInTheDocument();
-    expect(within(result).getByRole("link")).toHaveAttribute("href", "/servers/alpha");
-    expect(screen.queryByTestId(searchResultID("beta"))).not.toBeInTheDocument();
-
-    await userEvent.click(within(result).getByRole("link"));
-    await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: {} }),
     );
   });
 
@@ -349,108 +311,10 @@ describe("AppLayout", () => {
     expect(within(header).getByText("AL")).toBeInTheDocument();
   });
 
-  it("search dropdown shows no matches message", async () => {
-    server.use(
-      http.get("/fleet/servers", () =>
-        HttpResponse.json(fleetServers(["alpha"])),
-      ),
-    );
+  it("notifications nav link shows no badge while nothing is unread", async () => {
     renderWithQuery(<AppLayout />);
-    const search = await screen.findByLabelText(/search servers/i);
-    await userEvent.type(search, "nonexistent");
-    expect(await screen.findByText("No servers match.")).toBeInTheDocument();
-  });
-
-  it("search navigates on Enter key with first match", async () => {
-    server.use(
-      http.get("/fleet/servers", () =>
-        HttpResponse.json(fleetServers(["alpha", "beta"])),
-      ),
-    );
-    renderWithQuery(<AppLayout />);
-    const search = await screen.findByLabelText(/search servers/i);
-    await userEvent.type(search, "a");
-    await screen.findByTestId(searchResultID("alpha"));
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith({ to: "/servers/$name", params: { name: "alpha" }, search: {} }),
-    );
-  });
-
-  it("search dropdown closes on blur", async () => {
-    server.use(
-      http.get("/fleet/servers", () =>
-        HttpResponse.json(fleetServers(["alpha"])),
-      ),
-    );
-    renderWithQuery(<AppLayout />);
-    const search = await screen.findByLabelText(/search servers/i);
-    await userEvent.click(search);
-    // The matches dropdown only renders once a query is typed (empty query
-    // shows nothing to blur-close), so type before looking for the match.
-    await userEvent.type(search, "a");
-    const result = await screen.findByTestId(searchResultID("alpha"));
-    expect(result).toBeInTheDocument();
-    // Blur closes dropdown after 120ms
-    search.blur();
-    await waitFor(
-      () => expect(screen.queryByTestId(searchResultID("alpha"))).not.toBeInTheDocument(),
-      { timeout: 200 },
-    );
-  });
-
-  it("search clears when navigating from dropdown", async () => {
-    server.use(
-      http.get("/fleet/servers", () =>
-        HttpResponse.json(fleetServers(["alpha"])),
-      ),
-    );
-    renderWithQuery(<AppLayout />);
-    const search = await screen.findByLabelText(/search servers/i) as HTMLInputElement;
-    await userEvent.type(search, "alpha");
-    expect(search.value).toBe("alpha");
-    const result = await screen.findByTestId(searchResultID("alpha"));
-    await userEvent.click(within(result).getByRole("link"));
-    await waitFor(() => expect(search.value).toBe(""));
-  });
-
-  it("search escape key closes dropdown", async () => {
-    server.use(
-      http.get("/fleet/servers", () =>
-        HttpResponse.json(fleetServers(["alpha"])),
-      ),
-    );
-    renderWithQuery(<AppLayout />);
-    const search = await screen.findByLabelText(/search servers/i);
-    await userEvent.type(search, "a");
-    const result = await screen.findByTestId(searchResultID("alpha"));
-    expect(result).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => {
-      expect(screen.queryByTestId(searchResultID("alpha"))).not.toBeInTheDocument();
-    });
-  });
-
-  it("notifications open and close with bell click", async () => {
-    renderWithQuery(<AppLayout />);
-    const bell = await screen.findByRole("button", { name: /notifications/i });
-    // Dropdown closed initially
-    expect(screen.queryByText("No recent activity.")).not.toBeInTheDocument();
-    await userEvent.click(bell);
-    // Dropdown open
-    expect(screen.getByText("No recent activity.")).toBeInTheDocument();
-    await userEvent.click(bell);
-    // Dropdown closed
-    await waitFor(() => {
-      expect(screen.queryByText("No recent activity.")).not.toBeInTheDocument();
-    });
-  });
-
-  it("notifications badge shows unread count", async () => {
-    renderWithQuery(<AppLayout />);
-    await screen.findByRole("button", { name: /notifications/i });
-    // Initially no badge (unread count is 0)
-    expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: /notifications/i });
+    expect(within(link).queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 
   it("logout button navigates to login", async () => {

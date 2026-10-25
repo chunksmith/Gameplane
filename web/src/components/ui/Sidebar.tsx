@@ -13,6 +13,7 @@ export interface SidebarNavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  badge?: number;
 }
 
 export interface SidebarNavGroup {
@@ -82,7 +83,7 @@ export function Sidebar({
       aria-label={intl.formatMessage({ id: "web.components.ui.sidebar.sidebar", defaultMessage: "Sidebar", description: "Sidebar: screen-reader name of the side navigation panel; not visible on screen" })}
       className={cn(
         "flex flex-col border-r border-border bg-surface/60",
-        variant === "fixed" ? "h-full w-[220px] shrink-0" : "w-full h-full"
+        variant === "fixed" ? "h-full w-[200px] shrink-0" : "w-full h-full"
       )}>
       {/* Header */}
       <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
@@ -127,7 +128,7 @@ export function Sidebar({
                 {group.label}
               </div>
               <ul className="flex flex-col gap-0.5">
-                {group.items.map(({ to, label, icon: Icon }) => (
+                {group.items.map(({ to, label, icon: Icon, badge }) => (
                   <li key={to}>
                     <Link
                       to={to}
@@ -141,6 +142,11 @@ export function Sidebar({
                     >
                       <Icon className="h-[18px] w-[18px] shrink-0" />
                       <span>{label}</span>
+                      {badge !== undefined && badge > 0 && (
+                        <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-fg">
+                          {badge > 9 ? intl.formatMessage({ id: "web.components.ui.sidebar.unread_overflow", defaultMessage: "9+", description: "Sidebar: badge text on a navigation link when it has more than nine unread items" }) : badge}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 ))}
@@ -172,7 +178,7 @@ export function Sidebar({
             {(user?.displayName || user?.username || "G").slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm text-fg">
+            <div className="truncate text-[13px] text-fg">
               {user?.displayName || user?.username || intl.formatMessage({ id: "web.components.ui.sidebar.guest", defaultMessage: "guest", description: "Sidebar: name shown for a user with no display name or username" })}
             </div>
             <div className="truncate text-[11px] text-muted">

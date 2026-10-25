@@ -16,11 +16,15 @@ import { StatisticsNodePage } from "@/routes/StatisticsNode";
 import { isStatisticsRange } from "@/lib/statistics";
 import type { StatisticsRange } from "@/types";
 import { UsersPage } from "@/routes/Users";
+import { UserEditPage } from "@/routes/UserEdit";
+import { NetworkDetailPage } from "@/routes/NetworkDetail";
 import { AdminSettingsPage } from "@/routes/AdminSettings";
 import { ThemeSettingsPage } from "@/routes/ThemeSettings";
+import { IntegrationsSettingsPage } from "@/routes/IntegrationsSettings";
 import { CreateServerWizard } from "@/routes/CreateServer";
 import { BackupsPage } from "@/routes/Backups";
 import { AssistantPage } from "@/routes/Assistant";
+import { NotificationsPage } from "@/routes/Notifications";
 import { AuditLogPage } from "@/routes/AuditLog";
 import { AdminLogsPage } from "@/routes/AdminLogs";
 import { NotFoundPage } from "@/routes/NotFound";
@@ -150,6 +154,29 @@ const usersRoute = new Route({
       <UsersPage />
     </RequirePermission>
   ),
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
+});
+
+const userEditRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/users/$id",
+  component: () => (
+    <RequirePermission perm="users:manage">
+      <UserEditPage />
+    </RequirePermission>
+  ),
+});
+
+const networkDetailRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/users/networks/$name",
+  component: () => (
+    <RequirePermission perm="users:manage">
+      <NetworkDetailPage />
+    </RequirePermission>
+  ),
 });
 
 const adminRoute = new Route({
@@ -174,6 +201,12 @@ const themeSettingsRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/settings/theme",
   component: ThemeSettingsPage,
+});
+
+const integrationsSettingsRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/settings/integrations",
+  component: IntegrationsSettingsPage,
 });
 
 const auditLogRoute = new Route({
@@ -214,6 +247,12 @@ const assistantRoute = new Route({
   component: AssistantPage,
 });
 
+const notificationsRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/notifications",
+  component: NotificationsPage,
+});
+
 // Catch-all: any URL no other route claims renders the 404 page inside the
 // authenticated shell. AppLayout owns the auth guard (401 -> /login), and
 // /login and /share/$token are siblings that match first, so neither ever
@@ -238,12 +277,16 @@ export const routeTree = rootRoute.addChildren([
     clusterRoute,
     clustersRoute,
     usersRoute,
+    userEditRoute,
+    networkDetailRoute,
     adminRoute,
     themeSettingsRoute,
+    integrationsSettingsRoute,
     auditLogRoute,
     adminLogsRoute,
     backupsRoute,
     assistantRoute,
+    notificationsRoute,
     notFoundRoute,
   ]),
 ]);

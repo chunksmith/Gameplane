@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import "@xterm/xterm/css/xterm.css";
 
@@ -13,7 +14,7 @@ import { useOptionalIntl } from "@/lib/i18n/format";
 
 const BACKLOG_LINES = 100;
 
-export function ConsoleTab({ name, ns }: { name: string; ns?: string }) {
+export function ConsoleTab({ name, ns, aside }: { name: string; ns?: string; aside?: ReactNode }) {
   const intl = useOptionalIntl();
   const target = useResourceTarget({ name, namespace: ns });
   const client = useResourceClient(target);
@@ -46,13 +47,13 @@ export function ConsoleTab({ name, ns }: { name: string; ns?: string }) {
       </div>
     );
   }
-  return mode === "pty" ? <PtyConsole key={JSON.stringify(target)} name={name} ns={ns} /> : <RconConsole key={JSON.stringify(target)} name={name} ns={ns} />;
+  return mode === "pty" ? <PtyConsole key={JSON.stringify(target)} name={name} ns={ns} aside={aside} /> : <RconConsole key={JSON.stringify(target)} name={name} ns={ns} aside={aside} />;
 }
 
 // RconConsole speaks the existing line-based RCON protocol — text is
 // buffered until Enter, then sent as {kind:"cmd"}. Server replies arrive
 // as {kind:"out"|"err"} with a string body.
-function RconConsole({ name, ns }: { name: string; ns?: string }) {
+function RconConsole({ name, ns, aside }: { name: string; ns?: string; aside?: ReactNode }) {
   const intl = useOptionalIntl();
   const target = useResourceTarget({ name, namespace: ns });
   const { Logs } = useResourceClient(target);
@@ -107,7 +108,7 @@ function RconConsole({ name, ns }: { name: string; ns?: string }) {
       };
     },
   });
-  return <ConsoleShell handle={handle} />;
+  return <ConsoleShell handle={handle} aside={aside} />;
 }
 
 // PtyConsole speaks the streaming envelope used by api/internal/ws/attach.go.
@@ -115,7 +116,7 @@ function RconConsole({ name, ns }: { name: string; ns?: string }) {
 // terminal resizes ship as {kind:"resize", cols, rows}. Server frames
 // arrive as {kind:"stdout", body:base64} (stderr merged into stdout under
 // TTY) or {kind:"err", body:string} on a teardown.
-function PtyConsole({ name, ns }: { name: string; ns?: string }) {
+function PtyConsole({ name, ns, aside }: { name: string; ns?: string; aside?: ReactNode }) {
   const intl = useOptionalIntl();
   const target = useResourceTarget({ name, namespace: ns });
   const { Logs } = useResourceClient(target);
@@ -150,7 +151,7 @@ function PtyConsole({ name, ns }: { name: string; ns?: string }) {
       };
     },
   });
-  return <ConsoleShell handle={handle} />;
+  return <ConsoleShell handle={handle} aside={aside} />;
 }
 
 // Browser-safe base64 helpers that round-trip arbitrary UTF-8 / binary

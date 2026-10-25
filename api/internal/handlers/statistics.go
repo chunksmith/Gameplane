@@ -112,7 +112,7 @@ func promDuration(d time.Duration) string {
 }
 
 func cpuExpr(agg, window, join string) string {
-	return fmt.Sprintf(`%s (1 - rate(node_cpu_seconds_total{mode="idle"}[%s])%s)`, agg, window, join)
+	return fmt.Sprintf(`%s (rate(node_cpu_seconds_total{mode!~"idle|iowait"}[%s])%s)`, agg, window, join)
 }
 
 func memoryExpr(agg, join string) string {

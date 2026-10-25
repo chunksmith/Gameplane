@@ -88,6 +88,7 @@ import {
   type TelemetryCfg,
 } from "@/lib/config";
 import { ASSISTANT_EFFORTS, ASSISTANT_MODELS, ASSISTANT_MODES, AssistantAdmin } from "@/lib/assistant";
+import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { ErrorBanner } from "@/components/backups/ErrorBanner";
 import { ModuleSourcesPanel } from "@/components/modules/ModuleSourcesPanel";
 import { defineMessages } from "react-intl";
@@ -1338,8 +1339,58 @@ function AISection({ initial }: { initial?: AICfg }) {
         <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_effort", defaultMessage: "Default effort", description: "Admin settings: label of the default effort dropdown of the AI assistant" })} value={f.draft.defaultEffort} options={ASSISTANT_EFFORTS} onChange={(defaultEffort) => f.update({ defaultEffort })} />
         <AISelect label={intl.formatMessage({ id: "web.routes.admin_settings.default_permission_mode", defaultMessage: "Default permission mode", description: "Admin settings: label of the dropdown that picks the AI assistant's default permission mode for new conversations" })} value={f.draft.defaultMode ?? "default"} options={ASSISTANT_MODES.map((mode) => ({ id: mode.id, label: intl.formatMessage(mode.label) }))} onChange={(defaultMode) => f.update({ defaultMode })} />
       </div>
+      <LinearSettings draft={f.draft} update={f.update} />
     </SectionCard>
   );
+}
+
+function LinearSettings({ draft, update }: { draft: AICfg; update: (patch: Partial<AICfg>) => void }) {
+  const intl = useOptionalIntl();
+  const toggles: Array<{ key: "linearEnabled" | "linearComment" | "linearWrite" | null; label: string; hint: string }> = [
+    { key: "linearEnabled", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_enable", defaultMessage: "Enable Linear in the assistant", description: "Admin settings: label of the switch that gives the AI assistant access to Linear" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_enable_hint", defaultMessage: "Adds @linear for every user who connects their own Linear API key in Settings → Integrations.", description: "Admin settings: hint under the Linear switch; users who add their own Linear API key on the Integrations settings page can then type @linear in the assistant" }) },
+    { key: null, label: intl.formatMessage({ id: "web.routes.admin_settings.linear_read", defaultMessage: "Read issues, projects and comments", description: "Admin settings: label of the always-on Linear permission that lets the assistant read Linear" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_read_hint", defaultMessage: "Always on while Linear is enabled.", description: "Admin settings: hint under the Linear read permission, which cannot be turned off" }) },
+    { key: "linearComment", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_comment", defaultMessage: "Post comments", description: "Admin settings: label of the switch that lets the assistant post comments on Linear issues" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_comment_hint", defaultMessage: "The assistant asks the user first, unless the chat is in Bypass permissions.", description: "Admin settings: hint under the Linear comment switch; posting waits for the user's approval except in Bypass permissions mode" }) },
+    { key: "linearWrite", label: intl.formatMessage({ id: "web.routes.admin_settings.linear_write", defaultMessage: "Create and change issues", description: "Admin settings: label of the switch that lets the assistant create and change Linear issues" }), hint: intl.formatMessage({ id: "web.routes.admin_settings.linear_write_hint", defaultMessage: "New issues, status, assignee and labels. Asks the user first, like comments.", description: "Admin settings: hint under the switch that lets the assistant create and change Linear issues" }) },
+  ];
+
+  return (
+    <div className="divide-y divide-border rounded-xl border border-border px-4">
+      <div className="flex flex-wrap items-center gap-3 py-3.5">
+        <LinearLogo className="h-9 w-9" />
+        <div className="min-w-48 flex-1">
+          <div className="text-sm font-semibold">{intl.formatMessage({ id: "web.routes.admin_settings.linear", defaultMessage: "Linear", description: "Admin settings: title of the Linear block in the AI assistant card; a product name, usually left untranslated" })}</div>
+          <div className="text-xs text-muted">{intl.formatMessage({ id: "web.routes.admin_settings.linear_subtitle", defaultMessage: "Lets the assistant read and update Linear through Linear's MCP server. Users type @linear to ask about the workspace or attach a single issue.", description: "Admin settings: subtitle of the Linear block; explains that the assistant reaches Linear over its MCP server and users type @linear" })}</div>
+        </div>
+        {draft.linearEnabled && (
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs text-success">
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {intl.formatMessage({ id: "web.routes.admin_settings.linear_enabled_badge", defaultMessage: "Enabled", description: "Admin settings: badge on the Linear block while Linear is turned on for the assistant" })}
+          </span>
+        )}
+      </div>
+      {switchRow(toggles[0])}
+      {draft.linearEnabled && toggles.slice(1).map(switchRow)}
+    </div>
+  );
+
+  function switchRow(toggle: (typeof toggles)[number]) {
+    return (
+      <div key={toggle.label} className="flex items-center justify-between gap-4 py-3.5">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{toggle.label}</div>
+          <div className="text-xs text-muted">{toggle.hint}</div>
+        </div>
+        <TelemetrySwitch
+          ariaLabel={toggle.label}
+          isSelected={toggle.key ? !!draft[toggle.key] : true}
+          isDisabled={!toggle.key}
+          onChange={(on) => {
+            if (toggle.key) update({ [toggle.key]: on });
+          }}
+        />
+      </div>
+    );
+  }
 }
 
 function AISelect({

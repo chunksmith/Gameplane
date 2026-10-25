@@ -22,6 +22,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
@@ -68,6 +69,9 @@ type aiSettings struct {
 	DefaultMode     string `json:"defaultMode"`
 	APIKeySet       bool   `json:"apiKeySet"`
 	SubscriptionSet bool   `json:"subscriptionSet,omitempty"`
+	LinearEnabled   bool   `json:"linearEnabled,omitempty"`
+	LinearComment   bool   `json:"linearComment,omitempty"`
+	LinearWrite     bool   `json:"linearWrite,omitempty"`
 }
 
 type aiConversation struct {
@@ -98,23 +102,25 @@ type aiCreds struct {
 }
 
 type aiHandler struct {
-	store   *db.Store
-	router  http.Handler
-	key     func(context.Context) (string, bool)
-	send    func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
-	spawn   func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
-	mcpOnce sync.Once
-	mcpURL  string
-	mu      sync.Mutex
-	live    map[string]*aiLive
+	store      *db.Store
+	router     http.Handler
+	key        func(context.Context) (string, bool)
+	linearKeys AILinearKeys
+	dialLinear func(context.Context, string) (*mcp.ClientSession, error)
+	send       func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
+	spawn      func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
+	mcpOnce    sync.Once
+	mcpURL     string
+	mu         sync.Mutex
+	live       map[string]*aiLive
 
 	streamMu sync.Mutex
 	streams  map[string]*aiStream
 }
 
 // MountAI wires the AI assistant routes; its tool calls replay through router with the caller's own session.
-func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool)) {
-	(&aiHandler{store: store, router: router, key: key, send: sendClaude, spawn: spawnClaude}).mount(r)
+func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool), linearKeys AILinearKeys) {
+	(&aiHandler{store: store, router: router, key: key, linearKeys: linearKeys, dialLinear: dialLinear, send: sendClaude, spawn: spawnClaude}).mount(r)
 }
 
 // MountAISecret wires the admin routes that store and remove the assistant's Claude credential.
@@ -177,6 +183,10 @@ func (h *aiHandler) mount(r chi.Router) {
 		slog.Warn("reset interrupted ai runs", "err", err)
 	}
 	r.Get("/ai/status", h.status)
+	r.Get("/ai/linear", h.myLinear)
+	r.Put("/ai/linear/key", h.putLinearKey)
+	r.Delete("/ai/linear/key", h.deleteLinearKey)
+	r.Get("/ai/linear/issues", h.linearIssues)
 	r.Get("/ai/conversations", h.list)
 	r.Post("/ai/conversations", h.create)
 	r.Get("/ai/conversations/{id}", h.get)
@@ -263,6 +273,7 @@ func (h *aiHandler) status(w http.ResponseWriter, req *http.Request) {
 		"defaultModel":  s.DefaultModel,
 		"defaultEffort": s.DefaultEffort,
 		"defaultMode":   s.DefaultMode,
+		"linear":        s.LinearEnabled && h.linearKeys.get(req.Context(), auth.UserFromContext(req.Context()).ID) != "",
 	})
 }
 
@@ -378,8 +389,8 @@ func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
 		pending = append(pending, map[string]string{"id": aiPendingID(msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
 	} else if conv.Status == aiAwaiting {
 		for _, use := range aiToolUses(msgs) {
-			if use.input.needsApproval() {
-				pending = append(pending, map[string]string{"id": use.id, "method": strings.ToUpper(use.input.Method), "path": use.input.Path})
+			if use.needsApproval() {
+				pending = append(pending, map[string]string{"id": use.id, "method": use.method(), "path": use.target()})
 			}
 		}
 	}
@@ -394,6 +405,8 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	var body struct {
 		Prompt string `json:"prompt"`
 		Mode   string `json:"mode"`
+		Model  string `json:"model"`
+		Effort string `json:"effort"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
@@ -401,7 +414,8 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	}
 	prompt := strings.TrimSpace(body.Prompt)
 	conv.Mode = cmp.Or(body.Mode, conv.Mode)
-	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckMode(conv.Mode)); err != nil {
+	conv.Model, conv.Effort = cmp.Or(body.Model, conv.Model), cmp.Or(body.Effort, conv.Effort)
+	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode)); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -413,7 +427,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.store.DB.ExecContext(req.Context(), `UPDATE ai_conversations SET permission_mode = ? WHERE id = ?`, conv.Mode, conv.ID); err != nil {
+	if _, err := h.store.DB.ExecContext(req.Context(), `UPDATE ai_conversations SET permission_mode = ?, model = ?, effort = ? WHERE id = ?`, conv.Mode, conv.Model, conv.Effort, conv.ID); err != nil {
 		h.settle(req.Context(), conv.ID, runID, aiFailed, "Could not save the permission mode.")
 		httperr.Write(w, req, err)
 		return

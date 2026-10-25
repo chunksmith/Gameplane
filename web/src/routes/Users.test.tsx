@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithQuery } from "@/test/render";
-import { UsersPage } from "./Users";
+import { NamespaceGrants, UsersPage } from "./Users";
 import { APIError } from "@/lib/api";
-import type { ExtendedUser } from "@/types";
+import type { ExtendedUser, Role } from "@/types";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 
@@ -72,11 +72,35 @@ const CATALOG = {
   ],
 };
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
-    <a {...rest}>{children}</a>
-  ),
-}));
+const navigate = vi.fn();
+const tabSearch = vi.hoisted(() => ({ tab: undefined as string | undefined, listeners: new Set<() => void>() }));
+vi.mock("@tanstack/react-router", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    Link: ({ children, ...rest }: { children: ReactNode } & Record<string, unknown>) => (
+      <a {...rest}>{children}</a>
+    ),
+    useNavigate: () => (options: { search?: { tab?: string } }) => {
+      if (options.search) {
+        tabSearch.tab = options.search.tab;
+        tabSearch.listeners.forEach((listener) => listener());
+      }
+      navigate(options);
+      return Promise.resolve();
+    },
+    useSearch: () => ({
+      tab: useSyncExternalStore(
+        (listener) => {
+          tabSearch.listeners.add(listener);
+          return () => {
+            tabSearch.listeners.delete(listener);
+          };
+        },
+        () => tabSearch.tab,
+      ),
+    }),
+  };
+});
 
 const ALICE: ExtendedUser = {
   id: 2,
@@ -103,6 +127,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  tabSearch.tab = undefined;
   list.mockResolvedValue([ME, ALICE]);
   rolesList.mockResolvedValue(ROLE_DEFS);
   catalog.mockResolvedValue(CATALOG);
@@ -155,24 +180,12 @@ describe("UsersPage", () => {
     expect(screen.getByText("Delete user")).toBeInTheDocument();
   });
 
-  it("submits an edit via PATCH", async () => {
+  it("opens the edit page from the action menu", async () => {
     const user = userEvent.setup();
-    update.mockResolvedValue({ ...ALICE, role: "admin" });
     renderPage();
     await user.click(await screen.findByLabelText("Actions for alice"));
     await user.click(await screen.findByText("Edit user"));
-
-    // HeroUI v3 Select doesn't expose displayValue; find by label and click to open
-    const dialog = await screen.findByRole("dialog");
-    const select = within(dialog).getByLabelText(/Primary role/);
-    await user.click(select);
-    // Click the "admin" option in the opened popover
-    const adminOption = await screen.findByRole("option", { name: "admin" });
-    await user.click(adminOption);
-
-    await user.click(screen.getByRole("button", { name: /Save changes/i }));
-
-    await waitFor(() => expect(update).toHaveBeenCalledWith(2, { role: "admin" }));
+    expect(navigate).toHaveBeenCalledWith({ to: "/users/$id", params: { id: "2" } });
   });
 
   it("submits a password reset", async () => {
@@ -506,106 +519,6 @@ describe("InviteModal", () => {
   });
 });
 
-describe("EditUserModal", () => {
-  it("updates display name only", async () => {
-    const user = userEvent.setup();
-    update.mockResolvedValue({ ...ALICE, displayName: "Alice Updated" });
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
-
-    const displayInput = await screen.findByDisplayValue("Alice");
-    await user.clear(displayInput);
-    await user.type(displayInput, "Alice Updated");
-    await user.click(screen.getByRole("button", { name: /Save changes/i }));
-
-    await waitFor(() =>
-      expect(update).toHaveBeenCalledWith(2, { displayName: "Alice Updated" }),
-    );
-  });
-
-  it("disables save when no changes are made", async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
-
-    const button = await screen.findByRole("button", { name: /Save changes/i });
-    expect(button).toBeDisabled();
-  });
-
-  it("blocks self-demotion from user management role", async () => {
-    const user = userEvent.setup();
-    // useMe() and the users list must agree on root’s role: EditUserModal
-    // seeds its role <select> from the clicked row’s own `user.role` (from
-    // `list`), not from useMe(), so leaving `list` on the base ME (role
-    // "admin") meant the "operator" <select> the test looked for never
-    // rendered.
-    const meAsOperator = {
-      ...ME,
-      role: "operator",
-      permissions: { "*": ["users:manage"] },
-    };
-    useMeMock.mockReturnValue({
-      data: meAsOperator,
-      error: null,
-      isLoading: false,
-    });
-    list.mockResolvedValue([meAsOperator, ALICE]);
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for root"));
-    await user.click(await screen.findByText("Edit user"));
-
-    // HeroUI v3 Select doesn’t expose displayValue; find by label and click to open
-    const dialog = await screen.findByRole("dialog");
-    const select = within(dialog).getByLabelText(/Primary role/);
-    await user.click(select);
-    // Click the "viewer" option in the opened popover
-    const viewerOption = await screen.findByRole("option", { name: "viewer" });
-    await user.click(viewerOption);
-
-    // The component renders a typographic apostrophe ("can’t", U+2019), not
-    // a straight one — match on the surrounding text instead of the
-    // apostrophe-adjacent word so this doesn’t depend on which quote glyph
-    // the copy uses.
-    expect(
-      await screen.findByText(/remove your own ability to manage users/i),
-    ).toBeInTheDocument();
-    const button = screen.getByRole("button", { name: /Save changes/i });
-    expect(button).toBeDisabled();
-  });
-
-  it("displays error from API", async () => {
-    const user = userEvent.setup();
-    update.mockRejectedValue(new Error("Permission denied"));
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
-
-    const displayInput = await screen.findByDisplayValue("Alice");
-    await user.clear(displayInput);
-    await user.type(displayInput, "Alice New");
-    await user.click(screen.getByRole("button", { name: /Save changes/i }));
-
-    expect(await screen.findByText("Permission denied")).toBeInTheDocument();
-  });
-
-  it("closes modal on cancel", async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
-
-    // "alice" also still renders in the table row behind the overlay, so
-    // scope to the dialog to get a unique match.
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("alice")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: /Cancel/i }));
-
-    expect(screen.queryByDisplayValue("Alice")).not.toBeInTheDocument();
-  });
-});
-
 describe("ResetPasswordModal", () => {
   it("disables button when password is too short", async () => {
     const user = userEvent.setup();
@@ -767,17 +680,19 @@ describe("UsersPage roles tab extended", () => {
   });
 });
 
+async function renderGrants() {
+  const roles = (await rolesList()) as Role[];
+  renderWithQuery(<NamespaceGrants userId={ALICE.id} roles={roles} />);
+}
+
 describe("NamespaceGrants", () => {
   it("displays namespace grants in edit modal", async () => {
-    const user = userEvent.setup();
     const binding = {
       roleName: "operator",
       namespace: "gameplane-games",
     };
     bindings.mockResolvedValue([binding]);
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     expect(await screen.findByText("Cluster & namespace grants")).toBeInTheDocument();
     // "operator" also matches the table's role badge and the two role
@@ -798,9 +713,7 @@ describe("NamespaceGrants", () => {
     };
     bindings.mockResolvedValue([binding]);
     removeBinding.mockRejectedValue(new Error("Permission denied"));
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     const removeBtn = await screen.findByLabelText(/Remove viewer in prod/);
     await user.click(removeBtn);
@@ -809,11 +722,8 @@ describe("NamespaceGrants", () => {
   });
 
   it("shows no empty-state line when no namespace grants exist", async () => {
-    const user = userEvent.setup();
     bindings.mockResolvedValue([]);
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     expect(await screen.findByText("Cluster & namespace grants")).toBeInTheDocument();
     expect(screen.queryByText("No per-namespace grants.")).not.toBeInTheDocument();
@@ -828,9 +738,7 @@ describe("NamespaceGrants", () => {
     };
     bindings.mockResolvedValue([binding]);
     removeBinding.mockResolvedValue(undefined);
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     const removeBtn = await screen.findByLabelText(
       /Remove operator in gameplane-games/,
@@ -846,9 +754,7 @@ describe("NamespaceGrants", () => {
     const user = userEvent.setup();
     bindings.mockResolvedValue([]);
     addBinding.mockResolvedValue({ roleName: "viewer", namespace: "custom-ns" });
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     // The grant-role Select (aria-label "Grant role") defaults to
     // "operator". Target it by name, not the Primary role Select: picking
@@ -873,11 +779,8 @@ describe("NamespaceGrants", () => {
   });
 
   it("disables add button when namespace is empty", async () => {
-    const user = userEvent.setup();
     bindings.mockResolvedValue([]);
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     const addBtn = await screen.findByRole("button", { name: /Add/i });
     expect(addBtn).toBeDisabled();
@@ -887,9 +790,7 @@ describe("NamespaceGrants", () => {
     const user = userEvent.setup();
     bindings.mockResolvedValue([]);
     addBinding.mockRejectedValue(new Error("Namespace not found"));
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
 
     const nsInput = await screen.findByPlaceholderText("namespace");
     await user.type(nsInput, "invalid-ns");
@@ -904,9 +805,7 @@ describe("NamespaceGrants", () => {
 describe("Cluster grants", () => {
   async function openGrantEditor() {
     const user = userEvent.setup();
-    renderPage();
-    await user.click(await screen.findByLabelText("Actions for alice"));
-    await user.click(await screen.findByText("Edit user"));
+    await renderGrants();
     await screen.findByText("Cluster & namespace grants");
     return user;
   }

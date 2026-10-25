@@ -87,3 +87,18 @@ func instanceDefaultLanguage(req *http.Request, store *db.Store) string {
 	}
 	return section.DefaultLanguage
 }
+
+type authTurnstileResp struct {
+	SiteKey string `json:"siteKey"`
+}
+
+// AuthTurnstileHandler serves GET /auth/turnstile with the public site key, empty when Turnstile is off.
+func AuthTurnstileHandler(turnstile *auth.Turnstile) http.HandlerFunc {
+	var resp authTurnstileResp
+	if turnstile != nil {
+		resp.SiteKey = turnstile.SiteKey
+	}
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, resp)
+	}
+}

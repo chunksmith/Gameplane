@@ -21,7 +21,9 @@ import type {
   PlayerEntry,
   PlayersResp,
   Restore,
+  Network,
   NetworkCapture,
+  ServerGrant,
   ServerStatistics,
   StatisticsHistory,
   StatisticsLive,
@@ -32,6 +34,7 @@ import type {
 } from "@/types";
 import type { AllConfig } from "@/lib/config";
 import type { FileEntry } from "@/lib/endpoints";
+import type { FleetItem } from "@/lib/fleet";
 
 // Built-in role permission sets, mirroring the server seed, so makeUser
 // produces a permission set consistent with the requested role and
@@ -493,5 +496,21 @@ export function makeServerStatistics(over: Partial<ServerStatistics> = {}): Serv
     disk: { used: 312e6, total: 2e9, growth: 18e6, read: 0.4e6, write: 1.2e6 },
     health: { restarts: 0, oomKills: 0, throttledPercent: 2.1 },
     ...over,
+  };
+}
+
+export function makeServerGrant(over: Partial<ServerGrant> = {}): ServerGrant {
+  return { userId: 2, cluster: "local", namespace: "gameplane-games", server: "alpha", permissions: ["servers:console"], ...over };
+}
+
+export function makeNetwork(over: Partial<Network> = {}): Network {
+  return { name: "skyblock", members: [], ...over };
+}
+
+export function makeFleetItem(name: string, annotations: Record<string, string> = {}, namespace = "gameplane-games"): FleetItem<GameServer> {
+  return {
+    target: { cluster: "local", namespace, name, uid: `${name}-uid` },
+    resource: makeServer({ metadata: { name, namespace, annotations } }),
+    permissions: ["servers:read"],
   };
 }

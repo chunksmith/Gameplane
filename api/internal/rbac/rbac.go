@@ -148,6 +148,10 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 								(r.perm == "servers:read" || slices.Contains(granted, r.perm)) {
 								role = roleCollaborator
 							}
+							if granted, ok := u.ServerGrant(cl, ns, name, string(obj.GetUID())); role == roleNone && ok &&
+								(r.perm == "servers:read" || slices.Contains(granted, r.perm)) {
+								role = roleCollaborator
+							}
 							if role != roleNone {
 								// Grant to owner, or to collaborator if not owner-only.
 								if role == roleOwner || !ownerOnlyOperation(req.Method, verb, isExact) {
@@ -227,6 +231,9 @@ var rules = []rule{
 
 	{method: "GET", segment: "networks", perm: "users:read"},
 	{segment: "networks", perm: "users:manage"},
+
+	{method: "GET", segment: "server-grants", perm: "users:read"},
+	{segment: "server-grants", perm: "users:manage"},
 
 	// Roles + the permission catalog.
 	{method: "GET", segment: "roles", perm: "roles:read"},
@@ -448,7 +455,8 @@ func serverTemplateReadable(req *http.Request, fetch ServerFetcher, u *auth.User
 		return false
 	}
 	_, member := u.Networks[obj.GetAnnotations()[networkAnnotation]]
-	return member || ownershipRole(obj, u.ID) != roleNone || u.Can("servers:read", true, cl, ns)
+	_, granted := u.ServerGrant(cl, ns, server, string(obj.GetUID()))
+	return member || granted || ownershipRole(obj, u.ID) != roleNone || u.Can("servers:read", true, cl, ns)
 }
 
 // ownershipRole returns the ownership role of a user in the server:

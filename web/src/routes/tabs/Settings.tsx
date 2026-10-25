@@ -13,6 +13,7 @@ import {
   MapPin,
   Network,
   RadioTower,
+  Rocket,
   Settings as SettingsIcon,
   ShieldCheck,
   Sliders,
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { GeneralSection } from "./settings/General";
 import { VersionSection } from "./settings/Version";
 import { GameConfigSection } from "./settings/GameConfig";
+import { STARTUP_KEYS, StartupSection } from "./settings/Startup";
 import { ResourcesSection } from "./settings/Resources";
 import { NetworkingSection } from "./settings/Networking";
 import { AllocationsSection } from "./settings/Allocations";
@@ -53,6 +55,7 @@ type SectionKey =
   | "general"
   | "version"
   | "config"
+  | "startup"
   | "resources"
   | "networking"
   | "allocations"
@@ -78,6 +81,7 @@ const SECTION_LABELS = defineMessages({
   general: { id: "web.routes.tabs.settings.section_general", defaultMessage: "General", description: "Settings: name of the General section in the settings tab list" },
   version: { id: "web.routes.tabs.settings.section_version", defaultMessage: "Version", description: "Settings: name of the Version section in the settings tab list" },
   config: { id: "web.routes.tabs.settings.section_game_configuration", defaultMessage: "Game configuration", description: "Settings: name of the Game configuration section in the settings tab list" },
+  startup: { id: "web.routes.tabs.settings.section_startup", defaultMessage: "Startup", description: "Settings: name of the Startup section (Java heap and JVM flags) in the settings tab list" },
   resources: { id: "web.routes.tabs.settings.section_resources", defaultMessage: "Resources", description: "Settings: name of the Resources section in the settings tab list" },
   networking: { id: "web.routes.tabs.settings.section_networking", defaultMessage: "Networking", description: "Settings: name of the Networking section in the settings tab list" },
   allocations: { id: "web.routes.tabs.settings.section_allocations", defaultMessage: "Allocations", description: "Settings: name of the Allocations section (extra public ports) in the settings tab list" },
@@ -94,6 +98,7 @@ const SECTION_LABELS = defineMessages({
 const SECTION_DESCRIPTIONS = defineMessages({
   general: { id: "web.routes.tabs.settings.section_description_general", defaultMessage: "Identity, description, container image and labels.", description: "Settings: one-line description under the General section heading" },
   resources: { id: "web.routes.tabs.settings.section_description_resources", defaultMessage: "CPU, memory and storage reserved for the game container.", description: "Settings: one-line description under the Resources section heading" },
+  startup: { id: "web.routes.tabs.settings.section_description_startup", defaultMessage: "How Java launches this server: heap size and extra JVM flags.", description: "Settings: one-line description under the Startup section heading" },
   networking: { id: "web.routes.tabs.settings.section_description_networking", defaultMessage: "Service exposure, tunnels and ports that players connect through.", description: "Settings: one-line description under the Networking section heading" },
   allocations: { id: "web.routes.tabs.settings.section_description_allocations", defaultMessage: "Extra public ports for this server, such as a voice chat UDP port.", description: "Settings: one-line description under the Allocations section heading" },
   env: { id: "web.routes.tabs.settings.section_description_environment", defaultMessage: "Environment variables passed to the game container.", description: "Settings: one-line description under the Environment section heading" },
@@ -109,6 +114,7 @@ const SECTIONS: Section[] = [
   { key: "general",    label: SECTION_LABELS.general,    icon: SettingsIcon,      framed: true, description: SECTION_DESCRIPTIONS.general },
   { key: "version",    label: SECTION_LABELS.version,    icon: Layers },
   { key: "config",     label: SECTION_LABELS.config,     icon: SlidersHorizontal },
+  { key: "startup",    label: SECTION_LABELS.startup,    icon: Rocket,            description: SECTION_DESCRIPTIONS.startup },
   { key: "resources",  label: SECTION_LABELS.resources,  icon: HardDrive,         framed: true, divider: true, description: SECTION_DESCRIPTIONS.resources },
   { key: "networking", label: SECTION_LABELS.networking, icon: Network,           framed: true, description: SECTION_DESCRIPTIONS.networking },
   { key: "allocations", label: SECTION_LABELS.allocations, icon: Cable,          description: SECTION_DESCRIPTIONS.allocations },
@@ -149,7 +155,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
       if (savingRef.current) return;
       setSectionValidity((previous) => previous[key] === valid ? previous : { ...previous, [key]: valid });
     };
-    return { config: report("config"), networking: report("networking"), capture: report("capture"), placement: report("placement") };
+    return { config: report("config"), startup: report("startup"), networking: report("networking"), capture: report("capture"), placement: report("placement") };
   }, []);
   // `dirty` (does draft differ from the last known-good server snapshot) is
   // read directly in JSX, so it's tracked as its own piece of state,
@@ -290,6 +296,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
   // rejects unknown keys).
   const sections = SECTIONS.filter((s) => {
     if (s.key === "version") return (template?.spec.versions?.length ?? 0) > 0;
+    if (s.key === "startup") return (template?.spec.configSchema ?? []).some((field) => STARTUP_KEYS.includes(field.name));
     if (s.key === "config") {
       return (
         (template?.spec.configSchema?.length ?? 0) > 0 ||
@@ -300,7 +307,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
   });
   // Without servers:write the Game configuration section is view-only and the
   // footer shows a note instead of Discard/Save.
-  const readOnlyConfig = section === "config" && !access?.canWrite;
+  const readOnlyConfig = (section === "config" || section === "startup") && !access?.canWrite;
   const active = SECTIONS.find((s) => s.key === section);
 
   return (
@@ -341,6 +348,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
               {section === "general"    && <GeneralSection    draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "version"    && <VersionSection    draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} />}
               {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
+              {section === "startup"    && <StartupSection    draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.startup} />}
               {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "networking" && <NetworkingSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.networking} />}
               {section === "allocations" && <AllocationsSection draft={draft} onChange={onChangeDraft} template={template} />}

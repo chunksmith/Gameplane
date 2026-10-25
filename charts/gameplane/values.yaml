@@ -283,6 +283,16 @@ api:
     #   negativeTTL: 15m      # lifetime of an unresolvable Steam ID
     #   timeout: 2s           # timeout for each Steam Web API call
 
+  # Cloudflare Turnstile on the password login form. Off until both the site
+  # key and the secret Secret are set. Create the Secret out-of-band, e.g.
+  #   kubectl -n <release-namespace> create secret generic turnstile \
+  #     --from-literal=secret-key=<your secret key>
+  turnstile:
+    siteKey: ""
+    secretKeySecretRef:
+      name: ""
+      key: secret-key
+
   # Anonymous usage telemetry (see docs/install.md). Two independent gates:
   # the admin switches in the dashboard decide WHETHER anything is sent, this
   # block decides WHETHER it may be sent at all (enabled) and WHERE it goes

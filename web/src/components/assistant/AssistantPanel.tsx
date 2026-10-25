@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Input, ListBox, ListBoxItem, Select, TextArea } from "@heroui/react";
+import { Button, Card, Input, ListBox, ListBoxItem, Select } from "@heroui/react";
 import {
   Activity,
   Archive,
@@ -24,25 +24,35 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { Markdown } from "@/components/assistant/Markdown";
+import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { ModelPicker } from "@/components/assistant/ModelPicker";
 import { can, useMe } from "@/lib/auth";
 import { cn, formatRelative } from "@/lib/utils";
 import {
   ASSISTANT_MODES,
   Assistant,
+  LINEAR_METHOD,
   blocksOf,
   callLabel,
+  linearArgument,
+  linearMentions,
+  linearTool,
   modelLabel,
+  requestOf,
   resultStatus,
   resultText,
   scopeQuery,
   useAssistantStatus,
   useAssistantStream,
+  withContextBlock,
   type AssistantBlock,
   type AssistantConversation,
   type AssistantDetail,
   type AssistantMessage,
   type AssistantMode,
+  type AssistantPick,
   type AssistantScope,
 } from "@/lib/assistant";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
@@ -142,6 +152,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
+  const [pickedModel, setPickedModel] = useState<AssistantPick>();
   const ready = !!status.data?.enabled && status.data.configured;
 
   const list = useQuery({
@@ -170,7 +181,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
   const submit = useMutation({
-    mutationFn: (text: string) => (selected ? Assistant.send(selected, text, pickedMode) : Assistant.create(text, scope, pickedMode)),
+    mutationFn: async (text: string) => {
+      const body = withContextBlock(text, await mentionContext(scope, text));
+      return selected ? Assistant.send(selected, body, pickedMode, pickedModel) : Assistant.create(body, scope, pickedMode, pickedModel);
+    },
     onSuccess: (conv) => {
       setPrompt("");
       setSelected(conv.id);
@@ -197,10 +211,12 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const starters = scope.server ? serverStarters : fleetStarters;
   const pending = detail.data?.pending ?? [];
   const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
+  const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data.defaultModel, effort: status.data.defaultEffort });
   const modeLabel = intl.formatMessage({ id: "web.components.assistant.assistant_panel.permission_mode", defaultMessage: "Permission mode", description: "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short" });
   const open = (id: string | null) => {
     setSelected(id);
     setPickedMode(undefined);
+    setPickedModel(undefined);
     setListOpen(false);
   };
   const send = () => {
@@ -351,7 +367,14 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
               <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                 {pending.map((p) => (
                   <li key={p.id}>
-                    <code className="rounded-lg bg-foreground/10 px-2 py-1 font-mono text-xs">{p.method} {p.path}</code>
+                    {p.method === LINEAR_METHOD ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs">
+                        <LinearLogo className="h-3.5 w-3.5" />
+                        <code className="font-mono">{p.path}</code>
+                      </span>
+                    ) : (
+                      <code className="rounded-lg bg-foreground/10 px-2 py-1 font-mono text-xs">{p.method} {p.path}</code>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -369,7 +392,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             {scope.server && <span className={chipClass}><Server className="h-3 w-3" />{scope.server}</span>}
             <span className={chipClass}><Lock className="h-3 w-3" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.acts_with_your_permissions", defaultMessage: "Acts with your permissions", description: "Assistant panel: chip above the message box reminding that the assistant acts with the user's own permissions; keep it short" })}</span>
             <Select aria-label={modeLabel} selectedKey={mode} isDisabled={!own} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
-              <Select.Trigger className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
+              <Select.Trigger data-chip className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
                 <ShieldCheck className="h-3 w-3" />
                 <Select.Value />
                 <Select.Indicator className="h-3 w-3" />
@@ -382,9 +405,12 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 </ListBox>
               </Select.Popover>
             </Select>
+            <ModelPicker value={model} onChange={setPickedModel} isDisabled={!own} className={chipClass} />
           </div>
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
-            <TextArea
+            <MentionTextArea
+              scope={scope}
+              linear={!!status.data.linear}
               aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.message_the_assistant", defaultMessage: "Message the assistant", description: "Assistant panel: accessible name of the message box where the user types a prompt" })}
               className="field-sizing-content max-h-40 min-h-[2.5rem] w-full resize-none border-0 bg-transparent px-2 py-1 shadow-none focus:ring-0"
               rows={2}
@@ -395,16 +421,17 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.placeholder_server_example", defaultMessage: "e.g. \"Set max-players to 50 in server.properties\"", description: "Assistant panel: example prompt shown as the placeholder of the message box when the assistant is scoped to one server; keep the example command as it is" })
                   : intl.formatMessage({ id: "web.components.assistant.assistant_panel.placeholder_lobby_example", defaultMessage: "e.g. \"On lobby, change the MOTD\"", description: "Assistant panel: example prompt shown as the placeholder of the message box when the assistant covers all servers; keep the example as it is" })
                 : intl.formatMessage({ id: "web.components.assistant.assistant_panel.read_only_other_user", defaultMessage: "Read-only: this conversation belongs to another user", description: "Assistant panel: placeholder of the message box when the conversation belongs to another user, so it cannot be changed" })}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
+              onValueChange={setPrompt}
+              onEnter={send}
             />
             <div className="flex items-center gap-2 px-1 pt-1">
-              <p className="flex-1 text-[11px] text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
+              <p className="flex-1 text-[11px] text-muted">{scope.server
+                ? status.data.linear
+                  ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file, a folder or Linear", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file, a folder or the Linear workspace to give as context" })
+                  : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file or folder", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context" })
+                : status.data.linear
+                  ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @linear adds Linear", description: "Assistant panel: hint under the message box explaining the Enter and Shift + Enter keys and that typing @linear gives the assistant the Linear workspace or one of its issues" })
+                  : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
               {running && own ? (
                 <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={() => stop.mutate()}><Square className="h-4 w-4" /></Button>
               ) : (
@@ -455,10 +482,21 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
         const turns = turnsOf(message);
         if (turns.length === 0) return null;
         if (message.role === "user") {
-          const text = turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n");
+          const text = requestOf(turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n"));
           return text ? (
-            <li key={i} className="flex justify-end">
+            <li key={i} className="flex flex-col items-end gap-1.5">
               <p className="w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-sm text-accent-foreground shadow-sm">{text}</p>
+              {linearMentions(text).map((issue) => (
+                <span key={issue} className="flex max-w-[85%] items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs">
+                  <LinearLogo className="h-5 w-5" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{issue || intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_workspace", defaultMessage: "Linear workspace", description: "Assistant panel: card under a user message that mentioned @linear, meaning the whole Linear workspace was given as context; keep it short" })}</span>
+                    <span className="block text-[11px] text-muted">{issue
+                      ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_issue_hint", defaultMessage: "Linear issue", description: "Assistant panel: second line of the card under a user message that mentioned one Linear issue; keep it short" })
+                      : intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_workspace_hint", defaultMessage: "Issues, projects and cycles", description: "Assistant panel: second line of the Linear workspace card under a user message; lists what the assistant can read; keep it short" })}</span>
+                  </span>
+                </span>
+              ))}
             </li>
           ) : null;
         }
@@ -503,11 +541,12 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
   );
 }
 
-function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean }) {
+const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean }) {
   const intl = useOptionalIntl();
   const text = result ? resultText(result) : "";
-  const body = block.input?.body;
-  const label = callLabel(block);
+  const tool = linearTool(block);
+  const body = tool ? block.input : block.input?.body;
+  const label = tool ? `${tool} ${linearArgument(block)}`.trim() : callLabel(block);
   const [method, ...rest] = label.split(" ");
   let badge = <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.not_run", defaultMessage: "not run", description: "Assistant panel: badge on a tool call that has not produced a result yet; keep it short" })}</span>;
   if (result) {
@@ -528,8 +567,19 @@ function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; 
       <details className="group overflow-hidden rounded-xl border border-border bg-surface-secondary/60 text-xs transition-colors hover:border-border/80">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2">
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted transition-transform group-open:rotate-90" />
-          <span aria-hidden="true" className={cn("shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold", methodTone[method] ?? "bg-foreground/5 text-muted")}>{method}</span>
-          <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-muted">{rest.join(" ")}</code>
+          {tool ? (
+            <>
+              <LinearLogo />
+              <span aria-hidden="true" className="shrink-0 font-medium text-foreground">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear", defaultMessage: "Linear", description: "Assistant panel: name shown on a tool call that went to Linear; a product name, usually left untranslated" })}</span>
+              <span aria-hidden="true" className="shrink-0 text-muted">{tool}</span>
+              <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-accent">{linearArgument(block)}</code>
+            </>
+          ) : (
+            <>
+              <span aria-hidden="true" className={cn("shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold", methodTone[method] ?? "bg-foreground/5 text-muted")}>{method}</span>
+              <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-muted">{rest.join(" ")}</code>
+            </>
+          )}
           <span className="sr-only">{label}</span>
           {badge}
         </summary>
@@ -542,4 +592,4 @@ function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; 
       </details>
     </li>
   );
-}
+});
