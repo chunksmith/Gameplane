@@ -448,6 +448,15 @@ function GeneralSection({ initial }: { initial?: GeneralCfg }) {
           onChange={(e) => f.update({ fileListLimit: Number(e.target.value) })}
         />
       </Field>
+      <Field label={intl.formatMessage({ id: "web.routes.admin_settings.file_read_limit", defaultMessage: "File open limit (MB)", description: "Admin settings: label of the field that sets the largest file, in megabytes, the file browser opens in the editor" })} hint={intl.formatMessage({ id: "web.routes.admin_settings.file_read_limit_hint", defaultMessage: "Largest file the file browser opens in the editor (1–1,024 MB). Larger files must be downloaded. Defaults to 32.", description: "Admin settings: hint under the file open limit field; the largest file opened in the editor, from 1 to 1,024 megabytes, default 32; larger files must be downloaded" })}>
+        <HeroInput
+          type="number"
+          min={1}
+          max={1024}
+          value={String(f.draft.fileReadLimitMB ?? 32)}
+          onChange={(e) => f.update({ fileReadLimitMB: Number(e.target.value) })}
+        />
+      </Field>
     </SectionCard>
   );
 }

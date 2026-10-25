@@ -171,11 +171,19 @@ func TestRead(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create: %v", err)
 		}
-		if err := f.Truncate((2 << 20) + 1); err != nil {
+		if err := f.Truncate((32 << 20) + 1); err != nil {
 			t.Fatalf("truncate: %v", err)
 		}
 		_ = f.Close()
 		resp := get(t, srvURL, "/files/read", url.Values{"path": []string{"/big.bin"}})
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusRequestEntityTooLarge {
+			t.Fatalf("status=%d", resp.StatusCode)
+		}
+	})
+
+	t.Run("too large for limit", func(t *testing.T) {
+		resp := get(t, srvURL, "/files/read", url.Values{"path": []string{"/a.txt"}, "limit": []string{"1"}})
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusRequestEntityTooLarge {
 			t.Fatalf("status=%d", resp.StatusCode)

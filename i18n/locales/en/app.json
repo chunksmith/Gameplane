@@ -5355,6 +5355,14 @@
     "defaultMessage": "Most files and folders the file browser loads from one folder (1–10,000). Defaults to 500.",
     "description": "Admin settings: hint under the file list limit field; the most files and folders loaded per folder, from 1 to 10,000, default 500"
   },
+  "web.routes.admin_settings.file_read_limit": {
+    "defaultMessage": "File open limit (MB)",
+    "description": "Admin settings: label of the field that sets the largest file, in megabytes, the file browser opens in the editor"
+  },
+  "web.routes.admin_settings.file_read_limit_hint": {
+    "defaultMessage": "Largest file the file browser opens in the editor (1–1,024 MB). Larger files must be downloaded. Defaults to 32.",
+    "description": "Admin settings: hint under the file open limit field; the largest file opened in the editor, from 1 to 1,024 megabytes, default 32; larger files must be downloaded"
+  },
   "web.routes.admin_settings.first_it_forms_the_provider_s_oidc": {
     "defaultMessage": "first — it forms the provider's OIDC redirect URL.",
     "description": "Admin settings: end of the warning sentence saying the external URL forms the provider's OIDC redirect URL (OIDC: technical term, usually left untranslated)"

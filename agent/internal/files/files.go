@@ -176,6 +176,8 @@ func compareEntries(a, b Entry) int {
 	return strings.Compare(a.Name, b.Name)
 }
 
+const defaultMaxRead = 32 << 20
+
 func (h *handler) read(w http.ResponseWriter, req *http.Request) {
 	comps, err := h.components(req.URL.Query().Get("path"))
 	if err != nil {
@@ -197,7 +199,10 @@ func (h *handler) read(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "is a directory", http.StatusBadRequest)
 		return
 	}
-	const maxRead = 2 << 20 // 2 MiB inline read
+	maxRead := int64(defaultMaxRead)
+	if limit, err := strconv.ParseInt(req.URL.Query().Get("limit"), 10, 64); err == nil && limit > 0 {
+		maxRead = limit
+	}
 	if fi.Size() > maxRead {
 		http.Error(w, "file too large; use /files/download", http.StatusRequestEntityTooLarge)
 		return

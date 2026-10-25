@@ -70,9 +70,9 @@ func MountWithPlayerNames(r chi.Router, reg *kube.Registry, caBundle, clientCert
 	mountPodLogs(r, reg)
 	mountShell(r, reg, options.Auditor)
 	r.Route("/servers/{name}/files", func(r chi.Router) {
-		r.Get("/list", withListLimit(options.FileListLimit, p.agentHTTP("/files/list")))
+		r.Get("/list", withLimit(options.FileListLimit, p.agentHTTP("/files/list")))
 		r.Get("/size", p.agentHTTP("/files/size"))
-		r.Get("/read", p.agentHTTP("/files/read"))
+		r.Get("/read", withLimit(options.FileReadLimit, p.agentHTTP("/files/read")))
 		r.Get("/download", p.agentHTTP("/files/download"))
 		r.Get("/archive", p.agentHTTP("/files/archive"))
 		r.Post("/write", p.agentHTTP("/files/write"))
@@ -236,7 +236,7 @@ func (p *proxy) httpProxy(agentPath string) http.HandlerFunc {
 	return p.httpProxyLimit(agentPath, 64<<20)
 }
 
-func withListLimit(limit func(context.Context) int, next http.HandlerFunc) http.HandlerFunc {
+func withLimit(limit func(context.Context) int, next http.HandlerFunc) http.HandlerFunc {
 	if limit == nil {
 		return next
 	}

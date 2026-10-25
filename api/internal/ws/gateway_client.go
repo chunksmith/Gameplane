@@ -35,6 +35,7 @@ var errGatewayUnavailable = errors.New("agent gateway not configured")
 type AgentGatewayOptions struct {
 	Namespace     string
 	FileListLimit func(context.Context) int
+	FileReadLimit func(context.Context) int
 	Auditor       *audit.Auditor
 }
 
