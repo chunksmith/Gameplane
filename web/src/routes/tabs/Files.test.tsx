@@ -969,6 +969,109 @@ describe("FilesTab", () => {
     await waitFor(() => expect(currentPath()).toBe("/"));
   });
 
+  it("opens a tree context menu on right-click and opens the entry from it", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
+    const entry = await folderTree.findByRole("button", { name: "server.properties" });
+    expect(fireEvent.contextMenu(entry)).toBe(false);
+    const menu = screen.getByRole("menu", { name: "server.properties" });
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["Open", "Download", "Zip", "Delete"]);
+    expect(items[0]).toHaveFocus();
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(items[1]).toHaveFocus();
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(items[3]).toHaveFocus();
+    fireEvent.keyDown(menu, { key: "Enter" });
+    expect(fireEvent.contextMenu(menu)).toBe(false);
+    fireEvent.click(items[0]);
+    await waitFor(() => expect(currentPath()).toBe("/server.properties"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("closes the tree context menu on Escape, an outside press and resize", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    mockServerProperties();
+    renderWithQuery(<Harness />);
+    const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
+    const entry = await folderTree.findByRole("button", { name: "config" });
+    fireEvent.contextMenu(entry);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.contextMenu(entry);
+    fireEvent.pointerDown(screen.getByRole("menu"));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.contextMenu(entry);
+    fireEvent(window, new Event("resize"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(currentPath()).toBe("/");
+  });
+
+  it("downloads, zips and deletes from the tree context menu", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    mockServerProperties({
+      "DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true": () => new Response(null, { status: 204 }),
+    });
+    const restoreLocation = stubLocation();
+    try {
+      renderWithQuery(<Harness />);
+      const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
+      const entry = await folderTree.findByRole("button", { name: "config" });
+      const pick = (label: string) => {
+        fireEvent.contextMenu(entry);
+        fireEvent.click(within(screen.getByRole("menu", { name: "config" })).getByRole("menuitem", { name: label }));
+      };
+      pick("Download");
+      expect(window.location.href).toBe("/servers/mc-survival/files/archive?path=%2Fconfig");
+      pick("Zip");
+      expect(await screen.findByPlaceholderText("archive.zip")).toHaveValue("config.zip");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      pick("Delete");
+      fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: /^Delete$/ }));
+      await waitFor(() => expect(requests()).toContain("DELETE /servers/mc-survival/files/delete?path=%2Fconfig&recursive=true"));
+    } finally {
+      restoreLocation();
+    }
+  });
+
+  it("acts on the whole selection from the tree context menu", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    mockServerProperties();
+    renderWithQuery(<Harness />, { canControl: false });
+    const folderTree = within(await screen.findByRole("complementary", { name: "Folder tree" }));
+    fireEvent.click(await folderTree.findByRole("button", { name: "config" }), { metaKey: true });
+    fireEvent.click(folderTree.getByRole("button", { name: "server.properties" }), { metaKey: true });
+    fireEvent.contextMenu(folderTree.getByRole("button", { name: "server.properties" }));
+    const menu = within(screen.getByRole("menu", { name: "2 selected" }));
+    expect(menu.queryByRole("menuitem", { name: "Open" })).not.toBeInTheDocument();
+    expect(menu.getByRole("menuitem", { name: "Zip" })).toBeDisabled();
+    expect(menu.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
+  });
+
+  it("keeps the Claude chat open when another file is opened", async () => {
+    window.localStorage.setItem("gameplane.files.view", "tree");
+    mockRoutes({
+      [ROOT_LIST]: () => jsonRes(TWO_FILES),
+      [PROPERTIES_READ]: () => textRes("original"),
+      "GET /servers/mc-survival/files/read?path=%2Fconfig.yaml": () => textRes("config"),
+      "GET /ai/status": () => jsonRes({ enabled: false, configured: false }),
+    });
+    renderWithQuery(<Harness initialPath="/server.properties" />);
+    await screen.findByTestId("monaco");
+    fireEvent.click(screen.getByRole("button", { name: "Ask Claude" }));
+    expect(await screen.findByRole("region", { name: "Claude chat" })).toBeInTheDocument();
+    const folderTree = within(screen.getByRole("complementary", { name: "Folder tree" }));
+    fireEvent.click(folderTree.getByRole("button", { name: "config.yaml" }));
+    await waitFor(() => expect(currentPath()).toBe("/config.yaml"));
+    expect(await screen.findByRole("region", { name: "Claude chat" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask Claude" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("shows selection actions in the same toolbar row as the folder buttons", async () => {
     mockServerProperties();
     renderWithQuery(<Harness />);
