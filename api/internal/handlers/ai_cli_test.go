@@ -307,6 +307,103 @@ func TestAICLIProcessCap(t *testing.T) {
 	}
 }
 
+func waitWarm(t *testing.T, h *aiHandler, key string, spawns func() []*aiSpawn, want int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		h.mu.Lock()
+		proc := h.procs[key]
+		ready := proc != nil && !proc.busy
+		h.mu.Unlock()
+		if ready && len(spawns()) == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no warm process for %s, spawns = %d", key, len(spawns()))
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestAICLIWarm(t *testing.T) {
+	f, spawns := newCLIFixture(t, func(call *aiSpawn, emit func(string)) { cliTurns(emit, call.in) })
+	scope := map[string]any{"server": "lobby", "namespace": "games"}
+	if rr := f.do(http.MethodPost, "/ai/warm", "", scope); rr.Code != http.StatusNoContent {
+		t.Fatalf("warm = %d %s", rr.Code, rr.Body.String())
+	}
+	waitWarm(t, f.h, aiNewChat(1), spawns, 1)
+	if session := cliSession(t, spawns()[0].args); session != nil {
+		_, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: "gameplane_api", Arguments: map[string]any{"method": "GET", "path": "/fleet/servers"}})
+		_ = session.Close()
+		if err == nil || !strings.Contains(err.Error(), "this assistant run has ended") {
+			t.Errorf("tool call before a message = %v", err)
+		}
+	}
+	conv := f.create(map[string]any{"prompt": "hi", "server": "lobby", "namespace": "games"})
+	f.wait(conv.ID, aiIdle)
+	f.h.mu.Lock()
+	_, left := f.h.procs[aiNewChat(1)]
+	f.h.mu.Unlock()
+	if all := spawns(); len(all) != 1 || !slices.Equal(all[0].sent(), []string{"hi"}) || left || f.h.liveRun(aiNewChat(1)) != nil {
+		t.Fatalf("adopt: spawns = %d, new-chat slot left = %v", len(all), left)
+	}
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/warm", "", map[string]string{"model": "claude-sonnet-5-5", "effort": "high"}); rr.Code != http.StatusNoContent {
+		t.Fatalf("warm conversation = %d %s", rr.Code, rr.Body.String())
+	}
+	waitWarm(t, f.h, conv.ID, spawns, 2)
+	if args := spawns()[1].args; !hasArg(args, "--resume", "sess-1") || !hasArg(args, "--model", "claude-sonnet-5-5") {
+		t.Errorf("rewarm args = %v", args)
+	}
+	sonnet := conv
+	sonnet.Model, sonnet.Effort = "claude-sonnet-5-5", "high"
+	f.h.warmCLI(t.Context(), sonnet, aiCreds{}, "oat-test")
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/messages", "", map[string]string{"prompt": "again", "model": "claude-sonnet-5-5", "effort": "high"}); rr.Code != http.StatusOK {
+		t.Fatalf("post = %d %s", rr.Code, rr.Body.String())
+	}
+	f.wait(conv.ID, aiIdle)
+	if all := spawns(); len(all) != 2 || !slices.Equal(all[1].sent(), []string{"again"}) {
+		t.Errorf("after warm: spawns = %d", len(all))
+	}
+	if rr := f.do(http.MethodPost, "/ai/warm", "", map[string]string{"mode": "nope"}); rr.Code != http.StatusBadRequest {
+		t.Errorf("bad mode = %d", rr.Code)
+	}
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/warm", "bob", map[string]string{}); rr.Code != http.StatusNotFound {
+		t.Errorf("other user = %d", rr.Code)
+	}
+}
+
+func TestAICLIWarmBusy(t *testing.T) {
+	proceed := make(chan struct{})
+	f, spawns := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
+		emit(cliInit)
+		<-call.in
+		<-proceed
+		emit(cliDone)
+		for range call.in {
+			emit(cliDone)
+		}
+	})
+	conv := f.create(map[string]any{"prompt": "hi"})
+	deadline := time.Now().Add(5 * time.Second)
+	for len(spawns()) == 0 || len(spawns()[0].sent()) == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("prompt never sent")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/warm", "", map[string]string{"model": "claude-sonnet-5-5", "effort": "high"}); rr.Code != http.StatusNoContent {
+		t.Fatalf("warm = %d %s", rr.Code, rr.Body.String())
+	}
+	sonnet := conv
+	sonnet.Model, sonnet.Effort = "claude-sonnet-5-5", "high"
+	f.h.warmCLI(t.Context(), sonnet, aiCreds{}, "oat-test")
+	close(proceed)
+	f.wait(conv.ID, aiIdle)
+	if all := spawns(); len(all) != 1 {
+		t.Errorf("warm replaced a busy process: spawns = %d", len(all))
+	}
+}
+
 func TestAICLIFailures(t *testing.T) {
 	cases := map[string]struct {
 		lines []string

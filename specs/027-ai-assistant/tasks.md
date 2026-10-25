@@ -85,5 +85,5 @@ description: "Task list for Feature 027: AI assistant"
 
 - [X] T045 `POST /ai/warm` and `POST /ai/conversations/{id}/warm` start the conversation's CLI process before the first message (`warm` in `api/internal/handlers/ai.go`; `warmCLI`, `adopt`, `aiNewChat` and the warm guard in `process` in `api/internal/handlers/ai_cli.go`); `create` adopts the user's new-chat process
 - [X] T046 Web: `Assistant.warm` (`web/src/lib/assistant.ts`), called from `AssistantPanel` on open and on a mode or model change
-- [ ] T047 Tests: warm then message reuses one process, new-chat adoption, warm skipped while a turn runs (`api/internal/handlers/ai_cli_test.go`)
+- [X] T047 Tests: `TestAICLIWarm` (new-chat warm, refused tool call before a message, adoption by `create`, conversation re-warm on a model change with `--resume`, warm then message reuses one process, bad mode, other user) and `TestAICLIWarmBusy` (warm never replaces a process in a turn) in `api/internal/handlers/ai_cli_test.go`
 - [X] T048 Document warm start in `spec.md`, `api/specs.md` and `web/specs.md`
