@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # check-submodule-freshness.sh: Fail when a submodule gitlink in the
-# superproject points at a commit that is not on the upstream main branch.
+# superproject points at a commit that is not on its fork's main branch.
 #
 # Purpose:
 #   Catches a superproject pointer bump made before the submodule PR merged.
 #   Such a pointer references a commit that exists only on a feature branch,
 #   so a fresh clone of the superproject cannot fetch it. Spec 013 G6 / OD-1.
 #
-# Checked submodules (path -> upstream URL, overridable through env):
+# Checked submodules (path -> fork URL from .gitmodules, overridable through env):
 #   modules -> ${SUBMODULE_URL_MODULES:-https://github.com/chunksmith/module}
 #   website -> ${SUBMODULE_URL_WEBSITE:-https://github.com/chunksmith/gameplane-website}
-#   Upstream branch: ${SUBMODULE_BRANCH:-main}
+#   Branch: ${SUBMODULE_BRANCH:-main}
 #
 # Environment:
 #   SUBMODULE_FRESHNESS_REPO  superproject to check (default: this repo root).
