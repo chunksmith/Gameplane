@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { Button, ListBox, ListBoxItem, Select } from "@heroui/react";
+import { Button, ListBox, ListBoxItem, Popover, PopoverContent, PopoverTrigger, Select } from "@heroui/react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Check, Loader2, Plus, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
+import { Check, History, Loader2, Plus, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
 import { defineMessages } from "react-intl";
 
 import { Markdown } from "@/components/assistant/Markdown";
@@ -17,6 +17,7 @@ import {
   blocksOf,
   callLabel,
   requestOf,
+  scopeQuery,
   useAssistantStatus,
   useAssistantStream,
   withContextBlock,
@@ -26,7 +27,7 @@ import {
   type AssistantScope,
 } from "@/lib/assistant";
 import { useOptionalIntl } from "@/lib/i18n/format";
-import { cn } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
 
 const FENCE = /```[^\n]*\n([\s\S]*?)```/g;
 
@@ -49,6 +50,9 @@ const MESSAGES = defineMessages({
   decline: { id: "web.routes.tabs.file_assistant.decline", defaultMessage: "Decline", description: "Files tab: button in the Claude chat panel that rejects the waiting actions; keep it short" },
   chats: { id: "web.routes.tabs.file_assistant.chats", defaultMessage: "Claude chats", description: "Files tab: accessible label of the row of tabs above the Claude chat panel, one tab per chat; not shown as text" },
   new_chat: { id: "web.routes.tabs.file_assistant.new_chat", defaultMessage: "New chat", description: "Files tab: title of a Claude chat tab before its first message, and accessible label of the + button that opens a new chat tab; keep it short" },
+  history: { id: "web.routes.tabs.file_assistant.history", defaultMessage: "Recent chats", description: "Files tab: accessible label of the clock button above the Claude chat panel and heading of the list of this server's earlier chats it opens; keep it short" },
+  history_empty: { id: "web.routes.tabs.file_assistant.history_empty", defaultMessage: "No chats yet", description: "Files tab: text in the recent chats list above the Claude chat panel when this server has no earlier chats" },
+  history_open: { id: "web.routes.tabs.file_assistant.history_open", defaultMessage: "Open", description: "Files tab: small badge in the recent chats list on a chat that is already open in a tab; keep it short" },
 });
 
 interface ChatTab {
@@ -97,6 +101,15 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
     setChats({ tabs: rest, active: key === chats.active ? rest[Math.min(index, rest.length - 1)].key : chats.active });
   };
   const start = (id: string) => setChats((state) => ({ ...state, tabs: state.tabs.map((tab) => (tab.key === current.key ? { ...tab, id } : tab)) }));
+  const resume = (id: string) => {
+    const open = chats.tabs.find((tab) => tab.id === id);
+    if (open) setChats({ ...chats, active: open.key });
+    else if (!current.id) start(id);
+    else {
+      const key = Math.max(...chats.tabs.map((tab) => tab.key)) + 1;
+      setChats({ tabs: [...chats.tabs, { key, id }], active: key });
+    }
+  };
 
   return (
     <div className="absolute inset-0 flex flex-col gap-2">
@@ -107,11 +120,54 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
         <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.new_chat)} onPress={add}>
           <Plus className="h-3.5 w-3.5" />
         </Button>
+        <ChatHistory scope={scope} openIds={new Set(chats.tabs.map((tab) => tab.id))} onOpen={resume} />
       </div>
       <div className="relative flex-1">
         <ChatPanel key={current.key} id={current.id} onStarted={start} scope={scope} file={file} onClose={onClose} />
       </div>
     </div>
+  );
+}
+
+function ChatHistory({ scope, openIds, onOpen }: { scope: AssistantScope; openIds: ReadonlySet<string | null>; onOpen: (id: string) => void }) {
+  const intl = useOptionalIntl();
+  const status = useAssistantStatus();
+  const [isOpen, setOpen] = useState(false);
+  const list = useQuery({
+    queryKey: ["ai", "conversations", scopeQuery(scope, false)],
+    queryFn: () => Assistant.list(scope, false),
+    enabled: isOpen && !!status.data?.enabled && status.data.configured,
+  });
+  return (
+    <Popover isOpen={isOpen} onOpenChange={setOpen}>
+      <PopoverTrigger aria-label={intl.formatMessage(MESSAGES.history)} className={cn("shrink-0 rounded-md p-1.5 text-muted hover:bg-foreground/5 hover:text-foreground", isOpen && "bg-default text-foreground")}>
+        <History className="h-3.5 w-3.5" />
+      </PopoverTrigger>
+      <PopoverContent className="w-[340px] max-w-[calc(100vw-2rem)] bg-surface p-1.5">
+        <div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-muted">{intl.formatMessage(MESSAGES.history)}</div>
+        {list.isLoading && <Loader2 className="mx-2 my-1.5 h-4 w-4 animate-spin text-muted" />}
+        {!list.isLoading && !list.error && !list.data?.length && <p className="px-2 py-1.5 text-xs text-muted">{intl.formatMessage(MESSAGES.history_empty)}</p>}
+        {list.error && <ErrorBanner err={list.error} />}
+        <ListBox aria-label={intl.formatMessage(MESSAGES.history)} className="max-h-80 overflow-y-auto scrollbar-thin" onAction={(key) => { setOpen(false); onOpen(String(key)); }}>
+          {(list.data ?? []).map((conv) => {
+            const title = conv.title || intl.formatMessage(MESSAGES.new_chat);
+            const running = conv.status === "running";
+            return (
+              <ListBoxItem key={conv.id} id={conv.id} textValue={title} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-xs">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {running && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                  <span className="truncate font-medium">{title}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-[11px] text-muted">
+                  {openIds.has(conv.id) && <span className="rounded bg-default px-1.5 text-[10px] font-medium">{intl.formatMessage(MESSAGES.history_open)}</span>}
+                  {running ? intl.formatMessage(MESSAGES.working) : formatRelative(conv.updatedAt, intl)}
+                </span>
+              </ListBoxItem>
+            );
+          })}
+        </ListBox>
+      </PopoverContent>
+    </Popover>
   );
 }
 
