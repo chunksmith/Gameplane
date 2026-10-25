@@ -87,3 +87,8 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T046 Web: `Assistant.warm` (`web/src/lib/assistant.ts`), called from `AssistantPanel` on open and on a mode or model change
 - [X] T047 Tests: `TestAICLIWarm` (new-chat warm, refused tool call before a message, adoption by `create`, conversation re-warm on a model change with `--resume`, warm then message reuses one process, bad mode, other user) and `TestAICLIWarmBusy` (warm never replaces a process in a turn) in `api/internal/handlers/ai_cli_test.go`
 - [X] T048 Document warm start in `spec.md`, `api/specs.md` and `web/specs.md`
+
+## Phase 11: Process cap
+
+- [X] T049 `aiCLIMax` counts busy processes and rises to 10; a run that finds ten processes in a turn fails with `errAICLIFull` (`process` and `runCLI` in `api/internal/handlers/ai_cli.go`); test `TestAICLIProcessCapBusy` in `api/internal/handlers/ai_cli_test.go`
+- [X] T050 Document the cap and the 3Gi requirement in `spec.md`, `api/specs.md` and the `api.resources` comment in `charts/gameplane/values.yaml`

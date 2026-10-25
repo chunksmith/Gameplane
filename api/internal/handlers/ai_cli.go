@@ -34,8 +34,10 @@ const (
 	aiApprovalWait = 30 * time.Minute
 	aiCLIIdle      = 10 * time.Minute
 	aiCLIGrace     = 5 * time.Second
-	aiCLIMax       = 3
+	aiCLIMax       = 10
 )
+
+var errAICLIFull = errors.New("claude process limit reached")
 
 const aiShellPrompt = `
 
@@ -158,7 +160,12 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	linear := h.openLinear(runCtx, conv.UserID)
 	defer linear.close()
 	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, done: runCtx.Done(), cancel: cancel}
-	if err := h.attach(ctx, run, token, prompt); err != nil {
+	err := h.attach(ctx, run, token, prompt)
+	if errors.Is(err, errAICLIFull) {
+		h.settle(ctx, conv.ID, runID, aiFailed, fmt.Sprintf("%d assistant conversations are already running. Try again when one finishes.", aiCLIMax))
+		return
+	}
+	if err != nil {
 		slog.Warn("start claude", "err", err)
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code could not be started.")
 		return
@@ -425,9 +432,13 @@ func (h *aiHandler) process(ctx context.Context, conv aiConversation, token stri
 		h.forget(victim)
 		go victim.stop(true)
 	}
+	full := len(h.procs) >= aiCLIMax
 	h.mu.Unlock()
 	if proc != nil {
 		proc.stop(graceful)
+	}
+	if full {
+		return nil, false, errAICLIFull
 	}
 	proc, err := h.spawnProc(ctx, conv, token, admin, linear, spec)
 	return proc, true, err
