@@ -191,6 +191,12 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
       refresh();
     },
   });
+  const warmStatus = selected ? detail.data?.conversation.status : "idle";
+  useEffect(() => {
+    if (!ready || !warmStatus || warmStatus === "running" || warmStatus === "awaiting_approval") return;
+    const warmScope = { server: scope.server, namespace: scope.namespace, cluster: scope.cluster };
+    void Assistant.warm(selected, warmScope, pickedMode, pickedModel).catch(() => undefined);
+  }, [ready, selected, warmStatus, scope.server, scope.namespace, scope.cluster, pickedMode, pickedModel]);
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(selected ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(selected ?? ""), onSuccess: refresh });
 
