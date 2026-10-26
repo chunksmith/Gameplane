@@ -169,9 +169,9 @@ export const Assistant = {
   list: (scope: AssistantScope, all: boolean) => api<AssistantConversation[]>(`/ai/conversations${scopeQuery(scope, all)}`),
   get: (id: string) => api<AssistantDetail>(conversationPath(id)),
   create: (prompt: string, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick, attachments?: AssistantAttachment[]) =>
-    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick, attachments } }),
+    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick, attachments: attachments?.length ? attachments : undefined } }),
   send: (id: string, prompt: string, mode?: AssistantMode, pick?: AssistantPick, attachments?: AssistantAttachment[]) =>
-    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick, attachments } }),
+    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick, attachments: attachments?.length ? attachments : undefined } }),
   warm: (id: string | null, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick) =>
     api<void>(id ? conversationPath(id, "/warm") : "/ai/warm", { method: "POST", body: { ...scope, mode, ...pick } }),
   decide: (id: string, approve: boolean) =>
