@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Button, ListBox, ListBoxItem, Popover, PopoverContent, PopoverTrigger, Select } from "@heroui/react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Check, History, Loader2, Plus, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
+import { Check, FileText, History, Loader2, Plus, Send, ShieldCheck, Square, X } from "lucide-react";
 import { defineMessages } from "react-intl";
 
 import { Markdown } from "@/components/assistant/Markdown";
@@ -33,7 +33,6 @@ const FENCE = /```[^\n]*\n([\s\S]*?)```/g;
 
 const MESSAGES = defineMessages({
   panel: { id: "web.routes.tabs.file_assistant.panel", defaultMessage: "Claude chat", description: "Files tab: accessible label of the Claude chat panel shown beside the file editor; not shown as text" },
-  title: { id: "web.routes.tabs.file_assistant.title", defaultMessage: "Claude", description: "Files tab: title in the header of the Claude chat panel beside the file editor; keep it short" },
   close: { id: "web.routes.tabs.file_assistant.close", defaultMessage: "Close chat", description: "Files tab: icon-only button that closes the Claude chat panel beside the file editor; read by screen readers; keep it short" },
   unavailable: { id: "web.routes.tabs.file_assistant.unavailable", defaultMessage: "The AI assistant is not set up. An admin can turn it on under Admin settings → AI assistant.", description: "Files tab: text in the Claude chat panel when the AI assistant is turned off or has no API key" },
   working: { id: "web.routes.tabs.file_assistant.working", defaultMessage: "Working…", description: "Files tab: status in the Claude chat panel while Claude is working on a reply" },
@@ -121,9 +120,12 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
           <Plus className="h-3.5 w-3.5" />
         </Button>
         <ChatHistory scope={scope} openIds={new Set(chats.tabs.map((tab) => tab.id))} onOpen={resume} />
+        <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.close)} onPress={onClose} className="ml-auto">
+          <X className="h-4 w-4" />
+        </Button>
       </div>
       <div className="relative flex-1">
-        <ChatPanel key={current.key} id={current.id} onStarted={start} scope={scope} file={file} onClose={onClose} />
+        <ChatPanel key={current.key} id={current.id} onStarted={start} scope={scope} file={file} />
       </div>
     </div>
   );
@@ -200,7 +202,7 @@ function ChatTabButton({ id, active, onSelect, onClose }: { id: string | null; a
   );
 }
 
-function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null; onStarted: (id: string) => void; scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
+function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarted: (id: string) => void; scope: AssistantScope; file?: OpenFile }) {
   const intl = useOptionalIntl();
   const qc = useQueryClient();
   const status = useAssistantStatus();
@@ -267,15 +269,6 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
 
   return (
     <section aria-label={intl.formatMessage(MESSAGES.panel)} className="absolute inset-0 flex flex-col overflow-hidden rounded-lg border border-border bg-surface">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-        <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-        <span className="text-sm font-medium">{intl.formatMessage(MESSAGES.title)}</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted">{file && intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name" }, { file: fileName })}</span>
-        <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.close)} onPress={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
       <ol className="flex-1 space-y-4 overflow-y-auto bg-background p-4 scrollbar-thin">
         {status.isLoading && <li><Loader2 className="h-4 w-4 animate-spin text-muted" /></li>}
         {!status.isLoading && !ready && <li className="text-sm text-muted">{intl.formatMessage(MESSAGES.unavailable)}</li>}
@@ -337,6 +330,12 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
                 </ListBox>
               </Select.Popover>
             </Select>
+            {file && (
+              <span title={intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: tooltip of the chip in the Claude message box naming the file Claude sees; {file} is the file path" }, { file: file.path })} className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted">
+                <FileText className="h-3 w-3 shrink-0" />
+                <span className="truncate">{fileName}</span>
+              </span>
+            )}
             <ModelPicker value={model} onChange={setPickedModel} isDisabled={!ready} className="mr-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs" />
             {running && (
               <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={interrupt}>

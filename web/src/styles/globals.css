@@ -667,7 +667,7 @@ input:-webkit-autofill:focus {
 .server-detail-tabs .tabs__tab {
   width: auto;
   flex: none;
-  height: 44px;
+  height: 38px;
   gap: 8px;
   padding: 0 12px;
   border-radius: 0;
