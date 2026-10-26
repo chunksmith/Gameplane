@@ -819,7 +819,7 @@ func TestDelete(t *testing.T) {
 		}
 	})
 
-	t.Run("recursive refuses tree containing dotfile", func(t *testing.T) {
+	t.Run("recursive removes tree containing dotfile", func(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(root, "w", "sub"), 0o755); err != nil {
 			t.Fatalf("mkdir: %v", err)
 		}
@@ -832,11 +832,11 @@ func TestDelete(t *testing.T) {
 			t.Fatalf("delete: %v", err)
 		}
 		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
+		if resp.StatusCode != http.StatusNoContent {
 			t.Fatalf("status=%d", resp.StatusCode)
 		}
-		if _, err := os.Stat(filepath.Join(root, "w", "sub", ".state")); err != nil {
-			t.Fatalf("dotfile removed: %v", err)
+		if _, err := os.Stat(filepath.Join(root, "w")); !os.IsNotExist(err) {
+			t.Fatalf("tree not removed: %v", err)
 		}
 	})
 
