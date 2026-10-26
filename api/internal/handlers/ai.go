@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,7 @@ const (
 	aiSecretName    = "gameplane-ai"
 	aiSecretLabel   = "gameplane.local/ai"
 	aiMaxPrompt     = 20000
+	aiMaxAttachment = 5
 
 	aiRunning  = "running"
 	aiAwaiting = "awaiting_approval"
@@ -59,6 +61,7 @@ var (
 	aiModels     = []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"}
 	aiEfforts    = []string{"low", "medium", "high", "xhigh", "max"}
 	aiModes      = []string{aiModeDefault, aiModeAuto, aiModeBypass}
+	aiImageTypes = []string{"image/jpeg", "image/png", "image/gif", "image/webp"}
 	errAIStopped = errors.New("ai run stopped")
 )
 
@@ -236,6 +239,53 @@ func aiCheckMode(mode string) error {
 	return nil
 }
 
+type aiAttachment struct {
+	Name      string `json:"name"`
+	MediaType string `json:"mediaType"`
+	Data      string `json:"data"`
+}
+
+func aiDecode(w http.ResponseWriter, req *http.Request, body any) bool {
+	err := json.NewDecoder(req.Body).Decode(body)
+	var tooLarge *http.MaxBytesError
+	switch {
+	case errors.As(err, &tooLarge):
+		http.Error(w, "the message and its attachments must be at most 1 MiB", http.StatusRequestEntityTooLarge)
+	case err != nil:
+		http.Error(w, "invalid json", http.StatusBadRequest)
+	}
+	return err == nil
+}
+
+func aiContent(prompt string, attachments []aiAttachment) ([]anthropic.BetaContentBlockParamUnion, error) {
+	if len(attachments) > aiMaxAttachment {
+		return nil, fmt.Errorf("at most %d attachments are allowed", aiMaxAttachment)
+	}
+	blocks := make([]anthropic.BetaContentBlockParamUnion, 0, len(attachments)+1)
+	for _, attachment := range attachments {
+		data, err := base64.StdEncoding.DecodeString(attachment.Data)
+		if err != nil || len(data) == 0 {
+			return nil, fmt.Errorf("attachment %q is empty or not base64", attachment.Name)
+		}
+		var block anthropic.BetaContentBlockParamUnion
+		switch {
+		case slices.Contains(aiImageTypes, attachment.MediaType):
+			block = anthropic.NewBetaImageBlock(anthropic.BetaBase64ImageSourceParam{Data: attachment.Data, MediaType: anthropic.BetaBase64ImageSourceMediaType(attachment.MediaType)})
+		case attachment.MediaType == "application/pdf":
+			block = anthropic.NewBetaDocumentBlock(anthropic.BetaBase64PDFSourceParam{Data: attachment.Data})
+		case utf8.Valid(data):
+			block = anthropic.NewBetaDocumentBlock(anthropic.BetaPlainTextSourceParam{Data: string(data)})
+		default:
+			return nil, fmt.Errorf("attachment %q must be an image, a PDF or a text file", attachment.Name)
+		}
+		if block.OfDocument != nil {
+			block.OfDocument.Title = anthropic.String(cmp.Or(attachment.Name, "attachment"))
+		}
+		blocks = append(blocks, block)
+	}
+	return append(blocks, anthropic.NewBetaTextBlock(prompt)), nil
+}
+
 func aiCheckPrompt(prompt string) error {
 	if prompt == "" {
 		return errors.New("prompt is required")
@@ -319,16 +369,16 @@ func (h *aiHandler) list(w http.ResponseWriter, req *http.Request) {
 
 func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	var body struct {
-		Prompt    string `json:"prompt"`
-		Server    string `json:"server"`
-		Namespace string `json:"namespace"`
-		Cluster   string `json:"cluster"`
-		Model     string `json:"model"`
-		Effort    string `json:"effort"`
-		Mode      string `json:"mode"`
+		Prompt      string         `json:"prompt"`
+		Server      string         `json:"server"`
+		Namespace   string         `json:"namespace"`
+		Cluster     string         `json:"cluster"`
+		Model       string         `json:"model"`
+		Effort      string         `json:"effort"`
+		Mode        string         `json:"mode"`
+		Attachments []aiAttachment `json:"attachments"`
 	}
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if !aiDecode(w, req, &body) {
 		return
 	}
 	s, key, sub, ok := h.ready(w, req)
@@ -339,7 +389,8 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	model, effort := cmp.Or(body.Model, s.DefaultModel), cmp.Or(body.Effort, s.DefaultEffort)
 	mode := cmp.Or(body.Mode, s.DefaultMode)
 	server, namespace, cluster := aiScope(body.Server, body.Namespace, body.Cluster)
-	err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort), aiCheckMode(mode))
+	content, err := aiContent(prompt, body.Attachments)
+	err = cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort), aiCheckMode(mode), err)
 	if err == nil && server != "" && (!dnsLabelRE.MatchString(server) || namespace == "") {
 		err = errors.New("server must be a DNS label and namespace is required")
 	}
@@ -370,12 +421,12 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		httperr.Write(w, req, err)
 		return
 	}
-	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(prompt))); err != nil {
+	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(content...)); err != nil {
 		httperr.Write(w, req, err)
 		return
 	}
 	h.adopt(aiNewChat(u.ID), conv.ID)
-	h.begin(ctx, conv, creds, key, sub, runID, prompt)
+	h.begin(ctx, conv, creds, key, sub, runID, content)
 	writeJSONCreated(w, conv)
 }
 
@@ -448,19 +499,20 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var body struct {
-		Prompt string `json:"prompt"`
-		Mode   string `json:"mode"`
-		Model  string `json:"model"`
-		Effort string `json:"effort"`
+		Prompt      string         `json:"prompt"`
+		Mode        string         `json:"mode"`
+		Model       string         `json:"model"`
+		Effort      string         `json:"effort"`
+		Attachments []aiAttachment `json:"attachments"`
 	}
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if !aiDecode(w, req, &body) {
 		return
 	}
 	prompt := strings.TrimSpace(body.Prompt)
 	conv.Mode = cmp.Or(body.Mode, conv.Mode)
 	conv.Model, conv.Effort = cmp.Or(body.Model, conv.Model), cmp.Or(body.Effort, conv.Effort)
-	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode)); err != nil {
+	content, err := aiContent(prompt, body.Attachments)
+	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode), err); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -487,14 +539,14 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	for _, use := range aiToolUses(msgs) {
 		blocks = append(blocks, anthropic.NewBetaToolResultBlock(use.id, "Interrupted: the run was stopped before this call's result was recorded.", true))
 	}
-	blocks = append(blocks, anthropic.NewBetaTextBlock(prompt))
+	blocks = append(blocks, content...)
 	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(blocks...)); err != nil {
 		h.settle(req.Context(), conv.ID, runID, aiFailed, "Could not save the message.")
 		httperr.Write(w, req, err)
 		return
 	}
 	conv.Status, conv.Error = aiRunning, ""
-	h.begin(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, sub, runID, prompt)
+	h.begin(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, sub, runID, content)
 	writeJSON(w, conv)
 }
 
