@@ -52,7 +52,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@formatjs/cli": "^6.16.35",
-    "@formatjs/icu-messageformat-parser": "^2.11.4",
+    "@formatjs/icu-messageformat-parser": "^3.5.22",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tanstack/router-devtools": "^1.167.2",
