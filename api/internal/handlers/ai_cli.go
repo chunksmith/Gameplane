@@ -106,7 +106,11 @@ func (p *aiProc) alive() bool {
 }
 
 func (p *aiProc) send(content []anthropic.BetaContentBlockParamUnion) error {
-	line, err := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": content}, "parent_tool_use_id": nil})
+	var message any = content
+	if len(content) == 1 && content[0].OfText != nil {
+		message = content[0].OfText.Text
+	}
+	line, err := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": message}, "parent_tool_use_id": nil})
 	if err != nil {
 		return fmt.Errorf("encode prompt: %w", err)
 	}
