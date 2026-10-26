@@ -15,13 +15,10 @@ const MESSAGES = defineMessages({
   attach: { id: "web.components.assistant.attachments.attach", defaultMessage: "Attach files or images", description: "Assistant message box: icon-only paperclip button that picks files or screenshots to send with the message; read by screen readers; keep it short" },
 });
 
-function readBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    reader.readAsDataURL(blob);
-  });
+async function readBase64(blob: Blob): Promise<string> {
+  let binary = "";
+  for (const byte of new Uint8Array(await blob.arrayBuffer())) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 async function shrink(file: File): Promise<Blob> {
