@@ -485,9 +485,13 @@ type generalCfg struct {
 	ExternalURL      string `json:"externalURL"`
 	DefaultNamespace string `json:"defaultNamespace"`
 	FileListLimit    int    `json:"fileListLimit,omitempty"`
+	FileReadLimitMB  int    `json:"fileReadLimitMB,omitempty"`
 }
 
-const maxFileListLimit = 10000
+const (
+	maxFileListLimit   = 10000
+	maxFileReadLimitMB = 1024
+)
 
 func validateGeneral(body []byte) (json.RawMessage, error) {
 	var c generalCfg
@@ -509,6 +513,9 @@ func validateGeneral(body []byte) (json.RawMessage, error) {
 	}
 	if c.FileListLimit < 0 || c.FileListLimit > maxFileListLimit {
 		return nil, fmt.Errorf("fileListLimit must be between 1 and %d", maxFileListLimit)
+	}
+	if c.FileReadLimitMB < 0 || c.FileReadLimitMB > maxFileReadLimitMB {
+		return nil, fmt.Errorf("fileReadLimitMB must be between 1 and %d", maxFileReadLimitMB)
 	}
 	return json.Marshal(c)
 }

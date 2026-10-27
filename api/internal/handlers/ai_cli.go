@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,11 +33,20 @@ const (
 	aiMCPPrefix    = "mcp__gameplane__"
 	aiMCPTool      = aiMCPPrefix + "gameplane_api"
 	aiApprovalWait = 30 * time.Minute
+	aiCLIIdle      = 10 * time.Minute
+	aiCLIGrace     = 5 * time.Second
+	aiCLIMax       = 10
 )
+
+var errAICLIFull = errors.New("claude process limit reached")
 
 const aiShellPrompt = `
 
-Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it.`
+Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Long commands can run with run_in_background; follow them with Monitor and stop them with TaskStop.`
+
+const aiCLIPrompt = `
+
+Subagents and questions: the Task tool starts a subagent for a self-contained search or analysis (it has the same tools); use it to work in parallel on independent parts. ask_user asks the user a multiple-choice question and waits for the answer.`
 
 func aiShellText(mode string) string {
 	switch mode {
@@ -60,35 +70,103 @@ type aiLive struct {
 	creds  aiCreds
 	linear *aiLinear
 	runID  string
-	token  string
+	proc   *aiProc
 	done   <-chan struct{}
 	cancel context.CancelFunc
 
 	mu      sync.Mutex
+	ask     sync.Mutex
 	waiting *aiToolInput
 	decide  chan bool
+	answer  chan string
+}
+
+func (run *aiLive) ended() bool {
+	select {
+	case <-run.done:
+		return true
+	default:
+		return false
+	}
+}
+
+func (run *aiLive) mode() string {
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	return run.conv.Mode
+}
+
+type aiProc struct {
+	id     string
+	token  string
+	spec   string
+	stdin  io.WriteCloser
+	scan   *bufio.Scanner
+	kill   context.CancelFunc
+	exited chan struct{}
+	busy   bool
+	last   time.Time
+	timer  *time.Timer
+}
+
+func (p *aiProc) alive() bool {
+	select {
+	case <-p.exited:
+		return false
+	default:
+		return true
+	}
+}
+
+func (p *aiProc) send(content []anthropic.BetaContentBlockParamUnion) error {
+	var message any = content
+	if len(content) == 1 && content[0].OfText != nil {
+		message = content[0].OfText.Text
+	}
+	line, err := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": message}, "parent_tool_use_id": nil})
+	if err != nil {
+		return fmt.Errorf("encode prompt: %w", err)
+	}
+	if _, err := p.stdin.Write(append(line, '\n')); err != nil {
+		return fmt.Errorf("send prompt: %w", err)
+	}
+	return nil
+}
+
+func (p *aiProc) stop(graceful bool) {
+	if !graceful {
+		p.kill()
+	}
+	_ = p.stdin.Close()
+	select {
+	case <-p.exited:
+	case <-time.After(aiCLIGrace):
+		p.kill()
+		<-p.exited
+	}
 }
 
 type aiEvent struct {
-	Type      string              `json:"type"`
-	Subtype   string              `json:"subtype"`
-	SessionID string              `json:"session_id"`
-	Message   json.RawMessage     `json:"message"`
-	Event     json.RawMessage     `json:"event"`
-	IsError   bool                `json:"is_error"`
-	Result    string              `json:"result"`
-	Usage     anthropic.BetaUsage `json:"usage"`
+	Type            string              `json:"type"`
+	Subtype         string              `json:"subtype"`
+	SessionID       string              `json:"session_id"`
+	ParentToolUseID string              `json:"parent_tool_use_id"`
+	Message         json.RawMessage     `json:"message"`
+	Event           json.RawMessage     `json:"event"`
+	IsError         bool                `json:"is_error"`
+	Result          string              `json:"result"`
+	Usage           anthropic.BetaUsage `json:"usage"`
 }
 
-func (h *aiHandler) begin(ctx context.Context, conv aiConversation, creds aiCreds, key string, sub bool, runID, prompt string) {
+func (h *aiHandler) begin(ctx context.Context, conv aiConversation, creds aiCreds, key string, sub bool, runID string, content []anthropic.BetaContentBlockParamUnion) {
 	if sub {
-		go h.runCLI(ctx, conv, creds, key, runID, prompt)
+		go h.runCLI(ctx, conv, creds, key, runID, content)
 		return
 	}
 	go h.run(ctx, conv, creds, key, runID, nil)
 }
 
-func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCreds, token, runID, prompt string) {
+func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCreds, token, runID string, content []anthropic.BetaContentBlockParamUnion) {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer h.pushFlush(conv.ID)
@@ -99,23 +177,23 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	}
 	linear := h.openLinear(runCtx, conv.UserID)
 	defer linear.close()
-	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, token: rand.Text(), done: runCtx.Done(), cancel: cancel}
-	h.track(run)
-	defer h.untrack(run)
-	shell := creds.admin && conv.Repository == ""
-	out, wait, err := h.spawn(runCtx, aiCLIEnv(token, shell), prompt, aiCLIArgs(conv, h.mcpURL, run.token, shell, linear.names()...)...)
+	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, done: runCtx.Done(), cancel: cancel}
+	err := h.attach(ctx, run, token, content)
+	if errors.Is(err, errAICLIFull) {
+		h.settle(ctx, conv.ID, runID, aiFailed, fmt.Sprintf("%d assistant conversations are already running. Try again when one finishes.", aiCLIMax))
+		return
+	}
 	if err != nil {
 		slog.Warn("start claude", "err", err)
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code could not be started.")
 		return
 	}
-	last, err := h.stream(ctx, conv, runID, out)
-	if err != nil {
+	last, err := h.stream(ctx, conv, runID, run.proc.scan)
+	if err == nil && last.Type == "result" {
+		h.release(run.proc)
+	} else {
 		cancel()
-	}
-	_ = out.Close()
-	if waitErr := wait(); waitErr != nil && last.Type != "result" {
-		slog.Warn("claude exited", "id", conv.ID, "err", waitErr)
+		h.drop(run.proc, false)
 	}
 	switch {
 	case errors.Is(err, errAIStopped):
@@ -134,10 +212,26 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	}
 }
 
-func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID string, out io.Reader) (aiEvent, error) {
+func (h *aiHandler) attach(ctx context.Context, run *aiLive, token string, content []anthropic.BetaContentBlockParamUnion) error {
+	names := run.linear.names()
+	for retry := range 2 {
+		proc, fresh, err := h.process(ctx, run.conv, token, run.creds.admin, names, false)
+		if err != nil {
+			return err
+		}
+		run.proc = proc
+		h.track(run)
+		err = proc.send(content)
+		if err == nil || fresh || retry > 0 {
+			return err
+		}
+		h.drop(proc, false)
+	}
+	return nil
+}
+
+func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID string, scanner *bufio.Scanner) (aiEvent, error) {
 	var last aiEvent
-	scanner := bufio.NewScanner(out)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16<<20)
 	for scanner.Scan() {
 		var ev aiEvent
 		if json.Unmarshal(scanner.Bytes(), &ev) != nil {
@@ -154,15 +248,18 @@ func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID strin
 				return last, fmt.Errorf("save ai session: %w", err)
 			}
 		case "assistant", "user":
-			if msg, ok := aiCLIMessage(ev.Type, ev.Message); ok {
+			if msg, ok := aiCLIMessage(ev.Type, ev.Message, ev.ParentToolUseID); ok {
 				if err := h.appendRaw(ctx, conv.ID, runID, msg); err != nil {
 					return last, err
 				}
 			}
 		case "stream_event":
-			h.pushText(conv.ID, aiCLIDelta(ev.Event))
+			if ev.ParentToolUseID == "" {
+				h.pushText(conv.ID, aiCLIDelta(ev.Event))
+			}
 		case "result":
 			h.addUsage(ctx, conv.ID, ev.Usage)
+			return last, nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -171,7 +268,7 @@ func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID strin
 	return last, nil
 }
 
-func aiCLIMessage(role string, raw json.RawMessage) ([]byte, bool) {
+func aiCLIMessage(role string, raw json.RawMessage, parent string) ([]byte, bool) {
 	var msg struct {
 		Content []map[string]json.RawMessage `json:"content"`
 	}
@@ -184,7 +281,11 @@ func aiCLIMessage(role string, raw json.RawMessage) ([]byte, bool) {
 			block["name"] = json.RawMessage(strconv.Quote(strings.TrimPrefix(name, aiMCPPrefix)))
 		}
 	}
-	data, err := json.Marshal(map[string]any{"role": role, "content": msg.Content})
+	fields := map[string]any{"role": role, "content": msg.Content}
+	if parent != "" {
+		fields["parent"] = parent
+	}
+	data, err := json.Marshal(fields)
 	return data, err == nil
 }
 
@@ -206,7 +307,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	allowedTools := aiMCPTools()
+	allowedTools := append(aiMCPTools(), "Task", "WebSearch")
 	if conv.Repository != "" {
 		for _, spec := range aiGitTools {
 			allowedTools = append(allowedTools, aiMCPPrefix+spec.name)
@@ -215,15 +316,15 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	for _, name := range linear {
 		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
-	tools, system := "", aiSystemPrompt(conv)
+	tools, system := "Task,WebSearch", aiSystemPrompt(conv)+aiCLIPrompt
 	if len(linear) > 0 {
 		system += aiLinearPrompt
 	}
-	if admin && conv.Repository == "" {
-		tools, allowedTools, system = "Bash", append(allowedTools, "Bash"), system+aiShellText(conv.Mode)
+	if admin && conv.Repository == "" && conv.Mode != aiModePlan {
+		tools, allowedTools, system = "Task,WebSearch,Bash,Monitor,TaskStop", append(allowedTools, "Bash", "Monitor", "TaskStop"), system+aiShellText(conv.Mode)
 	}
 	allowed := strings.Join(allowedTools, ",")
-	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--model", conv.Model, "--effort", conv.Effort, "--max-turns", strconv.Itoa(aiMaxSteps),
 		"--system-prompt", system,
 		"--strict-mcp-config", "--mcp-config", string(servers),
@@ -232,6 +333,11 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 		args = append(args, "--resume", conv.SessionID)
 	}
 	return args
+}
+
+func aiCLISpec(conv aiConversation, token string, admin bool, linear []string) string {
+	conv.SessionID = ""
+	return strings.Join(append(aiCLIEnv(token, admin), aiCLIArgs(conv, "", "", admin, linear...)...), "\x00")
 }
 
 func aiCLIEnv(token string, admin bool) []string {
@@ -253,25 +359,33 @@ func aiCLIEnv(token string, admin bool) []string {
 	return env
 }
 
-func spawnClaude(ctx context.Context, env []string, stdin string, args ...string) (io.ReadCloser, func() error, error) {
+func spawnClaude(ctx context.Context, env []string, args ...string) (io.WriteCloser, io.ReadCloser, func() error, error) {
 	work := filepath.Join(aiClaudeHome, "work")
 	for _, dir := range []string{work, filepath.Join(aiClaudeHome, "tmp"), filepath.Join(aiClaudeHome, "config")} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, nil, fmt.Errorf("create %s: %w", dir, err)
+			return nil, nil, nil, fmt.Errorf("create %s: %w", dir, err)
 		}
 	}
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, aiClaudeBin)
 	cmd.Args = append(cmd.Args, args...)
-	cmd.Dir, cmd.Env, cmd.Stdin, cmd.Stderr = work, env, strings.NewReader(stdin), &stderr
-	out, err := cmd.StdoutPipe()
+	cmd.Dir, cmd.Env, cmd.Stderr = work, env, &stderr
+	in, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, fmt.Errorf("claude stdout: %w", err)
+		return nil, nil, nil, fmt.Errorf("claude stdin: %w", err)
 	}
-	if err := cmd.Start(); err != nil {
-		return nil, nil, fmt.Errorf("start claude: %w", err)
+	out, writer, err := os.Pipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("claude stdout: %w", err)
 	}
-	return out, func() error {
+	cmd.Stdout = writer
+	err = cmd.Start()
+	_ = writer.Close()
+	if err != nil {
+		_ = out.Close()
+		return nil, nil, nil, fmt.Errorf("start claude: %w", err)
+	}
+	return in, out, func() error {
 		if err := cmd.Wait(); err != nil {
 			return fmt.Errorf("claude: %w: %s", err, aiClip(stderr.String(), 500))
 		}
@@ -279,9 +393,163 @@ func spawnClaude(ctx context.Context, env []string, stdin string, args ...string
 	}, nil
 }
 
+func aiNewChat(user int64) string {
+	return "new:" + strconv.FormatInt(user, 10)
+}
+
+func (h *aiHandler) warmCLI(ctx context.Context, conv aiConversation, creds aiCreds, token string) {
+	h.mcpOnce.Do(func() { h.startMCP(ctx) })
+	if h.mcpURL == "" {
+		return
+	}
+	linear := h.openLinear(ctx, conv.UserID)
+	linear.close()
+	proc, fresh, err := h.process(ctx, conv, token, creds.admin, linear.names(), true)
+	if err != nil {
+		slog.Warn("warm claude", "err", err)
+		return
+	}
+	if proc == nil {
+		return
+	}
+	if fresh {
+		done, cancel := context.WithCancel(ctx)
+		cancel()
+		h.track(&aiLive{conv: conv, creds: creds, linear: linear, proc: proc, done: done.Done(), cancel: cancel})
+	}
+	h.release(proc)
+}
+
+func (h *aiHandler) adopt(from, to string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	proc := h.procs[from]
+	if proc == nil {
+		return
+	}
+	delete(h.procs, from)
+	proc.id, h.procs[to] = to, proc
+	if run := h.live[from]; run != nil {
+		delete(h.live, from)
+		run.conv.ID, h.live[to] = to, run
+	}
+}
+
+func (h *aiHandler) process(ctx context.Context, conv aiConversation, token string, admin bool, linear []string, warm bool) (*aiProc, bool, error) {
+	admin = admin && conv.Repository == ""
+	spec := aiCLISpec(conv, token, admin, linear)
+	h.mu.Lock()
+	proc := h.procs[conv.ID]
+	if warm && proc != nil && proc.busy {
+		h.mu.Unlock()
+		return nil, false, nil
+	}
+	if proc != nil && !proc.busy && proc.spec == spec && proc.alive() {
+		proc.busy = true
+		proc.timer.Stop()
+		h.mu.Unlock()
+		return proc, false, nil
+	}
+	graceful := proc != nil && !proc.busy
+	if proc != nil {
+		h.forget(proc)
+	}
+	for len(h.procs) >= aiCLIMax {
+		victim := h.longestIdle()
+		if victim == nil {
+			break
+		}
+		h.forget(victim)
+		go victim.stop(true)
+	}
+	full := len(h.procs) >= aiCLIMax
+	h.mu.Unlock()
+	if proc != nil {
+		proc.stop(graceful)
+	}
+	if full {
+		return nil, false, errAICLIFull
+	}
+	proc, err := h.spawnProc(ctx, conv, token, admin, linear, spec)
+	return proc, true, err
+}
+
+func (h *aiHandler) spawnProc(ctx context.Context, conv aiConversation, token string, admin bool, linear []string, spec string) (*aiProc, error) {
+	ctx, kill := context.WithCancel(context.WithoutCancel(ctx))
+	proc := &aiProc{id: conv.ID, token: rand.Text(), spec: spec, kill: kill, exited: make(chan struct{}), busy: true}
+	stdin, stdout, wait, err := h.spawn(ctx, aiCLIEnv(token, admin), aiCLIArgs(conv, h.mcpURL, proc.token, admin, linear...)...)
+	if err != nil {
+		kill()
+		return nil, err
+	}
+	proc.stdin, proc.scan = stdin, bufio.NewScanner(stdout)
+	proc.scan.Buffer(make([]byte, 0, 64*1024), 16<<20)
+	go func() {
+		if err := wait(); err != nil {
+			slog.Warn("claude exited", "id", conv.ID, "err", err)
+		}
+		kill()
+		close(proc.exited)
+	}()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.procs == nil {
+		h.procs = map[string]*aiProc{}
+	}
+	h.procs[conv.ID] = proc
+	return proc, nil
+}
+
+func (h *aiHandler) longestIdle() *aiProc {
+	var oldest *aiProc
+	for _, proc := range h.procs {
+		if !proc.busy && (oldest == nil || proc.last.Before(oldest.last)) {
+			oldest = proc
+		}
+	}
+	return oldest
+}
+
+func (h *aiHandler) forget(proc *aiProc) {
+	if h.procs[proc.id] == proc {
+		delete(h.procs, proc.id)
+	}
+	if run := h.live[proc.id]; run != nil && run.proc == proc {
+		delete(h.live, proc.id)
+	}
+	if proc.timer != nil {
+		proc.timer.Stop()
+	}
+}
+
+func (h *aiHandler) drop(proc *aiProc, graceful bool) {
+	h.mu.Lock()
+	h.forget(proc)
+	h.mu.Unlock()
+	proc.stop(graceful)
+}
+
+func (h *aiHandler) release(proc *aiProc) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	proc.busy, proc.last = false, time.Now()
+	proc.timer = time.AfterFunc(cmp.Or(h.idle, aiCLIIdle), func() { h.expire(proc) })
+}
+
+func (h *aiHandler) expire(proc *aiProc) {
+	h.mu.Lock()
+	if proc.busy || h.procs[proc.id] != proc {
+		h.mu.Unlock()
+		return
+	}
+	h.forget(proc)
+	h.mu.Unlock()
+	proc.stop(true)
+}
+
 func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "gameplane", Version: "1"}, nil)
-	for _, spec := range aiTools {
+	for _, spec := range slices.Concat(aiTools, aiCLITools) {
 		server.AddTool(spec.mcp(), h.mcpCall)
 	}
 	if run != nil && run.conv.Repository != "" {
@@ -327,7 +595,7 @@ func (h *aiHandler) mcpCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 	if req.Extra != nil {
 		run = h.liveByToken(req.Extra.Header.Get("Authorization"))
 	}
-	if run == nil {
+	if run == nil || run.ended() {
 		return nil, errors.New("this assistant run has ended")
 	}
 	text, failed := h.mcpInvoke(ctx, run, req.Params.Name, req.Params.Arguments)
@@ -335,6 +603,19 @@ func (h *aiHandler) mcpCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 }
 
 func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, args json.RawMessage) (string, bool) {
+	switch name {
+	case aiAskUser:
+		return h.askUser(ctx, run, args)
+	case aiProposePlan:
+		return h.proposePlan(ctx, run, args)
+	case aiWebFetch:
+		return h.webFetch(ctx, args)
+	case aiTodoWrite:
+		return aiTodoWriteTool(args)
+	}
+	if aiPlanBlocked(run.mode(), name, args) {
+		return aiPlanText, true
+	}
 	if aiIsFileTool(name) {
 		return h.fileTool(ctx, run.conv, run.creds, name, args)
 	}
@@ -346,11 +627,54 @@ func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, arg
 	if err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
-	if run.conv.Mode != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
+	if run.mode() != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
 		return "The user declined this action.", true
 	}
 	status, body := h.tool(ctx, run.conv, run.creds, in)
 	return fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
+}
+
+func (h *aiHandler) askUser(ctx context.Context, run *aiLive, args json.RawMessage) (string, bool) {
+	var in struct {
+		Question string            `json:"question"`
+		Options  []json.RawMessage `json:"options"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "Invalid tool input: " + err.Error(), true
+	}
+	if strings.TrimSpace(in.Question) == "" || len(in.Options) < 2 || len(in.Options) > 4 {
+		return "ask_user needs a question and 2 to 4 options", true
+	}
+	answer, ok := h.awaitAnswer(ctx, run, aiToolInput{Method: aiAskMethod})
+	switch {
+	case !ok:
+		return "The question timed out or the run stopped.", true
+	case answer == "":
+		return "The user skipped the question.", false
+	}
+	return "The user answered: " + answer, false
+}
+
+func (h *aiHandler) proposePlan(ctx context.Context, run *aiLive, args json.RawMessage) (string, bool) {
+	var in struct {
+		Plan string `json:"plan"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "Invalid tool input: " + err.Error(), true
+	}
+	if strings.TrimSpace(in.Plan) == "" {
+		return "propose_plan needs a plan", true
+	}
+	if !h.await(ctx, run, aiToolInput{Method: aiPlanMethod}) {
+		return aiPlanDeclined, false
+	}
+	if _, err := h.store.DB.ExecContext(ctx, `UPDATE ai_conversations SET permission_mode = ? WHERE id = ?`, aiModeDefault, run.conv.ID); err != nil {
+		return fmt.Sprintf("Could not save the permission mode: %v", err), true
+	}
+	run.mu.Lock()
+	run.conv.Mode = aiModeDefault
+	run.mu.Unlock()
+	return aiPlanApproved, false
 }
 
 func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -358,18 +682,23 @@ func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest)
 	if req.Extra != nil {
 		run = h.liveByToken(req.Extra.Header.Get("Authorization"))
 	}
-	if run == nil {
+	if run == nil || run.ended() {
 		return nil, errors.New("this assistant run has ended")
 	}
 	use := aiToolUse{name: req.Params.Name, raw: req.Params.Arguments}
 	text, failed := "The user declined this action.", true
-	if run.conv.Mode == aiModeBypass || !use.needsApproval() || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}) {
+	switch {
+	case aiPlanBlocked(run.mode(), use.name, use.raw):
+		text, failed = aiPlanText, true
+	case run.mode() == aiModeBypass || !use.needsApproval() || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}):
 		text, failed = run.linear.call(ctx, use.name, use.raw)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}, IsError: failed}, nil
 }
 
 func (h *aiHandler) await(ctx context.Context, run *aiLive, in aiToolInput) bool {
+	run.ask.Lock()
+	defer run.ask.Unlock()
 	decide := make(chan bool, 1)
 	run.mu.Lock()
 	run.waiting, run.decide = &in, decide
@@ -395,6 +724,34 @@ func (h *aiHandler) await(ctx context.Context, run *aiLive, in aiToolInput) bool
 	return false
 }
 
+func (h *aiHandler) awaitAnswer(ctx context.Context, run *aiLive, in aiToolInput) (string, bool) {
+	run.ask.Lock()
+	defer run.ask.Unlock()
+	answer := make(chan string, 1)
+	run.mu.Lock()
+	run.waiting, run.answer = &in, answer
+	run.mu.Unlock()
+	defer func() {
+		run.mu.Lock()
+		run.waiting, run.answer = nil, nil
+		run.mu.Unlock()
+	}()
+	if !h.flip(ctx, run.conv.ID, run.runID, aiRunning, aiAwaiting) {
+		return "", false
+	}
+	timer := time.NewTimer(aiApprovalWait)
+	defer timer.Stop()
+	select {
+	case text := <-answer:
+		return text, true
+	case <-ctx.Done():
+	case <-run.done:
+	case <-timer.C:
+	}
+	h.flip(context.WithoutCancel(ctx), run.conv.ID, run.runID, aiAwaiting, aiRunning)
+	return "", false
+}
+
 func (h *aiHandler) decide(ctx context.Context, id string, approve bool) bool {
 	run := h.liveRun(id)
 	if run == nil {
@@ -407,6 +764,21 @@ func (h *aiHandler) decide(ctx context.Context, id string, approve bool) bool {
 	}
 	run.decide <- approve
 	run.decide = nil
+	return true
+}
+
+func (h *aiHandler) answer(ctx context.Context, id, text string) bool {
+	run := h.liveRun(id)
+	if run == nil {
+		return false
+	}
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	if run.answer == nil || !h.flip(ctx, id, run.runID, aiAwaiting, aiRunning) {
+		return false
+	}
+	run.answer <- text
+	run.answer = nil
 	return true
 }
 
@@ -423,6 +795,7 @@ func (h *aiHandler) waitingInput(id string) *aiToolInput {
 func (h *aiHandler) stop(id string) {
 	if run := h.liveRun(id); run != nil {
 		run.cancel()
+		run.proc.kill()
 	}
 }
 
@@ -444,14 +817,6 @@ func (h *aiHandler) track(run *aiLive) {
 	h.live[run.conv.ID] = run
 }
 
-func (h *aiHandler) untrack(run *aiLive) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.live[run.conv.ID] == run {
-		delete(h.live, run.conv.ID)
-	}
-}
-
 func (h *aiHandler) liveRun(id string) *aiLive {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -466,7 +831,7 @@ func (h *aiHandler) liveByToken(header string) *aiLive {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, run := range h.live {
-		if subtle.ConstantTimeCompare([]byte(run.token), []byte(token)) == 1 {
+		if subtle.ConstantTimeCompare([]byte(run.proc.token), []byte(token)) == 1 {
 			return run
 		}
 	}
@@ -495,6 +860,14 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 			case block.Type == "tool_result":
 				resolved[block.ToolUseID] = true
 			case block.Type != "tool_use":
+			case block.Name == aiAskUser:
+				if in.Method == aiAskMethod {
+					id = block.ID
+				}
+			case block.Name == aiProposePlan:
+				if in.Method == aiPlanMethod {
+					id = block.ID
+				}
 			case isLinear:
 				if in.Method == aiLinearMethod && in.Path == linear {
 					id = block.ID

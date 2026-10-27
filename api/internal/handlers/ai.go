@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,7 @@ const (
 	aiSecretName    = "gameplane-ai"
 	aiSecretLabel   = "gameplane.local/ai"
 	aiMaxPrompt     = 20000
+	aiMaxAttachment = 5
 
 	aiRunning  = "running"
 	aiAwaiting = "awaiting_approval"
@@ -47,6 +49,7 @@ const (
 	aiModeDefault = "default"
 	aiModeAuto    = "auto"
 	aiModeBypass  = "bypassPermissions"
+	aiModePlan    = "plan"
 
 	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode, c.repository`
 	aiFrom    = ` FROM ai_conversations c LEFT JOIN users u ON u.id = c.user_id`
@@ -58,7 +61,8 @@ const (
 var (
 	aiModels     = []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"}
 	aiEfforts    = []string{"low", "medium", "high", "xhigh", "max"}
-	aiModes      = []string{aiModeDefault, aiModeAuto, aiModeBypass}
+	aiModes      = []string{aiModeDefault, aiModeAuto, aiModeBypass, aiModePlan}
+	aiImageTypes = []string{"image/jpeg", "image/png", "image/gif", "image/webp"}
 	errAIStopped = errors.New("ai run stopped")
 )
 
@@ -109,11 +113,13 @@ type aiHandler struct {
 	linearKeys AILinearKeys
 	dialLinear func(context.Context, string) (*mcp.ClientSession, error)
 	send       func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
-	spawn      func(context.Context, []string, string, ...string) (io.ReadCloser, func() error, error)
+	spawn      func(context.Context, []string, ...string) (io.WriteCloser, io.ReadCloser, func() error, error)
+	idle       time.Duration
 	mcpOnce    sync.Once
 	mcpURL     string
 	mu         sync.Mutex
 	live       map[string]*aiLive
+	procs      map[string]*aiProc
 
 	streamMu sync.Mutex
 	streams  map[string]*aiStream
@@ -190,10 +196,13 @@ func (h *aiHandler) mount(r chi.Router) {
 	r.Get("/ai/linear/issues", h.linearIssues)
 	r.Get("/ai/conversations", h.list)
 	r.Post("/ai/conversations", h.create)
+	r.Post("/ai/warm", h.warm)
 	r.Get("/ai/conversations/{id}", h.get)
+	r.Post("/ai/conversations/{id}/warm", h.warm)
 	r.Get("/ai/conversations/{id}/stream", h.sse)
 	r.Post("/ai/conversations/{id}/messages", h.post)
 	r.Post("/ai/conversations/{id}/approval", h.approval)
+	r.Post("/ai/conversations/{id}/answer", h.answerQuestion)
 	r.Post("/ai/conversations/{id}/cancel", h.cancel)
 }
 
@@ -231,6 +240,53 @@ func aiCheckMode(mode string) error {
 		return fmt.Errorf("mode must be one of %s", strings.Join(aiModes, ", "))
 	}
 	return nil
+}
+
+type aiAttachment struct {
+	Name      string `json:"name"`
+	MediaType string `json:"mediaType"`
+	Data      string `json:"data"`
+}
+
+func aiDecode(w http.ResponseWriter, req *http.Request, body any) bool {
+	err := json.NewDecoder(req.Body).Decode(body)
+	var tooLarge *http.MaxBytesError
+	switch {
+	case errors.As(err, &tooLarge):
+		http.Error(w, "the message and its attachments must be at most 1 MiB", http.StatusRequestEntityTooLarge)
+	case err != nil:
+		http.Error(w, "invalid json", http.StatusBadRequest)
+	}
+	return err == nil
+}
+
+func aiContent(prompt string, attachments []aiAttachment) ([]anthropic.BetaContentBlockParamUnion, error) {
+	if len(attachments) > aiMaxAttachment {
+		return nil, fmt.Errorf("at most %d attachments are allowed", aiMaxAttachment)
+	}
+	blocks := make([]anthropic.BetaContentBlockParamUnion, 0, len(attachments)+1)
+	for _, attachment := range attachments {
+		data, err := base64.StdEncoding.DecodeString(attachment.Data)
+		if err != nil || len(data) == 0 {
+			return nil, fmt.Errorf("attachment %q is empty or not base64", attachment.Name)
+		}
+		var block anthropic.BetaContentBlockParamUnion
+		switch {
+		case slices.Contains(aiImageTypes, attachment.MediaType):
+			block = anthropic.NewBetaImageBlock(anthropic.BetaBase64ImageSourceParam{Data: attachment.Data, MediaType: anthropic.BetaBase64ImageSourceMediaType(attachment.MediaType)})
+		case attachment.MediaType == "application/pdf":
+			block = anthropic.NewBetaDocumentBlock(anthropic.BetaBase64PDFSourceParam{Data: attachment.Data})
+		case utf8.Valid(data):
+			block = anthropic.NewBetaDocumentBlock(anthropic.BetaPlainTextSourceParam{Data: string(data)})
+		default:
+			return nil, fmt.Errorf("attachment %q must be an image, a PDF or a text file", attachment.Name)
+		}
+		if block.OfDocument != nil {
+			block.OfDocument.Title = anthropic.String(cmp.Or(attachment.Name, "attachment"))
+		}
+		blocks = append(blocks, block)
+	}
+	return append(blocks, anthropic.NewBetaTextBlock(prompt)), nil
 }
 
 func aiCheckPrompt(prompt string) error {
@@ -320,17 +376,17 @@ func (h *aiHandler) list(w http.ResponseWriter, req *http.Request) {
 
 func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	var body struct {
-		Prompt     string `json:"prompt"`
-		Server     string `json:"server"`
-		Repository string `json:"repository"`
-		Namespace  string `json:"namespace"`
-		Cluster    string `json:"cluster"`
-		Model      string `json:"model"`
-		Effort     string `json:"effort"`
-		Mode       string `json:"mode"`
+		Prompt      string         `json:"prompt"`
+		Server      string         `json:"server"`
+		Repository  string         `json:"repository"`
+		Namespace   string         `json:"namespace"`
+		Cluster     string         `json:"cluster"`
+		Model       string         `json:"model"`
+		Effort      string         `json:"effort"`
+		Mode        string         `json:"mode"`
+		Attachments []aiAttachment `json:"attachments"`
 	}
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if !aiDecode(w, req, &body) {
 		return
 	}
 	s, key, sub, ok := h.ready(w, req)
@@ -345,7 +401,8 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	if repository != "" {
 		namespace, cluster = body.Namespace, scope.DefaultCluster
 	}
-	err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort), aiCheckMode(mode))
+	content, err := aiContent(prompt, body.Attachments)
+	err = cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort), aiCheckMode(mode), err)
 	switch {
 	case err != nil:
 	case server != "" && repository != "":
@@ -389,12 +446,53 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		httperr.Write(w, req, err)
 		return
 	}
-	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(prompt))); err != nil {
+	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(content...)); err != nil {
 		httperr.Write(w, req, err)
 		return
 	}
-	h.begin(ctx, conv, creds, key, sub, runID, prompt)
+	h.adopt(aiNewChat(u.ID), conv.ID)
+	h.begin(ctx, conv, creds, key, sub, runID, content)
 	writeJSONCreated(w, conv)
+}
+
+func (h *aiHandler) warm(w http.ResponseWriter, req *http.Request) {
+	var body struct {
+		Server    string `json:"server"`
+		Namespace string `json:"namespace"`
+		Cluster   string `json:"cluster"`
+		Model     string `json:"model"`
+		Effort    string `json:"effort"`
+		Mode      string `json:"mode"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	s, key, sub, ok := h.ready(w, req)
+	if !ok {
+		return
+	}
+	u := auth.UserFromContext(req.Context())
+	conv := aiConversation{ID: aiNewChat(u.ID), UserID: u.ID, Model: s.DefaultModel, Effort: s.DefaultEffort, Mode: s.DefaultMode}
+	conv.Server, conv.Namespace, conv.Cluster = aiScope(body.Server, body.Namespace, body.Cluster)
+	if chi.URLParam(req, "id") != "" {
+		if conv, ok = h.load(w, req, true); !ok {
+			return
+		}
+	}
+	conv.Model, conv.Effort, conv.Mode = cmp.Or(body.Model, conv.Model), cmp.Or(body.Effort, conv.Effort), cmp.Or(body.Mode, conv.Mode)
+	err := cmp.Or(aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode))
+	if err == nil && conv.Server != "" && (!dnsLabelRE.MatchString(conv.Server) || conv.Namespace == "") {
+		err = errors.New("server must be a DNS label and namespace is required")
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if sub && conv.Status != aiRunning && conv.Status != aiAwaiting {
+		go h.warmCLI(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
@@ -426,19 +524,20 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var body struct {
-		Prompt string `json:"prompt"`
-		Mode   string `json:"mode"`
-		Model  string `json:"model"`
-		Effort string `json:"effort"`
+		Prompt      string         `json:"prompt"`
+		Mode        string         `json:"mode"`
+		Model       string         `json:"model"`
+		Effort      string         `json:"effort"`
+		Attachments []aiAttachment `json:"attachments"`
 	}
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if !aiDecode(w, req, &body) {
 		return
 	}
 	prompt := strings.TrimSpace(body.Prompt)
 	conv.Mode = cmp.Or(body.Mode, conv.Mode)
 	conv.Model, conv.Effort = cmp.Or(body.Model, conv.Model), cmp.Or(body.Effort, conv.Effort)
-	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode)); err != nil {
+	content, err := aiContent(prompt, body.Attachments)
+	if err := cmp.Or(aiCheckPrompt(prompt), aiCheckModel(conv.Model, conv.Effort), aiCheckMode(conv.Mode), err); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -465,14 +564,14 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 	for _, use := range aiToolUsesIn(conv.Repository, msgs) {
 		blocks = append(blocks, anthropic.NewBetaToolResultBlock(use.id, "Interrupted: the run was stopped before this call's result was recorded.", true))
 	}
-	blocks = append(blocks, anthropic.NewBetaTextBlock(prompt))
+	blocks = append(blocks, content...)
 	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(blocks...)); err != nil {
 		h.settle(req.Context(), conv.ID, runID, aiFailed, "Could not save the message.")
 		httperr.Write(w, req, err)
 		return
 	}
 	conv.Status, conv.Error = aiRunning, ""
-	h.begin(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, sub, runID, prompt)
+	h.begin(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, sub, runID, content)
 	writeJSON(w, conv)
 }
 
@@ -508,6 +607,30 @@ func (h *aiHandler) approval(w http.ResponseWriter, req *http.Request) {
 	conv.Status, conv.Error = aiRunning, ""
 	go h.run(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, runID, &body.Approve)
 	writeJSON(w, conv)
+}
+
+func (h *aiHandler) answerQuestion(w http.ResponseWriter, req *http.Request) {
+	conv, ok := h.load(w, req, true)
+	if !ok {
+		return
+	}
+	var body struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	answer := strings.TrimSpace(body.Answer)
+	if utf8.RuneCountInString(answer) > aiMaxAnswer {
+		http.Error(w, "answer is too long", http.StatusBadRequest)
+		return
+	}
+	if !h.answer(req.Context(), conv.ID, answer) {
+		http.Error(w, "the conversation is not waiting for an answer", http.StatusConflict)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *aiHandler) cancel(w http.ResponseWriter, req *http.Request) {

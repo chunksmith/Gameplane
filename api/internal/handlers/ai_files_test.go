@@ -119,10 +119,35 @@ func TestAIEditFileCRLF(t *testing.T) {
 	}
 }
 
+func TestAIShellOutput(t *testing.T) {
+	if got := aiShellOutput("a\n", "", 0, false); got != "exit 0\na\n" {
+		t.Errorf("plain = %q", got)
+	}
+	if got := aiShellOutput("", "boom", 2, false); !strings.Contains(got, "exit 2") || !strings.Contains(got, "[stderr]\nboom") {
+		t.Errorf("stderr = %q", got)
+	}
+	if got := aiShellOutput("x", "", 0, true); !strings.Contains(got, "(output cut at 1 MiB)") {
+		t.Errorf("truncated = %q", got)
+	}
+}
+
+func TestAICheckServer(t *testing.T) {
+	lobby := aiConversation{Server: "lobby"}
+	if aiCheckServer(lobby, aiFileInput{Server: "other"}) == nil {
+		t.Error("other server allowed")
+	}
+	if aiCheckServer(aiConversation{}, aiFileInput{}) == nil {
+		t.Error("empty server allowed")
+	}
+	if err := aiCheckServer(lobby, aiFileInput{}); err != nil {
+		t.Errorf("own server = %v", err)
+	}
+}
+
 func TestAICLIFileTool(t *testing.T) {
 	var mu sync.Mutex
 	var result string
-	f, _ := newCLIFixture(t, func(call aiSpawn, emit func(string)) {
+	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
 		emit(cliInit)
 		text := cliCall(t, call.args, aiReadFile, map[string]any{"file_path": "/config.yml", "limit": 1})
 		mu.Lock()

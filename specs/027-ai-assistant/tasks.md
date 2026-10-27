@@ -74,3 +74,36 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T039 Tests `api/internal/handlers/ai_files_test.go` (`TestAINumbered`, `TestAIFileTool`, `TestAIFileToolsRun`, `TestAICLIFileTool`); `cliCall` helper and tool-list assertions in `ai_cli_test.go`, `TestAIParams` in `ai_test.go`
 - [X] T040 Web: `INLINE_LIMIT` and `READ|EDIT|WRITE <path>` labels (`web/src/lib/assistant.ts`); files over the limit go by path in the Files tab chat and `@` mentions (`web/src/routes/tabs/FileAssistant.tsx`, `web/src/components/assistant/Mentions.tsx`); tests in `assistant.test.ts`, `FileAssistant.test.tsx`
 - [X] T041 Document the file tools in `api/specs.md`, `web/specs.md` and this spec
+
+## Phase 9: Process reuse
+
+- [X] T042 One Claude Code process per conversation (`aiProc`, `--input-format stream-json`, user messages as stdin lines, turn ends at `result`, closed after 10 idle minutes, restarted with `--resume` on a settings change, Stop or a dead process, at most 3 resident with the longest idle evicted) in `api/internal/handlers/ai_cli.go`; `spawn` returns stdin (`api/internal/handlers/ai.go`)
+- [X] T043 Tests: stdin-reading fake process in `newCLIFixture`, two turns through one process and the between-turn refusal in `TestAICLIRun`, `TestAICLIProcessRestart` (model change, idle window) and `TestAICLIProcessCap` in `api/internal/handlers/ai_cli_test.go`
+- [X] T044 Document the process lifecycle and the 1Gi requirement in `spec.md`, `api/specs.md` and the `api.resources` comment in `charts/gameplane/values.yaml`
+
+## Phase 10: Warm start
+
+- [X] T045 `POST /ai/warm` and `POST /ai/conversations/{id}/warm` start the conversation's CLI process before the first message (`warm` in `api/internal/handlers/ai.go`; `warmCLI`, `adopt`, `aiNewChat` and the warm guard in `process` in `api/internal/handlers/ai_cli.go`); `create` adopts the user's new-chat process
+- [X] T046 Web: `Assistant.warm` (`web/src/lib/assistant.ts`), called from `AssistantPanel` on open and on a mode or model change
+- [X] T047 Tests: `TestAICLIWarm` (new-chat warm, refused tool call before a message, adoption by `create`, conversation re-warm on a model change with `--resume`, warm then message reuses one process, bad mode, other user) and `TestAICLIWarmBusy` (warm never replaces a process in a turn) in `api/internal/handlers/ai_cli_test.go`
+- [X] T048 Document warm start in `spec.md`, `api/specs.md` and `web/specs.md`
+
+## Phase 11: Process cap
+
+- [X] T049 `aiCLIMax` counts busy processes and rises to 10; a run that finds ten processes in a turn fails with `errAICLIFull` (`process` and `runCLI` in `api/internal/handlers/ai_cli.go`); test `TestAICLIProcessCapBusy` in `api/internal/handlers/ai_cli_test.go`
+- [X] T050 Document the cap and the 3Gi requirement in `spec.md`, `api/specs.md` and the `api.resources` comment in `charts/gameplane/values.yaml`
+
+## Phase 12: Server shell and archive tools
+
+- [X] T051 `read_archive` tool (`readArchive`, `aiArchiveListing` in `api/internal/handlers/ai_files.go`) and the last-resort jar rule plus the ported Claude Code working rules in `aiSystemPrompt` (`api/internal/handlers/ai_run.go`)
+- [X] T052 `POST /servers/{name}/shell` (`mountShell`, `execShell` in `api/internal/ws/exec.go`, mounted by `MountWithPlayerNames` with `AgentGatewayOptions.Auditor` from `api/cmd/main.go`) with audit of the command; tests in `api/internal/ws/exec_test.go`
+- [X] T053 `shell` assistant tool (`shell`, `aiShellOutput`, `aiCheckServer` in `api/internal/handlers/ai_files.go`), prompt rules, `ARCHIVE` label in `web/src/lib/assistant.ts`; tests in `api/internal/handlers/ai_files_test.go`
+- [X] T054 Document both tools in `spec.md` and `api/specs.md`
+
+## Phase 13: Claude Code tools
+
+- [X] T055 API tools (`ai_tools.go`, `ai_files.go`, `ai_cli.go`, `ai_run.go`, `ai.go`): `grep`, `glob`, background `shell` with `shell_output` and `shell_stop`, `web_fetch` (`netguard.IsPublic`), `todo_write`, `ask_user` with `POST /ai/conversations/{id}/answer` and the `ASK` pending entry, `propose_plan` with the `PLAN` entry and plan mode, subagent `parent` messages, built-in `Task`/`WebSearch` (plus `Bash`, `Monitor`, `TaskStop` for admins) in `--tools` and `--allowedTools`
+- [X] T056 Tests: `api/internal/handlers/ai_tools_test.go` and updated tool-list and `--tools`/`--allowedTools` assertions in `ai_cli_test.go`, `ai_test.go` and `ai_files_test.go`
+- [X] T057 Web cards: Grep/Glob, web search, fetch and background rows, Tasks, Subagent, Question and Plan cards (`web/src/components/assistant/ToolCards.tsx`, `web/src/components/assistant/AssistantPanel.tsx`, `web/src/lib/assistant.ts`); plan mode with mode hints in the composer
+- [X] T058 Tests: `ToolCards.test.tsx`, `AssistantPanel.test.tsx` and `assistant.test.ts` cover the new cards, the answer call and plan mode hints
+- [X] T059 Document the tools in `spec.md`, `api/specs.md`, `web/specs.md` and `docs/security.md` (`web_fetch` as an `IsPublic` sink; plan mode is a UX guard, not an authorization boundary)

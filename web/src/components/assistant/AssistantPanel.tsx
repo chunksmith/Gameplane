@@ -25,12 +25,15 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AttachButton, AttachmentTray, MessageAttachments, useAttachments } from "@/components/assistant/Attachments";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { QueuedMessages, useMessageQueue } from "@/components/assistant/MessageQueue";
 import { ModelPicker } from "@/components/assistant/ModelPicker";
+import { BackgroundActions, PlanCard, QuestionCard, SubagentCard, TasksCard } from "@/components/assistant/ToolCards";
 import { can, useMe } from "@/lib/auth";
 import { cn, formatRelative } from "@/lib/utils";
 import {
@@ -39,17 +42,23 @@ import {
   LINEAR_METHOD,
   blocksOf,
   callLabel,
+  jobIdOf,
+  jobStatus,
+  latestTodos,
   linearArgument,
   linearMentions,
   linearTool,
   modelLabel,
   requestOf,
+  resultCount,
   resultStatus,
   resultText,
   scopeQuery,
+  toolView,
   useAssistantStatus,
   useAssistantStream,
   withContextBlock,
+  type AssistantAttachment,
   type AssistantBlock,
   type AssistantConversation,
   type AssistantDetail,
@@ -57,6 +66,8 @@ import {
   type AssistantMode,
   type AssistantPick,
   type AssistantScope,
+  type JobStatus,
+  type ToolView,
 } from "@/lib/assistant";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
 import { defineMessages, type MessageDescriptor } from "react-intl";
@@ -168,6 +179,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const [listOpen, setListOpen] = useState(false);
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const [pickedModel, setPickedModel] = useState<AssistantPick>();
+  const attachments = useAttachments();
   const ready = !!status.data?.enabled && status.data.configured;
 
   const list = useQuery({
@@ -196,18 +208,24 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
   const submit = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, files }: { text: string; files?: AssistantAttachment[] }) => {
       const body = withContextBlock(text, await mentionContext(scope, text));
-      return selected ? Assistant.send(selected, body, pickedMode, pickedModel) : Assistant.create(body, scope, pickedMode, pickedModel);
+      return selected ? Assistant.send(selected, body, pickedMode, pickedModel, files) : Assistant.create(body, scope, pickedMode, pickedModel, files);
     },
     onSuccess: (conv) => {
-      setPrompt("");
       setSelected(conv.id);
       refresh();
     },
   });
+  const warmStatus = selected ? detail.data?.conversation.status : "idle";
+  useEffect(() => {
+    if (!ready || !warmStatus || warmStatus === "running" || warmStatus === "awaiting_approval") return;
+    const warmScope = { server: scope.server, namespace: scope.namespace, cluster: scope.cluster };
+    void Assistant.warm(selected, warmScope, pickedMode, pickedModel).catch(() => undefined);
+  }, [ready, selected, warmStatus, scope.server, scope.namespace, scope.cluster, pickedMode, pickedModel]);
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(selected ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(selected ?? ""), onSuccess: refresh });
+  const queue = useMessageQueue(warmStatus === "running" || warmStatus === "awaiting_approval", (text) => submit.mutate({ text }), () => stop.mutate());
 
   if (status.isLoading) {
     return <div className="flex items-center gap-2 p-6 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.loading_assistant", defaultMessage: "Loading assistant…", description: "Assistant panel: loading text shown in place of the panel while the assistant status is fetched" })}</div>;
@@ -226,18 +244,34 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const scoped = scope.server ?? scope.repository;
   const starters = scope.repository ? repositoryStarters : scope.server ? serverStarters : fleetStarters;
   const pending = detail.data?.pending ?? [];
+  const approvals = pending.filter((p) => p.method !== "ASK" && p.method !== "PLAN");
   const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
   const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data.defaultModel, effort: status.data.defaultEffort });
   const modeLabel = intl.formatMessage({ id: "web.components.assistant.assistant_panel.permission_mode", defaultMessage: "Permission mode", description: "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short" });
   const open = (id: string | null) => {
     setSelected(id);
+    queue.drain();
     setPickedMode(undefined);
     setPickedModel(undefined);
     setListOpen(false);
   };
   const send = () => {
     const text = prompt.trim();
-    if (text && !busy) submit.mutate(text);
+    if (!text || (busy && attachments.items.length > 0)) return;
+    if (busy) {
+      queue.add(text);
+      setPrompt("");
+    } else
+      submit.mutate({ text, files: attachments.items }, {
+        onSuccess: () => {
+          setPrompt("");
+          attachments.clear();
+        },
+      });
+  };
+  const interrupt = () => {
+    setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
+    stop.mutate();
   };
   const actionError = submit.error ?? decide.error ?? stop.error;
   const subtitle = conv
@@ -371,19 +405,19 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             </div>
           )}
           {selected && detail.isLoading && <div className="flex items-center gap-2 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.loading", defaultMessage: "Loading…", description: "Assistant panel: loading text shown in the thread while the selected conversation loads" })}</div>}
-          {selected && detail.data && <Thread detail={detail.data} tail={tail} />}
+          {selected && detail.data && <Thread detail={detail.data} tail={tail} scope={scope} own={own} deciding={decide.isPending} onDecide={(approve) => decide.mutate(approve)} />}
         </div>
 
         {conv?.error && <p className="mx-4 mb-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{conv.error}</p>}
-        {own && conv?.status === "awaiting_approval" && pending.length > 0 && (
+        {own && conv?.status === "awaiting_approval" && approvals.length > 0 && (
           <div role="alert" className="mx-4 mb-3 space-y-3 rounded-2xl border border-warning/40 bg-warning-soft p-4 text-warning-soft-foreground shadow-sm">
             <div className="flex items-center gap-2 text-sm font-medium">
               <ShieldAlert className="h-4 w-4" />
-              {intl.formatMessage({ id: "web.components.assistant.assistant_panel.approve_pending", defaultMessage: "Approve {count, plural, one {this action} other {these actions}}?", description: "Assistant panel: question above the list of actions waiting for approval; {count} is the number of pending actions" }, { count: pending.length })}
+              {intl.formatMessage({ id: "web.components.assistant.assistant_panel.approve_pending", defaultMessage: "Approve {count, plural, one {this action} other {these actions}}?", description: "Assistant panel: question above the list of actions waiting for approval; {count} is the number of pending actions" }, { count: approvals.length })}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-                {pending.map((p) => (
+                {approvals.map((p) => (
                   <li key={p.id}>
                     {p.method === LINEAR_METHOD ? (
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs">
@@ -406,19 +440,25 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
         {actionError && <div className="mx-4 mb-3"><ErrorBanner err={actionError} /></div>}
 
         <div className="space-y-2 border-t border-border bg-surface/60 p-3 sm:px-4">
+          <QueuedMessages items={queue.items} disabled={submit.isPending || stop.isPending} onSendNow={queue.sendNow} />
           <div className="flex flex-wrap items-center gap-1.5">
             {scoped && <span className={chipClass}>{scope.repository ? <FolderGit2 className="h-3 w-3" /> : <Server className="h-3 w-3" />}{scoped}</span>}
             <span className={chipClass}><Lock className="h-3 w-3" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.acts_with_your_permissions", defaultMessage: "Acts with your permissions", description: "Assistant panel: chip above the message box reminding that the assistant acts with the user's own permissions; keep it short" })}</span>
             <Select aria-label={modeLabel} selectedKey={mode} isDisabled={!own} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
-              <Select.Trigger data-chip className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
+              <Select.Trigger data-chip className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger", mode === "plan" && "bg-warning-soft text-warning-soft-foreground")}>
                 <ShieldCheck className="h-3 w-3" />
-                <Select.Value />
+                <span>{intl.formatMessage(ASSISTANT_MODES.find((option) => option.id === mode)?.label ?? ASSISTANT_MODES[0].label)}</span>
                 <Select.Indicator className="h-3 w-3" />
               </Select.Trigger>
               <Select.Popover className="rounded border border-border">
                 <ListBox aria-label={modeLabel}>
                   {ASSISTANT_MODES.map((option) => (
-                    <ListBoxItem key={option.id} id={option.id}>{intl.formatMessage(option.label)}</ListBoxItem>
+                    <ListBoxItem key={option.id} id={option.id} aria-label={intl.formatMessage(option.label)}>
+                      <span className="flex flex-col">
+                        <span>{intl.formatMessage(option.label)}</span>
+                        <span className="text-xs text-muted">{intl.formatMessage(option.hint)}</span>
+                      </span>
+                    </ListBoxItem>
                   ))}
                 </ListBox>
               </Select.Popover>
@@ -426,6 +466,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             <ModelPicker value={model} onChange={setPickedModel} isDisabled={!own} className={chipClass} />
           </div>
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
+            <AttachmentTray items={attachments.items} onRemove={attachments.remove} />
             <MentionTextArea
               scope={scope}
               linear={!!status.data.linear}
@@ -443,8 +484,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 : intl.formatMessage({ id: "web.components.assistant.assistant_panel.read_only_other_user", defaultMessage: "Read-only: this conversation belongs to another user", description: "Assistant panel: placeholder of the message box when the conversation belongs to another user, so it cannot be changed" })}
               onValueChange={setPrompt}
               onEnter={send}
+              onPaste={attachments.onPaste}
             />
             <div className="flex items-center gap-2 px-1 pt-1">
+              <AttachButton onFiles={attachments.add} disabled={!own} />
               <p className="flex-1 text-[11px] text-muted">{scoped
                 ? status.data.linear
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file, a folder or Linear", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file, a folder or the Linear workspace to give as context" })
@@ -452,11 +495,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 : status.data.linear
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @linear adds Linear", description: "Assistant panel: hint under the message box explaining the Enter and Shift + Enter keys and that typing @linear gives the assistant the Linear workspace or one of its issues" })
                   : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_shift_enter_adds_a_line", defaultMessage: "Enter sends · Shift + Enter adds a line", description: "Assistant panel: hint under the message box explaining what the Enter and Shift + Enter keys do" })}</p>
-              {running && own ? (
-                <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={() => stop.mutate()}><Square className="h-4 w-4" /></Button>
-              ) : (
-                <Button size="sm" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.send", defaultMessage: "Send", description: "Assistant panel: icon button that sends the typed message; keep it short" })} isDisabled={!own || busy || !prompt.trim()} onPress={send}><Send className="h-4 w-4" /></Button>
+              {running && own && (
+                <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={interrupt}><Square className="h-4 w-4" /></Button>
               )}
+              <Button size="sm" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.send", defaultMessage: "Send", description: "Assistant panel: icon button that sends the typed message; keep it short" })} isDisabled={!own || !prompt.trim() || (busy && attachments.items.length > 0)} onPress={send}><Send className="h-4 w-4" /></Button>
             </div>
           </div>
         </div>
@@ -467,12 +509,57 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
 type Turn = { kind: "text"; text: string } | { kind: "tools"; blocks: AssistantBlock[] };
 
+const TOOL_KIND_MESSAGES: Record<string, MessageDescriptor> = defineMessages({
+  grep: { id: "web.components.assistant.assistant_panel.tool_grep", defaultMessage: "Grep", description: "Assistant panel: name of a tool call that searches file contents; a tool name, keep it short" },
+  glob: { id: "web.components.assistant.assistant_panel.tool_glob", defaultMessage: "Glob", description: "Assistant panel: name of a tool call that finds files by a name pattern; a tool name, keep it short" },
+  search: { id: "web.components.assistant.assistant_panel.tool_web_search", defaultMessage: "Web search", description: "Assistant panel: name of a tool call that searches the web; keep it short" },
+  fetch: { id: "web.components.assistant.assistant_panel.tool_fetch", defaultMessage: "Fetch", description: "Assistant panel: name of a tool call that reads a web page; keep it short" },
+  background: { id: "web.components.assistant.assistant_panel.tool_shell", defaultMessage: "Shell", description: "Assistant panel: name of a tool call that runs a shell command in the background; keep it short" },
+  job: { id: "web.components.assistant.assistant_panel.tool_job", defaultMessage: "Job", description: "Assistant panel: name of a tool call that reads the output of a background command; keep it short" },
+  stop: { id: "web.components.assistant.assistant_panel.tool_stop", defaultMessage: "Stop", description: "Assistant panel: name of a tool call that stops a background command; keep it short" },
+  monitor: { id: "web.components.assistant.assistant_panel.tool_monitor", defaultMessage: "Monitor", description: "Assistant panel: name of a tool call that watches a background process; a tool name, keep it short" },
+});
+
+const TOOL_ACTION_MESSAGES: Record<string, MessageDescriptor> = defineMessages({
+  grep: { id: "web.components.assistant.assistant_panel.tool_grep_in", defaultMessage: "\"{pattern}\" in", description: "Assistant panel: action of a grep tool call, put before the folder it searches; {pattern} is the text searched for, quoted; keep the word in" },
+  glob: { id: "web.components.assistant.assistant_panel.tool_find_files", defaultMessage: "Find files", description: "Assistant panel: action of a glob tool call that finds files by name pattern; keep it short" },
+  search: { id: "web.components.assistant.assistant_panel.tool_search", defaultMessage: "Search", description: "Assistant panel: action of a web search tool call; keep it short" },
+  fetch: { id: "web.components.assistant.assistant_panel.tool_read_page", defaultMessage: "Read page", description: "Assistant panel: action of a tool call that reads a web page; keep it short" },
+  background: { id: "web.components.assistant.assistant_panel.tool_in_background", defaultMessage: "In background", description: "Assistant panel: action of a shell tool call that runs in the background; keep it short" },
+  job: { id: "web.components.assistant.assistant_panel.tool_output_of", defaultMessage: "Output of", description: "Assistant panel: action of a tool call that reads the output of a background job; keep it short" },
+});
+
+const TOOL_MESSAGES = defineMessages({
+  running: { id: "web.components.assistant.assistant_panel.tool_running", defaultMessage: "Running", description: "Assistant panel: badge of a background command that is still running; keep it short" },
+  ended: { id: "web.components.assistant.assistant_panel.tool_ended", defaultMessage: "Ended", description: "Assistant panel: badge of a background command whose status is no longer known; keep it short" },
+});
+
+function actionText(view: ToolView, intl: ReturnType<typeof useOptionalIntl>): string {
+  const descriptor = TOOL_ACTION_MESSAGES[view.kind];
+  return descriptor ? intl.formatMessage(descriptor, { pattern: view.action }) : "";
+}
+
+function JobBadge({ job }: { job?: JobStatus }) {
+  const intl = useOptionalIntl();
+  if (job?.state === "exited") {
+    const failed = (job.code ?? 0) !== 0;
+    return <span className={cn("rounded-full px-2 py-0.5 font-medium", failed ? "bg-danger/10 text-danger" : "bg-success/10 text-success")}>{intl.formatMessage({ id: "web.components.assistant.assistant_panel.tool_exited", defaultMessage: "Exited {code}", description: "Assistant panel: badge of a background command that finished; {code} is its exit code" }, { code: job.code ?? 0 })}</span>;
+  }
+  if (job?.state === "gone") return <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-muted">{intl.formatMessage(TOOL_MESSAGES.ended)}</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2 py-0.5 font-medium text-accent">
+      <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+      {intl.formatMessage(TOOL_MESSAGES.running)}
+    </span>
+  );
+}
+
 function turnsOf(message: AssistantMessage): Turn[] {
   const turns: Turn[] = [];
   for (const block of blocksOf(message)) {
     if (block.type === "text" && block.text) {
       turns.push({ kind: "text", text: block.text });
-    } else if (block.type === "tool_use" && block.id) {
+    } else if (block.type === "tool_use" && block.id && block.name !== "todo_write") {
       const last = turns[turns.length - 1];
       if (last?.kind === "tools") last.blocks.push(block);
       else turns.push({ kind: "tools", blocks: [block] });
@@ -481,30 +568,86 @@ function turnsOf(message: AssistantMessage): Turn[] {
   return turns;
 }
 
-function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
-  const intl = useOptionalIntl();
-  const end = useRef<HTMLLIElement>(null);
+function resultsOf(messages: AssistantMessage[]): Map<string, AssistantBlock> {
   const results = new Map<string, AssistantBlock>();
-  for (const message of detail.messages) {
+  for (const message of messages) {
     for (const block of blocksOf(message)) {
       if (block.type === "tool_result" && block.tool_use_id) results.set(block.tool_use_id, block);
     }
   }
-  const pending = new Set(detail.pending.map((p) => p.id));
+  return results;
+}
+
+function jobsOf(messages: AssistantMessage[], results: Map<string, AssistantBlock>): Map<string, JobStatus> {
+  const jobs = new Map<string, JobStatus>();
+  for (const message of messages) {
+    for (const block of blocksOf(message)) {
+      if (block.type !== "tool_use" || block.name !== "shell_output" || !block.id) continue;
+      const result = results.get(block.id);
+      const status = result ? jobStatus(resultText(result)) : null;
+      if (status) jobs.set(String(block.input?.job_id ?? ""), status);
+    }
+  }
+  return jobs;
+}
+
+function lastTodoIdOf(messages: AssistantMessage[]): string | undefined {
+  return messages
+    .filter((message) => !message.parent)
+    .flatMap(blocksOf)
+    .filter((block) => block.type === "tool_use" && block.name === "todo_write")
+    .at(-1)?.id;
+}
+
+function Thread({ detail, tail, scope, own, deciding, onDecide }: { detail: AssistantDetail; tail: string; scope: AssistantScope; own: boolean; deciding: boolean; onDecide: (approve: boolean) => void }) {
+  const intl = useOptionalIntl();
+  const end = useRef<HTMLLIElement>(null);
+  const results = resultsOf(detail.messages);
+  const jobs = jobsOf(detail.messages, results);
+  const children = new Map<string, AssistantMessage[]>();
+  for (const message of detail.messages) {
+    if (message.parent) children.set(message.parent, [...(children.get(message.parent) ?? []), message]);
+  }
+  const pending = new Map(detail.pending.map((p) => [p.id, p.method]));
   const running = detail.conversation.status === "running";
+  const awaiting = own && detail.conversation.status === "awaiting_approval";
+  const todos = latestTodos(detail.messages);
+  const lastTodoId = lastTodoIdOf(detail.messages);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [detail.messages.length, tail]);
 
+  const renderTool = (block: AssistantBlock): ReactNode => {
+    const result = results.get(block.id ?? "");
+    if (block.name === "Task") {
+      const steps = (children.get(block.id ?? "") ?? []).flatMap(blocksOf).filter((step) => step.type === "tool_use" && !!step.id);
+      return (
+        <SubagentCard key={block.id} block={block} result={result} running={running && !result} count={steps.length}>
+          {steps.map(renderTool)}
+        </SubagentCard>
+      );
+    }
+    if (block.name === "ask_user") {
+      return <QuestionCard key={block.id} block={block} result={result} conversationId={detail.conversation.id} interactive={awaiting && pending.get(block.id ?? "") === "ASK"} />;
+    }
+    if (block.name === "propose_plan") {
+      return <PlanCard key={block.id} block={block} result={result} interactive={awaiting && pending.get(block.id ?? "") === "PLAN"} deciding={deciding} onDecide={onDecide} />;
+    }
+    return <ToolCall key={block.id} block={block} result={result} waiting={pending.has(block.id ?? "")} running={running} jobs={jobs} scope={scope} own={own} />;
+  };
+
   return (
     <ol className="space-y-6">
       {detail.messages.map((message, i) => {
+        if (message.parent) return null;
         const turns = turnsOf(message);
-        if (turns.length === 0) return null;
+        const holdsTodos = !!todos && blocksOf(message).some((block) => block.id === lastTodoId);
+        if (turns.length === 0 && !holdsTodos) return null;
         if (message.role === "user") {
           const text = requestOf(turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n"));
           return text ? (
             <li key={i} className="flex flex-col items-end gap-1.5">
+              <MessageAttachments blocks={blocksOf(message)} className="max-w-[85%]" />
               <p className="w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-sm text-accent-foreground shadow-sm">{text}</p>
               {linearMentions(text).map((issue) => (
                 <span key={issue} className="flex max-w-[85%] items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs">
@@ -530,14 +673,11 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
                 ) : (
                   <div key={j} className="flex gap-3">
                     <span className="w-0.5 shrink-0 rounded-full bg-border" />
-                    <ul className="min-w-0 flex-1 space-y-1.5">
-                      {turn.blocks.map((block) => (
-                        <ToolCall key={block.id} block={block} result={results.get(block.id ?? "")} waiting={pending.has(block.id ?? "")} running={running} />
-                      ))}
-                    </ul>
+                    <ul className="min-w-0 flex-1 space-y-1.5">{turn.blocks.map(renderTool)}</ul>
                   </div>
                 ),
               )}
+              {holdsTodos && todos && <TasksCard todos={todos} />}
             </div>
           </li>
         );
@@ -561,15 +701,40 @@ function Thread({ detail, tail }: { detail: AssistantDetail; tail: string }) {
   );
 }
 
-const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean }) {
+const str = (value: unknown) => (typeof value === "string" ? value : "");
+
+const ToolCall = memo(function ToolCall({ block, result, waiting, running, jobs, scope, own }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean; jobs: Map<string, JobStatus>; scope: AssistantScope; own: boolean }) {
   const intl = useOptionalIntl();
   const text = result ? resultText(result) : "";
   const tool = linearTool(block);
+  const view = toolView(block);
+  const jobId = result ? jobIdOf(text) : "";
   const body = tool || "file_path" in (block.input ?? {}) ? block.input : block.input?.body;
-  const label = tool ? `${tool} ${linearArgument(block)}`.trim() : callLabel(block);
+  const label = tool
+    ? `${tool} ${linearArgument(block)}`.trim()
+    : view
+      ? `${intl.formatMessage(TOOL_KIND_MESSAGES[view.kind])} ${actionText(view, intl)} ${view.arg}`.trim()
+      : callLabel(block);
   const [method, ...rest] = label.split(" ");
-  let badge = <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.not_run", defaultMessage: "not run", description: "Assistant panel: badge on a tool call that has not produced a result yet; keep it short" })}</span>;
-  if (result) {
+  const count = view ? resultCount(block, text) : null;
+  const jobScope: AssistantScope = {
+    server: str(block.input?.server) || scope.server,
+    namespace: str(block.input?.namespace) || scope.namespace,
+    cluster: str(block.input?.cluster) || scope.cluster,
+  };
+  let badge: ReactNode = <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.not_run", defaultMessage: "not run", description: "Assistant panel: badge on a tool call that has not produced a result yet; keep it short" })}</span>;
+  if (jobId) {
+    badge = <JobBadge job={jobs.get(jobId)} />;
+  } else if (result && count !== null && !result.is_error) {
+    badge = (
+      <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 font-medium text-success">
+        <Check aria-hidden="true" className="h-3 w-3" />
+        {view?.kind === "glob"
+          ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.tool_files", defaultMessage: "{count, plural, one {# file} other {# files}}", description: "Assistant panel: result badge of a glob tool call; {count} is the number of matching files" }, { count })
+          : intl.formatMessage({ id: "web.components.assistant.assistant_panel.tool_matches", defaultMessage: "{count, plural, one {# match} other {# matches}}", description: "Assistant panel: result badge of a grep tool call; {count} is the number of matching lines" }, { count })}
+      </span>
+    );
+  } else if (result) {
     badge = (
       <span className={cn("rounded-full px-2 py-0.5 font-medium", result.is_error ? "bg-danger/10 text-danger" : "bg-success/10 text-success")}>
         {resultStatus(text) || (result.is_error
@@ -594,6 +759,12 @@ const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { b
               <span aria-hidden="true" className="shrink-0 text-muted">{tool}</span>
               <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-accent">{linearArgument(block)}</code>
             </>
+          ) : view ? (
+            <>
+              <span aria-hidden="true" className="shrink-0 font-medium text-foreground">{intl.formatMessage(TOOL_KIND_MESSAGES[view.kind])}</span>
+              {actionText(view, intl) && <span aria-hidden="true" className="shrink-0 text-muted">{actionText(view, intl)}</span>}
+              <code aria-hidden="true" className="min-w-0 flex-1 truncate font-mono text-accent">{view.arg}</code>
+            </>
           ) : (
             <>
               <span aria-hidden="true" className={cn("shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold", methodTone[method] ?? "bg-foreground/5 text-muted")}>{method}</span>
@@ -610,6 +781,7 @@ const ToolCall = memo(function ToolCall({ block, result, waiting, running }: { b
         )}
         {result && <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-border px-3 py-2 font-mono text-[11px] text-muted scrollbar-thin">{text}</pre>}
       </details>
+      {jobId && <div className="mt-1.5"><BackgroundActions scope={jobScope} jobId={jobId} status={jobs.get(jobId)} own={own} /></div>}
     </li>
   );
 });

@@ -15,7 +15,9 @@ import {
   Input,
 } from "@heroui/react";
 import Editor from "@monaco-editor/react";
+import { createPortal } from "react-dom";
 import {
+  ArrowUpRight,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -105,6 +107,7 @@ const FILES_MESSAGES = defineMessages({
   ask_claude: { id: "web.routes.tabs.files.ask_claude", defaultMessage: "Ask Claude", description: "Files tab: icon-only button beside the List and Tree switch that opens the Claude chat next to the open file or folder; read by screen readers; keep it short" },
   open_files: { id: "web.routes.tabs.files.open_files", defaultMessage: "Open files", description: "Files tab: accessible label of the row of tabs above the editor in tree view, one tab per open file; not shown as text" },
   resize_tree: { id: "web.routes.tabs.files.resize_tree", defaultMessage: "Resize folder tree", description: "Files tab: accessible label of the drag handle between the folder tree and the files that changes the tree width; not shown as text" },
+  open: { id: "web.routes.tabs.files.open", defaultMessage: "Open", description: "Files tab: item of the right-click menu on a folder tree entry that opens the file or folder; keep it short" },
   resize_assistant: { id: "web.routes.tabs.files.resize_assistant", defaultMessage: "Resize Claude panel", description: "Files tab: accessible label of the drag handle between the open file or folder and the Claude chat that changes the chat width; not shown as text" },
 });
 
@@ -127,6 +130,11 @@ interface ViewProps {
   onNavigate: (path: string) => void;
   viewToggle?: ReactNode;
   aside?: ReactNode;
+}
+
+interface AssistantToggle {
+  assistantOpen: boolean;
+  onAssistantOpen: (open: boolean) => void;
 }
 
 export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: string; path: string; onNavigate: (path: string) => void }) {
@@ -157,10 +165,10 @@ function Split({ aside, children }: { aside?: ReactNode; children: ReactNode }) 
   const [width, setWidth] = useStoredWidth(TREE_WIDTH);
   if (!aside) return children;
   return (
-    <div className="flex flex-1 flex-col gap-3 md:flex-row md:gap-0" style={{ "--files-tree-w": `${width}px` } as CSSProperties}>
+    <div className="flex flex-1 flex-col gap-3 md:min-h-0 md:flex-row md:gap-0" style={{ "--files-tree-w": `${width}px` } as CSSProperties}>
       {aside}
       <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_tree)} width={width} bounds={TREE_WIDTH} onResize={setWidth} className="hidden md:flex" />
-      <div className="flex min-w-0 flex-1 flex-col gap-4">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 md:min-h-0 md:overflow-auto">{children}</div>
     </div>
   );
 }
@@ -169,10 +177,10 @@ function AssistantSplit({ main, assistant }: { main: ReactNode; assistant: React
   const intl = useOptionalIntl();
   const [width, setWidth] = useStoredWidth(ASSISTANT_WIDTH);
   return (
-    <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:gap-0" style={{ "--files-assistant-w": `${width}px` } as CSSProperties}>
-      <div className="flex min-w-0 flex-1 flex-col gap-4">{main}</div>
+    <div className="flex flex-1 flex-col gap-3 lg:min-h-0 lg:flex-row lg:gap-0" style={{ "--files-assistant-w": `${width}px` } as CSSProperties}>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-h-0">{main}</div>
       <ResizeHandle label={intl.formatMessage(FILES_MESSAGES.resize_assistant)} width={width} bounds={ASSISTANT_WIDTH} onResize={setWidth} invert className="hidden lg:flex" />
-      <div className="relative min-h-[60vh] lg:w-[var(--files-assistant-w)] lg:shrink-0">
+      <div className="relative min-h-[60vh] lg:sticky lg:top-0 lg:h-[calc(100vh-3rem)] lg:max-h-full lg:min-h-0 lg:w-[var(--files-assistant-w)] lg:shrink-0 lg:self-start">
         {assistant}
       </div>
     </div>
@@ -234,6 +242,7 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tab
   const client = useResourceClient(resourceTarget);
   const [openFiles, setOpenFiles] = useState<string[]>([]);
   const [openedPath, setOpenedPath] = useState<string | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const tabs: EditorTabsProps | undefined = tabbed ? {
     paths: openFiles,
     onOpen: onNavigate,
@@ -258,11 +267,11 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tab
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4 p-6">
+    <div className={cn("flex min-h-full flex-col gap-3 px-6 pb-6 pt-4", tabbed && "md:h-full")}>
       {entry?.dir ? (
-        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} />
+        <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} assistantOpen={assistantOpen} onAssistantOpen={setAssistantOpen} />
       ) : entry ? (
-        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} tabs={tabs} />
+        <FileEditor key={path} resourceTarget={resourceTarget} path={path} entry={entry} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} tabs={tabs} assistantOpen={assistantOpen} onAssistantOpen={setAssistantOpen} />
       ) : (
         <>
           <Breadcrumbs path={path} onNavigate={onNavigate} />
@@ -288,7 +297,7 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tab
   );
 }
 
-function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: ViewProps) {
+function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside, assistantOpen, onAssistantOpen }: ViewProps & AssistantToggle) {
   const intl = useOptionalIntl();
   const fmt = useFormat();
   const canControl = useResourceAccess()?.canControl === true;
@@ -307,7 +316,6 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [dragging, setDragging] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
   const entries = listing.data && sortEntries(listing.data.entries);
   const total = listing.data?.total ?? 0;
   const selection = entries?.filter((entry) => selected.has(entry.path)) ?? [];
@@ -545,7 +553,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
             </div>
           )}
           {viewToggle}
-          {aside && <AskClaudeButton open={assistantOpen} onToggle={() => setAssistantOpen(!assistantOpen)} />}
+          <AskClaudeButton open={assistantOpen} onToggle={() => onAssistantOpen(!assistantOpen)} />
           <Button
             isIconOnly
             variant="ghost"
@@ -575,10 +583,10 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
       {error && <ErrorBanner err={error} onDismiss={() => setError(null)} />}
 
       <Split aside={aside}>
-        {aside && assistantOpen ? (
+        {assistantOpen ? (
           <AssistantSplit
             main={browser}
-            assistant={<FileAssistant scope={assistantScope(resourceTarget)} onClose={() => setAssistantOpen(false)} />}
+            assistant={<FileAssistant scope={assistantScope(resourceTarget)} onClose={() => onAssistantOpen(false)} />}
           />
         ) : (
           browser
@@ -644,7 +652,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside }: 
   );
 }
 
-function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside, tabs }: ViewProps & { entry: FileEntry; tabs?: EditorTabsProps }) {
+function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside, tabs, assistantOpen, onAssistantOpen }: ViewProps & AssistantToggle & { entry: FileEntry; tabs?: EditorTabsProps }) {
   const intl = useOptionalIntl();
   const canControl = useResourceAccess()?.canControl === true;
   const { name, namespace: ns } = resourceTarget;
@@ -660,7 +668,6 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
   const [failed, setFailed] = useState<{ body: string; error: Error } | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
   const flush = useRef(() => {});
   const deleted = useRef(false);
   if (draft === null && content.data !== undefined) setDraft({ value: content.data, saved: content.data });
@@ -713,7 +720,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
   }
 
   const editor = (
-    <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background">
+    <div className={cn("flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background", tabs && "md:min-h-0")}>
       {tabs && <EditorTabs {...tabs} active={path} />}
       <div className="relative flex flex-1 flex-col">
         {content.error ? (
@@ -746,7 +753,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
         <Breadcrumbs path={path} onNavigate={onNavigate} />
         <div className="flex items-center gap-2">
           {viewToggle}
-          <AskClaudeButton open={assistantOpen} onToggle={() => setAssistantOpen(!assistantOpen)} />
+          <AskClaudeButton open={assistantOpen} onToggle={() => onAssistantOpen(!assistantOpen)} />
           {draft && (
             <span role="status" className="flex items-center gap-1.5 pr-1 text-xs text-muted">
               {SAVE_ICONS[saveState]} {intl.formatMessage(SAVE_STATES[saveState])}
@@ -779,7 +786,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
                   onApply: (next) => setDraft((current) => current && { ...current, value: next }),
                   onSaved: () => void reload(),
                 }}
-                onClose={() => setAssistantOpen(false)}
+                onClose={() => onAssistantOpen(false)}
               />
             }
           />
@@ -969,6 +976,7 @@ interface TreeProps {
   selected: ReadonlyMap<string, FileEntry>;
   dropDir: string | null;
   onSelect: (entry: FileEntry, event: MouseEvent) => void;
+  onMenu: (entry: FileEntry, event: MouseEvent) => void;
   onNavigate: (path: string) => void;
 }
 
@@ -991,6 +999,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
   const [anchor, setAnchor] = useState<string | null>(null);
   const [prompt, setPrompt] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [menu, setMenu] = useState<{ entry: FileEntry; x: number; y: number } | null>(null);
   const selection = [...selected.values()].filter((entry) => !ancestorsOf(entry.path).some((dir) => selected.has(dir)));
   const selectionPaths = selection.map((entry) => entry.path);
   const zipDir = selection.length > 0 ? commonParent(selectionPaths) : ROOT;
@@ -1083,6 +1092,19 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
     download(single && !single.dir ? client.Files.downloadURL(name, single.path, ns) : client.Files.archiveURL(name, selectionPaths, ns));
   }
 
+  function openMenu(entry: FileEntry, event: MouseEvent) {
+    event.preventDefault();
+    if (!selected.has(entry.path)) setSelected(new Map([[entry.path, entry]]));
+    setMenu({ entry, x: event.clientX, y: event.clientY });
+  }
+
+  function fromMenu(action: () => void) {
+    return () => {
+      setMenu(null);
+      action();
+    };
+  }
+
   function onDragOver(event: DragEvent<HTMLElement>) {
     if (!canControl) return;
     event.preventDefault();
@@ -1106,7 +1128,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
     );
   }
 
-  const tree: TreeProps = { resourceTarget, path, expanded, selected, dropDir, onSelect: select, onNavigate };
+  const tree: TreeProps = { resourceTarget, path, expanded, selected, dropDir, onSelect: select, onMenu: openMenu, onNavigate };
 
   return (
     <aside
@@ -1115,7 +1137,7 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:sticky md:top-0 md:max-h-[calc(100vh-3rem)] md:w-[var(--files-tree-w)] md:[contain:size]",
+        "flex shrink-0 flex-col rounded-xl border border-border bg-surface md:w-[var(--files-tree-w)] md:[contain:size]",
         dropDir === ROOT && "border-primary",
       )}
     >
@@ -1153,6 +1175,20 @@ function FileTree({ resourceTarget, path, onNavigate }: Omit<ViewProps, "viewTog
         <p className="flex items-center justify-center gap-1.5 border-t border-border px-3 py-2.5 text-center text-xs text-muted">
           <Upload className="h-3.5 w-3.5" /> {intl.formatMessage(FILES_MESSAGES.tree_drop_hint)}
         </p>
+      )}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          title={selection.length > 1 ? intl.formatMessage({ id: "web.routes.tabs.files.selected_count", defaultMessage: "{count, plural, one {# selected} other {# selected}}", description: "Files tab: how many files and folders are selected, shown above the selection actions; {count} is the number selected" }, { count: selection.length }) : menu.entry.name}
+          onClose={() => setMenu(null)}
+        >
+          {selection.length <= 1 && <MenuItem icon={<ArrowUpRight className="h-4 w-4" />} label={intl.formatMessage(FILES_MESSAGES.open)} onAction={fromMenu(() => onNavigate(menu.entry.path))} />}
+          <MenuItem icon={<Download className="h-4 w-4" />} label={intl.formatMessage(FILES_MESSAGES.download)} onAction={fromMenu(downloadSelection)} />
+          <MenuItem icon={<FileArchive className="h-4 w-4" />} label={intl.formatMessage(FILES_MESSAGES.zip)} isDisabled={!canControl} onAction={fromMenu(() => setPrompt(true))} />
+          <div role="separator" className="my-1 h-px bg-border" />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label={intl.formatMessage(FILES_MESSAGES.delete)} isDisabled={!canControl} danger onAction={fromMenu(() => setConfirmDelete(true))} />
+        </ContextMenu>
       )}
       {confirmDelete && (
         <ConfirmDialog
@@ -1206,6 +1242,7 @@ function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
           style={{ paddingLeft: 8 + depth * 14 }}
           data-drop-dir={entry.dir ? entry.path : undefined}
           onClick={(event) => tree.onSelect(entry, event)}
+          onContextMenu={(event) => tree.onMenu(entry, event)}
           onDoubleClick={entry.dir ? () => tree.onNavigate(entry.path) : undefined}
           className={cn(
             "flex w-full select-none items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[13px] text-foreground hover:bg-border/60",
@@ -1231,6 +1268,77 @@ function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
       </li>
     );
   });
+}
+
+const MENU_WIDTH_PX = 208;
+const MENU_HEIGHT_PX = 180;
+
+function ContextMenu({ x, y, title, onClose, children }: { x: number; y: number; title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => ref.current?.querySelector<HTMLButtonElement>("button:enabled")?.focus(), []);
+
+  useEffect(() => {
+    const outside = (event: Event) => {
+      if (!(event.target instanceof Node && ref.current?.contains(event.target))) onClose();
+    };
+    window.addEventListener("pointerdown", outside);
+    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("resize", onClose);
+    return () => {
+      window.removeEventListener("pointerdown", outside);
+      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("resize", onClose);
+    };
+  }, [onClose]);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape" || event.key === "Tab") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:enabled")];
+    const current = items.findIndex((item) => item === document.activeElement);
+    items[(Math.max(current, 0) + step + items.length) % items.length]?.focus();
+  }
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="menu"
+      aria-label={title}
+      onKeyDown={onKeyDown}
+      onContextMenu={(event) => event.preventDefault()}
+      style={{ left: Math.min(x, window.innerWidth - MENU_WIDTH_PX - 8), top: Math.min(y, window.innerHeight - MENU_HEIGHT_PX - 8), width: MENU_WIDTH_PX }}
+      className="fixed z-50 rounded-[10px] border border-border bg-surface p-1.5 shadow-lg"
+    >
+      <p className="truncate px-2 pb-1 pt-0.5 text-[11px] font-medium text-muted" title={title}>{title}</p>
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+function MenuItem({ icon, label, danger, isDisabled, onAction }: { icon: ReactNode; label: string; danger?: boolean; isDisabled?: boolean; onAction: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={isDisabled}
+      onClick={onAction}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-default focus-visible:bg-default focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+        danger ? "text-danger" : "text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
 }
 
 function Spinner() {

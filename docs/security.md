@@ -498,9 +498,9 @@ earlier:
   for a symlink between validation and use cannot redirect the operation out of
   the root. Writes are atomic: temp file in the parent descriptor, `fsync`,
   `renameat` in the same directory.
-- Recursive delete walks descriptors and unlinks links as links; it refuses
-  trees that contain dot-prefixed entries (agent state such as the mods
-  manifest).
+- Recursive delete walks descriptors and unlinks links as links; it removes
+  dot-prefixed entries inside the tree too (deleting a mods folder drops its
+  manifest with it).
 - The data-root path itself is operator-configured and trusted (it may be a
   symlink); only components below it are checked.
 
@@ -560,6 +560,17 @@ token is the asset to protect.
   and its own PVC; the games-namespace NetworkPolicies admit only the API and
   operator on 8090 and give it the same public-only egress as game pods
   (`allow-game-public-egress`).
+
+## AI assistant web fetch
+
+The assistant's `web_fetch` tool (feature 027) dials a URL the model chose, so
+it is an outbound surface guarded like the runtime mod installs: every dial
+goes through `netguard.IsPublic`, redirects are checked again, and loopback,
+private, link-local and reserved destinations are refused. Built-in WebFetch
+is not used, because it would dial from the API pod into the cluster. Plan
+mode is a UX guard that keeps the assistant from changing things before a
+plan is approved, not an authorization boundary; RBAC still decides every
+`gameplane_api` call.
 
 ## Notifications
 

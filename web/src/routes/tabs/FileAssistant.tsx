@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { Button, ListBox, ListBoxItem, Select } from "@heroui/react";
+import { Button, ListBox, ListBoxItem, Popover, PopoverContent, PopoverTrigger, Select } from "@heroui/react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Check, Loader2, Plus, Send, ShieldCheck, Sparkles, Square, X } from "lucide-react";
+import { Check, FileText, History, Loader2, Plus, Send, ShieldCheck, Square, X } from "lucide-react";
 import { defineMessages } from "react-intl";
 
+import { AttachButton, AttachmentTray, MessageAttachments, useAttachments } from "@/components/assistant/Attachments";
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
+import { QueuedMessages, useMessageQueue } from "@/components/assistant/MessageQueue";
 import { ModelPicker } from "@/components/assistant/ModelPicker";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import {
@@ -16,22 +18,23 @@ import {
   blocksOf,
   callLabel,
   requestOf,
+  scopeQuery,
   useAssistantStatus,
   useAssistantStream,
   withContextBlock,
+  type AssistantAttachment,
   type AssistantMessage,
   type AssistantMode,
   type AssistantPick,
   type AssistantScope,
 } from "@/lib/assistant";
 import { useOptionalIntl } from "@/lib/i18n/format";
-import { cn } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
 
 const FENCE = /```[^\n]*\n([\s\S]*?)```/g;
 
 const MESSAGES = defineMessages({
   panel: { id: "web.routes.tabs.file_assistant.panel", defaultMessage: "Claude chat", description: "Files tab: accessible label of the Claude chat panel shown beside the file editor; not shown as text" },
-  title: { id: "web.routes.tabs.file_assistant.title", defaultMessage: "Claude", description: "Files tab: title in the header of the Claude chat panel beside the file editor; keep it short" },
   close: { id: "web.routes.tabs.file_assistant.close", defaultMessage: "Close chat", description: "Files tab: icon-only button that closes the Claude chat panel beside the file editor; read by screen readers; keep it short" },
   unavailable: { id: "web.routes.tabs.file_assistant.unavailable", defaultMessage: "The AI assistant is not set up. An admin can turn it on under Admin settings → AI assistant.", description: "Files tab: text in the Claude chat panel when the AI assistant is turned off or has no API key" },
   working: { id: "web.routes.tabs.file_assistant.working", defaultMessage: "Working…", description: "Files tab: status in the Claude chat panel while Claude is working on a reply" },
@@ -48,6 +51,9 @@ const MESSAGES = defineMessages({
   decline: { id: "web.routes.tabs.file_assistant.decline", defaultMessage: "Decline", description: "Files tab: button in the Claude chat panel that rejects the waiting actions; keep it short" },
   chats: { id: "web.routes.tabs.file_assistant.chats", defaultMessage: "Claude chats", description: "Files tab: accessible label of the row of tabs above the Claude chat panel, one tab per chat; not shown as text" },
   new_chat: { id: "web.routes.tabs.file_assistant.new_chat", defaultMessage: "New chat", description: "Files tab: title of a Claude chat tab before its first message, and accessible label of the + button that opens a new chat tab; keep it short" },
+  history: { id: "web.routes.tabs.file_assistant.history", defaultMessage: "Recent chats", description: "Files tab: accessible label of the clock button above the Claude chat panel and heading of the list of this server's earlier chats it opens; keep it short" },
+  history_empty: { id: "web.routes.tabs.file_assistant.history_empty", defaultMessage: "No chats yet", description: "Files tab: text in the recent chats list above the Claude chat panel when this server has no earlier chats" },
+  history_open: { id: "web.routes.tabs.file_assistant.history_open", defaultMessage: "Open", description: "Files tab: small badge in the recent chats list on a chat that is already open in a tab; keep it short" },
 });
 
 interface ChatTab {
@@ -96,6 +102,15 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
     setChats({ tabs: rest, active: key === chats.active ? rest[Math.min(index, rest.length - 1)].key : chats.active });
   };
   const start = (id: string) => setChats((state) => ({ ...state, tabs: state.tabs.map((tab) => (tab.key === current.key ? { ...tab, id } : tab)) }));
+  const resume = (id: string) => {
+    const open = chats.tabs.find((tab) => tab.id === id);
+    if (open) setChats({ ...chats, active: open.key });
+    else if (!current.id) start(id);
+    else {
+      const key = Math.max(...chats.tabs.map((tab) => tab.key)) + 1;
+      setChats({ tabs: [...chats.tabs, { key, id }], active: key });
+    }
+  };
 
   return (
     <div className="absolute inset-0 flex flex-col gap-2">
@@ -106,11 +121,57 @@ export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope;
         <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.new_chat)} onPress={add}>
           <Plus className="h-3.5 w-3.5" />
         </Button>
+        <ChatHistory scope={scope} openIds={new Set(chats.tabs.map((tab) => tab.id))} onOpen={resume} />
+        <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.close)} onPress={onClose} className="ml-auto">
+          <X className="h-4 w-4" />
+        </Button>
       </div>
       <div className="relative flex-1">
-        <ChatPanel key={current.key} id={current.id} onStarted={start} scope={scope} file={file} onClose={onClose} />
+        <ChatPanel key={current.key} id={current.id} onStarted={start} scope={scope} file={file} />
       </div>
     </div>
+  );
+}
+
+function ChatHistory({ scope, openIds, onOpen }: { scope: AssistantScope; openIds: ReadonlySet<string | null>; onOpen: (id: string) => void }) {
+  const intl = useOptionalIntl();
+  const status = useAssistantStatus();
+  const [isOpen, setOpen] = useState(false);
+  const list = useQuery({
+    queryKey: ["ai", "conversations", scopeQuery(scope, false)],
+    queryFn: () => Assistant.list(scope, false),
+    enabled: isOpen && !!status.data?.enabled && status.data.configured,
+  });
+  return (
+    <Popover isOpen={isOpen} onOpenChange={setOpen}>
+      <PopoverTrigger aria-label={intl.formatMessage(MESSAGES.history)} className={cn("shrink-0 rounded-md p-1.5 text-muted hover:bg-foreground/5 hover:text-foreground", isOpen && "bg-default text-foreground")}>
+        <History className="h-3.5 w-3.5" />
+      </PopoverTrigger>
+      <PopoverContent className="w-[340px] max-w-[calc(100vw-2rem)] bg-surface p-1.5">
+        <div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-muted">{intl.formatMessage(MESSAGES.history)}</div>
+        {list.isLoading && <Loader2 className="mx-2 my-1.5 h-4 w-4 animate-spin text-muted" />}
+        {!list.isLoading && !list.error && !list.data?.length && <p className="px-2 py-1.5 text-xs text-muted">{intl.formatMessage(MESSAGES.history_empty)}</p>}
+        {list.error && <ErrorBanner err={list.error} />}
+        <ListBox aria-label={intl.formatMessage(MESSAGES.history)} className="max-h-80 overflow-y-auto scrollbar-thin" onAction={(key) => { setOpen(false); onOpen(String(key)); }}>
+          {(list.data ?? []).map((conv) => {
+            const title = conv.title || intl.formatMessage(MESSAGES.new_chat);
+            const running = conv.status === "running";
+            return (
+              <ListBoxItem key={conv.id} id={conv.id} textValue={title} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-xs">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {running && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                  <span className="truncate font-medium">{title}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-[11px] text-muted">
+                  {openIds.has(conv.id) && <span className="rounded bg-default px-1.5 text-[10px] font-medium">{intl.formatMessage(MESSAGES.history_open)}</span>}
+                  {running ? intl.formatMessage(MESSAGES.working) : formatRelative(conv.updatedAt, intl)}
+                </span>
+              </ListBoxItem>
+            );
+          })}
+        </ListBox>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -143,7 +204,7 @@ function ChatTabButton({ id, active, onSelect, onClose }: { id: string | null; a
   );
 }
 
-function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null; onStarted: (id: string) => void; scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
+function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarted: (id: string) => void; scope: AssistantScope; file?: OpenFile }) {
   const intl = useOptionalIntl();
   const qc = useQueryClient();
   const status = useAssistantStatus();
@@ -151,6 +212,7 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const [pickedModel, setPickedModel] = useState<AssistantPick>();
   const [dismissed, setDismissed] = useState<ReadonlySet<number>>(new Set());
+  const attachments = useAttachments();
   const end = useRef<HTMLLIElement>(null);
   const wasRunning = useRef(false);
   const ready = !!status.data?.enabled && status.data.configured;
@@ -171,18 +233,18 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
 
   const submit = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, files }: { text: string; files?: AssistantAttachment[] }) => {
       const body = withContextBlock(text, file ? fileContext(file.path, file.content, mode) : "", await mentionContext(scope, text));
-      return id ? Assistant.send(id, body, mode, pickedModel) : Assistant.create(body, scope, mode, pickedModel);
+      return id ? Assistant.send(id, body, mode, pickedModel, files) : Assistant.create(body, scope, mode, pickedModel, files);
     },
     onSuccess: (next) => {
-      setPrompt("");
       onStarted(next.id);
       refresh();
     },
   });
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(id ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(id ?? ""), onSuccess: refresh });
+  const queue = useMessageQueue(running || conv?.status === "awaiting_approval", (text) => submit.mutate({ text }), () => stop.mutate());
 
   useEffect(() => {
     if (wasRunning.current && !running && conv?.mode === "bypassPermissions") onSaved?.();
@@ -196,21 +258,26 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
   const busy = running || conv?.status === "awaiting_approval" || submit.isPending;
   const send = () => {
     const text = prompt.trim();
-    if (text && !busy) submit.mutate(text);
+    if (!text || (busy && attachments.items.length > 0)) return;
+    if (busy) {
+      queue.add(text);
+      setPrompt("");
+    } else
+      submit.mutate({ text, files: attachments.items }, {
+        onSuccess: () => {
+          setPrompt("");
+          attachments.clear();
+        },
+      });
+  };
+  const interrupt = () => {
+    setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
+    stop.mutate();
   };
   const actionError = submit.error ?? decide.error ?? stop.error;
 
   return (
     <section aria-label={intl.formatMessage(MESSAGES.panel)} className="absolute inset-0 flex flex-col overflow-hidden rounded-lg border border-border bg-surface">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-        <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-        <span className="text-sm font-medium">{intl.formatMessage(MESSAGES.title)}</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted">{file && intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name" }, { file: fileName })}</span>
-        <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.close)} onPress={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
       <ol className="flex-1 space-y-4 overflow-y-auto bg-background p-4 scrollbar-thin">
         {status.isLoading && <li><Loader2 className="h-4 w-4 animate-spin text-muted" /></li>}
         {!status.isLoading && !ready && <li className="text-sm text-muted">{intl.formatMessage(MESSAGES.unavailable)}</li>}
@@ -243,8 +310,10 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
       )}
       {actionError && <div className="px-3 pt-2"><ErrorBanner err={actionError} /></div>}
 
-      <div className="border-t border-border p-3">
+      <div className="space-y-2 border-t border-border p-3">
+        <QueuedMessages items={queue.items} disabled={submit.isPending || stop.isPending} onSendNow={queue.sendNow} />
         <div className="rounded-xl border border-border bg-surface p-2 transition-colors focus-within:border-primary/50">
+          <AttachmentTray items={attachments.items} onRemove={attachments.remove} />
           <MentionTextArea
             scope={scope}
             aria-label={intl.formatMessage(MESSAGES.message)}
@@ -255,8 +324,10 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
             placeholder={intl.formatMessage(file ? MESSAGES.placeholder : MESSAGES.placeholder_folder)}
             onValueChange={setPrompt}
             onEnter={send}
+            onPaste={attachments.onPaste}
           />
           <div className="flex items-center justify-between gap-2 px-1 pt-1">
+            <AttachButton onFiles={attachments.add} disabled={!ready} />
             <Select aria-label={intl.formatMessage(MESSAGES.mode)} selectedKey={mode} isDisabled={!ready} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
               <Select.Trigger data-chip className={cn("inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
                 <ShieldCheck className="h-3 w-3" />
@@ -271,16 +342,21 @@ function ChatPanel({ id, onStarted, scope, file, onClose }: { id: string | null;
                 </ListBox>
               </Select.Popover>
             </Select>
+            {file && (
+              <span title={intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: tooltip of the chip in the Claude message box naming the file Claude sees; {file} is the file path" }, { file: file.path })} className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted">
+                <FileText className="h-3 w-3 shrink-0" />
+                <span className="truncate">{fileName}</span>
+              </span>
+            )}
             <ModelPicker value={model} onChange={setPickedModel} isDisabled={!ready} className="mr-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs" />
-            {running ? (
-              <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={() => stop.mutate()}>
+            {running && (
+              <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={interrupt}>
                 <Square className="h-4 w-4" />
               </Button>
-            ) : (
-              <Button size="sm" variant="primary" isDisabled={!ready || busy || !prompt.trim()} onPress={send}>
-                <Send className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.send)}
-              </Button>
             )}
+            <Button size="sm" variant="primary" isDisabled={!ready || !prompt.trim() || (busy && attachments.items.length > 0)} onPress={send}>
+              <Send className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.send)}
+            </Button>
           </div>
         </div>
       </div>
@@ -303,7 +379,8 @@ function ChatMessage({ message, file, dismissed, onDismiss }: ChatMessageProps) 
     const request = requestOf(text);
     if (!request) return null;
     return (
-      <li className="flex justify-end">
+      <li className="flex flex-col items-end gap-1.5">
+        <MessageAttachments blocks={blocks} className="max-w-[85%]" />
         <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-primary/10 px-3 py-2 text-sm text-primary">{request}</p>
       </li>
     );
@@ -355,7 +432,7 @@ function fileContext(path: string, content: string, mode: AssistantMode) {
   const rule =
     mode === "bypassPermissions"
       ? `Change ${path} yourself with edit_file, or write_file for a complete rewrite.`
-      : `Do not write, upload or delete any file. Reply with a short explanation and the complete updated ${path} in one fenced code block.`;
+      : `Do not change ${path} with tools: reply with a short explanation and the complete updated ${path} in one fenced code block, the only code block in your reply. Change other files yourself with edit_file, or write_file for a new file or a complete rewrite.`;
   const current = content.length > INLINE_LIMIT ? `The file is ${content.length} characters long: read it with read_file.` : `Current content:\n\`\`\`\n${content}\n\`\`\``;
   return `The user is editing ${path} in the Gameplane file editor. ${rule}\n${current}`;
 }

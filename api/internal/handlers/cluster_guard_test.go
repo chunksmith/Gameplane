@@ -325,7 +325,7 @@ func TestHomeClientMounts_ServeHomeClusterOnly(t *testing.T) {
 		if strings.HasPrefix(path, "/servers/") || strings.HasPrefix(path, "/ws/servers/") {
 			want = http.StatusNotImplemented
 		}
-		attach := path == "/ws/servers/alpha/console-pty"
+		attach := path == "/ws/servers/alpha/console-pty" || path == "/servers/alpha/shell"
 		// Only the registry and ID-list handlers above use the selected client.
 		// ws.Mount has no gateway options here, so install/upload keep their
 		// legacy 501 guard rather than performing a remote target lookup.

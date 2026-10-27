@@ -1479,6 +1479,82 @@
     "defaultMessage": "{tokens} tokens",
     "description": "Assistant panel: chip in the header with the conversation's total token count; {tokens} is the formatted number"
   },
+  "web.components.assistant.assistant_panel.tool_ended": {
+    "defaultMessage": "Ended",
+    "description": "Assistant panel: badge of a background command whose status is no longer known; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_exited": {
+    "defaultMessage": "Exited {code}",
+    "description": "Assistant panel: badge of a background command that finished; {code} is its exit code"
+  },
+  "web.components.assistant.assistant_panel.tool_fetch": {
+    "defaultMessage": "Fetch",
+    "description": "Assistant panel: name of a tool call that reads a web page; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_files": {
+    "defaultMessage": "{count, plural, one {# file} other {# files}}",
+    "description": "Assistant panel: result badge of a glob tool call; {count} is the number of matching files"
+  },
+  "web.components.assistant.assistant_panel.tool_find_files": {
+    "defaultMessage": "Find files",
+    "description": "Assistant panel: action of a glob tool call that finds files by name pattern; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_glob": {
+    "defaultMessage": "Glob",
+    "description": "Assistant panel: name of a tool call that finds files by a name pattern; a tool name, keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_grep": {
+    "defaultMessage": "Grep",
+    "description": "Assistant panel: name of a tool call that searches file contents; a tool name, keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_grep_in": {
+    "defaultMessage": "\"{pattern}\" in",
+    "description": "Assistant panel: action of a grep tool call, put before the folder it searches; {pattern} is the text searched for, quoted; keep the word in"
+  },
+  "web.components.assistant.assistant_panel.tool_in_background": {
+    "defaultMessage": "In background",
+    "description": "Assistant panel: action of a shell tool call that runs in the background; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_job": {
+    "defaultMessage": "Job",
+    "description": "Assistant panel: name of a tool call that reads the output of a background command; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_matches": {
+    "defaultMessage": "{count, plural, one {# match} other {# matches}}",
+    "description": "Assistant panel: result badge of a grep tool call; {count} is the number of matching lines"
+  },
+  "web.components.assistant.assistant_panel.tool_monitor": {
+    "defaultMessage": "Monitor",
+    "description": "Assistant panel: name of a tool call that watches a background process; a tool name, keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_output_of": {
+    "defaultMessage": "Output of",
+    "description": "Assistant panel: action of a tool call that reads the output of a background job; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_read_page": {
+    "defaultMessage": "Read page",
+    "description": "Assistant panel: action of a tool call that reads a web page; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_running": {
+    "defaultMessage": "Running",
+    "description": "Assistant panel: badge of a background command that is still running; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_search": {
+    "defaultMessage": "Search",
+    "description": "Assistant panel: action of a web search tool call; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_shell": {
+    "defaultMessage": "Shell",
+    "description": "Assistant panel: name of a tool call that runs a shell command in the background; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_stop": {
+    "defaultMessage": "Stop",
+    "description": "Assistant panel: name of a tool call that stops a background command; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_web_search": {
+    "defaultMessage": "Web search",
+    "description": "Assistant panel: name of a tool call that searches the web; keep it short"
+  },
   "web.components.assistant.assistant_panel.what_is_this_server_s_status": {
     "defaultMessage": "What is this server's status?",
     "description": "Assistant panel: message put in the message box when the Check health starter card is clicked, asking for the server status"
@@ -1502,6 +1578,18 @@
   "web.components.assistant.assistant_panel.working": {
     "defaultMessage": "Working…",
     "description": "Assistant panel: status text shown in the thread while the assistant is working on a reply and has not streamed text yet"
+  },
+  "web.components.assistant.attachments.attach": {
+    "defaultMessage": "Attach files or images",
+    "description": "Assistant message box: icon-only paperclip button that picks files or screenshots to send with the message; read by screen readers; keep it short"
+  },
+  "web.components.assistant.attachments.image": {
+    "defaultMessage": "Attached image {name}",
+    "description": "Assistant chat: alternative text of an image the user attached to a message; {name} is the file name"
+  },
+  "web.components.assistant.attachments.remove": {
+    "defaultMessage": "Remove {name}",
+    "description": "Assistant message box: icon-only button on an attached file that removes it before sending; {name} is the file name; read by screen readers"
   },
   "web.components.assistant.markdown.copied": {
     "defaultMessage": "Copied",
@@ -1531,6 +1619,14 @@
     "defaultMessage": "Recent issues",
     "description": "Assistant mention menu: heading above the recently updated Linear issues; keep it short"
   },
+  "web.components.assistant.message_queue.queued": {
+    "defaultMessage": "Queued: sends when the current reply finishes",
+    "description": "Assistant chat: muted note under messages typed while Claude is still working, saying they are sent once the current reply ends"
+  },
+  "web.components.assistant.message_queue.send_now": {
+    "defaultMessage": "Send now",
+    "description": "Assistant chat: button under queued messages that stops Claude's current reply and sends them right away; keep it short"
+  },
   "web.components.assistant.model_picker.label": {
     "defaultMessage": "Model",
     "description": "Assistant model picker: accessible name of the dropdown above the message box that picks the Claude model; keep it short"
@@ -1538,6 +1634,74 @@
   "web.components.assistant.model_picker.value": {
     "defaultMessage": "{model} · {effort}",
     "description": "Assistant model picker: text of the dropdown button; {model} is the model name and {effort} its fixed effort level such as medium or high"
+  },
+  "web.components.assistant.tool_cards.approve_plan": {
+    "defaultMessage": "Approve plan",
+    "description": "Assistant tool card: button that approves the proposed plan so the assistant carries it out; keep it short"
+  },
+  "web.components.assistant.tool_cards.hide_output": {
+    "defaultMessage": "Hide output",
+    "description": "Assistant tool card: button that hides the output of a background command; keep it short"
+  },
+  "web.components.assistant.tool_cards.keep_planning": {
+    "defaultMessage": "Keep planning",
+    "description": "Assistant tool card: button that declines the proposed plan so the assistant keeps planning; keep it short"
+  },
+  "web.components.assistant.tool_cards.other_answer": {
+    "defaultMessage": "Other answer…",
+    "description": "Assistant tool card: placeholder of the free-text answer box under the options of a question; keep it short"
+  },
+  "web.components.assistant.tool_cards.plan": {
+    "defaultMessage": "Plan",
+    "description": "Assistant tool card: heading of a plan the assistant proposes before making changes; keep it short"
+  },
+  "web.components.assistant.tool_cards.plan_note": {
+    "defaultMessage": "Plan mode · nothing changed yet",
+    "description": "Assistant tool card: warning note on a plan that waits for approval, saying the assistant has not changed anything yet; keep it short"
+  },
+  "web.components.assistant.tool_cards.plan_ready": {
+    "defaultMessage": "Ready for your approval",
+    "description": "Assistant tool card: text under the Plan heading while the plan waits for the user's approval; keep it short"
+  },
+  "web.components.assistant.tool_cards.question": {
+    "defaultMessage": "Question",
+    "description": "Assistant tool card: label above a question the assistant asks the user; keep it short"
+  },
+  "web.components.assistant.tool_cards.send_answer": {
+    "defaultMessage": "Send answer",
+    "description": "Assistant tool card: button that sends the chosen answer to a question; keep it short"
+  },
+  "web.components.assistant.tool_cards.show_output": {
+    "defaultMessage": "Show output",
+    "description": "Assistant tool card: button that shows the latest output of a background command; keep it short"
+  },
+  "web.components.assistant.tool_cards.skip": {
+    "defaultMessage": "Skip",
+    "description": "Assistant tool card: button that skips a question without answering; keep it short"
+  },
+  "web.components.assistant.tool_cards.stop_job": {
+    "defaultMessage": "Stop",
+    "description": "Assistant tool card: button that stops a background command still running; keep it short"
+  },
+  "web.components.assistant.tool_cards.subagent": {
+    "defaultMessage": "Subagent",
+    "description": "Assistant tool card: heading of a card for a subagent the assistant started; keep it short"
+  },
+  "web.components.assistant.tool_cards.subagent_done": {
+    "defaultMessage": "{count, plural, one {# step} other {# steps}}",
+    "description": "Assistant tool card: finished subagent with its number of steps; {count} is the number of steps"
+  },
+  "web.components.assistant.tool_cards.subagent_running": {
+    "defaultMessage": "Running · {count, plural, one {# step} other {# steps}}",
+    "description": "Assistant tool card: subagent still running with its number of steps so far; {count} is the number of steps"
+  },
+  "web.components.assistant.tool_cards.tasks": {
+    "defaultMessage": "Tasks",
+    "description": "Assistant tool card: heading of the task list the assistant keeps while it works; keep it short"
+  },
+  "web.components.assistant.tool_cards.tasks_progress": {
+    "defaultMessage": "{done} of {total} done",
+    "description": "Assistant tool card: count of finished tasks in the task list; {done} and {total} are numbers"
   },
   "web.components.backups.active_backups.bytes_done_of_total": {
     "defaultMessage": "{done} of {total}",
@@ -4727,13 +4891,33 @@
     "defaultMessage": "Auto",
     "description": "Assistant permission mode where Claude Code's auto mode approves safe shell commands itself and blocks risky ones; keep it short"
   },
+  "web.lib.assistant.mode_auto_hint": {
+    "defaultMessage": "Safe commands run, risky ones stop",
+    "description": "Assistant permission mode hint: one line under Auto in the mode menu; keep it short"
+  },
   "web.lib.assistant.mode_bypass": {
     "defaultMessage": "Bypass permissions",
     "description": "Assistant permission mode where every action runs at once without asking for approval; keep it short"
   },
+  "web.lib.assistant.mode_bypass_hint": {
+    "defaultMessage": "Every action runs without asking",
+    "description": "Assistant permission mode hint: one line under Bypass permissions in the mode menu; keep it short"
+  },
   "web.lib.assistant.mode_default": {
     "defaultMessage": "Ask permissions",
     "description": "Assistant permission mode that pauses deletes, data wipes and restores until the user approves them; keep it short"
+  },
+  "web.lib.assistant.mode_default_hint": {
+    "defaultMessage": "Deletes, wipes and restores wait for you",
+    "description": "Assistant permission mode hint: one line under Ask permissions in the mode menu; keep it short"
+  },
+  "web.lib.assistant.mode_plan": {
+    "defaultMessage": "Plan",
+    "description": "Assistant permission mode where the assistant only reads and writes a plan for the user to approve before any change; keep it short"
+  },
+  "web.lib.assistant.mode_plan_hint": {
+    "defaultMessage": "Reads and plans; changes need approval",
+    "description": "Assistant permission mode hint: one line under Plan in the mode menu; keep it short"
   },
   "web.lib.assistant.pick_haiku": {
     "defaultMessage": "Fastest · {effort} effort",
@@ -6102,6 +6286,14 @@
   "web.routes.admin_settings.file_list_limit_hint": {
     "defaultMessage": "Most files and folders the file browser loads from one folder (1–10,000). Defaults to 500.",
     "description": "Admin settings: hint under the file list limit field; the most files and folders loaded per folder, from 1 to 10,000, default 500"
+  },
+  "web.routes.admin_settings.file_read_limit": {
+    "defaultMessage": "File open limit (MB)",
+    "description": "Admin settings: label of the field that sets the largest file, in megabytes, the file browser opens in the editor"
+  },
+  "web.routes.admin_settings.file_read_limit_hint": {
+    "defaultMessage": "Largest file the file browser opens in the editor (1–1,024 MB). Larger files must be downloaded. Defaults to 32.",
+    "description": "Admin settings: hint under the file open limit field; the largest file opened in the editor, from 1 to 1,024 megabytes, default 32; larger files must be downloaded"
   },
   "web.routes.admin_settings.first_it_forms_the_provider_s_oidc": {
     "defaultMessage": "first — it forms the provider's OIDC redirect URL.",
@@ -10265,7 +10457,7 @@
   },
   "web.routes.tabs.file_assistant.context": {
     "defaultMessage": "Context: {file}",
-    "description": "Files tab: muted text in the Claude chat header naming the file Claude sees; {file} is the file name"
+    "description": "Files tab: tooltip of the chip in the Claude message box naming the file Claude sees; {file} is the file path"
   },
   "web.routes.tabs.file_assistant.decline": {
     "defaultMessage": "Decline",
@@ -10282,6 +10474,18 @@
   "web.routes.tabs.file_assistant.empty_folder": {
     "defaultMessage": "Ask Claude anything about this server. Type @ to add a file or folder as context.",
     "description": "Files tab: hint in the empty Claude chat panel opened from a folder, with no file as context"
+  },
+  "web.routes.tabs.file_assistant.history": {
+    "defaultMessage": "Recent chats",
+    "description": "Files tab: accessible label of the clock button above the Claude chat panel and heading of the list of this server's earlier chats it opens; keep it short"
+  },
+  "web.routes.tabs.file_assistant.history_empty": {
+    "defaultMessage": "No chats yet",
+    "description": "Files tab: text in the recent chats list above the Claude chat panel when this server has no earlier chats"
+  },
+  "web.routes.tabs.file_assistant.history_open": {
+    "defaultMessage": "Open",
+    "description": "Files tab: small badge in the recent chats list on a chat that is already open in a tab; keep it short"
   },
   "web.routes.tabs.file_assistant.message": {
     "defaultMessage": "Message Claude",
@@ -10314,10 +10518,6 @@
   "web.routes.tabs.file_assistant.stop": {
     "defaultMessage": "Stop",
     "description": "Files tab: icon-only button in the Claude chat panel that stops the running reply; keep it short"
-  },
-  "web.routes.tabs.file_assistant.title": {
-    "defaultMessage": "Claude",
-    "description": "Files tab: title in the header of the Claude chat panel beside the file editor; keep it short"
   },
   "web.routes.tabs.file_assistant.unavailable": {
     "defaultMessage": "The AI assistant is not set up. An admin can turn it on under Admin settings → AI assistant.",
@@ -10458,6 +10658,10 @@
   "web.routes.tabs.files.nothing_exists_at_this_path": {
     "defaultMessage": "Nothing exists at this path.",
     "description": "Files tab: text shown when nothing exists at the current path"
+  },
+  "web.routes.tabs.files.open": {
+    "defaultMessage": "Open",
+    "description": "Files tab: item of the right-click menu on a folder tree entry that opens the file or folder; keep it short"
   },
   "web.routes.tabs.files.open_files": {
     "defaultMessage": "Open files",
