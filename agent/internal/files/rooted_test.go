@@ -248,12 +248,11 @@ func TestRace_DeleteAncestorSwappedForSymlink(t *testing.T) {
 }
 
 // A child directory of the tree being deleted is swapped for a symlink after
-// the removal pass saw it as a directory (open #2: the first open of
-// tree/inner is the dotfile pre-check, the second is the removal pass).
+// the removal pass saw it as a directory (open #1 of tree/inner).
 func TestRace_RecursiveDeleteChildSwappedForSymlink(t *testing.T) {
 	h, root, outside := raceHandler(t)
 	put(t, filepath.Join(root, "tree", "inner", "file"), "inside")
-	raceAt(t, h, "open", "tree", "inner", 2, func() { swapForSymlink(t, filepath.Join(root, "tree", "inner"), outside) })
+	raceAt(t, h, "open", "tree", "inner", 1, func() { swapForSymlink(t, filepath.Join(root, "tree", "inner"), outside) })
 	rr := serve(t, h.del, http.MethodDelete, "/files/delete?path=/tree&recursive=true", nil)
 	assertRejected(t, rr)
 	assertOutsideUntouched(t, outside)

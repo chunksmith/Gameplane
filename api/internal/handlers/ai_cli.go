@@ -118,8 +118,12 @@ func (p *aiProc) alive() bool {
 	}
 }
 
-func (p *aiProc) send(prompt string) error {
-	line, err := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": prompt}, "parent_tool_use_id": nil})
+func (p *aiProc) send(content []anthropic.BetaContentBlockParamUnion) error {
+	var message any = content
+	if len(content) == 1 && content[0].OfText != nil {
+		message = content[0].OfText.Text
+	}
+	line, err := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": message}, "parent_tool_use_id": nil})
 	if err != nil {
 		return fmt.Errorf("encode prompt: %w", err)
 	}
@@ -154,15 +158,15 @@ type aiEvent struct {
 	Usage           anthropic.BetaUsage `json:"usage"`
 }
 
-func (h *aiHandler) begin(ctx context.Context, conv aiConversation, creds aiCreds, key string, sub bool, runID, prompt string) {
+func (h *aiHandler) begin(ctx context.Context, conv aiConversation, creds aiCreds, key string, sub bool, runID string, content []anthropic.BetaContentBlockParamUnion) {
 	if sub {
-		go h.runCLI(ctx, conv, creds, key, runID, prompt)
+		go h.runCLI(ctx, conv, creds, key, runID, content)
 		return
 	}
 	go h.run(ctx, conv, creds, key, runID, nil)
 }
 
-func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCreds, token, runID, prompt string) {
+func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCreds, token, runID string, content []anthropic.BetaContentBlockParamUnion) {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer h.pushFlush(conv.ID)
@@ -174,7 +178,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	linear := h.openLinear(runCtx, conv.UserID)
 	defer linear.close()
 	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, done: runCtx.Done(), cancel: cancel}
-	err := h.attach(ctx, run, token, prompt)
+	err := h.attach(ctx, run, token, content)
 	if errors.Is(err, errAICLIFull) {
 		h.settle(ctx, conv.ID, runID, aiFailed, fmt.Sprintf("%d assistant conversations are already running. Try again when one finishes.", aiCLIMax))
 		return
@@ -208,7 +212,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	}
 }
 
-func (h *aiHandler) attach(ctx context.Context, run *aiLive, token, prompt string) error {
+func (h *aiHandler) attach(ctx context.Context, run *aiLive, token string, content []anthropic.BetaContentBlockParamUnion) error {
 	names := run.linear.names()
 	for retry := range 2 {
 		proc, fresh, err := h.process(ctx, run.conv, token, run.creds.admin, names, false)
@@ -217,7 +221,7 @@ func (h *aiHandler) attach(ctx context.Context, run *aiLive, token, prompt strin
 		}
 		run.proc = proc
 		h.track(run)
-		err = proc.send(prompt)
+		err = proc.send(content)
 		if err == nil || fresh || retry > 0 {
 			return err
 		}

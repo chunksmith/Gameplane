@@ -22,6 +22,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AttachButton, AttachmentTray, MessageAttachments, useAttachments } from "@/components/assistant/Attachments";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { LinearLogo } from "@/components/assistant/LinearLogo";
@@ -54,6 +55,7 @@ import {
   useAssistantStatus,
   useAssistantStream,
   withContextBlock,
+  type AssistantAttachment,
   type AssistantBlock,
   type AssistantConversation,
   type AssistantDetail,
@@ -162,6 +164,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const [listOpen, setListOpen] = useState(false);
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const [pickedModel, setPickedModel] = useState<AssistantPick>();
+  const attachments = useAttachments();
   const ready = !!status.data?.enabled && status.data.configured;
 
   const list = useQuery({
@@ -190,9 +193,9 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
   const submit = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, files }: { text: string; files?: AssistantAttachment[] }) => {
       const body = withContextBlock(text, await mentionContext(scope, text));
-      return selected ? Assistant.send(selected, body, pickedMode, pickedModel) : Assistant.create(body, scope, pickedMode, pickedModel);
+      return selected ? Assistant.send(selected, body, pickedMode, pickedModel, files) : Assistant.create(body, scope, pickedMode, pickedModel, files);
     },
     onSuccess: (conv) => {
       setSelected(conv.id);
@@ -207,7 +210,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   }, [ready, selected, warmStatus, scope.server, scope.namespace, scope.cluster, pickedMode, pickedModel]);
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(selected ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(selected ?? ""), onSuccess: refresh });
-  const queue = useMessageQueue(warmStatus === "running" || warmStatus === "awaiting_approval", (text) => submit.mutate(text), () => stop.mutate());
+  const queue = useMessageQueue(warmStatus === "running" || warmStatus === "awaiting_approval", (text) => submit.mutate({ text }), () => stop.mutate());
 
   if (status.isLoading) {
     return <div className="flex items-center gap-2 p-6 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.loading_assistant", defaultMessage: "Loading assistant…", description: "Assistant panel: loading text shown in place of the panel while the assistant status is fetched" })}</div>;
@@ -238,11 +241,17 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   };
   const send = () => {
     const text = prompt.trim();
-    if (!text) return;
+    if (!text || (busy && attachments.items.length > 0)) return;
     if (busy) {
       queue.add(text);
       setPrompt("");
-    } else submit.mutate(text, { onSuccess: () => setPrompt("") });
+    } else
+      submit.mutate({ text, files: attachments.items }, {
+        onSuccess: () => {
+          setPrompt("");
+          attachments.clear();
+        },
+      });
   };
   const interrupt = () => {
     setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
@@ -439,6 +448,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             <ModelPicker value={model} onChange={setPickedModel} isDisabled={!own} className={chipClass} />
           </div>
           <div className="rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/50">
+            <AttachmentTray items={attachments.items} onRemove={attachments.remove} />
             <MentionTextArea
               scope={scope}
               linear={!!status.data.linear}
@@ -454,8 +464,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 : intl.formatMessage({ id: "web.components.assistant.assistant_panel.read_only_other_user", defaultMessage: "Read-only: this conversation belongs to another user", description: "Assistant panel: placeholder of the message box when the conversation belongs to another user, so it cannot be changed" })}
               onValueChange={setPrompt}
               onEnter={send}
+              onPaste={attachments.onPaste}
             />
             <div className="flex items-center gap-2 px-1 pt-1">
+              <AttachButton onFiles={attachments.add} disabled={!own} />
               <p className="flex-1 text-[11px] text-muted">{scope.server
                 ? status.data.linear
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file, a folder or Linear", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file, a folder or the Linear workspace to give as context" })
@@ -466,7 +478,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
               {running && own && (
                 <Button size="sm" variant="outline" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.stop", defaultMessage: "Stop", description: "Assistant panel: icon button that stops the running reply; keep it short" })} isDisabled={stop.isPending} onPress={interrupt}><Square className="h-4 w-4" /></Button>
               )}
-              <Button size="sm" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.send", defaultMessage: "Send", description: "Assistant panel: icon button that sends the typed message; keep it short" })} isDisabled={!own || !prompt.trim()} onPress={send}><Send className="h-4 w-4" /></Button>
+              <Button size="sm" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.send", defaultMessage: "Send", description: "Assistant panel: icon button that sends the typed message; keep it short" })} isDisabled={!own || !prompt.trim() || (busy && attachments.items.length > 0)} onPress={send}><Send className="h-4 w-4" /></Button>
             </div>
           </div>
         </div>
@@ -615,6 +627,7 @@ function Thread({ detail, tail, scope, own, deciding, onDecide }: { detail: Assi
           const text = requestOf(turns.filter((turn) => turn.kind === "text").map((turn) => turn.text).join("\n"));
           return text ? (
             <li key={i} className="flex flex-col items-end gap-1.5">
+              <MessageAttachments blocks={blocksOf(message)} className="max-w-[85%]" />
               <p className="w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-sm text-accent-foreground shadow-sm">{text}</p>
               {linearMentions(text).map((issue) => (
                 <span key={issue} className="flex max-w-[85%] items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs">

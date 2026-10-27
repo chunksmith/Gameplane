@@ -1483,6 +1483,18 @@
     "defaultMessage": "Working…",
     "description": "Assistant panel: status text shown in the thread while the assistant is working on a reply and has not streamed text yet"
   },
+  "web.components.assistant.attachments.attach": {
+    "defaultMessage": "Attach files or images",
+    "description": "Assistant message box: icon-only paperclip button that picks files or screenshots to send with the message; read by screen readers; keep it short"
+  },
+  "web.components.assistant.attachments.image": {
+    "defaultMessage": "Attached image {name}",
+    "description": "Assistant chat: alternative text of an image the user attached to a message; {name} is the file name"
+  },
+  "web.components.assistant.attachments.remove": {
+    "defaultMessage": "Remove {name}",
+    "description": "Assistant message box: icon-only button on an attached file that removes it before sending; {name} is the file name; read by screen readers"
+  },
   "web.components.assistant.markdown.copied": {
     "defaultMessage": "Copied",
     "description": "Markdown code block: accessible name of the copy button after the code was copied; keep it short"

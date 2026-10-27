@@ -487,9 +487,8 @@ func removeEntry(dirFD int, name string) error {
 }
 
 // removePath deletes the entry comps. Non-recursive: unlink/rmdir of the one
-// entry. Recursive: refuses (errDotfile) a tree containing dot-prefixed
-// entries, then removes the tree through descriptors without following
-// symlinks (they are unlinked as links).
+// entry. Recursive: removes the tree, dot-prefixed entries included, through
+// descriptors without following symlinks (they are unlinked as links).
 func (h *handler) removePath(comps []string, recursive bool) error {
 	rootFD, err := openRoot(h.root)
 	if err != nil {
@@ -510,45 +509,7 @@ func (h *handler) removePath(comps []string, recursive bool) error {
 		h.fire("remove", parents, name)
 		return removeEntry(parentFD, name)
 	}
-	if err = h.checkNoDotAt(parentFD, parents, name); err != nil {
-		return err
-	}
 	return h.removeTree(parentFD, parents, name)
-}
-
-// checkNoDotAt returns errDotfile if the directory tree at name (inside dirFD)
-// contains a dot-prefixed entry. Symlinks are not followed.
-func (h *handler) checkNoDotAt(dirFD int, parents []string, name string) error {
-	var st unix.Stat_t
-	err := unix.Fstatat(dirFD, name, &st, unix.AT_SYMLINK_NOFOLLOW)
-	if errors.Is(err, unix.ENOENT) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("stat %q: %w", name, err)
-	}
-	if st.Mode&unix.S_IFMT != unix.S_IFDIR {
-		return nil
-	}
-	fd, err := h.openChild(dirFD, parents, name, dirFlags)
-	if err != nil {
-		return err
-	}
-	defer closeFD(fd)
-	names, err := dirNames(fd)
-	if err != nil {
-		return err
-	}
-	here := append(slices.Clone(parents), name)
-	for _, n := range names {
-		if strings.HasPrefix(n, ".") {
-			return errDotfile
-		}
-		if err = h.checkNoDotAt(fd, here, n); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // removeTree removes name inside dirFD, recursing into real directories only.
@@ -585,18 +546,13 @@ func (h *handler) removeTree(dirFD int, parents []string, name string) error {
 	return nil
 }
 
-// removeChildren removes every entry of the directory open as fd. A
-// dot-prefixed entry (created after the pre-check) stops the removal with
-// errDotfile instead of being deleted.
+// removeChildren removes every entry of the directory open as fd.
 func (h *handler) removeChildren(fd int, path []string) error {
 	names, err := dirNames(fd)
 	if err != nil {
 		return err
 	}
 	for _, n := range names {
-		if strings.HasPrefix(n, ".") {
-			return errDotfile
-		}
 		if err = h.removeTree(fd, path, n); err != nil {
 			return err
 		}

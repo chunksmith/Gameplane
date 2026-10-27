@@ -121,6 +121,14 @@ export interface AssistantBlock {
   tool_use_id?: string;
   content?: string | Array<{ type: string; text?: string }>;
   is_error?: boolean;
+  title?: string;
+  source?: { type: string; media_type?: string; data?: string };
+}
+
+export interface AssistantAttachment {
+  name: string;
+  mediaType: string;
+  data: string;
 }
 
 export interface AssistantMessage {
@@ -181,10 +189,10 @@ export const Assistant = {
   status: () => api<AssistantStatus>("/ai/status"),
   list: (scope: AssistantScope, all: boolean) => api<AssistantConversation[]>(`/ai/conversations${scopeQuery(scope, all)}`),
   get: (id: string) => api<AssistantDetail>(conversationPath(id)),
-  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick) =>
-    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick } }),
-  send: (id: string, prompt: string, mode?: AssistantMode, pick?: AssistantPick) =>
-    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick } }),
+  create: (prompt: string, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick, attachments?: AssistantAttachment[]) =>
+    api<AssistantConversation>("/ai/conversations", { method: "POST", body: { prompt, ...scope, mode, ...pick, attachments: attachments?.length ? attachments : undefined } }),
+  send: (id: string, prompt: string, mode?: AssistantMode, pick?: AssistantPick, attachments?: AssistantAttachment[]) =>
+    api<AssistantConversation>(conversationPath(id, "/messages"), { method: "POST", body: { prompt, mode, ...pick, attachments: attachments?.length ? attachments : undefined } }),
   warm: (id: string | null, scope: AssistantScope, mode?: AssistantMode, pick?: AssistantPick) =>
     api<void>(id ? conversationPath(id, "/warm") : "/ai/warm", { method: "POST", body: { ...scope, mode, ...pick } }),
   decide: (id: string, approve: boolean) =>

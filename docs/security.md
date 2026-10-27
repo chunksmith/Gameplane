@@ -494,9 +494,9 @@ earlier:
   for a symlink between validation and use cannot redirect the operation out of
   the root. Writes are atomic: temp file in the parent descriptor, `fsync`,
   `renameat` in the same directory.
-- Recursive delete walks descriptors and unlinks links as links; it refuses
-  trees that contain dot-prefixed entries (agent state such as the mods
-  manifest).
+- Recursive delete walks descriptors and unlinks links as links; it removes
+  dot-prefixed entries inside the tree too (deleting a mods folder drops its
+  manifest with it).
 - The data-root path itself is operator-configured and trusted (it may be a
   symlink); only components below it are checked.
 
