@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +42,11 @@ var errAICLIFull = errors.New("claude process limit reached")
 
 const aiShellPrompt = `
 
-Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it.`
+Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Long commands can run with run_in_background; follow them with Monitor and stop them with TaskStop.`
+
+const aiCLIPrompt = `
+
+Subagents and questions: the Task tool starts a subagent for a self-contained search or analysis (it has the same tools); use it to work in parallel on independent parts. ask_user asks the user a multiple-choice question and waits for the answer.`
 
 func aiShellText(mode string) string {
 	switch mode {
@@ -70,8 +75,10 @@ type aiLive struct {
 	cancel context.CancelFunc
 
 	mu      sync.Mutex
+	ask     sync.Mutex
 	waiting *aiToolInput
 	decide  chan bool
+	answer  chan string
 }
 
 func (run *aiLive) ended() bool {
@@ -81,6 +88,12 @@ func (run *aiLive) ended() bool {
 	default:
 		return false
 	}
+}
+
+func (run *aiLive) mode() string {
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	return run.conv.Mode
 }
 
 type aiProc struct {
@@ -134,14 +147,15 @@ func (p *aiProc) stop(graceful bool) {
 }
 
 type aiEvent struct {
-	Type      string              `json:"type"`
-	Subtype   string              `json:"subtype"`
-	SessionID string              `json:"session_id"`
-	Message   json.RawMessage     `json:"message"`
-	Event     json.RawMessage     `json:"event"`
-	IsError   bool                `json:"is_error"`
-	Result    string              `json:"result"`
-	Usage     anthropic.BetaUsage `json:"usage"`
+	Type            string              `json:"type"`
+	Subtype         string              `json:"subtype"`
+	SessionID       string              `json:"session_id"`
+	ParentToolUseID string              `json:"parent_tool_use_id"`
+	Message         json.RawMessage     `json:"message"`
+	Event           json.RawMessage     `json:"event"`
+	IsError         bool                `json:"is_error"`
+	Result          string              `json:"result"`
+	Usage           anthropic.BetaUsage `json:"usage"`
 }
 
 func (h *aiHandler) begin(ctx context.Context, conv aiConversation, creds aiCreds, key string, sub bool, runID string, content []anthropic.BetaContentBlockParamUnion) {
@@ -234,13 +248,15 @@ func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID strin
 				return last, fmt.Errorf("save ai session: %w", err)
 			}
 		case "assistant", "user":
-			if msg, ok := aiCLIMessage(ev.Type, ev.Message); ok {
+			if msg, ok := aiCLIMessage(ev.Type, ev.Message, ev.ParentToolUseID); ok {
 				if err := h.appendRaw(ctx, conv.ID, runID, msg); err != nil {
 					return last, err
 				}
 			}
 		case "stream_event":
-			h.pushText(conv.ID, aiCLIDelta(ev.Event))
+			if ev.ParentToolUseID == "" {
+				h.pushText(conv.ID, aiCLIDelta(ev.Event))
+			}
 		case "result":
 			h.addUsage(ctx, conv.ID, ev.Usage)
 			return last, nil
@@ -252,7 +268,7 @@ func (h *aiHandler) stream(ctx context.Context, conv aiConversation, runID strin
 	return last, nil
 }
 
-func aiCLIMessage(role string, raw json.RawMessage) ([]byte, bool) {
+func aiCLIMessage(role string, raw json.RawMessage, parent string) ([]byte, bool) {
 	var msg struct {
 		Content []map[string]json.RawMessage `json:"content"`
 	}
@@ -265,7 +281,11 @@ func aiCLIMessage(role string, raw json.RawMessage) ([]byte, bool) {
 			block["name"] = json.RawMessage(strconv.Quote(strings.TrimPrefix(name, aiMCPPrefix)))
 		}
 	}
-	data, err := json.Marshal(map[string]any{"role": role, "content": msg.Content})
+	fields := map[string]any{"role": role, "content": msg.Content}
+	if parent != "" {
+		fields["parent"] = parent
+	}
+	data, err := json.Marshal(fields)
 	return data, err == nil
 }
 
@@ -287,16 +307,16 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	allowedTools := aiMCPTools()
+	allowedTools := append(aiMCPTools(), "Task", "WebSearch")
 	for _, name := range linear {
 		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
-	tools, system := "", aiSystemPrompt(conv)
+	tools, system := "Task,WebSearch", aiSystemPrompt(conv)+aiCLIPrompt
 	if len(linear) > 0 {
 		system += aiLinearPrompt
 	}
-	if admin {
-		tools, allowedTools, system = "Bash", append(allowedTools, "Bash"), system+aiShellText(conv.Mode)
+	if admin && conv.Mode != aiModePlan {
+		tools, allowedTools, system = "Task,WebSearch,Bash,Monitor,TaskStop", append(allowedTools, "Bash", "Monitor", "TaskStop"), system+aiShellText(conv.Mode)
 	}
 	allowed := strings.Join(allowedTools, ",")
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
@@ -523,7 +543,7 @@ func (h *aiHandler) expire(proc *aiProc) {
 
 func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "gameplane", Version: "1"}, nil)
-	for _, spec := range aiTools {
+	for _, spec := range slices.Concat(aiTools, aiCLITools) {
 		server.AddTool(spec.mcp(), h.mcpCall)
 	}
 	if run != nil && run.linear != nil {
@@ -572,6 +592,19 @@ func (h *aiHandler) mcpCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 }
 
 func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, args json.RawMessage) (string, bool) {
+	switch name {
+	case aiAskUser:
+		return h.askUser(ctx, run, args)
+	case aiProposePlan:
+		return h.proposePlan(ctx, run, args)
+	case aiWebFetch:
+		return h.webFetch(ctx, args)
+	case aiTodoWrite:
+		return aiTodoWriteTool(args)
+	}
+	if aiPlanBlocked(run.mode(), name, args) {
+		return aiPlanText, true
+	}
 	if aiIsFileTool(name) {
 		return h.fileTool(ctx, run.conv, run.creds, name, args)
 	}
@@ -579,11 +612,54 @@ func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, arg
 	if err := json.Unmarshal(args, &in); err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
-	if run.conv.Mode != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
+	if run.mode() != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
 		return "The user declined this action.", true
 	}
 	status, body := h.tool(ctx, run.conv, run.creds, in)
 	return fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
+}
+
+func (h *aiHandler) askUser(ctx context.Context, run *aiLive, args json.RawMessage) (string, bool) {
+	var in struct {
+		Question string            `json:"question"`
+		Options  []json.RawMessage `json:"options"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "Invalid tool input: " + err.Error(), true
+	}
+	if strings.TrimSpace(in.Question) == "" || len(in.Options) < 2 || len(in.Options) > 4 {
+		return "ask_user needs a question and 2 to 4 options", true
+	}
+	answer, ok := h.awaitAnswer(ctx, run, aiToolInput{Method: aiAskMethod})
+	switch {
+	case !ok:
+		return "The question timed out or the run stopped.", true
+	case answer == "":
+		return "The user skipped the question.", false
+	}
+	return "The user answered: " + answer, false
+}
+
+func (h *aiHandler) proposePlan(ctx context.Context, run *aiLive, args json.RawMessage) (string, bool) {
+	var in struct {
+		Plan string `json:"plan"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "Invalid tool input: " + err.Error(), true
+	}
+	if strings.TrimSpace(in.Plan) == "" {
+		return "propose_plan needs a plan", true
+	}
+	if !h.await(ctx, run, aiToolInput{Method: aiPlanMethod}) {
+		return aiPlanDeclined, false
+	}
+	if _, err := h.store.DB.ExecContext(ctx, `UPDATE ai_conversations SET permission_mode = ? WHERE id = ?`, aiModeDefault, run.conv.ID); err != nil {
+		return fmt.Sprintf("Could not save the permission mode: %v", err), true
+	}
+	run.mu.Lock()
+	run.conv.Mode = aiModeDefault
+	run.mu.Unlock()
+	return aiPlanApproved, false
 }
 
 func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -596,13 +672,18 @@ func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest)
 	}
 	use := aiToolUse{name: req.Params.Name, raw: req.Params.Arguments}
 	text, failed := "The user declined this action.", true
-	if run.conv.Mode == aiModeBypass || !use.needsApproval() || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}) {
+	switch {
+	case aiPlanBlocked(run.mode(), use.name, use.raw):
+		text, failed = aiPlanText, true
+	case run.mode() == aiModeBypass || !use.needsApproval() || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}):
 		text, failed = run.linear.call(ctx, use.name, use.raw)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}, IsError: failed}, nil
 }
 
 func (h *aiHandler) await(ctx context.Context, run *aiLive, in aiToolInput) bool {
+	run.ask.Lock()
+	defer run.ask.Unlock()
 	decide := make(chan bool, 1)
 	run.mu.Lock()
 	run.waiting, run.decide = &in, decide
@@ -628,6 +709,34 @@ func (h *aiHandler) await(ctx context.Context, run *aiLive, in aiToolInput) bool
 	return false
 }
 
+func (h *aiHandler) awaitAnswer(ctx context.Context, run *aiLive, in aiToolInput) (string, bool) {
+	run.ask.Lock()
+	defer run.ask.Unlock()
+	answer := make(chan string, 1)
+	run.mu.Lock()
+	run.waiting, run.answer = &in, answer
+	run.mu.Unlock()
+	defer func() {
+		run.mu.Lock()
+		run.waiting, run.answer = nil, nil
+		run.mu.Unlock()
+	}()
+	if !h.flip(ctx, run.conv.ID, run.runID, aiRunning, aiAwaiting) {
+		return "", false
+	}
+	timer := time.NewTimer(aiApprovalWait)
+	defer timer.Stop()
+	select {
+	case text := <-answer:
+		return text, true
+	case <-ctx.Done():
+	case <-run.done:
+	case <-timer.C:
+	}
+	h.flip(context.WithoutCancel(ctx), run.conv.ID, run.runID, aiAwaiting, aiRunning)
+	return "", false
+}
+
 func (h *aiHandler) decide(ctx context.Context, id string, approve bool) bool {
 	run := h.liveRun(id)
 	if run == nil {
@@ -640,6 +749,21 @@ func (h *aiHandler) decide(ctx context.Context, id string, approve bool) bool {
 	}
 	run.decide <- approve
 	run.decide = nil
+	return true
+}
+
+func (h *aiHandler) answer(ctx context.Context, id, text string) bool {
+	run := h.liveRun(id)
+	if run == nil {
+		return false
+	}
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	if run.answer == nil || !h.flip(ctx, id, run.runID, aiAwaiting, aiRunning) {
+		return false
+	}
+	run.answer <- text
+	run.answer = nil
 	return true
 }
 
@@ -721,6 +845,14 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 			case block.Type == "tool_result":
 				resolved[block.ToolUseID] = true
 			case block.Type != "tool_use":
+			case block.Name == aiAskUser:
+				if in.Method == aiAskMethod {
+					id = block.ID
+				}
+			case block.Name == aiProposePlan:
+				if in.Method == aiPlanMethod {
+					id = block.ID
+				}
 			case isLinear:
 				if in.Method == aiLinearMethod && in.Path == linear {
 					id = block.ID

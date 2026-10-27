@@ -522,6 +522,17 @@ machinery in the `netguard/` module; its package doc explains why the two
 policies (`IsAllowed` vs `IsPublic`) stay separately selectable rather than
 being collapsed into one.
 
+## AI assistant web fetch
+
+The assistant's `web_fetch` tool (feature 027) dials a URL the model chose, so
+it is an outbound surface guarded like the runtime mod installs: every dial
+goes through `netguard.IsPublic`, redirects are checked again, and loopback,
+private, link-local and reserved destinations are refused. Built-in WebFetch
+is not used, because it would dial from the API pod into the cluster. Plan
+mode is a UX guard that keeps the assistant from changing things before a
+plan is approved, not an authorization boundary; RBAC still decides every
+`gameplane_api` call.
+
 ## Notifications
 
 Notification sinks ([docs](notifications.md)) are a third outbound-dial

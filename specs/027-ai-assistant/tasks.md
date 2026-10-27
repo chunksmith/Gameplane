@@ -99,3 +99,11 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T052 `POST /servers/{name}/shell` (`mountShell`, `execShell` in `api/internal/ws/exec.go`, mounted by `MountWithPlayerNames` with `AgentGatewayOptions.Auditor` from `api/cmd/main.go`) with audit of the command; tests in `api/internal/ws/exec_test.go`
 - [X] T053 `shell` assistant tool (`shell`, `aiShellOutput`, `aiCheckServer` in `api/internal/handlers/ai_files.go`), prompt rules, `ARCHIVE` label in `web/src/lib/assistant.ts`; tests in `api/internal/handlers/ai_files_test.go`
 - [X] T054 Document both tools in `spec.md` and `api/specs.md`
+
+## Phase 13: Claude Code tools
+
+- [X] T055 API tools (`ai_tools.go`, `ai_files.go`, `ai_cli.go`, `ai_run.go`, `ai.go`): `grep`, `glob`, background `shell` with `shell_output` and `shell_stop`, `web_fetch` (`netguard.IsPublic`), `todo_write`, `ask_user` with `POST /ai/conversations/{id}/answer` and the `ASK` pending entry, `propose_plan` with the `PLAN` entry and plan mode, subagent `parent` messages, built-in `Task`/`WebSearch` (plus `Bash`, `Monitor`, `TaskStop` for admins) in `--tools` and `--allowedTools`
+- [X] T056 Tests: `api/internal/handlers/ai_tools_test.go` and updated tool-list and `--tools`/`--allowedTools` assertions in `ai_cli_test.go`, `ai_test.go` and `ai_files_test.go`
+- [X] T057 Web cards: Grep/Glob, web search, fetch and background rows, Tasks, Subagent, Question and Plan cards (`web/src/components/assistant/ToolCards.tsx`, `web/src/components/assistant/AssistantPanel.tsx`, `web/src/lib/assistant.ts`); plan mode with mode hints in the composer
+- [X] T058 Tests: `ToolCards.test.tsx`, `AssistantPanel.test.tsx` and `assistant.test.ts` cover the new cards, the answer call and plan mode hints
+- [X] T059 Document the tools in `spec.md`, `api/specs.md`, `web/specs.md` and `docs/security.md` (`web_fetch` as an `IsPublic` sink; plan mode is a UX guard, not an authorization boundary)

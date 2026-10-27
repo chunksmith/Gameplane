@@ -226,7 +226,7 @@ func TestAICLIRun(t *testing.T) {
 	first := spawns()[0]
 	if !slices.Equal(first.sent(), []string{"check the fleet"}) || slices.Contains(first.args, "--resume") ||
 		!hasArg(first.args, "--model", "claude-opus-5-5") || !hasArg(first.args, "--effort", "medium") ||
-		!hasArg(first.args, "--tools", "") || !hasArg(first.args, "--allowedTools", strings.Join(aiMCPTools(), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
+		!hasArg(first.args, "--tools", "Task,WebSearch") || !hasArg(first.args, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch"), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
 		!hasArg(first.args, "--input-format", "stream-json") || !slices.Contains(first.args, "--include-partial-messages") {
 		t.Errorf("first spawn = %v %v", first.sent(), first.args)
 	}
@@ -554,6 +554,36 @@ func TestAICLIApproval(t *testing.T) {
 	}
 }
 
+func TestAICLIConcurrentApprovals(t *testing.T) {
+	calls := []string{"/a.txt", "/b.txt"}
+	results := make(chan string, len(calls))
+	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
+		emit(cliInit)
+		var wg sync.WaitGroup
+		for _, file := range calls {
+			wg.Go(func() {
+				results <- cliTool(t, call.args, map[string]any{"method": "DELETE", "path": "/servers/lobby/files/delete", "query": map[string]string{"path": file}})
+			})
+		}
+		wg.Wait()
+		emit(cliDone)
+	})
+	f.routes["DELETE /servers/lobby/files/delete"] = func() (int, string) { return http.StatusOK, `{}` }
+	conv := f.create(map[string]any{"prompt": "delete both", "server": "lobby", "namespace": "games"})
+	for range calls {
+		f.wait(conv.ID, aiAwaiting)
+		if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/approval", "", map[string]bool{"approve": true}); rr.Code != http.StatusOK {
+			t.Fatalf("approval = %d %s", rr.Code, rr.Body.String())
+		}
+	}
+	f.wait(conv.ID, aiIdle)
+	for range calls {
+		if got := <-results; !strings.HasPrefix(got, "HTTP 200") {
+			t.Errorf("result = %q", got)
+		}
+	}
+}
+
 func TestAICLICancel(t *testing.T) {
 	result := make(chan string, 1)
 	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
@@ -675,11 +705,11 @@ func TestAICLIAdminShell(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
 	conv := aiConversation{Model: "claude-opus-5-5", Effort: "medium"}
 	user := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", false)
-	if !hasArg(user, "--tools", "") || !hasArg(user, "--allowedTools", strings.Join(aiMCPTools(), ",")) || strings.Contains(user[slices.Index(user, "--system-prompt")+1], "kubectl") {
+	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch"), ",")) || strings.Contains(user[slices.Index(user, "--system-prompt")+1], "kubectl") {
 		t.Errorf("user args = %v", user)
 	}
 	admin := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
-	if !hasArg(admin, "--tools", "Bash") || !hasArg(admin, "--allowedTools", strings.Join(append(aiMCPTools(), "Bash"), ",")) || !strings.Contains(admin[slices.Index(admin, "--system-prompt")+1], "kubectl") {
+	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch", "Bash", "Monitor", "TaskStop"), ",")) || !strings.Contains(admin[slices.Index(admin, "--system-prompt")+1], "kubectl") {
 		t.Errorf("admin args = %v", admin)
 	}
 	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") {
@@ -696,7 +726,7 @@ func TestAICLIAdminShell(t *testing.T) {
 }
 
 func TestAICLIModes(t *testing.T) {
-	for mode, want := range map[string]string{"": "dontAsk", aiModeDefault: "dontAsk", aiModeAuto: "auto", aiModeBypass: "bypassPermissions"} {
+	for mode, want := range map[string]string{"": "dontAsk", aiModeDefault: "dontAsk", aiModeAuto: "auto", aiModeBypass: "bypassPermissions", aiModePlan: "dontAsk"} {
 		args := aiCLIArgs(aiConversation{Model: "claude-opus-5-5", Effort: "medium", Mode: mode}, "http://127.0.0.1:1/mcp", "tok", true)
 		system := args[slices.Index(args, "--system-prompt")+1]
 		if !hasArg(args, "--permission-mode", want) || strings.Contains(system, "Bypass permissions is on") != (mode == aiModeBypass) {

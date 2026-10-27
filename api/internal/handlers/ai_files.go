@@ -64,12 +64,25 @@ func aiFileSpec(name, description string, required []string, extra map[string]an
 	return aiToolSpec{name: name, description: description, properties: properties, required: append([]string{"file_path"}, required...)}
 }
 
+var aiServerScope = map[string]any{
+	"server":    aiFileScope["server"],
+	"namespace": aiFileScope["namespace"],
+	"cluster":   aiFileScope["cluster"],
+}
+
+func aiScopedSpec(name, description string, required []string, extra map[string]any) aiToolSpec {
+	properties := maps.Clone(aiServerScope)
+	maps.Copy(properties, extra)
+	return aiToolSpec{name: name, description: description, properties: properties, required: required}
+}
+
 var aiShellProperties = map[string]any{
-	"command":         map[string]any{"type": "string", "description": "The shell command, run with sh -c in the data volume folder"},
-	"timeout_seconds": map[string]any{"type": "integer", "description": "Stop the command after this many seconds (default 30, at most 55)"},
-	"server":          aiFileScope["server"],
-	"namespace":       aiFileScope["namespace"],
-	"cluster":         aiFileScope["cluster"],
+	"command":           map[string]any{"type": "string", "description": "The shell command, run with sh -c in the data volume folder"},
+	"timeout_seconds":   map[string]any{"type": "integer", "description": "Stop the command after this many seconds (default 30, at most 55)"},
+	"run_in_background": map[string]any{"type": "boolean", "description": "Start the command in the background and return a job id at once; read it later with shell_output. Use it for commands that run longer than a minute, such as a test boot or a long download."},
+	"server":            aiFileScope["server"],
+	"namespace":         aiFileScope["namespace"],
+	"cluster":           aiFileScope["cluster"],
 }
 
 var aiTools = []aiToolSpec{
@@ -91,17 +104,45 @@ var aiTools = []aiToolSpec{
 		"offset": map[string]any{"type": "integer", "description": "First line of entry to show, 1-based (default 1)"},
 		"limit":  map[string]any{"type": "integer", "description": "Number of lines of entry to show (default 2000)"},
 	}),
-	{name: aiShell, description: "Run a shell command (sh -c) in the server's game container, inside its data volume: the same files read_file shows, so read_file's /plugins is ./plugins here. Use it like a terminal to search and inspect: grep -rn, find, ls -la, head, tail, wc, unzip -l some.jar, unzip -p some.jar plugin.yml. Returns the exit code, stdout and stderr; a command stops after timeout_seconds (default 30, at most 55). Change files with edit_file or write_file, not with shell redirects or sed. Available programs depend on the game image; when one is missing, use read_file or read_archive instead.", properties: aiShellProperties, required: []string{"command"}},
+	{name: aiShell, description: "Run a shell command (sh -c) in the server's game container, inside its data volume: the same files read_file shows, so read_file's /plugins is ./plugins here. Use it like a terminal to search and inspect: grep -rn, find, ls -la, head, tail, wc, unzip -l some.jar, unzip -p some.jar plugin.yml. Returns the exit code, stdout and stderr; a command stops after timeout_seconds (default 30, at most 55). Change files with edit_file or write_file, not with shell redirects or sed. Available programs depend on the game image; when one is missing, use read_file or read_archive instead. Set run_in_background for long commands and follow them with shell_output.", properties: aiShellProperties, required: []string{"command"}},
+	aiScopedSpec(aiGrep, "Search file contents in a server's data volume with an extended regular expression, like grep -rn. path is the folder or file to search (default /), glob limits the files by name (for example *.yml), files_only lists matching files instead of lines. Returns at most 500 matching lines as path:line:text. Use it instead of shell grep.", []string{"pattern"}, map[string]any{
+		"pattern":     map[string]any{"type": "string", "description": "Extended regular expression to search for"},
+		"path":        map[string]any{"type": "string", "description": "Folder or file to search, for example /plugins (default /)"},
+		"glob":        map[string]any{"type": "string", "description": "Only search files whose name matches, for example *.yml"},
+		"ignore_case": map[string]any{"type": "boolean", "description": "Match regardless of case"},
+		"files_only":  map[string]any{"type": "boolean", "description": "List the matching file paths instead of lines"},
+	}),
+	aiScopedSpec(aiGlob, "Find files in a server's data volume by name pattern, like Claude Code's Glob: * matches within one folder, ** across folders, for example plugins/**/*.yml. path is the folder to start from (default /). Returns at most 500 paths.", []string{"pattern"}, map[string]any{
+		"pattern": map[string]any{"type": "string", "description": "Name pattern, for example plugins/**/*.yml or *.jar"},
+		"path":    map[string]any{"type": "string", "description": "Folder to start from (default /)"},
+	}),
+	aiScopedSpec(aiJobOutput, "Show the status and the last 40000 bytes of output of a background shell job. wait_seconds (at most 50) waits for the job to finish first.", []string{"job_id"}, map[string]any{
+		"job_id":       map[string]any{"type": "string", "description": "The job id that shell returned"},
+		"wait_seconds": map[string]any{"type": "integer", "description": "Wait up to this many seconds for the job to finish (at most 50)"},
+	}),
+	aiScopedSpec(aiJobStop, "Stop a background shell job.", []string{"job_id"}, map[string]any{
+		"job_id": map[string]any{"type": "string", "description": "The job id that shell returned"},
+	}),
+	{name: aiWebFetch, description: "Fetch a public web page or file over http or https and return it as text (HTML tags removed), 40000 characters at a time; continue with offset. Private, cluster and metadata addresses are blocked.", properties: map[string]any{
+		"url":    map[string]any{"type": "string", "description": "Absolute http or https URL"},
+		"offset": map[string]any{"type": "integer", "description": "Character offset to continue from (default 0)"},
+	}, required: []string{"url"}},
+	{name: aiTodoWrite, description: "Keep a short task list for multi-step work that the user sees in the panel. Send the whole list every time; mark one task in_progress while you work on it and completed when it is done.", properties: map[string]any{
+		"todos": map[string]any{"type": "array", "description": "The whole task list", "items": map[string]any{"type": "object", "properties": map[string]any{
+			"content": map[string]any{"type": "string"},
+			"status":  map[string]any{"type": "string", "enum": aiTodoStatuses},
+		}, "required": []string{"content", "status"}}},
+	}, required: []string{"todos"}},
 }
 
 func aiIsFileTool(name string) bool {
-	return name == aiReadFile || name == aiEditFile || name == aiWriteFile || name == aiReadArchive || name == aiShell
+	return slices.Contains([]string{aiReadFile, aiEditFile, aiWriteFile, aiReadArchive, aiShell, aiGrep, aiGlob, aiJobOutput, aiJobStop}, name)
 }
 
 func aiMCPTools() []string {
-	out := make([]string, len(aiTools))
-	for i, spec := range aiTools {
-		out[i] = aiMCPPrefix + spec.name
+	var out []string
+	for _, spec := range slices.Concat(aiTools, aiCLITools) {
+		out = append(out, aiMCPPrefix+spec.name)
 	}
 	return out
 }
@@ -128,6 +169,14 @@ type aiFileInput struct {
 	Entry      string `json:"entry"`
 	Command    string `json:"command"`
 	Timeout    int    `json:"timeout_seconds"`
+	Dir        string `json:"path"`
+	Pattern    string `json:"pattern"`
+	Glob       string `json:"glob"`
+	IgnoreCase bool   `json:"ignore_case"`
+	FilesOnly  bool   `json:"files_only"`
+	Background bool   `json:"run_in_background"`
+	JobID      string `json:"job_id"`
+	Wait       int    `json:"wait_seconds"`
 }
 
 func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiCreds, name string, raw json.RawMessage) (string, bool) {
@@ -135,8 +184,17 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
-	if name == aiShell {
+	switch name {
+	case aiShell:
 		return h.shell(ctx, conv, creds, in)
+	case aiGrep:
+		return h.grep(ctx, conv, creds, in)
+	case aiGlob:
+		return h.glob(ctx, conv, creds, in)
+	case aiJobOutput:
+		return h.jobOutput(ctx, conv, creds, in)
+	case aiJobStop:
+		return h.jobStop(ctx, conv, creds, in)
 	}
 	if err := aiCheckFile(conv, in); err != nil {
 		return err.Error(), true
@@ -169,31 +227,44 @@ func aiCheckServer(conv aiConversation, in aiFileInput) error {
 	return nil
 }
 
+type aiShellResult struct {
+	Stdout    string `json:"stdout"`
+	Stderr    string `json:"stderr"`
+	ExitCode  int    `json:"exitCode"`
+	Truncated bool   `json:"truncated"`
+}
+
 func (h *aiHandler) shell(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
+	if in.Background {
+		return h.startJob(ctx, conv, creds, in)
+	}
+	out, failure := h.runShell(ctx, conv, creds, in, in.Command, in.Timeout)
+	if failure != "" {
+		return failure, true
+	}
+	return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode, out.Truncated), out.ExitCode != 0
+}
+
+func (h *aiHandler) runShell(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput, command string, timeout int) (aiShellResult, string) {
 	if err := aiCheckServer(conv, in); err != nil {
-		return err.Error(), true
+		return aiShellResult{}, err.Error()
 	}
 	call := aiFileCall(conv, http.MethodPost, "", in)
 	call.Path = "/servers/" + cmp.Or(conv.Server, in.Server) + "/shell"
 	delete(call.Query, "path")
-	body, err := json.Marshal(map[string]any{"command": in.Command, "timeoutSeconds": in.Timeout})
+	body, err := json.Marshal(map[string]any{"command": command, "timeoutSeconds": timeout})
 	if err != nil {
-		return "Invalid shell input: " + err.Error(), true
+		return aiShellResult{}, "Invalid shell input: " + err.Error()
 	}
 	status, data := h.request(ctx, conv, creds, call, body, "application/json")
 	if status != http.StatusOK {
-		return fmt.Sprintf("HTTP %d\n%s", status, aiResultText(data)), true
+		return aiShellResult{}, fmt.Sprintf("HTTP %d\n%s", status, aiResultText(data))
 	}
-	var out struct {
-		Stdout    string `json:"stdout"`
-		Stderr    string `json:"stderr"`
-		ExitCode  int    `json:"exitCode"`
-		Truncated bool   `json:"truncated"`
-	}
+	var out aiShellResult
 	if err := json.Unmarshal(data, &out); err != nil {
-		return "Invalid shell response: " + err.Error(), true
+		return aiShellResult{}, "Invalid shell response: " + err.Error()
 	}
-	return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode, out.Truncated), out.ExitCode != 0
+	return out, ""
 }
 
 func aiShellOutput(stdout, stderr string, exitCode int, truncated bool) string {
