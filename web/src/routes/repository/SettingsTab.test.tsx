@@ -51,7 +51,7 @@ describe("RepositorySettingsTab network", () => {
     renderTab();
     expect(await screen.findByText("No network")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Change network" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Network name, empty for none" }), "  lobby ");
+    await userEvent.type(screen.getByRole("combobox", { name: "Network name, empty for none" }), "  lobby ");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(calls).toEqual([{ network: "lobby" }]));
     expect(await screen.findByRole("button", { name: "Change network" })).toBeInTheDocument();
@@ -60,18 +60,18 @@ describe("RepositorySettingsTab network", () => {
   it("discards the edit on Cancel", async () => {
     renderTab({ network: "lobby" });
     await userEvent.click(await screen.findByRole("button", { name: "Change network" }));
-    const field = screen.getByRole("textbox", { name: "Network name, empty for none" });
+    const field = screen.getByRole("combobox", { name: "Network name, empty for none" });
     await userEvent.type(field, "x");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await userEvent.click(screen.getByRole("button", { name: "Change network" }));
-    expect(screen.getByRole("textbox", { name: "Network name, empty for none" })).toHaveValue("lobby");
+    expect(screen.getByRole("combobox", { name: "Network name, empty for none" })).toHaveValue("lobby");
   });
 
   it("shows an error when the network cannot be saved", async () => {
     server.use(http.put(/\/repositories\/[^/]+:network$/, () => fail(400, "unknown network")));
     renderTab();
     await userEvent.click(await screen.findByRole("button", { name: "Change network" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Network name, empty for none" }), "nope");
+    await userEvent.type(screen.getByRole("combobox", { name: "Network name, empty for none" }), "nope");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("unknown network")).toBeInTheDocument();
   });
