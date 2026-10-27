@@ -559,14 +559,13 @@ func TestAICLIConcurrentApprovals(t *testing.T) {
 	results := make(chan string, len(calls))
 	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
 		emit(cliInit)
+		var wg sync.WaitGroup
 		for _, file := range calls {
-			go func() {
+			wg.Go(func() {
 				results <- cliTool(t, call.args, map[string]any{"method": "DELETE", "path": "/servers/lobby/files/delete", "query": map[string]string{"path": file}})
-			}()
+			})
 		}
-		for range calls {
-			<-results
-		}
+		wg.Wait()
 		emit(cliDone)
 	})
 	f.routes["DELETE /servers/lobby/files/delete"] = func() (int, string) { return http.StatusOK, `{}` }
