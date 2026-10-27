@@ -13,6 +13,7 @@ export interface Crumb {
 // are never translated; only the label shown for a known part is.
 const routeLabelMessages = defineMessages({
   servers: { id: "web.components.ui.breadcrumbs.servers", defaultMessage: "Servers", description: "Breadcrumb: label for the servers list crumb" },
+  repositories: { id: "web.repositories.breadcrumb", defaultMessage: "Repositories", description: "Breadcrumb: label for the repositories list crumb" },
   modules: { id: "web.components.ui.breadcrumbs.modules", defaultMessage: "Modules", description: "Breadcrumb: label for the modules crumb" },
   cluster: { id: "web.components.ui.breadcrumbs.cluster", defaultMessage: "Cluster", description: "Breadcrumb: label for the cluster crumb" },
   clusters: { id: "web.components.ui.breadcrumbs.clusters", defaultMessage: "Clusters", description: "Breadcrumb: label for the clusters crumb" },

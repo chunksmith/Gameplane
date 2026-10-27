@@ -133,6 +133,7 @@ func main() {
 		enableLeaderElection             bool
 		agentImage                       string
 		agentImagePullPolicy             string
+		repoAgentImage                   string
 		imagePullSecrets                 string
 		configInitImage                  string
 		resticImage                      string
@@ -175,6 +176,12 @@ func main() {
 			"Kubernetes defaults ImagePullPolicy to IfNotPresent for any non-\":latest\" tag, so without "+
 			"this flag a node reuses whatever agent image it already cached and game pods run a stale "+
 			"agent indefinitely.")
+	repoAgentImageDefault := os.Getenv("GAMEPLANE_REPO_AGENT_IMAGE")
+	if repoAgentImageDefault == "" {
+		repoAgentImageDefault = "ghcr.io/gameplanepanel/gameplane/repo-agent:dev"
+	}
+	flag.StringVar(&repoAgentImage, "repo-agent-image", repoAgentImageDefault,
+		"Image for the repository agent pod (agent binary plus git). Also settable as GAMEPLANE_REPO_AGENT_IMAGE.")
 	flag.StringVar(&imagePullSecrets, "image-pull-secrets", "",
 		"Comma-separated imagePullSecret names set on game, sentinel and tunnel pods. "+
 			"Each Secret must exist in the GameServer's namespace.")
@@ -419,6 +426,19 @@ func main() {
 		DefaultStorageClassName:  gameDataStorageClass,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "GameServer")
+		os.Exit(1)
+	}
+	if err := (&controller.RepositoryReconciler{
+		Client:                  mgr.GetClient(),
+		Scheme:                  mgr.GetScheme(),
+		AgentImage:              repoAgentImage,
+		AgentImagePullPolicy:    agentImagePullPolicy,
+		ImagePullSecrets:        pullSecretRefs(imagePullSecrets),
+		AgentCASecretName:       agentCASecretName,
+		AgentCASecretNamespace:  agentCASecretNamespace,
+		DefaultStorageClassName: gameDataStorageClass,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to set up controller", "controller", "Repository")
 		os.Exit(1)
 	}
 	if err := (&controller.GameServerSetReconciler{

@@ -214,10 +214,19 @@ func aiCheckFile(conv aiConversation, in aiFileInput) error {
 	if !strings.HasPrefix(in.Path, "/") {
 		return errors.New("file_path must be an absolute path inside the server's data volume")
 	}
+	if conv.Repository != "" {
+		if in.Server != "" {
+			return fmt.Errorf("this conversation is limited to repository %s", conv.Repository)
+		}
+		return nil
+	}
 	return aiCheckServer(conv, in)
 }
 
 func aiCheckServer(conv aiConversation, in aiFileInput) error {
+	if conv.Repository != "" {
+		return fmt.Errorf("shell tools are not available in repository %s", conv.Repository)
+	}
 	if conv.Server == "" && (!dnsLabelRE.MatchString(in.Server) || in.Namespace == "") {
 		return errors.New("server and namespace are required in this conversation")
 	}
@@ -285,7 +294,9 @@ func (h *aiHandler) fileCall(ctx context.Context, conv aiConversation, creds aiC
 
 func aiFileCall(conv aiConversation, method, op string, in aiFileInput) aiToolInput {
 	call := aiToolInput{Method: method, Path: "/servers/" + cmp.Or(conv.Server, in.Server) + "/files/" + op, Query: map[string]string{"path": in.Path}}
-	if conv.Server == "" {
+	if conv.Repository != "" {
+		call.Path = "/repositories/" + conv.Repository + "/files/" + op
+	} else if conv.Server == "" {
 		call.Query["namespace"] = in.Namespace
 		if in.Cluster != "" {
 			call.Query["cluster"] = in.Cluster

@@ -10,6 +10,19 @@ This document is the **first stop** for AI agents modifying or extending Gamepla
 | **Operator** | `operator/specs.md` | K8s Controller reconciling CRDs (GameServer, GameTemplate, Backup, Module, etc.). **Edits to Kubernetes resource management, CRD behavior, and K8s API integrations go here.** |
 | **Agent Sidecar** | `agent/specs.md` | In-pod sidecar handling RCON, file ops, game server logs, and pod telemetry. **Edits to how the game is interacted with directly (console/files) go here.** |
 
+## Feature Map: Repositories (spec 029)
+
+| Layer | Files | Notes |
+| --- | --- | --- |
+| **Spec & contract** | `specs/029-repositories/` (`spec.md`, `contracts/repositories-api.md`, `tasks.md`) | Source of truth for routes, permissions and error codes. |
+| **Operator** | `operator/api/v1alpha1/repository_types.go`, `operator/internal/controller/repository_controller.go` | `Repository` CRD → PVC, repo agent StatefulSet, Service, agent cert; `--repo-agent-image`. See `operator/specs.md`. |
+| **Repo agent** | `agent/internal/git/`, `agent/internal/files/` (repository mode), `agent/cmd/main.go` (`--mode=repository`), `agent/Dockerfile.repo` | `/git/*` over the `git` CLI, `GIT_ASKPASS` token, redaction, `.git` blocked. See `agent/specs.md`. |
+| **API** | `api/internal/handlers/repositories.go`, `integrations_github.go`, `ai_git.go`; `api/internal/ws/repository.go`; `api/internal/rbac/repository.go`; `api/internal/messages/entries_repositories.go`; migration `common/025_repositories.sql` | CRUD, collaborators, token Secret, agent proxy, owner/collaborator/network access, assistant Git tools. See `api/specs.md`. |
+| **Web** | `web/src/routes/Repositories.tsx`, `RepositoryDetail.tsx`, `repository/`; `web/src/lib/repositories.ts`, `resourceTarget.tsx`; `web/src/components/settings/GitHubCard.tsx` | List, detail tabs, Git tab, Settings, GitHub card. See `web/specs.md`. |
+| **Chart & images** | `charts/gameplane/values.yaml` (`repositories.agentImage`), `templates/networkpolicies.yaml`, `repo-agent` image in the publish workflows and `hack/ci_scope.py` | |
+| **Security** | `docs/security.md` → Repositories and GitHub tokens | Token storage, transport, redaction, remote allowlist. |
+| **E2E** | `test/e2e/api_repositories_e2e_test.go` (bucket `multicluster`) | Clone, edit, commit and push against an in-cluster `git daemon` fixture. |
+
 ## Security & Protection Components
 
 | Component | `specs.md` location | Primary Responsibilities |

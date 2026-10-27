@@ -51,9 +51,9 @@ const (
 	aiModeBypass  = "bypassPermissions"
 	aiModePlan    = "plan"
 
-	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode`
+	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode, c.repository`
 	aiFrom    = ` FROM ai_conversations c LEFT JOIN users u ON u.id = c.user_id`
-	aiListOwn = `SELECT ` + aiColumns + aiFrom + ` WHERE c.user_id = ? AND c.server = ? AND c.namespace = ? AND c.cluster = ? ORDER BY c.updated_at DESC LIMIT 200`
+	aiListOwn = `SELECT ` + aiColumns + aiFrom + ` WHERE c.user_id = ? AND c.server = ? AND c.repository = ? AND c.namespace = ? AND c.cluster = ? ORDER BY c.updated_at DESC LIMIT 200`
 	aiListAll = `SELECT ` + aiColumns + aiFrom + ` ORDER BY c.updated_at DESC LIMIT 200`
 	aiGetOne  = `SELECT ` + aiColumns + aiFrom + ` WHERE c.id = ?`
 )
@@ -86,6 +86,7 @@ type aiConversation struct {
 	Cluster      string `json:"cluster"`
 	Namespace    string `json:"namespace"`
 	Server       string `json:"server"`
+	Repository   string `json:"repository"`
 	Model        string `json:"model"`
 	Effort       string `json:"effort"`
 	Mode         string `json:"mode"`
@@ -346,7 +347,11 @@ func (h *aiHandler) list(w http.ResponseWriter, req *http.Request) {
 		rows, err = h.store.DB.QueryContext(req.Context(), aiListAll)
 	} else {
 		server, namespace, cluster := aiScope(q.Get("server"), q.Get("namespace"), q.Get("cluster"))
-		rows, err = h.store.DB.QueryContext(req.Context(), aiListOwn, u.ID, server, namespace, cluster)
+		repository := q.Get("repository")
+		if server == "" && repository != "" {
+			namespace, cluster = q.Get("namespace"), scope.DefaultCluster
+		}
+		rows, err = h.store.DB.QueryContext(req.Context(), aiListOwn, u.ID, server, repository, namespace, cluster)
 	}
 	if err != nil {
 		httperr.Write(w, req, err)
@@ -373,6 +378,7 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	var body struct {
 		Prompt      string         `json:"prompt"`
 		Server      string         `json:"server"`
+		Repository  string         `json:"repository"`
 		Namespace   string         `json:"namespace"`
 		Cluster     string         `json:"cluster"`
 		Model       string         `json:"model"`
@@ -391,10 +397,20 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	model, effort := cmp.Or(body.Model, s.DefaultModel), cmp.Or(body.Effort, s.DefaultEffort)
 	mode := cmp.Or(body.Mode, s.DefaultMode)
 	server, namespace, cluster := aiScope(body.Server, body.Namespace, body.Cluster)
+	repository := body.Repository
+	if repository != "" {
+		namespace, cluster = body.Namespace, scope.DefaultCluster
+	}
 	content, err := aiContent(prompt, body.Attachments)
 	err = cmp.Or(aiCheckPrompt(prompt), aiCheckModel(model, effort), aiCheckMode(mode), err)
-	if err == nil && server != "" && (!dnsLabelRE.MatchString(server) || namespace == "") {
+	switch {
+	case err != nil:
+	case server != "" && repository != "":
+		err = errors.New("a conversation is tied to a server or a repository, not both")
+	case server != "" && (!dnsLabelRE.MatchString(server) || namespace == ""):
 		err = errors.New("server must be a DNS label and namespace is required")
+	case repository != "" && (!dnsLabelRE.MatchString(repository) || namespace == ""):
+		err = errors.New("repository must be a DNS label and namespace is required")
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -409,17 +425,24 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	if repository != "" {
+		target := aiTarget("/repositories/"+repository, url.Values{"namespace": {namespace}})
+		if status, _ := h.call(ctx, creds, http.MethodGet, target, nil, ""); status != http.StatusOK {
+			http.Error(w, "repository not found", http.StatusNotFound)
+			return
+		}
+	}
 	u := auth.UserFromContext(req.Context())
 	now := aiNow()
 	runID := rand.Text()
 	conv := aiConversation{
 		ID: rand.Text(), UserID: u.ID, Username: u.Username, Title: aiTitle(prompt),
-		Cluster: cluster, Namespace: namespace, Server: server, Model: model, Effort: effort, Mode: mode,
+		Cluster: cluster, Namespace: namespace, Server: server, Repository: repository, Model: model, Effort: effort, Mode: mode,
 		Status: aiRunning, CreatedAt: now, UpdatedAt: now,
 	}
 	if _, err := h.store.DB.ExecContext(req.Context(),
-		`INSERT INTO ai_conversations(id, user_id, title, cluster, namespace, server, model, effort, permission_mode, status, error, run_id, input_tokens, output_tokens, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 0, 0, ?, ?)`,
-		conv.ID, conv.UserID, conv.Title, conv.Cluster, conv.Namespace, conv.Server, conv.Model, conv.Effort, conv.Mode, conv.Status, runID, now, now); err != nil {
+		`INSERT INTO ai_conversations(id, user_id, title, cluster, namespace, server, repository, model, effort, permission_mode, status, error, run_id, input_tokens, output_tokens, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 0, 0, ?, ?)`,
+		conv.ID, conv.UserID, conv.Title, conv.Cluster, conv.Namespace, conv.Server, conv.Repository, conv.Model, conv.Effort, conv.Mode, conv.Status, runID, now, now); err != nil {
 		httperr.Write(w, req, err)
 		return
 	}
@@ -486,7 +509,7 @@ func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
 	if in := h.waitingInput(conv.ID); conv.Status == aiAwaiting && in != nil {
 		pending = append(pending, map[string]string{"id": aiPendingID(msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
 	} else if conv.Status == aiAwaiting {
-		for _, use := range aiToolUses(msgs) {
+		for _, use := range aiToolUsesIn(conv.Repository, msgs) {
 			if use.needsApproval() {
 				pending = append(pending, map[string]string{"id": use.id, "method": use.method(), "path": use.target()})
 			}
@@ -538,7 +561,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	blocks := []anthropic.BetaContentBlockParamUnion{}
-	for _, use := range aiToolUses(msgs) {
+	for _, use := range aiToolUsesIn(conv.Repository, msgs) {
 		blocks = append(blocks, anthropic.NewBetaToolResultBlock(use.id, "Interrupted: the run was stopped before this call's result was recorded.", true))
 	}
 	blocks = append(blocks, content...)
@@ -747,7 +770,7 @@ func (h *aiHandler) addUsage(ctx context.Context, id string, usage anthropic.Bet
 func scanAIConversation(row interface{ Scan(...any) error }) (aiConversation, error) {
 	var c aiConversation
 	err := row.Scan(&c.ID, &c.UserID, &c.Username, &c.Title, &c.Cluster, &c.Namespace, &c.Server,
-		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID, &c.Mode)
+		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID, &c.Mode, &c.Repository)
 	return c, err
 }
 

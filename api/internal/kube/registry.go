@@ -267,3 +267,13 @@ func (r *Registry) GetServer(ctx context.Context, cluster, ns, name string) (*un
 	}
 	return c.GetServer(ctx, ns, name)
 }
+
+// GetRepository fetches a Repository from the named cluster for the rbac
+// middleware's owner, collaborator and network fallback.
+func (r *Registry) GetRepository(ctx context.Context, cluster, ns, name string) (*unstructured.Unstructured, error) {
+	c, ok := r.Get(cluster)
+	if !ok {
+		return nil, fmt.Errorf("cluster %q not registered", cluster)
+	}
+	return c.GetRepository(ctx, ns, name)
+}

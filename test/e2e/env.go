@@ -691,21 +691,21 @@ func (e *Env) CreateUser(t *testing.T, admin *APIClient, role, prefix string) (u
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("CreateUser %s/%s %d: %s", role, prefix, resp.StatusCode, string(body))
 	}
-	id = extractIntField(string(body), "id")
+	id = extractID(string(body))
 	if id == "" {
 		t.Fatalf("CreateUser: could not parse id from response: %s", string(body))
 	}
 	return username, userPhrase, id
 }
 
-// extractIntField is a tiny scanner for `"<key>":<digits>` inside a JSON
+// extractID is a tiny scanner for `"id":<digits>` inside a JSON
 // blob. Lets the e2e tests parse the one or two integer fields they
 // care about (user id, mostly) without pulling in encoding/json.
 //
 // Lives on env.go (not in a _test.go) so non-test helper code like
 // CreateUser can use it.
-func extractIntField(body, key string) string {
-	needle := `"` + key + `":`
+func extractID(body string) string {
+	needle := `"id":`
 	i := strings.Index(body, needle)
 	if i < 0 {
 		return ""

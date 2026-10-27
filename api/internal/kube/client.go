@@ -55,7 +55,13 @@ var (
 	GVRModule         = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "modules"}
 	GVRModuleSource   = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "modulesources"}
 	GVRNetworkCapture = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "networkcaptures"}
+	GVRRepository     = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "repositories"}
 )
+
+// GetRepository fetches a Repository by namespace and name.
+func (c *Client) GetRepository(ctx context.Context, ns, name string) (*unstructured.Unstructured, error) {
+	return c.Dynamic.Resource(GVRRepository).Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+}
 
 // New creates a Kubernetes client from the given rest.Config.
 func New(cfg *rest.Config) (*Client, error) {

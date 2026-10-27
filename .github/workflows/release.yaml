@@ -30,6 +30,8 @@ jobs:
           - component: api
           - component: web
           - component: agent
+          - component: repo-agent
+            dockerfile: agent/Dockerfile.repo
           - component: audit-syslog-bridge
           - component: telemetry-receiver
           - component: sentinel

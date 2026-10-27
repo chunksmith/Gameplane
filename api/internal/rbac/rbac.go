@@ -122,6 +122,15 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 					cl = resolvedCluster
 				}
 			}
+			if firstSegment(req.URL.Path) == "repositories" {
+				granted, ok := repositoryAccess(req, fetch, u, r.perm, cl, ns)
+				if !ok {
+					httperr.WriteMessage(w, req, messages.New("server.forbidden", nil))
+					return
+				}
+				next.ServeHTTP(w, granted)
+				return
+			}
 			if !allow(u, req.Method, req.URL.Path, cl, ns) {
 				if r.perm == "templates:read" && fetch != nil && serverTemplateReadable(req, fetch, u) {
 					next.ServeHTTP(w, req)
@@ -200,6 +209,7 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 type rule struct {
 	method  string
 	segment string
+	exact   string // path == exact
 	prefix  string // strings.HasPrefix(path, prefix)
 	suffix  string // strings.HasSuffix(path, suffix)
 	perm    string // required permission; "" = any authenticated user
@@ -326,6 +336,17 @@ var rules = []rule{
 	{method: "GET", segment: "ws", perm: "servers:read"},
 
 	{segment: "ai", perm: ""},
+	// Each user's own GitHub token (spec 029); handlers act on the caller only.
+	{segment: "integrations", prefix: "/integrations/github", perm: ""},
+
+	// Repositories (spec 029). The list filters itself by membership; the
+	// rbac repository fallback resolves owner, collaborator and network
+	// access and the owner-only operations (repository.go).
+	{method: "GET", exact: "/repositories", perm: ""},
+	{method: "POST", exact: "/repositories", perm: "repositories:create"},
+	{method: "POST", segment: "repositories", suffix: "/git/push", perm: "repositories:push"},
+	{method: "GET", segment: "repositories", perm: "repositories:read"},
+	{segment: "repositories", perm: "repositories:write"},
 
 	// Any other authenticated read of an unlisted path.
 	{method: "GET", segment: "", perm: ""},
@@ -350,6 +371,9 @@ func match(method, path string) (rule, bool) {
 			continue
 		}
 		if r.segment != "" && r.segment != seg {
+			continue
+		}
+		if r.exact != "" && r.exact != path {
 			continue
 		}
 		if r.prefix != "" && !strings.HasPrefix(path, r.prefix) {
@@ -379,15 +403,20 @@ func serverNameFromPath(path string) (string, bool) {
 //   - isExact is true when the path is exactly /servers/{name} or /ws/servers/{name}
 //   - ok is false if the path has unexpected trailing segments after a verb
 func parseServerPath(path string) (string, string, bool, bool) {
+	return parseResourcePath(path, "servers")
+}
+
+// parseResourcePath is parseServerPath for any first segment.
+func parseResourcePath(path, segment string) (string, string, bool, bool) {
 	// Normalize to remove leading /
 	trimmed := strings.TrimPrefix(path, "/")
 	// Handle /ws/servers/... → servers/...
 	trimmed = strings.TrimPrefix(trimmed, "ws/")
 	// Must start with servers/
-	if !strings.HasPrefix(trimmed, "servers/") {
+	if !strings.HasPrefix(trimmed, segment+"/") {
 		return "", "", false, false
 	}
-	rest := strings.TrimPrefix(trimmed, "servers/")
+	rest := strings.TrimPrefix(trimmed, segment+"/")
 	// Empty rest means /servers (list endpoint)
 	if rest == "" {
 		return "", "", false, false

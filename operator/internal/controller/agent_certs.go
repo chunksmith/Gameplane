@@ -17,8 +17,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
@@ -35,8 +37,8 @@ const agentCertRenewalThreshold = 30 * 24 * time.Hour
 // `tls.key`, and `ca.crt` from a single mount, so the controller stages
 // all three keys in one Secret rather than mounting the cluster CA
 // across namespaces (which Kubernetes doesn't allow).
-func agentTLSSecretName(gs *gameplanev1alpha1.GameServer) string {
-	return gs.Name + "-agent-tls"
+func agentTLSSecretName(name string) string {
+	return name + "-agent-tls"
 }
 
 // reconcileAgentTLS ensures `<gs>-agent-tls` exists in the GameServer's
@@ -51,26 +53,32 @@ func agentTLSSecretName(gs *gameplanev1alpha1.GameServer) string {
 func (r *GameServerReconciler) reconcileAgentTLS(
 	ctx context.Context, gs *gameplanev1alpha1.GameServer,
 ) error {
-	if r.AgentCASecretName == "" || r.AgentCASecretNamespace == "" {
+	return ensureAgentTLS(ctx, r.Client, r.Scheme, r.AgentCASecretName, r.AgentCASecretNamespace, gs)
+}
+
+func ensureAgentTLS(
+	ctx context.Context, c client.Client, scheme *runtime.Scheme, caName, caNamespace string, owner client.Object,
+) error {
+	if caName == "" || caNamespace == "" {
 		return errors.New("agent CA Secret reference not configured (set --agent-ca-secret-name and --agent-ca-secret-namespace)")
 	}
 
-	name := agentTLSSecretName(gs)
+	ownerName, namespace := owner.GetName(), owner.GetNamespace()
+	name := agentTLSSecretName(ownerName)
+	dnsNames := agentDNSNames(ownerName, namespace)
 
 	// Fetch the active CA first to compute its fingerprint.
 	var caSecret corev1.Secret
-	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: r.AgentCASecretNamespace, Name: r.AgentCASecretName,
-	}, &caSecret); err != nil {
-		return fmt.Errorf("get agent CA Secret %s/%s: %w", r.AgentCASecretNamespace, r.AgentCASecretName, err)
+	if err := c.Get(ctx, types.NamespacedName{Namespace: caNamespace, Name: caName}, &caSecret); err != nil {
+		return fmt.Errorf("get agent CA Secret %s/%s: %w", caNamespace, caName, err)
 	}
 	caCertPEM, ok := caSecret.Data["ca.crt"]
 	if !ok {
-		return fmt.Errorf("agent CA Secret %s/%s missing ca.crt", r.AgentCASecretNamespace, r.AgentCASecretName)
+		return fmt.Errorf("agent CA Secret %s/%s missing ca.crt", caNamespace, caName)
 	}
 	caKeyPEM, ok := caSecret.Data["ca.key"]
 	if !ok {
-		return fmt.Errorf("agent CA Secret %s/%s missing ca.key", r.AgentCASecretNamespace, r.AgentCASecretName)
+		return fmt.Errorf("agent CA Secret %s/%s missing ca.key", caNamespace, caName)
 	}
 	caCert, caKey, err := parseAgentCA(caCertPEM, caKeyPEM)
 	if err != nil {
@@ -79,28 +87,28 @@ func (r *GameServerReconciler) reconcileAgentTLS(
 	caFingerprint := caCertFingerprint(caCertPEM)
 
 	var existing corev1.Secret
-	getErr := r.Get(ctx, types.NamespacedName{Namespace: gs.Namespace, Name: name}, &existing)
+	getErr := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &existing)
 	if getErr == nil {
 		// Check cert freshness AND that it was signed by the current CA.
 		// If the CA changed, reissue even if the existing cert is still valid.
 		existingCAFingerprint := existing.Annotations["gameplane.local/ca-fingerprint"]
-		if certValidFor(existing.Data["tls.crt"], agentCertRenewalThreshold, agentDNSNames(gs)) &&
+		if certValidFor(existing.Data["tls.crt"], agentCertRenewalThreshold, dnsNames) &&
 			existingCAFingerprint == caFingerprint {
 			return nil
 		}
 	} else if !apierrors.IsNotFound(getErr) {
-		return fmt.Errorf("get agent TLS Secret %s/%s: %w", gs.Namespace, name, getErr)
+		return fmt.Errorf("get agent TLS Secret %s/%s: %w", namespace, name, getErr)
 	}
 
-	certPEM, keyPEM, err := signAgentServerCert(caCert, caKey, gs)
+	certPEM, keyPEM, err := signAgentServerCert(caCert, caKey, ownerName, dnsNames)
 	if err != nil {
-		return fmt.Errorf("sign agent cert for %s: %w", gs.Name, err)
+		return fmt.Errorf("sign agent cert for %s: %w", ownerName, err)
 	}
 
 	sec := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: gs.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, sec, func() error {
+	_, err = controllerutil.CreateOrUpdate(ctx, c, sec, func() error {
 		sec.Type = corev1.SecretTypeTLS
 		sec.Data = map[string][]byte{
 			corev1.TLSCertKey:       certPEM,
@@ -111,10 +119,10 @@ func (r *GameServerReconciler) reconcileAgentTLS(
 			sec.Annotations = make(map[string]string)
 		}
 		sec.Annotations["gameplane.local/ca-fingerprint"] = caFingerprint
-		return controllerutil.SetControllerReference(gs, sec, r.Scheme)
+		return controllerutil.SetControllerReference(owner, sec, scheme)
 	})
 	if err != nil {
-		return fmt.Errorf("upsert agent TLS Secret %s/%s: %w", gs.Namespace, name, err)
+		return fmt.Errorf("upsert agent TLS Secret %s/%s: %w", namespace, name, err)
 	}
 	return nil
 }
@@ -186,7 +194,7 @@ func caCertFingerprint(certPEM []byte) string {
 }
 
 func signAgentServerCert(
-	caCert *x509.Certificate, caKey *rsa.PrivateKey, gs *gameplanev1alpha1.GameServer,
+	caCert *x509.Certificate, caKey *rsa.PrivateKey, name string, dnsNames []string,
 ) (certPEM, keyPEM []byte, err error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -200,12 +208,12 @@ func signAgentServerCert(
 	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: gs.Name + "-agent"},
+		Subject:      pkix.Name{CommonName: name + "-agent"},
 		NotBefore:    now.Add(-1 * time.Hour),
 		NotAfter:     now.Add(365 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     agentDNSNames(gs),
+		DNSNames:     dnsNames,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, caCert, &key.PublicKey, caKey)
 	if err != nil {
@@ -222,21 +230,21 @@ func signAgentServerCert(
 // operator/internal/agent/client.go); the pod-DNS and game-Service
 // forms are kept so a cert mismatch surfaces only when something is
 // genuinely wrong, not because the caller picked a different aliasing.
-func agentDNSNames(gs *gameplanev1alpha1.GameServer) []string {
-	pod := gs.Name + "-0"
-	agentSvc := gs.Name + "-agent"
+func agentDNSNames(name, namespace string) []string {
+	pod := name + "-0"
+	agentSvc := name + "-agent"
 	return []string{
 		pod,
-		gs.Name,
-		fmt.Sprintf("%s.%s", pod, gs.Name),
-		fmt.Sprintf("%s.%s.%s", pod, gs.Name, gs.Namespace),
-		fmt.Sprintf("%s.%s.%s.svc", pod, gs.Name, gs.Namespace),
-		fmt.Sprintf("%s.%s.%s.svc.cluster.local", pod, gs.Name, gs.Namespace),
-		fmt.Sprintf("%s.%s.svc", gs.Name, gs.Namespace),
-		fmt.Sprintf("%s.%s.svc.cluster.local", gs.Name, gs.Namespace),
+		name,
+		fmt.Sprintf("%s.%s", pod, name),
+		fmt.Sprintf("%s.%s.%s", pod, name, namespace),
+		fmt.Sprintf("%s.%s.%s.svc", pod, name, namespace),
+		fmt.Sprintf("%s.%s.%s.svc.cluster.local", pod, name, namespace),
+		fmt.Sprintf("%s.%s.svc", name, namespace),
+		fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace),
 		agentSvc,
-		fmt.Sprintf("%s.%s", agentSvc, gs.Namespace),
-		fmt.Sprintf("%s.%s.svc", agentSvc, gs.Namespace),
-		fmt.Sprintf("%s.%s.svc.cluster.local", agentSvc, gs.Namespace),
+		fmt.Sprintf("%s.%s", agentSvc, namespace),
+		fmt.Sprintf("%s.%s.svc", agentSvc, namespace),
+		fmt.Sprintf("%s.%s.svc.cluster.local", agentSvc, namespace),
 	}
 }

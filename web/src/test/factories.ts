@@ -31,6 +31,10 @@ import type {
   StatisticsNodeSummary,
   StatisticsPoint,
   StatisticsServerSummary,
+  GitCommit,
+  GitHubIntegration,
+  GitStatus,
+  Repository,
 } from "@/types";
 import type { AllConfig } from "@/lib/config";
 import type { FileEntry } from "@/lib/endpoints";
@@ -513,4 +517,51 @@ export function makeFleetItem(name: string, annotations: Record<string, string> 
     resource: makeServer({ metadata: { name, namespace, annotations } }),
     permissions: ["servers:read"],
   };
+}
+
+export function makeRepository(over: Partial<Repository> = {}): Repository {
+  return {
+    name: "site",
+    namespace: "gameplane-games",
+    uid: "site-uid",
+    url: "https://github.com/chunksmith/site",
+    branch: "main",
+    network: "",
+    owner: { id: "1", name: "admin" },
+    collaborators: 0,
+    phase: "Ready",
+    cloneProgress: null,
+    error: null,
+    head: "a3f9c21",
+    ahead: 1,
+    behind: 2,
+    changes: 2,
+    lastFetch: null,
+    storage: { size: "2Gi", used: null },
+    ...over,
+  };
+}
+
+export function makeGitStatus(over: Partial<GitStatus> = {}): GitStatus {
+  return {
+    branch: "main",
+    head: "a3f9c21",
+    upstream: "origin/main",
+    ahead: 1,
+    behind: 2,
+    changes: [
+      { path: "build.gradle.kts", state: "M", staged: true, additions: 1, deletions: 1 },
+      { path: "config.yml", state: "M", staged: false, additions: 2, deletions: 2 },
+      { path: "CHANGELOG.md", state: "U", staged: false, additions: 0, deletions: 0 },
+    ],
+    ...over,
+  };
+}
+
+export function makeGitCommit(over: Partial<GitCommit> = {}): GitCommit {
+  return { sha: "a3f9c21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", subject: "Bump version", body: "", author: "Kaan", login: "kaan", time: "2026-10-27T10:00:00Z", pushed: true, ...over };
+}
+
+export function makeGitHub(over: Partial<GitHubIntegration> = {}): GitHubIntegration {
+  return { keySet: true, keyHint: "7c2e", login: "arda", name: "Arda", contents: "write", workflows: false, ...over };
 }

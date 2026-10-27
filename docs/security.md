@@ -298,7 +298,9 @@ When `networkPolicies.enabled=true` (default) the chart applies:
 - `allow-api-to-agent` — allows the API and operator pods (in the
   control-plane namespace) to reach every game pod's agent on TCP port 8090.
   The API proxies console/files/logs/players; the operator calls `/quiesce`
-  before backups.
+  before backups. It also selects repo agent pods
+  (`app.kubernetes.io/name=gameplane-repo`, spec 029), which the API proxies
+  `/files` and `/git` to.
 - `allow-api-to-capture` — rendered only when `capture.enabled=true`; allows TCP
   9091 to game pods from this release's operator and enabled API pods in the
   control-plane namespace. Both the namespace and pod selectors must match.
@@ -337,11 +339,13 @@ When `networkPolicies.enabled=true` (default) the chart applies:
   defined in `networkPolicies.gameEgress.privateCIDRs` (by default: 10.0.0.0/8,
   172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 to block in-cluster and
   cloud-metadata access). Ports customizable via `networkPolicies.gameEgress.ports`.
+  Repo agent pods (`gameplane-repo`) are selected too, for HTTPS to github.com.
 
 **Note:** `default-deny-egress` applies to all pods in the games namespace
 (`podSelector: {}`), while `allow-agent-to-apiserver` and
 `allow-game-public-egress` only select game pods labelled
-`app.kubernetes.io/name: gameplane-game`. Any pod in the games namespace
+`app.kubernetes.io/name: gameplane-game` (and, for public egress, repo agent
+pods labelled `gameplane-repo`). Any pod in the games namespace
 without that label receives DNS-only egress (connecting to kube-dns on port
 53). Do not place helper or debug pods in the games namespace expecting them
 to route traffic—place them in a different namespace instead.
@@ -521,6 +525,41 @@ guard and the operator's fetch guard above share their dial-time enforcement
 machinery in the `netguard/` module; its package doc explains why the two
 policies (`IsAllowed` vs `IsPublic`) stay separately selectable rather than
 being collapsed into one.
+
+## Repositories and GitHub tokens
+
+Repositories (spec 029) run Git with each user's own GitHub token, so the
+token is the asset to protect.
+
+- **Storage.** A user's token is the Secret `gameplane-github-<userID>` in the
+  control namespace (key `token`, label `gameplane.local/github-token=true`),
+  written through the labelled-Secret helper so an unmanaged Secret of that name
+  is never overwritten. It is checked against `GET https://api.github.com/user`
+  before it is saved and never returned: reads report only `keySet`, the last
+  four characters, the GitHub login and the token's scopes.
+- **Transport.** The API reads the acting user's Secret per request and sends
+  the token to the repo agent in `X-Gameplane-Git-Token` only on network routes
+  (`fetch`, `pull`, `push`, `commit` with `push`, and the clone the API starts)
+  over the API → agent mTLS channel. Browser-supplied values of the token and
+  commit-identity headers are dropped. A user without a token gets
+  `428 github_token_required`; nobody else's token is ever used for them.
+- **In the agent.** The token reaches Git only through `GIT_ASKPASS` (the agent
+  binary re-executed as the askpass helper) for that one command. It is never
+  written to disk, to `.git/config` or to a credential helper (`credential.helper`
+  is empty and system config is off), and every output and error replaces it with
+  `[REDACTED]`.
+- **Remotes.** Only `https://github.com/<owner>/<repo>` is accepted (CRD
+  pattern, API and agent checks), and the agent resolves `github.com` through
+  `netguard.IsPublic` before any network command, so a repository cannot point
+  Git at in-cluster or metadata addresses. SSH remotes and other hosts are out
+  of scope in v1.
+- **Working copy.** `.git` (any path component) is hidden from and refused by
+  `/files` (`403 git_dir`), so hooks and Git config cannot be planted through the
+  file API, and every Git command runs with `core.hooksPath=/dev/null`. The repo
+  agent runs non-root with a read-only root filesystem, no service account token
+  and its own PVC; the games-namespace NetworkPolicies admit only the API and
+  operator on 8090 and give it the same public-only egress as game pods
+  (`allow-game-public-egress`).
 
 ## AI assistant web fetch
 

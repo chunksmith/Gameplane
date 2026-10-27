@@ -1334,3 +1334,94 @@ export interface ServerStatistics {
   disk: { used: number | null; total: number | null; growth: number | null; read: number | null; write: number | null };
   health: { restarts: number | null; oomKills: number | null; throttledPercent: number | null };
 }
+
+export type RepositoryPhase = "Pending" | "Cloning" | "Ready" | "Failed";
+
+export type GitFileState = "M" | "A" | "D" | "R" | "U";
+
+export interface Repository {
+  name: string;
+  namespace: string;
+  uid: string;
+  url: string;
+  branch: string;
+  network: string;
+  owner: { id: string; name: string };
+  collaborators: number;
+  phase: RepositoryPhase;
+  cloneProgress: number | null;
+  error: string | null;
+  head: string | null;
+  ahead: number;
+  behind: number;
+  changes: number;
+  lastFetch: string | null;
+  storage: { size: string; used: number | null };
+}
+
+export interface RepositoryCreate {
+  url: string;
+  branch?: string;
+  name: string;
+  network?: string;
+  storageSize?: string;
+}
+
+export interface RepositoryAccess {
+  isOwner: boolean;
+  isCollaborator: boolean;
+  permissions: string[];
+}
+
+export interface RepositoryCollaborator {
+  userId: number;
+  username: string;
+  read: boolean;
+  edit: boolean;
+  push: boolean;
+}
+
+export interface GitChange {
+  path: string;
+  oldPath?: string;
+  state: GitFileState;
+  staged: boolean;
+  additions: number;
+  deletions: number;
+}
+
+export interface GitStatus {
+  branch: string;
+  head: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  changes: GitChange[];
+}
+
+export interface GitCommit {
+  sha: string;
+  subject: string;
+  body: string;
+  author: string;
+  login: string | null;
+  time: string;
+  pushed: boolean;
+}
+
+export interface GitBranch {
+  name: string;
+  current: boolean;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+}
+
+export interface GitHubIntegration {
+  keySet: boolean;
+  keyHint: string;
+  login: string | null;
+  name: string | null;
+  contents: "write" | "read" | "none" | null;
+  workflows: boolean | null;
+}

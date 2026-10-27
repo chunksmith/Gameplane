@@ -17,6 +17,10 @@ import {
   makeConfig,
   makeDestination,
   makeFileEntry,
+  makeGitCommit,
+  makeGitHub,
+  makeGitStatus,
+  makeRepository,
   makeModule,
   makeModuleSource,
   makePlayers,
@@ -71,8 +75,63 @@ const statisticsHandlers = [
   ),
 ];
 
+const repositoryHandlers = [
+  http.get("/integrations/github", () => HttpResponse.json(makeGitHub())),
+  http.put("/integrations/github/token", () => HttpResponse.json(makeGitHub())),
+  http.delete("/integrations/github/token", () => new HttpResponse(null, { status: 204 })),
+  http.get("/repositories", () => HttpResponse.json([makeRepository()])),
+  http.post("/repositories", async ({ request }) => {
+    const body = (await request.json()) as { name: string; url: string };
+    return HttpResponse.json(makeRepository({ name: body.name, url: body.url, phase: "Pending", head: null }), { status: 201 });
+  }),
+  http.get("/repositories/:name", ({ params }) => {
+    if (isColonAction(params)) return;
+    return HttpResponse.json(makeRepository({ name: String(params.name) }));
+  }),
+  http.delete("/repositories/:name", () => new HttpResponse(null, { status: 204 })),
+  http.get("/repositories/:name/access", () =>
+    HttpResponse.json({ isOwner: true, isCollaborator: false, permissions: ["repositories:read", "repositories:write", "repositories:push", "repositories:manage"] }),
+  ),
+  http.get("/repositories/:name/collaborators", () => HttpResponse.json([{ userId: 2, username: "deniz", read: true, edit: true, push: false }])),
+  http.post("/repositories/:name/collaborators", () => new HttpResponse(null, { status: 204 })),
+  http.put("/repositories/:name/collaborators/:userId", () => new HttpResponse(null, { status: 204 })),
+  http.delete("/repositories/:name/collaborators/:userId", () => new HttpResponse(null, { status: 204 })),
+  http.put(/\/repositories\/[^/]+:network$/, () => new HttpResponse(null, { status: 204 })),
+  http.post(/\/repositories\/[^/]+:reclone$/, () => HttpResponse.json(makeRepository({ phase: "Cloning", cloneProgress: 0 }), { status: 202 })),
+  http.get("/repositories/:name/git/status", () => HttpResponse.json(makeGitStatus())),
+  http.get("/repositories/:name/git/diff", () => new HttpResponse("@@ -1,2 +1,2 @@\n-old: 1\n+new: 2\n keep\n", { headers: { "Content-Type": "text/x-diff" } })),
+  ...["stage", "unstage", "discard", "undo", "checkout", "fetch", "pull", "push"].map((action) =>
+    http.post(`/repositories/:name/git/${action}`, () => HttpResponse.json(makeGitStatus())),
+  ),
+  http.post("/repositories/:name/git/commit", () => HttpResponse.json({ commit: makeGitCommit({ pushed: false }), pushed: false })),
+  http.post("/repositories/:name/git/revert", () => HttpResponse.json({ commit: makeGitCommit({ subject: "Revert" }) })),
+  http.get("/repositories/:name/git/log", ({ request }) => {
+    const ref = new URL(request.url).searchParams.get("ref");
+    return HttpResponse.json({
+      commits: ref === "HEAD"
+        ? [makeGitCommit({ sha: "e41b7d0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", subject: "Enable model cache", pushed: false, login: "arda" }), makeGitCommit()]
+        : [makeGitCommit({ sha: "9bd02e4aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", subject: "Fix lerp" }), makeGitCommit()],
+      next: null,
+    });
+  }),
+  http.get("/repositories/:name/git/commits/:sha", ({ params }) =>
+    HttpResponse.json({ commit: makeGitCommit({ sha: String(params.sha) }), diff: "diff --git a/a b/a\n@@ -1 +1 @@\n-a\n+b\n" }),
+  ),
+  http.get("/repositories/:name/git/branches", () =>
+    HttpResponse.json([
+      { name: "main", current: true, upstream: "origin/main", ahead: 1, behind: 2 },
+      { name: "origin/main", current: false, upstream: null, ahead: 0, behind: 0 },
+    ]),
+  ),
+  http.post("/repositories/:name/git/branches", async ({ request }) => {
+    const body = (await request.json()) as { name: string; checkout?: boolean };
+    return HttpResponse.json({ name: body.name, current: body.checkout === true, upstream: null, ahead: 0, behind: 0 });
+  }),
+];
+
 export const handlers = [
   ...fleetHandlers,
+  ...repositoryHandlers,
   http.get("/admin/installation", () => HttpResponse.json({ standalone: false, localCluster: true })),
   // Auth
   http.get("/users/me", ({ cookies }) => {

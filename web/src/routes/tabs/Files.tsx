@@ -1,4 +1,5 @@
-import { useResourceClient, useResourceAccess, useResourceTarget, resourceKey, type ResourceTarget } from "@/lib/resourceTarget";
+import { useResourceClient, useResourceAccess, useResourceTarget, resourceKey, assistantScope, type ResourceTarget } from "@/lib/resourceTarget";
+import { GIT_STATE_CLASS, useGitMarks } from "@/lib/repositories";
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -585,7 +586,7 @@ function DirectoryView({ resourceTarget, path, onNavigate, viewToggle, aside, as
         {assistantOpen ? (
           <AssistantSplit
             main={browser}
-            assistant={<FileAssistant scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }} onClose={() => onAssistantOpen(false)} />}
+            assistant={<FileAssistant scope={assistantScope(resourceTarget)} onClose={() => onAssistantOpen(false)} />}
           />
         ) : (
           browser
@@ -776,7 +777,7 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
             main={editor}
             assistant={
               <FileAssistant
-                scope={{ server: name, namespace: ns, cluster: resourceTarget.cluster }}
+                scope={assistantScope(resourceTarget)}
                 file={{
                   path,
                   language: guessLang(entry.name),
@@ -1220,6 +1221,7 @@ function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
   const intl = useOptionalIntl();
   const client = useResourceClient(tree.resourceTarget);
   const { name, namespace: ns } = tree.resourceTarget;
+  const marks = useGitMarks(tree.resourceTarget);
   const listing = useQuery({
     queryKey: listKey(tree.resourceTarget, dir),
     queryFn: ({ signal }) => client.withSignal(signal).Files.list(name, dir, ns),
@@ -1232,6 +1234,7 @@ function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
   }
   return sortEntries(listing.data.entries).map((entry) => {
     const isOpen = entry.dir && tree.expanded.has(entry.path);
+    const mark = marks.get(entry.path);
     return (
       <li key={entry.path} role="treeitem" aria-expanded={entry.dir ? isOpen : undefined} aria-selected={tree.selected.has(entry.path) || entry.path === tree.path}>
         <button
@@ -1254,7 +1257,8 @@ function TreeLevel({ dir, depth, ...tree }: TreeLevelProps) {
             <span className="h-3.5 w-3.5 shrink-0" />
           )}
           <EntryIcon entry={entry} />
-          <span className="truncate">{entry.name}</span>
+          <span className={cn("truncate", mark && GIT_STATE_CLASS[mark])}>{entry.name}</span>
+          {mark && <span className={cn("ml-1 shrink-0 font-mono text-[11px] font-semibold", GIT_STATE_CLASS[mark])}>{mark}</span>}
         </button>
         {isOpen && (
           <ul role="group">

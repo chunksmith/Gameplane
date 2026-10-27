@@ -155,6 +155,14 @@
     "defaultMessage": "Requested {requestKind, select, addressAndPool {address ''{address}'' from pool ''{pool}''} address {address ''{address}''} other {pool ''{pool}''}}: waiting for the LoadBalancer Service that carries the request to exist.",
     "description": "AddressAssignment condition before the load-balancer Service exists."
   },
+  "condition.agentready.agentnotready": {
+    "defaultMessage": "The repository agent pod is not ready.",
+    "description": "Repository AgentReady condition while the repository agent pod is starting or failing."
+  },
+  "condition.agentready.agentready": {
+    "defaultMessage": "The repository agent pod is ready.",
+    "description": "Repository AgentReady condition once the repository agent pod is ready."
+  },
   "condition.completed.failed": {
     "defaultMessage": "The backup or restore failed.",
     "description": "Completed condition on a Backup or Restore that failed. The message holds the English detail."
@@ -826,6 +834,94 @@
   "server.remote_cluster_not_implemented": {
     "defaultMessage": "not implemented: no cross-cluster agent yet; this route only serves the home cluster",
     "description": "API response for a home-cluster-only route called with a ?cluster= value that names another cluster. No cross-cluster agent exists yet."
+  },
+  "server.repositories.agent_unavailable": {
+    "defaultMessage": "The repository agent is not reachable.",
+    "description": "Repository error when the repository's agent pod does not answer."
+  },
+  "server.repositories.already_pushed": {
+    "defaultMessage": "This commit is already pushed and cannot be undone.",
+    "description": "Git error when undoing a commit that is already on the remote."
+  },
+  "server.repositories.bad_request": {
+    "defaultMessage": "The Git request was not valid.",
+    "description": "Git error for a malformed Git request, for example a missing path or an invalid branch name."
+  },
+  "server.repositories.busy": {
+    "defaultMessage": "Another Git operation is running on this repository. Try again in a moment.",
+    "description": "Git error when another Git command holds the repository lock."
+  },
+  "server.repositories.conflict": {
+    "defaultMessage": "The changes conflict and were not applied.",
+    "description": "Git error when a pull (rebase) or revert hits conflicts; the operation was aborted and the response lists the files."
+  },
+  "server.repositories.dirty": {
+    "defaultMessage": "Commit or discard your changes before switching branches.",
+    "description": "Git error when switching branches with uncommitted changes."
+  },
+  "server.repositories.git_dir": {
+    "defaultMessage": "The .git folder cannot be opened or changed.",
+    "description": "Repository file error when a path inside the .git folder is requested."
+  },
+  "server.repositories.git_failed": {
+    "defaultMessage": "Git could not complete the operation.",
+    "description": "Git error when the git command fails; the response output has Git's message."
+  },
+  "server.repositories.github_token_required": {
+    "defaultMessage": "Connect your GitHub token in Settings, Integrations first.",
+    "description": "Repository error when a Git operation that talks to GitHub, or a commit that needs the user's GitHub identity, runs without a saved GitHub token."
+  },
+  "server.repositories.internal": {
+    "defaultMessage": "The repository agent hit an internal error.",
+    "description": "Git error for an unexpected failure in the repository agent."
+  },
+  "server.repositories.invalid_branch": {
+    "defaultMessage": "The branch name is not valid.",
+    "description": "Repository error when the requested branch name is not a valid Git branch name."
+  },
+  "server.repositories.invalid_name": {
+    "defaultMessage": "The repository name must be a lowercase DNS label.",
+    "description": "Repository error when the name is not a DNS-1123 label (lowercase letters, digits and hyphens, at most 63 characters)."
+  },
+  "server.repositories.invalid_storage": {
+    "defaultMessage": "The disk size is not valid.",
+    "description": "Repository error when the requested disk size is not a positive Kubernetes quantity such as 2Gi."
+  },
+  "server.repositories.name_taken": {
+    "defaultMessage": "A server or repository with this name already exists in this namespace.",
+    "description": "Repository error when the name is already used by a game server or repository in the same namespace."
+  },
+  "server.repositories.network_not_found": {
+    "defaultMessage": "network not found",
+    "description": "Repository error when the selected network does not exist."
+  },
+  "server.repositories.not_empty": {
+    "defaultMessage": "The working copy is not empty.",
+    "description": "Git error when cloning into a working copy that already has files."
+  },
+  "server.repositories.not_found": {
+    "defaultMessage": "The commit, branch or file was not found.",
+    "description": "Git error when the requested commit, branch or path does not exist."
+  },
+  "server.repositories.owner_not_collaborator": {
+    "defaultMessage": "The owner cannot be added as a collaborator.",
+    "description": "Repository error when the owner is added to the repository's collaborators."
+  },
+  "server.repositories.push_rejected": {
+    "defaultMessage": "GitHub rejected the push because the branch has new commits. Pull first.",
+    "description": "Git error when a push is rejected as non-fast-forward."
+  },
+  "server.repositories.remote_not_allowed": {
+    "defaultMessage": "Only HTTPS github.com repository URLs are supported.",
+    "description": "Repository error when the repository URL is not https://github.com/OWNER/REPO."
+  },
+  "server.repositories.token_invalid": {
+    "defaultMessage": "GitHub did not accept this token.",
+    "description": "GitHub integration error when saving a personal access token that GitHub rejects or that is malformed."
+  },
+  "server.repositories.too_large": {
+    "defaultMessage": "The diff or request is too large.",
+    "description": "Git error when a diff or commit exceeds 5 MiB or the request body exceeds 1 MiB."
   },
   "server.roles.admin_not_editable": {
     "defaultMessage": "the admin role cannot be edited",
@@ -4903,6 +4999,14 @@
     "defaultMessage": "Manage",
     "description": "Permission chips: name of the permission that lets a member start, stop, change files, mods and players of a server; keep it short"
   },
+  "web.lib.permissions.repository_edit": {
+    "defaultMessage": "Repo edit",
+    "description": "Permission chips: name of the permission that lets a network member edit files and commit in the network's repositories; keep it short"
+  },
+  "web.lib.permissions.repository_push": {
+    "defaultMessage": "Repo push",
+    "description": "Permission chips: name of the permission that lets a network member push the network's repositories; keep it short"
+  },
   "web.lib.permissions.view": {
     "defaultMessage": "View",
     "description": "Permission chips: name of the view permission, which every grant includes and cannot be removed; keep it short"
@@ -5086,6 +5190,658 @@
   "web.lib.validation.whole_number": {
     "defaultMessage": "Must be a whole number.",
     "description": "Config field validation: integer field value is not a whole number"
+  },
+  "web.repositories.add": {
+    "defaultMessage": "Add repository",
+    "description": "Repositories: button that opens the Add repository dialog, and the dialog title; keep it short"
+  },
+  "web.repositories.add_description": {
+    "defaultMessage": "Clone a GitHub repository into the panel. Everyone with access shares one copy.",
+    "description": "Add repository dialog: explanation under the title"
+  },
+  "web.repositories.ahead_behind": {
+    "defaultMessage": "↓{behind} ↑{ahead}",
+    "description": "Repositories: commits to pull (down arrow) and to push (up arrow); {behind} and {ahead} are numbers"
+  },
+  "web.repositories.assistant.explain_repository": {
+    "defaultMessage": "Explain the project",
+    "description": "Repository assistant: title of a starter card that asks the assistant to explain how the repository is laid out; keep it short"
+  },
+  "web.repositories.assistant.explain_repository_prompt": {
+    "defaultMessage": "Explain how this repository is organized",
+    "description": "Repository assistant: message put in the message box when the Explain the project starter card is clicked"
+  },
+  "web.repositories.assistant.intro": {
+    "defaultMessage": "I can read and change {repository}'s files, show its Git status and diffs, commit and push — only what your own permissions allow.",
+    "description": "Repository assistant: intro under the heading of the empty chat when the assistant is scoped to one repository; {repository} is the repository name"
+  },
+  "web.repositories.assistant.placeholder": {
+    "defaultMessage": "Ask Claude about this repository…",
+    "description": "Repository assistant: placeholder of the message box when the assistant is scoped to one repository"
+  },
+  "web.repositories.assistant.review_changes": {
+    "defaultMessage": "Review changes",
+    "description": "Repository assistant: title of a starter card that asks the assistant to review the uncommitted changes; keep it short"
+  },
+  "web.repositories.assistant.review_changes_prompt": {
+    "defaultMessage": "Review my uncommitted changes",
+    "description": "Repository assistant: message put in the message box when the Review changes starter card is clicked"
+  },
+  "web.repositories.assistant.write_commit": {
+    "defaultMessage": "Write a commit",
+    "description": "Repository assistant: title of a starter card that asks the assistant to write a commit message and commit; keep it short"
+  },
+  "web.repositories.assistant.write_commit_prompt": {
+    "defaultMessage": "Write a commit message for the staged changes and commit them",
+    "description": "Repository assistant: message put in the message box when the Write a commit starter card is clicked"
+  },
+  "web.repositories.branch": {
+    "defaultMessage": "Branch",
+    "description": "Add repository dialog: label of the branch field"
+  },
+  "web.repositories.branch_hint": {
+    "defaultMessage": "Empty uses the default branch.",
+    "description": "Add repository dialog: hint under the branch field"
+  },
+  "web.repositories.breadcrumb": {
+    "defaultMessage": "Repositories",
+    "description": "Breadcrumb: label for the repositories list crumb"
+  },
+  "web.repositories.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "Repositories: button that closes a dialog without changes"
+  },
+  "web.repositories.changes": {
+    "defaultMessage": "{count, plural, one {# change} other {# changes}}",
+    "description": "Repositories: chip with the number of uncommitted changes; {count} is the number"
+  },
+  "web.repositories.clean": {
+    "defaultMessage": "Clean",
+    "description": "Repositories: chip on a repository with no uncommitted changes"
+  },
+  "web.repositories.clone": {
+    "defaultMessage": "Clone repository",
+    "description": "Add repository dialog: submit button that adds and clones the repository"
+  },
+  "web.repositories.clone_failed": {
+    "defaultMessage": "The clone failed.",
+    "description": "Repository detail: title when the first clone failed"
+  },
+  "web.repositories.clone_progress": {
+    "defaultMessage": "Clone progress",
+    "description": "Repository detail: accessible name of the clone progress bar; not shown as text"
+  },
+  "web.repositories.cloning": {
+    "defaultMessage": "Cloning",
+    "description": "Repositories: chip on a repository that is being cloned"
+  },
+  "web.repositories.cloning_progress": {
+    "defaultMessage": "Cloning… {progress}%",
+    "description": "Repository detail: text while the repository is cloning; {progress} is the progress percentage"
+  },
+  "web.repositories.connect_github": {
+    "defaultMessage": "Connect GitHub",
+    "description": "Repositories: link in the page header to Settings, Integrations when no GitHub token is connected"
+  },
+  "web.repositories.copy_url": {
+    "defaultMessage": "Copy URL",
+    "description": "Repository detail: menu item that copies the repository URL; keep it short"
+  },
+  "web.repositories.default_branch": {
+    "defaultMessage": "default branch",
+    "description": "Repositories: shown instead of a branch name when the repository uses the remote's default branch"
+  },
+  "web.repositories.disk_hint": {
+    "defaultMessage": "Volume for the working copy.",
+    "description": "Add repository dialog: hint under the disk size field"
+  },
+  "web.repositories.disk_size": {
+    "defaultMessage": "Disk size",
+    "description": "Add repository dialog: label of the disk size field"
+  },
+  "web.repositories.empty": {
+    "defaultMessage": "No repositories yet",
+    "description": "Repositories: title of the empty state when the user can see no repositories"
+  },
+  "web.repositories.empty_hint": {
+    "defaultMessage": "Repositories you own, collaborate on or reach through a network appear here.",
+    "description": "Repositories: hint under the empty state title"
+  },
+  "web.repositories.error_with_files": {
+    "defaultMessage": "{message} Files: {files}",
+    "description": "Repository: error text followed by the conflicted file paths; {message} is the error and {files} a comma-separated list of paths"
+  },
+  "web.repositories.failed": {
+    "defaultMessage": "Clone failed",
+    "description": "Repositories: chip on a repository whose clone failed"
+  },
+  "web.repositories.fetch": {
+    "defaultMessage": "Fetch",
+    "description": "Repository: action that fetches from GitHub without changing files; keep it short"
+  },
+  "web.repositories.fetched": {
+    "defaultMessage": "fetched {when}",
+    "description": "Repository detail: header text with the last fetch time; {when} is a relative time"
+  },
+  "web.repositories.git.all_changes": {
+    "defaultMessage": "all changes",
+    "description": "Git tab: words used in the discard dialog title when every change is discarded"
+  },
+  "web.repositories.git.back": {
+    "defaultMessage": "Changes",
+    "description": "Git tab: back button on mobile from a diff to the changes list; keep it short"
+  },
+  "web.repositories.git.branch": {
+    "defaultMessage": "Branch",
+    "description": "Git tab: accessible name of the branch picker; not shown as text"
+  },
+  "web.repositories.git.branch_name": {
+    "defaultMessage": "Branch name",
+    "description": "Git tab: label of the new branch name field"
+  },
+  "web.repositories.git.changes_toggle": {
+    "defaultMessage": "Changes · {count}",
+    "description": "Git tab: toggle button that shows the uncommitted changes; {count} is the number of changed files"
+  },
+  "web.repositories.git.commit": {
+    "defaultMessage": "{count, plural, one {Commit # file} other {Commit # files}}",
+    "description": "Git tab: button that commits the staged files; {count} is the number of staged files"
+  },
+  "web.repositories.git.commit_meta": {
+    "defaultMessage": "{author} · {when} · {count, plural, one {# file} other {# files}}",
+    "description": "Git tab History: line about the selected commit; {author} is the author, {when} a relative time, {count} the number of files"
+  },
+  "web.repositories.git.commit_push": {
+    "defaultMessage": "Commit & push",
+    "description": "Git tab: button that commits the staged files and pushes; keep it short"
+  },
+  "web.repositories.git.commit_row": {
+    "defaultMessage": "{author} · {when} · {sha}",
+    "description": "Git tab History: second line of a commit row; {author} is the author, {when} a relative time, {sha} the short SHA"
+  },
+  "web.repositories.git.copy_sha": {
+    "defaultMessage": "Copy SHA",
+    "description": "Git tab History: button that copies the commit SHA; keep it short"
+  },
+  "web.repositories.git.create": {
+    "defaultMessage": "Create",
+    "description": "Git tab: button that creates the new branch; keep it short"
+  },
+  "web.repositories.git.description": {
+    "defaultMessage": "Description (optional)",
+    "description": "Git tab: placeholder and accessible name of the commit description field"
+  },
+  "web.repositories.git.discard": {
+    "defaultMessage": "Discard",
+    "description": "Git tab: button that discards the selected file's changes; keep it short"
+  },
+  "web.repositories.git.discard_all": {
+    "defaultMessage": "Discard all",
+    "description": "Git tab: link that discards every unstaged change; keep it short"
+  },
+  "web.repositories.git.discard_body": {
+    "defaultMessage": "The uncommitted changes are lost for everyone working on this repository. This cannot be undone.",
+    "description": "Git tab: body of the confirm dialog before discarding changes"
+  },
+  "web.repositories.git.discard_title": {
+    "defaultMessage": "Discard {target}?",
+    "description": "Git tab: title of the confirm dialog before discarding; {target} is a file path or the words for all changes"
+  },
+  "web.repositories.git.history": {
+    "defaultMessage": "History",
+    "description": "Git tab: toggle button that shows the commit history; keep it short"
+  },
+  "web.repositories.git.lines_added": {
+    "defaultMessage": "+{count}",
+    "description": "Git tab: number of added lines; {count} is the number"
+  },
+  "web.repositories.git.lines_removed": {
+    "defaultMessage": "-{count}",
+    "description": "Git tab: number of removed lines; {count} is the number"
+  },
+  "web.repositories.git.login": {
+    "defaultMessage": "@{login}",
+    "description": "Git tab: a GitHub login shown as the commit author; {login} is the login"
+  },
+  "web.repositories.git.new_branch": {
+    "defaultMessage": "New branch",
+    "description": "Git tab: button that opens the new branch dialog, and its title; keep it short"
+  },
+  "web.repositories.git.no_changes": {
+    "defaultMessage": "No uncommitted changes.",
+    "description": "Git tab: text when the working copy is clean"
+  },
+  "web.repositories.git.no_upstream": {
+    "defaultMessage": "not pushed yet",
+    "description": "Git tab: text beside the branch picker when the branch has no upstream"
+  },
+  "web.repositories.git.not_pushed": {
+    "defaultMessage": "Not pushed · {count}",
+    "description": "Git tab History: heading of the local commits that are not pushed; {count} is the number"
+  },
+  "web.repositories.git.refresh": {
+    "defaultMessage": "Refresh",
+    "description": "Git tab: accessible name of the icon-only refresh button; not shown as text"
+  },
+  "web.repositories.git.remote_branches": {
+    "defaultMessage": "Remote branches",
+    "description": "Git tab: accessible name of the branch picker section that lists remote branches without a local copy"
+  },
+  "web.repositories.git.revert": {
+    "defaultMessage": "Revert commit",
+    "description": "Git tab History: button that creates a commit undoing the selected commit; keep it short"
+  },
+  "web.repositories.git.select_commit": {
+    "defaultMessage": "Select a commit to see it.",
+    "description": "Git tab: empty commit panel text"
+  },
+  "web.repositories.git.select_file": {
+    "defaultMessage": "Select a file to see its changes.",
+    "description": "Git tab: empty diff panel text"
+  },
+  "web.repositories.git.stage_all": {
+    "defaultMessage": "Stage all",
+    "description": "Git tab: link that stages every changed file; keep it short"
+  },
+  "web.repositories.git.stage_file": {
+    "defaultMessage": "Stage file",
+    "description": "Git tab: button above a diff that stages the file; keep it short"
+  },
+  "web.repositories.git.staged": {
+    "defaultMessage": "Staged · {count}",
+    "description": "Git tab: heading of the staged files list; {count} is the number of files"
+  },
+  "web.repositories.git.summary": {
+    "defaultMessage": "Summary",
+    "description": "Git tab: placeholder and accessible name of the commit summary field"
+  },
+  "web.repositories.git.to_pull": {
+    "defaultMessage": "↓{count} to pull",
+    "description": "Git tab History: number of upstream commits not pulled yet; {count} is the number"
+  },
+  "web.repositories.git.token_missing": {
+    "defaultMessage": "Connect your GitHub token in Settings, Integrations to commit and push.",
+    "description": "Git tab: note under the commit fields when the user has no GitHub token"
+  },
+  "web.repositories.git.token_note": {
+    "defaultMessage": "Commits and pushes use your own GitHub token (@{login}).",
+    "description": "Git tab: note under the commit fields; {login} is the user's GitHub login"
+  },
+  "web.repositories.git.tracking": {
+    "defaultMessage": "tracking {upstream}",
+    "description": "Git tab: text beside the branch picker naming the upstream branch; {upstream} is like origin/main"
+  },
+  "web.repositories.git.undo": {
+    "defaultMessage": "Undo last commit",
+    "description": "Git tab History: link that undoes the last unpushed commit, keeping its changes staged; keep it short"
+  },
+  "web.repositories.git.unstage_all": {
+    "defaultMessage": "Unstage all",
+    "description": "Git tab: link that unstages every staged file; keep it short"
+  },
+  "web.repositories.git.unstage_file": {
+    "defaultMessage": "Unstage file",
+    "description": "Git tab: button above a diff that unstages the file; keep it short"
+  },
+  "web.repositories.git.unstaged": {
+    "defaultMessage": "Changes · {count}",
+    "description": "Git tab: heading of the unstaged changes list; {count} is the number of files"
+  },
+  "web.repositories.git.view": {
+    "defaultMessage": "Git view",
+    "description": "Git tab: accessible name of the Changes and History toggle; not shown as text"
+  },
+  "web.repositories.github.add": {
+    "defaultMessage": "Add token",
+    "description": "Integrations settings: button that opens the form to add a GitHub token"
+  },
+  "web.repositories.github.connected": {
+    "defaultMessage": "Connected",
+    "description": "Integrations settings: badge on the GitHub card once the user's token is stored"
+  },
+  "web.repositories.github.contents": {
+    "defaultMessage": "Repository contents",
+    "description": "Integrations settings: GitHub token permission row for repository contents"
+  },
+  "web.repositories.github.contents_hint": {
+    "defaultMessage": "Needed to clone private repositories and to push.",
+    "description": "Integrations settings: hint under the repository contents row"
+  },
+  "web.repositories.github.field": {
+    "defaultMessage": "GitHub token",
+    "description": "Integrations settings: label of the field where the user pastes a GitHub token"
+  },
+  "web.repositories.github.granted": {
+    "defaultMessage": "Granted",
+    "description": "Integrations settings: status of a GitHub permission that is granted"
+  },
+  "web.repositories.github.not_granted": {
+    "defaultMessage": "Not granted",
+    "description": "Integrations settings: status of a GitHub permission that is not granted"
+  },
+  "web.repositories.github.not_reported": {
+    "defaultMessage": "Not reported",
+    "description": "Integrations settings: status of a GitHub permission that a fine-grained token does not report"
+  },
+  "web.repositories.github.read_only": {
+    "defaultMessage": "Read only",
+    "description": "Integrations settings: status of a GitHub permission with read access only"
+  },
+  "web.repositories.github.read_write": {
+    "defaultMessage": "Read & write",
+    "description": "Integrations settings: status of a GitHub permission with write access"
+  },
+  "web.repositories.github.remove": {
+    "defaultMessage": "Remove",
+    "description": "Integrations settings: button that deletes the stored GitHub token"
+  },
+  "web.repositories.github.replace": {
+    "defaultMessage": "Replace",
+    "description": "Integrations settings: button that replaces the stored GitHub token"
+  },
+  "web.repositories.github.save": {
+    "defaultMessage": "Save token",
+    "description": "Integrations settings: button that verifies and stores the GitHub token"
+  },
+  "web.repositories.github.signed_in": {
+    "defaultMessage": "Signed in as @{login}",
+    "description": "Integrations settings: row naming the GitHub account of the token; {login} is the GitHub login"
+  },
+  "web.repositories.github.signed_in_hint": {
+    "defaultMessage": "Commits use your GitHub name and noreply email.",
+    "description": "Integrations settings: hint under the signed-in row"
+  },
+  "web.repositories.github.subtitle": {
+    "defaultMessage": "Connect your GitHub account. Repository clone, pull, push and commit run as you, with your own token. Nobody else can use it.",
+    "description": "Integrations settings: subtitle of the GitHub card"
+  },
+  "web.repositories.github.title": {
+    "defaultMessage": "GitHub",
+    "description": "Integrations settings: title of the GitHub card; a product name, usually left untranslated"
+  },
+  "web.repositories.github.token": {
+    "defaultMessage": "Personal access token",
+    "description": "Integrations settings: label of the user's GitHub token row"
+  },
+  "web.repositories.github.token_hint": {
+    "defaultMessage": "Create a fine-grained token in GitHub under Settings → Developer settings.",
+    "description": "Integrations settings: hint under the GitHub token row"
+  },
+  "web.repositories.github.token_masked": {
+    "defaultMessage": "github_pat_••••••••{hint}",
+    "description": "Integrations settings: the stored GitHub token, masked except its last four characters"
+  },
+  "web.repositories.github.verified": {
+    "defaultMessage": "Verified",
+    "description": "Integrations settings: status of the signed-in row once GitHub accepted the token"
+  },
+  "web.repositories.github.workflows": {
+    "defaultMessage": "Workflows",
+    "description": "Integrations settings: GitHub token permission row for workflow files"
+  },
+  "web.repositories.github.workflows_hint": {
+    "defaultMessage": "Needed only to push changes under .github/workflows.",
+    "description": "Integrations settings: hint under the workflows row"
+  },
+  "web.repositories.github_connected": {
+    "defaultMessage": "GitHub · @{login}",
+    "description": "Repositories: chip in the page header showing the connected GitHub account; {login} is the GitHub login"
+  },
+  "web.repositories.load_failed": {
+    "defaultMessage": "This repository could not be loaded. Check your access and try again.",
+    "description": "Repository detail: error card when the repository or the user's access cannot be loaded"
+  },
+  "web.repositories.loading": {
+    "defaultMessage": "Loading repositories…",
+    "description": "Repositories: loading text while the repository list is fetched"
+  },
+  "web.repositories.loading_one": {
+    "defaultMessage": "Loading repository…",
+    "description": "Repository detail: loading text while the repository is fetched"
+  },
+  "web.repositories.members": {
+    "defaultMessage": "{count, plural, one {# member} other {# members}}",
+    "description": "Repositories: card footer with the number of people with access; {count} is the owner plus collaborators"
+  },
+  "web.repositories.members_fetched": {
+    "defaultMessage": "{members} · fetched {when}",
+    "description": "Repositories: card footer with the member text and the last fetch time; {members} is the member text and {when} a relative time"
+  },
+  "web.repositories.more_actions": {
+    "defaultMessage": "Repository actions",
+    "description": "Repository detail: accessible name of the icon-only menu button with more actions; not shown as text"
+  },
+  "web.repositories.name": {
+    "defaultMessage": "Name",
+    "description": "Add repository dialog: label of the repository name field"
+  },
+  "web.repositories.name_hint": {
+    "defaultMessage": "Lowercase letters, digits and dashes.",
+    "description": "Add repository dialog: hint under the name field"
+  },
+  "web.repositories.nav": {
+    "defaultMessage": "Repositories",
+    "description": "Sidebar: navigation link to the Git repositories list"
+  },
+  "web.repositories.network": {
+    "defaultMessage": "Network",
+    "description": "Add repository dialog: label of the network select; also the Settings network section label"
+  },
+  "web.repositories.network_chip": {
+    "defaultMessage": "network: {network}",
+    "description": "Repositories: chip naming the repository's network; {network} is the network name"
+  },
+  "web.repositories.network_hint": {
+    "defaultMessage": "Network members can edit and push.",
+    "description": "Add repository dialog: hint under the network select"
+  },
+  "web.repositories.no_network": {
+    "defaultMessage": "No network",
+    "description": "Add repository dialog: network select option and placeholder for no network"
+  },
+  "web.repositories.only_you": {
+    "defaultMessage": "Only you",
+    "description": "Repositories: card footer when the user is the owner and there are no collaborators"
+  },
+  "web.repositories.open": {
+    "defaultMessage": "Open",
+    "description": "Repositories: link on a repository card that opens it; keep it short"
+  },
+  "web.repositories.pending": {
+    "defaultMessage": "Starting",
+    "description": "Repositories: chip on a repository whose agent is still starting"
+  },
+  "web.repositories.pull": {
+    "defaultMessage": "Pull",
+    "description": "Repository detail: header button that pulls with rebase; keep it short"
+  },
+  "web.repositories.push": {
+    "defaultMessage": "Push",
+    "description": "Repository detail: header button that pushes the branch; keep it short"
+  },
+  "web.repositories.reclone": {
+    "defaultMessage": "Re-clone",
+    "description": "Repository detail: menu item that deletes the working copy and clones again; keep it short"
+  },
+  "web.repositories.search": {
+    "defaultMessage": "Search repositories…",
+    "description": "Repositories: placeholder of the search box above the repository cards"
+  },
+  "web.repositories.search_label": {
+    "defaultMessage": "Search repositories",
+    "description": "Repositories: accessible name of the search box; not shown on screen"
+  },
+  "web.repositories.settings.add_collaborator": {
+    "defaultMessage": "Add collaborator",
+    "description": "Repository settings: button that adds the chosen user as a collaborator; keep it short"
+  },
+  "web.repositories.settings.change_network": {
+    "defaultMessage": "Change network",
+    "description": "Repository settings: button that edits the network; keep it short"
+  },
+  "web.repositories.settings.collaborator_badge": {
+    "defaultMessage": "collaborator",
+    "description": "Repository settings: badge on a collaborator row; keep it short"
+  },
+  "web.repositories.settings.collaborator_field": {
+    "defaultMessage": "Username",
+    "description": "Repository settings: accessible name and placeholder of the field for the user to add"
+  },
+  "web.repositories.settings.collaborators": {
+    "defaultMessage": "Collaborators",
+    "description": "Repository settings: title of the collaborators card"
+  },
+  "web.repositories.settings.collaborators_count": {
+    "defaultMessage": "Collaborators",
+    "description": "Repository settings: summary card row label for the number of collaborators"
+  },
+  "web.repositories.settings.collaborators_hint": {
+    "defaultMessage": "People outside the network who can work on this repository.",
+    "description": "Repository settings: text under the collaborators card title"
+  },
+  "web.repositories.settings.danger_button": {
+    "defaultMessage": "Remove repository",
+    "description": "Repository settings: button that removes the repository, and the confirm button; keep it short"
+  },
+  "web.repositories.settings.danger_confirm": {
+    "defaultMessage": "Remove {name}?",
+    "description": "Repository settings: title of the remove confirm dialog; {name} is the repository name"
+  },
+  "web.repositories.settings.danger_hint": {
+    "defaultMessage": "Deletes the panel's working copy and uncommitted changes. GitHub is not touched.",
+    "description": "Repository settings: text under the danger card title"
+  },
+  "web.repositories.settings.danger_title": {
+    "defaultMessage": "Remove this repository",
+    "description": "Repository settings: title of the danger card"
+  },
+  "web.repositories.settings.disk": {
+    "defaultMessage": "Disk",
+    "description": "Repository settings: summary card row label for the volume size"
+  },
+  "web.repositories.settings.grant_edit": {
+    "defaultMessage": "Edit",
+    "description": "Repository settings: collaborator permission chip for editing files and committing; keep it short"
+  },
+  "web.repositories.settings.grant_push": {
+    "defaultMessage": "Push",
+    "description": "Repository settings: collaborator permission chip for pushing; keep it short"
+  },
+  "web.repositories.settings.grant_read": {
+    "defaultMessage": "Read",
+    "description": "Repository settings: collaborator permission chip for reading, always on; keep it short"
+  },
+  "web.repositories.settings.grants_label": {
+    "defaultMessage": "{username} permissions",
+    "description": "Repository settings: accessible name of a collaborator's permission chips; {username} is the user"
+  },
+  "web.repositories.settings.kind": {
+    "defaultMessage": "repository",
+    "description": "Repository settings: small label under the repository name on the summary card"
+  },
+  "web.repositories.settings.network_field": {
+    "defaultMessage": "Network name, empty for none",
+    "description": "Repository settings: accessible name and placeholder of the network name field"
+  },
+  "web.repositories.settings.network_hint": {
+    "defaultMessage": "Members of the network can open, edit and push this repository with their own token, as their network permissions allow.",
+    "description": "Repository settings: text under the network card title"
+  },
+  "web.repositories.settings.network_none": {
+    "defaultMessage": "No network",
+    "description": "Repository settings: title of the network card when the repository has no network"
+  },
+  "web.repositories.settings.network_title": {
+    "defaultMessage": "Network · {network}",
+    "description": "Repository settings: title of the network card; {network} is the network name"
+  },
+  "web.repositories.settings.no_collaborators": {
+    "defaultMessage": "No collaborators yet.",
+    "description": "Repository settings: empty collaborators list text"
+  },
+  "web.repositories.settings.owner": {
+    "defaultMessage": "Owner",
+    "description": "Repository settings: summary card row label for the owner"
+  },
+  "web.repositories.settings.remove": {
+    "defaultMessage": "Remove",
+    "description": "Repository settings: button that removes a collaborator; keep it short"
+  },
+  "web.repositories.settings.save": {
+    "defaultMessage": "Save",
+    "description": "Repository settings: button that saves the network; keep it short"
+  },
+  "web.repositories.settings.source": {
+    "defaultMessage": "Source",
+    "description": "Repository settings: summary card row label for owner/repo on GitHub"
+  },
+  "web.repositories.slug_branch": {
+    "defaultMessage": "{slug} · {branch}",
+    "description": "Repositories: card subtitle; {slug} is owner/repo and {branch} the branch"
+  },
+  "web.repositories.slug_cloning": {
+    "defaultMessage": "{slug} · Cloning… {progress}%",
+    "description": "Repositories: card subtitle while the repository is cloning; {slug} is owner/repo and {progress} the clone progress"
+  },
+  "web.repositories.subtitle": {
+    "defaultMessage": "Git repositories your team edits, commits and pushes from the panel.",
+    "description": "Repositories: description under the page title"
+  },
+  "web.repositories.tab_assistant": {
+    "defaultMessage": "Assistant",
+    "description": "Repository detail: label of the Assistant tab"
+  },
+  "web.repositories.tab_files": {
+    "defaultMessage": "Files",
+    "description": "Repository detail: label of the Files tab"
+  },
+  "web.repositories.tab_git": {
+    "defaultMessage": "Git",
+    "description": "Repository detail: label of the Git tab"
+  },
+  "web.repositories.tab_settings": {
+    "defaultMessage": "Settings",
+    "description": "Repository detail: label of the Settings tab"
+  },
+  "web.repositories.tabs": {
+    "defaultMessage": "Repository tabs",
+    "description": "Repository detail: accessible name of the row of tabs; not shown as text"
+  },
+  "web.repositories.title": {
+    "defaultMessage": "Repositories",
+    "description": "Repositories: page title"
+  },
+  "web.repositories.token_missing": {
+    "defaultMessage": "Connect your GitHub token in Settings, Integrations before adding a repository.",
+    "description": "Add repository dialog: note shown instead when the user has no GitHub token yet"
+  },
+  "web.repositories.token_note": {
+    "defaultMessage": "The clone runs with your token. Later, every pull, fetch and push runs with the token of the person who starts it, so GitHub shows who did what.",
+    "description": "Add repository dialog: note explaining that each Git network operation uses the acting user's own token"
+  },
+  "web.repositories.token_note_title": {
+    "defaultMessage": "Uses your GitHub token",
+    "description": "Add repository dialog: title of the note about whose token is used"
+  },
+  "web.repositories.up_to_date": {
+    "defaultMessage": "up to date",
+    "description": "Repositories: shown when the branch has nothing to pull or push"
+  },
+  "web.repositories.url": {
+    "defaultMessage": "Repository URL",
+    "description": "Add repository dialog: label of the repository URL field"
+  },
+  "web.repositories.url_hint": {
+    "defaultMessage": "HTTPS only. Private repositories need a token with repo access.",
+    "description": "Add repository dialog: hint under the URL field"
+  },
+  "web.repositories.url_placeholder": {
+    "defaultMessage": "https://github.com/owner/repository",
+    "description": "Add repository dialog: example value in the empty URL field"
+  },
+  "web.repositories.waiting_agent": {
+    "defaultMessage": "Waiting for the repository agent to start…",
+    "description": "Repository detail: text while the repository agent pod is starting"
   },
   "web.routes.admin_logs.component_api": {
     "defaultMessage": "API server",

@@ -465,10 +465,6 @@ export interface FileEntry {
   modTime?: string;
 }
 
-function filesBase(server: string): string {
-  return `/servers/${encodeURIComponent(server)}/files`;
-}
-
 function pathsQuery(paths: string[]): string {
   return paths.map((path) => `path=${encodeURIComponent(path)}`).join("&");
 }
@@ -719,7 +715,8 @@ export const ModuleBuilder = {
 
 type RequestClient = Pick<ReturnType<typeof createRequestClient>, "api" | "url" | "raw" | "Captures" | "Shares">;
 
-function makeResourceEndpoints(request: RequestClient) {
+function makeResourceEndpoints(request: RequestClient, resource: "servers" | "repositories" = "servers") {
+  const filesBase = (name: string) => `/${resource}/${encodeURIComponent(name)}/files`;
   const api = request.api;
   const withCluster = (path: string, cluster?: string) => request.url(cluster ? withClusterParam(path, cluster) : path);
   const fetch = request.raw;
@@ -1132,7 +1129,7 @@ function makeResourceEndpoints(request: RequestClient) {
 export function createResourceClient(scope: ResourceScope, signal?: AbortSignal): ResourceClient {
   const captured = Object.freeze({ ...scope });
   return {
-    ...makeResourceEndpoints(createRequestClient(captured, signal)),
+    ...makeResourceEndpoints(createRequestClient(captured, signal), captured.resource),
     withSignal: (nextSignal: AbortSignal) => createResourceClient(captured, nextSignal),
   };
 }

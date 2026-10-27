@@ -415,6 +415,9 @@ func main() {
 		handlers.MountModulesWithRegistry(p, reg, cfg.namespace)
 		handlers.MountRegistrySecrets(p, k8s, cfg.namespace)
 		handlers.MountAISecret(p, k8s, cfg.namespace)
+		githubTokens := handlers.NewGitHubTokens(k8s, cfg.namespace)
+		handlers.MountGitHubIntegration(p, githubTokens)
+		handlers.MountRepositories(p, reg, store, ws.NewRepoAgent(cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, githubTokens.Credentials), githubTokens)
 		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.NewAILinearKeys(k8s, cfg.namespace))
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over
@@ -840,7 +843,7 @@ func bodyLimit(maxBytes int64) func(http.Handler) http.Handler {
 // (httpProxy default, files/write) and 512 MiB (mods/upload) ceilings
 // dead code — see F-075.
 func isUploadPath(path string) bool {
-	if !strings.HasPrefix(path, "/servers/") {
+	if !strings.HasPrefix(path, "/servers/") && !strings.HasPrefix(path, "/repositories/") {
 		return false
 	}
 	// /servers/{name}/files/upload, /servers/{name}/files/write,
@@ -949,13 +952,23 @@ func isLargeTransferPath(method, path string) bool {
 		if path == "/admin/audit/export" {
 			return true
 		}
-		if !strings.HasPrefix(path, "/servers/") {
+		if !strings.HasPrefix(path, "/servers/") && !strings.HasPrefix(path, "/repositories/") {
 			return false
 		}
 		return strings.HasSuffix(path, "/files/download") ||
 			strings.HasSuffix(path, "/files/archive") ||
 			strings.HasSuffix(path, "/logs/download") ||
 			strings.HasSuffix(path, ":capture-file")
+	}
+	if method == http.MethodPost && strings.HasPrefix(path, "/repositories/") {
+		// Git network operations wait for GitHub.
+		return strings.HasSuffix(path, "/files/upload") ||
+			strings.HasSuffix(path, "/files/write") ||
+			strings.HasSuffix(path, "/files/zip") ||
+			strings.HasSuffix(path, "/git/fetch") ||
+			strings.HasSuffix(path, "/git/pull") ||
+			strings.HasSuffix(path, "/git/push") ||
+			strings.HasSuffix(path, "/git/commit")
 	}
 	if method == http.MethodPost && strings.HasPrefix(path, "/servers/") {
 		// Uploads stream their body on req.Context(). URL installs also

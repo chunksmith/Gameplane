@@ -332,13 +332,13 @@ EOF
 # (e2e-multicluster) brings up both clusters before running it.
 #
 # TestAPI_AccountRemoval_RevokesSharesAndAllowsSSOReprovision,
-# TestAPI_ModuleUpload_ExtractionStaysWithinBudget, TestAPI_I18n_ProblemJSON
-# and TestAPI_I18n_ModuleLocales live here for the login budget, not by
-# subject: api-mods is at its ~7 e2e-admin-login ceiling. Each costs +1
-# e2e-admin login (account removal also uses fake-OIDC sign-ins, which every
-# e2e.sh cluster deploys), and TestAPI_I18n_ProblemJSON costs one admin login,
-# one viewer login and one failed-login pair, bringing this job to 5 admin
-# logins (ceiling ~7). All run against the primary cluster. api-auth,
+# TestAPI_ModuleUpload_ExtractionStaysWithinBudget, TestAPI_I18n_ProblemJSON,
+# TestAPI_I18n_ModuleLocales and TestAPI_RepositoryCommitPush live here for
+# the login budget, not by subject: api-mods is at its ~7 e2e-admin-login
+# ceiling. Each costs +1 e2e-admin login (account removal also uses fake-OIDC
+# sign-ins, which every e2e.sh cluster deploys), and TestAPI_I18n_ProblemJSON
+# costs one admin login, one viewer login and one failed-login pair, bringing
+# this job to 6 admin logins (ceiling ~7). All run against the primary cluster. api-auth,
 # api-roles, api-mods, api-rbac and api-agent are at their ceilings (see their
 # comments); do not add to them.
 bucket_multicluster() { cat <<'EOF'
@@ -346,6 +346,7 @@ TestAPI_AccountRemoval_RevokesSharesAndAllowsSSOReprovision
 TestAPI_ModuleUpload_ExtractionStaysWithinBudget
 TestAPI_I18n_ProblemJSON
 TestAPI_I18n_ModuleLocales
+TestAPI_RepositoryCommitPush
 TestMultiCluster_ClusterDispatchAndScopedRBAC
 TestMultiCluster_GatewayParity
 EOF

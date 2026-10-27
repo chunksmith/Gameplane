@@ -27,7 +27,7 @@ import { Networks, Servers, Users } from "@/lib/endpoints";
 import { errorTextIntl } from "@/lib/errors";
 import { targetKey, useFleetServers, type FleetItem } from "@/lib/fleet";
 import { useOptionalIntl, useFormat } from "@/lib/i18n/format";
-import { PermissionChips, SERVER_PERMISSIONS } from "@/lib/permissions";
+import { NETWORK_PERMISSIONS, PermissionChips, SERVER_PERMISSIONS } from "@/lib/permissions";
 import type { GameServer, NetworkMember, User } from "@/types";
 
 function networkOf(item: FleetItem<GameServer>): string {
@@ -278,6 +278,7 @@ function MembersCard({ name, members, users }: { name: string; members: NetworkM
                   {user?.role && <span className="rounded-full bg-default/60 px-2 py-0.5 text-[11px] text-muted">{user.role}</span>}
                   <PermissionChips
                     label={intl.formatMessage({ id: "web.routes.network_detail.member_permissions", defaultMessage: "{username} permissions in {network}", description: "Network detail: accessible name of the permission chips for one member of the network; {username} is the member and {network} the network name" }, { username: member.username, network: name })}
+                    permissions={NETWORK_PERMISSIONS}
                     value={member.permissions}
                     onChange={(granted) => update.mutate({ id: member.id, granted })}
                     isDisabled={update.isPending}
@@ -318,6 +319,7 @@ function MembersCard({ name, members, users }: { name: string; members: NetworkM
         </div>
         <PermissionChips
           label={intl.formatMessage({ id: "web.routes.network_detail.new_member_permissions", defaultMessage: "New member permissions in {network}", description: "Network detail: accessible name of the permission chips for a member about to be added to the network; {network} is the network name" }, { network: name })}
+          permissions={NETWORK_PERMISSIONS}
           value={permissions}
           onChange={setPermissions}
         />

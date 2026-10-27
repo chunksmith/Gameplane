@@ -16,7 +16,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 )
 
-var networkPermissions = []string{"servers:console", "servers:write"}
+var networkPermissions = []string{"servers:console", "servers:write", "repositories:write", "repositories:push"}
 
 type networkMemberDTO struct {
 	ID          int64    `json:"id"`

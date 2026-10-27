@@ -163,8 +163,8 @@ func (h *handler) symlinkError(dirFD int, parents []string, name string) error {
 	}
 	rel, err := filepath.Rel(h.root, abs)
 	if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) &&
-		hasDotComponent(filepath.ToSlash(rel)) {
-		return errDotfile
+		h.blockedPath(filepath.ToSlash(rel)) {
+		return h.blockedErr()
 	}
 	return errLinkTraversal
 }
@@ -281,7 +281,7 @@ func (h *handler) listDir(comps []string) ([]Entry, error) {
 	out := make([]Entry, 0, len(names))
 	for _, n := range names {
 		// Skip dot-prefixed entries (dotfiles and dot-directories).
-		if strings.HasPrefix(n, ".") {
+		if h.blockedName(n) {
 			continue
 		}
 		var st unix.Stat_t
@@ -509,7 +509,45 @@ func (h *handler) removePath(comps []string, recursive bool) error {
 		h.fire("remove", parents, name)
 		return removeEntry(parentFD, name)
 	}
+	if h.allowDotfiles {
+		if err = h.checkNoDotAt(parentFD, parents, name); err != nil {
+			return err
+		}
+	}
 	return h.removeTree(parentFD, parents, name)
+}
+
+func (h *handler) checkNoDotAt(dirFD int, parents []string, name string) error {
+	var st unix.Stat_t
+	err := unix.Fstatat(dirFD, name, &st, unix.AT_SYMLINK_NOFOLLOW)
+	if errors.Is(err, unix.ENOENT) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat %q: %w", name, err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFDIR {
+		return nil
+	}
+	fd, err := h.openChild(dirFD, parents, name, dirFlags)
+	if err != nil {
+		return err
+	}
+	defer closeFD(fd)
+	names, err := dirNames(fd)
+	if err != nil {
+		return err
+	}
+	here := append(slices.Clone(parents), name)
+	for _, n := range names {
+		if h.blockedName(n) {
+			return h.blockedErr()
+		}
+		if err = h.checkNoDotAt(fd, here, n); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // removeTree removes name inside dirFD, recursing into real directories only.
@@ -586,7 +624,7 @@ func (h *handler) dirSize(ctx context.Context, fd int, path []string) (int64, er
 		if err = ctx.Err(); err != nil {
 			return 0, err
 		}
-		if strings.HasPrefix(name, ".") {
+		if h.blockedName(name) {
 			continue
 		}
 		var stat unix.Stat_t
@@ -699,7 +737,7 @@ func (h *handler) archiveDir(ctx context.Context, zipWriter *zip.Writer, dirFD i
 	}
 	here := append(slices.Clone(parents), name)
 	for _, child := range names {
-		if strings.HasPrefix(child, ".") {
+		if h.blockedName(child) {
 			continue
 		}
 		err = h.archiveEntry(ctx, zipWriter, fd, here, child, prefix+child)

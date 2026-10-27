@@ -8,7 +8,7 @@
 # Diffs from dev-up (deploy/kind/up.sh):
 #   - Single-node cluster (faster boot, sufficient for E2E coverage).
 #   - Skips ingress-nginx (the dashboard isn't exercised here).
-#   - Loads pre-built gameplane-test/{operator,api,agent,sentinel,capture-sidecar,telemetry-receiver,fakeoidc}:<tag>
+#   - Loads pre-built gameplane-test/{operator,api,agent,repo-agent,sentinel,capture-sidecar,telemetry-receiver,fakeoidc}:<tag>
 #     images (and gameplane-test/gameprobe:<tag> when present).
 #   - Helm install with --wait so pods are Ready before tests start.
 #
@@ -187,13 +187,16 @@ EOF
     install_metallb
     apply_metallb_pools
 
-    echo "loading gameplane-test/{operator,api,agent,sentinel,capture-sidecar,telemetry-receiver,mcp-server,audit-syslog-bridge,tunnel-frp}:${TAG} images into kind"
-    for img in operator api agent sentinel capture-sidecar telemetry-receiver mcp-server audit-syslog-bridge tunnel-frp; do
+    echo "loading gameplane-test/{operator,api,agent,repo-agent,sentinel,capture-sidecar,telemetry-receiver,mcp-server,audit-syslog-bridge,tunnel-frp}:${TAG} images into kind"
+    for img in operator api agent repo-agent sentinel capture-sidecar telemetry-receiver mcp-server audit-syslog-bridge tunnel-frp; do
         if ! docker image inspect "gameplane-test/${img}:${TAG}" >/dev/null 2>&1; then
             echo "  missing local image gameplane-test/${img}:${TAG} — building"
             dockerfile="${REPO}/${img}/Dockerfile"
             if [ "${img}" = tunnel-frp ]; then
                 dockerfile="${REPO}/tunnel/Dockerfile.frp"
+            fi
+            if [ "${img}" = repo-agent ]; then
+                dockerfile="${REPO}/agent/Dockerfile.repo"
             fi
             docker build -t "gameplane-test/${img}:${TAG}" -f "${dockerfile}" "${REPO}"
         fi

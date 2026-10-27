@@ -81,7 +81,7 @@ func (r *GameServerReconciler) buildFilesPod(
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: gs.Name + "-data"},
 			},
 		},
-		agentTLSVolume(gs),
+		agentTLSVolume(gs.Name),
 	}
 	if v := rconPasswordVolume(gs, tmpl); v != nil {
 		volumes = append(volumes, *v)
@@ -128,13 +128,17 @@ func (r *GameServerReconciler) buildFilesPod(
 	return pod, nil
 }
 
-func agentTLSVolume(gs *gameplanev1alpha1.GameServer) corev1.Volume {
+func agentTLSVolume(name string) corev1.Volume {
 	return corev1.Volume{
 		Name: "agent-tls",
 		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{SecretName: agentTLSSecretName(gs)},
+			Secret: &corev1.SecretVolumeSource{SecretName: agentTLSSecretName(name)},
 		},
 	}
+}
+
+func agentTLSVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{Name: "agent-tls", MountPath: "/etc/gameplane/agent-tls", ReadOnly: true}
 }
 
 func rconPasswordVolume(gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate) *corev1.Volume {

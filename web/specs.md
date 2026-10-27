@@ -971,6 +971,18 @@ Feature spec: `specs/026-server-groups/`.
 - Both modes get an optional container image and an "Ephemeral storage" switch (default on for groups).
 - Group mode rejects tunnel and fixed address, posts `ServerSets.create` (`web/src/lib/endpoints.ts`), and navigates to `/servers`. A rejected create (for example a 403) shows the API's reason text rather than a generic message.
 
+## Repositories (spec 029)
+
+Feature spec: `specs/029-repositories/`; API contract `specs/029-repositories/contracts/repositories-api.md`.
+
+- **Routes:** `/repositories` (`web/src/routes/Repositories.tsx`: cards, search, GitHub chip, Add repository modal; sidebar item after Servers) and `/repositories/$name?ns=` (`web/src/routes/RepositoryDetail.tsx`: header with Pull, Push and a menu with Fetch, Re-clone and Copy URL; clone progress and failure panels). Tabs: Git (default), Files, Assistant and Settings, the last two under `web/src/routes/repository/` (`GitTab.tsx`, `SettingsTab.tsx`).
+- **Client:** `web/src/lib/repositories.ts` holds the `Repositories`, `Git` and `GitHub` clients and hooks (`useGitHub`, `useGitStatus`, `useGitMarks`, `useRepositoryRefresh`, `gitErrorText`). `APIError` carries the problem+json `code` and `files` members so Git conflicts list their files.
+- **Shared tabs:** the Files tab and the assistant run on a target abstraction (`lib/resourceTarget.tsx`, `makeResourceEndpoints(request, resource)` in `lib/endpoints.ts`, `assistantScope(target)`), so the same components serve `/servers/{name}` and `/repositories/{name}`. Repository file rows show the Git status letter (`M`, `A`, `D`, `R`, `U`) and colour; `.git` is never listed.
+- **Git tab:** Changes (staged and unstaged lists, unified diff, stage, unstage, discard, commit and commit & push) and History (not-pushed and remote commit lists, commit detail, revert, undo last commit), a branch picker with New branch and Fetch. Push sends `setUpstream` when the branch has no upstream.
+- **Settings tab:** repository card, network change (free text with a `<datalist>` from `GET /networks` when readable) and collaborators: the owner adds one by typing a username (`POST /repositories/{name}/collaborators`, resolved by the API) and toggles Edit and Push per collaborator (`PUT /collaborators/{userId}`); remove with a typed confirmation.
+- **GitHub card:** `web/src/components/settings/GitHubCard.tsx` under Settings → Integrations saves, replaces and removes the personal token and shows the login and scopes. Network permission chips offer `repositories:write` and `repositories:push` (`NETWORK_PERMISSIONS` in `lib/permissions.tsx`).
+- **Strings:** `web.repositories.*` ids (spec 019); tests `Repositories.test.tsx` and `RepositoryDetail.test.tsx` with MSW handlers in `web/src/test/handlers.ts`.
+
 ## ServerDetail Tabs
 
 Visible tab set depends on server template + active version:

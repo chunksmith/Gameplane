@@ -82,8 +82,8 @@ metadata:
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: gameplane-game
+    matchExpressions:
+      - { key: app.kubernetes.io/name, operator: In, values: [gameplane-game, gameplane-repo] }
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -216,8 +216,8 @@ metadata:
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: gameplane-game
+    matchExpressions:
+      - { key: app.kubernetes.io/name, operator: In, values: [gameplane-game, gameplane-repo] }
   policyTypes: [Egress]
   egress:
     - to:

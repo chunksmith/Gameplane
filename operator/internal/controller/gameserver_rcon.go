@@ -133,7 +133,7 @@ func (r *GameServerReconciler) reconcileRCONSecret(
 func agentVolumeMounts(gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate, ver *gameplanev1alpha1.GameVersion, dataMount string) []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{Name: "data", MountPath: dataMount},
-		{Name: "agent-tls", MountPath: "/etc/gameplane/agent-tls", ReadOnly: true},
+		agentTLSVolumeMount(),
 	}
 	rc := resolveRCON(gs, tmpl)
 	if rc.enabled && rc.passwordFile == "" && rc.secretName != "" {
