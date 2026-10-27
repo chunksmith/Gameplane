@@ -188,9 +188,9 @@ func TestAICLIAskUser(t *testing.T) {
 	var result string
 	f, _ := newCLIFixture(t, func(call *aiSpawn, emit func(string)) {
 		emit(cliInit)
-		emit(cliAssistant(`{"type":"tool_use","id":"tu1","name":"` + aiMCPPrefix + aiAskUser + `","input":{"question":"Which?","options":[{"label":"a"}]}}`))
+		emit(cliAssistant(`{"type":"tool_use","id":"tu1","name":"` + aiMCPPrefix + aiAskUser + `","input":{"question":"Which?","options":[{"label":"a"},{"label":"b"}]}}`))
 		emit(cliBarrier)
-		text := cliCall(t, call.args, aiAskUser, map[string]any{"question": "Which?", "options": []map[string]string{{"label": "a"}}})
+		text := cliCall(t, call.args, aiAskUser, map[string]any{"question": "Which?", "options": []map[string]string{{"label": "a"}, {"label": "b"}}})
 		mu.Lock()
 		result = text
 		mu.Unlock()
