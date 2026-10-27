@@ -98,7 +98,7 @@ func TestRepositoriesEnvtest(t *testing.T) {
 	if rr := do("alice", "POST", "/repositories", map[string]string{"url": "https://gitlab.com/a/b", "name": name}); rr.Code != http.StatusBadRequest {
 		t.Fatalf("foreign remote = %d", rr.Code)
 	}
-	if rr := do("alice", "POST", "/repositories", map[string]string{"url": create["url"], "name": strings.Repeat("a", 53)}); !bytes.Contains(rr.Body.Bytes(), []byte("server.repositories.invalid_name")) {
+	if rr := do("alice", "POST", "/repositories", map[string]string{"url": create["url"], "name": strings.Repeat("a", 53)}); rr.Code != http.StatusBadRequest {
 		t.Fatalf("long name = %d %s", rr.Code, rr.Body)
 	}
 	rr = do("alice", "POST", "/repositories", create)

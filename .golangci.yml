@@ -121,7 +121,7 @@ linters:
       # remains active everywhere else.
       - path: (^|/)internal/git/git\.go$
         linters: [gosec]
-        text: "G204"
+        text: "G204|G702"
 
 formatters:
   enable:

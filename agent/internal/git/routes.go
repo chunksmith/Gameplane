@@ -649,7 +649,7 @@ func (c *call) rebasing() bool {
 	if err != nil {
 		return false
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	for _, name := range []string{".git/rebase-merge", ".git/rebase-apply"} {
 		if _, err := root.Stat(name); err == nil {
 			return true

@@ -913,7 +913,7 @@
   },
   "server.repositories.remote_not_allowed": {
     "defaultMessage": "Only HTTPS github.com repository URLs are supported.",
-    "description": "Repository error when the repository URL is not https://github.com/<owner>/<repo>."
+    "description": "Repository error when the repository URL is not https://github.com/OWNER/REPO."
   },
   "server.repositories.token_invalid": {
     "defaultMessage": "GitHub did not accept this token.",
