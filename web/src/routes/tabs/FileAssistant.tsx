@@ -5,6 +5,7 @@ import { DiffEditor } from "@monaco-editor/react";
 import { Check, FileText, History, Loader2, Plus, Send, ShieldCheck, Square, X } from "lucide-react";
 import { defineMessages } from "react-intl";
 
+import { AttachButton, AttachmentTray, MessageAttachments, useAttachments } from "@/components/assistant/Attachments";
 import { Markdown } from "@/components/assistant/Markdown";
 import { MentionTextArea, mentionContext } from "@/components/assistant/Mentions";
 import { QueuedMessages, useMessageQueue } from "@/components/assistant/MessageQueue";
@@ -21,6 +22,7 @@ import {
   useAssistantStatus,
   useAssistantStream,
   withContextBlock,
+  type AssistantAttachment,
   type AssistantMessage,
   type AssistantMode,
   type AssistantPick,
@@ -210,6 +212,7 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const [pickedModel, setPickedModel] = useState<AssistantPick>();
   const [dismissed, setDismissed] = useState<ReadonlySet<number>>(new Set());
+  const attachments = useAttachments();
   const end = useRef<HTMLLIElement>(null);
   const wasRunning = useRef(false);
   const ready = !!status.data?.enabled && status.data.configured;
@@ -230,9 +233,9 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
 
   const submit = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, files }: { text: string; files?: AssistantAttachment[] }) => {
       const body = withContextBlock(text, file ? fileContext(file.path, file.content, mode) : "", await mentionContext(scope, text));
-      return id ? Assistant.send(id, body, mode, pickedModel) : Assistant.create(body, scope, mode, pickedModel);
+      return id ? Assistant.send(id, body, mode, pickedModel, files) : Assistant.create(body, scope, mode, pickedModel, files);
     },
     onSuccess: (next) => {
       onStarted(next.id);
@@ -241,7 +244,7 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
   });
   const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(id ?? "", approve), onSuccess: refresh });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(id ?? ""), onSuccess: refresh });
-  const queue = useMessageQueue(running || conv?.status === "awaiting_approval", (text) => submit.mutate(text), () => stop.mutate());
+  const queue = useMessageQueue(running || conv?.status === "awaiting_approval", (text) => submit.mutate({ text }), () => stop.mutate());
 
   useEffect(() => {
     if (wasRunning.current && !running && conv?.mode === "bypassPermissions") onSaved?.();
@@ -255,11 +258,17 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
   const busy = running || conv?.status === "awaiting_approval" || submit.isPending;
   const send = () => {
     const text = prompt.trim();
-    if (!text) return;
+    if (!text || (busy && attachments.items.length > 0)) return;
     if (busy) {
       queue.add(text);
       setPrompt("");
-    } else submit.mutate(text, { onSuccess: () => setPrompt("") });
+    } else
+      submit.mutate({ text, files: attachments.items }, {
+        onSuccess: () => {
+          setPrompt("");
+          attachments.clear();
+        },
+      });
   };
   const interrupt = () => {
     setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
@@ -304,6 +313,7 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
       <div className="space-y-2 border-t border-border p-3">
         <QueuedMessages items={queue.items} disabled={submit.isPending || stop.isPending} onSendNow={queue.sendNow} />
         <div className="rounded-xl border border-border bg-surface p-2 transition-colors focus-within:border-primary/50">
+          <AttachmentTray items={attachments.items} onRemove={attachments.remove} />
           <MentionTextArea
             scope={scope}
             aria-label={intl.formatMessage(MESSAGES.message)}
@@ -314,8 +324,10 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
             placeholder={intl.formatMessage(file ? MESSAGES.placeholder : MESSAGES.placeholder_folder)}
             onValueChange={setPrompt}
             onEnter={send}
+            onPaste={attachments.onPaste}
           />
           <div className="flex items-center justify-between gap-2 px-1 pt-1">
+            <AttachButton onFiles={attachments.add} disabled={!ready} />
             <Select aria-label={intl.formatMessage(MESSAGES.mode)} selectedKey={mode} isDisabled={!ready} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
               <Select.Trigger data-chip className={cn("inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
                 <ShieldCheck className="h-3 w-3" />
@@ -342,7 +354,7 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
                 <Square className="h-4 w-4" />
               </Button>
             )}
-            <Button size="sm" variant="primary" isDisabled={!ready || !prompt.trim()} onPress={send}>
+            <Button size="sm" variant="primary" isDisabled={!ready || !prompt.trim() || (busy && attachments.items.length > 0)} onPress={send}>
               <Send className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.send)}
             </Button>
           </div>
@@ -367,7 +379,8 @@ function ChatMessage({ message, file, dismissed, onDismiss }: ChatMessageProps) 
     const request = requestOf(text);
     if (!request) return null;
     return (
-      <li className="flex justify-end">
+      <li className="flex flex-col items-end gap-1.5">
+        <MessageAttachments blocks={blocks} className="max-w-[85%]" />
         <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-primary/10 px-3 py-2 text-sm text-primary">{request}</p>
       </li>
     );
