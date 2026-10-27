@@ -5,6 +5,8 @@ import { useOptionalIntl } from "@/lib/i18n/format";
 const SERVER_PERMISSION_MESSAGES = defineMessages({
   view: { id: "web.lib.permissions.view", defaultMessage: "View", description: "Permission chips: name of the view permission, which every grant includes and cannot be removed; keep it short" },
   console: { id: "web.lib.permissions.console", defaultMessage: "Console", description: "Permission chips: name of the console permission, which lets a member use the server console; keep it short" },
+  repository_edit: { id: "web.lib.permissions.repository_edit", defaultMessage: "Repo edit", description: "Permission chips: name of the permission that lets a network member edit files and commit in the network's repositories; keep it short" },
+  repository_push: { id: "web.lib.permissions.repository_push", defaultMessage: "Repo push", description: "Permission chips: name of the permission that lets a network member push the network's repositories; keep it short" },
   manage: { id: "web.lib.permissions.manage", defaultMessage: "Manage", description: "Permission chips: name of the permission that lets a member start, stop, change files, mods and players of a server; keep it short" },
 });
 
@@ -13,16 +15,24 @@ export const SERVER_PERMISSIONS: { key: string; label: MessageDescriptor }[] = [
   { key: "servers:write", label: SERVER_PERMISSION_MESSAGES.manage },
 ];
 
+export const NETWORK_PERMISSIONS: { key: string; label: MessageDescriptor }[] = [
+  ...SERVER_PERMISSIONS,
+  { key: "repositories:write", label: SERVER_PERMISSION_MESSAGES.repository_edit },
+  { key: "repositories:push", label: SERVER_PERMISSION_MESSAGES.repository_push },
+];
+
 export function PermissionChips({
   value,
   onChange,
   isDisabled,
   label,
+  permissions = SERVER_PERMISSIONS,
 }: {
   value: string[];
   onChange?: (next: string[]) => void;
   isDisabled?: boolean;
   label: string;
+  permissions?: { key: string; label: MessageDescriptor }[];
 }) {
   const intl = useOptionalIntl();
   const isInteractive = !isDisabled && !!onChange;
@@ -34,7 +44,7 @@ export function PermissionChips({
         <Check className="h-3 w-3" aria-hidden="true" />
         {intl.formatMessage(SERVER_PERMISSION_MESSAGES.view)}
       </button>
-      {SERVER_PERMISSIONS.map((permission) => {
+      {permissions.map((permission) => {
         const selected = value.includes(permission.key);
         return (
           <button

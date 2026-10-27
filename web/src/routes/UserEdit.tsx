@@ -13,7 +13,7 @@ import { NETWORK_ANNOTATION } from "@/lib/annotations";
 import { useMe } from "@/lib/auth";
 import { useFleetGameCodes, useFleetServers, templateKey, type FleetItem } from "@/lib/fleet";
 import { errorTextIntl } from "@/lib/errors";
-import { PermissionChips } from "@/lib/permissions";
+import { NETWORK_PERMISSIONS, PermissionChips } from "@/lib/permissions";
 import { Networks, Roles, ServerGrants, Users, type UserUpdate } from "@/lib/endpoints";
 import { formatRelative } from "@/lib/utils";
 import { useOptionalIntl } from "@/lib/i18n/format";
@@ -450,6 +450,7 @@ export function UserEditPage() {
                       <div className="md:w-72">
                         <PermissionChips
                           label={intl.formatMessage({ id: "web.routes.user_edit.network_permissions", defaultMessage: "Permissions in {network}", description: "User edit: accessible name of the permission chips for the membership in one network; {network} is the network name" }, { network: membership.name })}
+                          permissions={NETWORK_PERMISSIONS}
                           value={membership.permissions}
                           isDisabled={setMembership.isPending}
                           onChange={(next) => setMembership.mutate({ name: membership.name, permissions: next })}
@@ -490,6 +491,7 @@ export function UserEditPage() {
                 </div>
                 <PermissionChips
                   label={intl.formatMessage({ id: "web.routes.user_edit.new_membership_permissions", defaultMessage: "Permissions for the new network membership", description: "User edit: accessible name of the permission chips for a network membership about to be added; not visible on screen" })}
+                  permissions={NETWORK_PERMISSIONS}
                   value={joinPermissions}
                   onChange={setJoinPermissions}
                 />

@@ -16,7 +16,7 @@ EDGE_IMAGES = [
         "operator", "api", "web", "agent", "audit-syslog-bridge",
         "telemetry-receiver", "sentinel", "capture-sidecar", "mcp-server",
     )
-] + [
+] + [{"component": "repo-agent", "dockerfile": "agent/Dockerfile.repo"}] + [
     {"component": f"tunnel-{name}", "dockerfile": f"tunnel/Dockerfile.{name}"}
     for name in ("frp", "tailscale", "playit")
 ]

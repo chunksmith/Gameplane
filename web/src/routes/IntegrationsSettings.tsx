@@ -5,6 +5,7 @@ import { Button, Card, Input, Label, TextField } from "@heroui/react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SettingsNav } from "@/components/ui/SettingsNav";
 import { LinearLogo } from "@/components/assistant/LinearLogo";
+import { GitHubCard } from "@/components/settings/GitHubCard";
 import { Assistant } from "@/lib/assistant";
 import { can, useMe } from "@/lib/auth";
 import { errorTextIntl } from "@/lib/errors";
@@ -49,6 +50,7 @@ export function IntegrationsSettingsPage() {
           showAdminSections={can(me, "config:manage")}
           onSelect={(key) => void navigate({ to: "/admin", search: { section: key } })}
         />
+        <div className="space-y-6">
         <Card>
           <Card.Content className="divide-y divide-border">
             <div className="flex flex-wrap items-center gap-3 pb-3.5">
@@ -113,6 +115,8 @@ export function IntegrationsSettingsPage() {
             )}
           </Card.Content>
         </Card>
+        <GitHubCard />
+        </div>
       </div>
     </div>
   );

@@ -74,7 +74,7 @@ interface OpenFile {
 
 export function FileAssistant({ scope, file, onClose }: { scope: AssistantScope; file?: OpenFile; onClose: () => void }) {
   const intl = useOptionalIntl();
-  const storeKey = [scope.cluster, scope.namespace, scope.server].join("/");
+  const storeKey = [scope.cluster, scope.namespace, scope.server, scope.repository].join("/");
   const qc = useQueryClient();
   const [chats, setChats] = useState(() => openChats.get(qc)?.get(storeKey) ?? FRESH_TABS);
   const current = chats.tabs.find((tab) => tab.key === chats.active) ?? chats.tabs[0];

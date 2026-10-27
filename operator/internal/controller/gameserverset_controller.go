@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,6 +66,14 @@ func (r *GameServerSetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		child, ok := owned[name]
 		delete(owned, name)
 		if !ok {
+			taken, err := r.repositoryExists(ctx, set.Namespace, name)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if taken {
+				ctrl.LoggerFrom(ctx).Info("skip set child, repository has the same name", "set", set.Name, "child", name)
+				continue
+			}
 			if err := r.createChild(ctx, &set, name, spec, hash); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -119,6 +128,18 @@ func (r *GameServerSetReconciler) createChild(
 		return fmt.Errorf("create set child %s: %w", name, err)
 	}
 	return nil
+}
+
+func (r *GameServerSetReconciler) repositoryExists(ctx context.Context, namespace, name string) (bool, error) {
+	var repository gameplanev1alpha1.Repository
+	err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &repository)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get repository %s: %w", name, err)
+	}
+	return true, nil
 }
 
 func (r *GameServerSetReconciler) updateChild(

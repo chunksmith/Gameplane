@@ -27,6 +27,13 @@ var Catalog = []PermGroup{
 		{Key: "servers:write", Label: "Create, edit, and control servers (owner-only actions need the server's owner or an admin)", Namespaced: true},
 		{Key: "servers:console", Label: "Use the live console (RCON / PTY)", Namespaced: true},
 	}},
+	{Resource: "repositories", Label: "Repositories", Permissions: []Permission{
+		{Key: "repositories:read", Label: "View repositories, their files and Git history", Namespaced: true},
+		{Key: "repositories:write", Label: "Edit repository files and run Git operations other than push", Namespaced: true},
+		{Key: "repositories:push", Label: "Push repository commits to GitHub", Namespaced: true},
+		{Key: "repositories:create", Label: "Add repositories", Namespaced: true},
+		{Key: "repositories:manage", Label: "Manage every repository, including removal, network and collaborators", Namespaced: true},
+	}},
 	{Resource: "backups", Label: "Backups", Permissions: []Permission{
 		{Key: "backups:read", Label: "View backups and restores", Namespaced: true},
 		{Key: "backups:write", Label: "Create backups (deleting needs an admin)", Namespaced: true},

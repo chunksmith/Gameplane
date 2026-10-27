@@ -800,3 +800,8 @@ capture:
   # Capture sidecar container image. Defaults to {image.registry}/capture-sidecar:{image.tag}
   # if unset (the pattern matched by other component images like sentinel).
   image: ""
+
+# Git repositories (spec 029): each Repository runs a repo agent pod (agent binary plus git).
+repositories:
+  # Repo agent image. Defaults to {image.registry}/repo-agent:{image.tag} if unset.
+  agentImage: ""

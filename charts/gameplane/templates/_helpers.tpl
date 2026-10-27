@@ -28,6 +28,14 @@ track a rolling channel.
 {{- end -}}
 {{- end -}}
 
+{{- define "gameplane.repoAgentImage" -}}
+{{- if and .Values.repositories .Values.repositories.agentImage -}}
+{{- .Values.repositories.agentImage -}}
+{{- else -}}
+{{- printf "%s/repo-agent:%s" .Values.image.registry (include "gameplane.imageTag" .) -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "gameplane.auditSyslogBridgeImage" -}}
 {{- printf "%s/audit-syslog-bridge:%s" .Values.image.registry (include "gameplane.imageTag" .) -}}
 {{- end -}}

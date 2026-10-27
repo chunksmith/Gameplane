@@ -3,6 +3,7 @@ import * as endpoints from "./endpoints";
 import { type ResourceScope } from "./api";
 import { targetSearch } from "./fleet";
 import type { ResourceClient } from "./endpoints";
+import type { AssistantScope } from "./assistant";
 
 export type { ResourceScope } from "./api";
 
@@ -55,11 +56,11 @@ export function ResourceTargetProvider({ target, access, children }: {
   access?: ServerAccess;
   children: ReactNode;
 }) {
-  const { cluster, namespace, name, uid } = target;
+  const { cluster, namespace, name, uid, resource } = target;
   const value = useMemo<ResourceContextValue>(() => {
-    const captured = Object.freeze({ cluster, namespace, name, uid });
+    const captured = Object.freeze({ cluster, namespace, name, uid, resource });
     return { target: captured, access, client: endpoints.createResourceClient(captured) };
-  }, [cluster, namespace, name, uid, access]);
+  }, [cluster, namespace, name, uid, resource, access]);
   return <ResourceContext.Provider value={value}>{children}</ResourceContext.Provider>;
 }
 
@@ -69,17 +70,19 @@ export function useResourceTarget(fallback: { name: string; namespace?: string }
   const namespace = explicit?.namespace ?? fallback.namespace ?? context?.target.namespace;
   const name = explicit?.name ?? fallback.name;
   const uid = explicit?.uid ?? (name === context?.target.name ? context.target.uid : undefined);
-  return useMemo(() => Object.freeze({ cluster, namespace, name, uid }), [cluster, namespace, name, uid]);
+  const resource = explicit?.resource ?? context?.target.resource;
+  return useMemo(() => Object.freeze({ cluster, namespace, name, uid, resource }), [cluster, namespace, name, uid, resource]);
 }
 
 export function useResourceClient(explicit?: ResourceScope): ResourceClient {
   const context = useContext(ResourceContext);
   const cluster = explicit?.cluster;
   const namespace = explicit?.namespace;
+  const resource = explicit?.resource;
   const client = context?.client;
   return useMemo(
-    () => cluster !== undefined ? endpoints.createResourceClient({ cluster, namespace }) : client ?? endpoints.createResourceClient({ cluster: "local" }),
-    [cluster, namespace, client],
+    () => cluster !== undefined ? endpoints.createResourceClient({ cluster, namespace, resource }) : client ?? endpoints.createResourceClient({ cluster: "local" }),
+    [cluster, namespace, resource, client],
   );
 }
 
@@ -94,4 +97,10 @@ export function useResourcePermissions(explicit?: readonly string[]): readonly s
 }
 export function resourceCan(permissions: readonly string[], permission: string): boolean {
   return permissions.includes("*") || permissions.includes(permission);
+}
+
+export function assistantScope(target: ResourceTarget): AssistantScope {
+  return target.resource === "repositories"
+    ? { repository: target.name, namespace: target.namespace }
+    : { server: target.name, namespace: target.namespace, cluster: target.cluster };
 }

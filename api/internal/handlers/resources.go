@@ -234,6 +234,15 @@ func createHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Han
 					httperr.WriteCode(w, req, http.StatusForbidden, err)
 					return
 				}
+				if cl == reg.DefaultID() {
+					if _, err := reg.Default().GetRepository(req.Context(), ns, obj.GetName()); err == nil {
+						httperr.WriteMessage(w, req, messages.New("server.repositories.name_taken", nil))
+						return
+					} else if !apierrors.IsNotFound(err) {
+						httperr.Write(w, req, err)
+						return
+					}
+				}
 			}
 			created, err = k.Dynamic.Resource(gvr).Namespace(ns).Create(req.Context(), obj, metav1.CreateOptions{})
 		}

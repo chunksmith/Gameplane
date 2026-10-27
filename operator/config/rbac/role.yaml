@@ -107,6 +107,7 @@ rules:
   - gameserversets
   - modulesources
   - networkcaptures
+  - repositories
   - restores
   verbs:
   - get

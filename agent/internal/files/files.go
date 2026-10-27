@@ -37,17 +37,32 @@ var errPathOutOfRoot = errors.New("path escapes root")
 // part of the file-browser surface. Like errPathOutOfRoot it is safe to echo.
 var errDotfile = errors.New("dotfile access denied")
 
+var errGitDir = errors.New("git_dir")
+
 // errFileExists is a client-safe conflict for create-only operations.
 var errFileExists = errors.New("file already exists")
 
-// hasDotComponent reports whether the slash-separated relative path rel
-// (already stripped of its leading slash) has a dot-prefixed component.
-func hasDotComponent(rel string) bool {
-	return strings.HasPrefix(rel, ".") || strings.Contains(rel, "/.")
+func (h *handler) blockedName(name string) bool {
+	if h.allowDotfiles {
+		return name == ".git"
+	}
+	return strings.HasPrefix(name, ".")
+}
+
+func (h *handler) blockedPath(rel string) bool {
+	return slices.ContainsFunc(strings.Split(rel, "/"), h.blockedName)
+}
+
+func (h *handler) blockedErr() error {
+	if h.allowDotfiles {
+		return errGitDir
+	}
+	return errDotfile
 }
 
 type handler struct {
-	root string
+	root          string
+	allowDotfiles bool
 
 	// beforeOpen is a test seam. When non-nil it is called synchronously
 	// immediately before a path component is opened ("open"), before the
@@ -62,7 +77,16 @@ type handler struct {
 
 // Mount registers the file-browser HTTP handlers on the supplied router.
 func Mount(r chi.Router, root string) {
-	h := &handler{root: filepath.Clean(root)}
+	mount(r, &handler{root: filepath.Clean(root)})
+}
+
+// MountRepository registers the file routes for a Git working copy: dotfiles are
+// allowed and the .git directory is hidden and refused.
+func MountRepository(r chi.Router, root string) {
+	mount(r, &handler{root: filepath.Clean(root), allowDotfiles: true})
+}
+
+func mount(r chi.Router, h *handler) {
 	r.Route("/files", func(r chi.Router) {
 		// Transfers can legitimately outlive the ordinary operation timeout.
 		r.Get("/download", h.download)
@@ -102,8 +126,8 @@ func (h *handler) resolve(rel string) (string, error) {
 	if rel == "" {
 		return h.root, nil
 	}
-	if hasDotComponent(rel) {
-		return "", errDotfile
+	if h.blockedPath(rel) {
+		return "", h.blockedErr()
 	}
 	abs := filepath.Join(h.root, filepath.Clean("/"+rel))
 	if !strings.HasPrefix(abs, h.root+string(os.PathSeparator)) && abs != h.root {
@@ -140,6 +164,10 @@ func (h *handler) badRequest(w http.ResponseWriter, err error) {
 // bad-path classes are 400s via badRequest, everything else goes through
 // httpErr (404/403/409/413/500).
 func (h *handler) fail(w http.ResponseWriter, err error) {
+	if errors.Is(err, errGitDir) {
+		http.Error(w, errGitDir.Error(), http.StatusForbidden)
+		return
+	}
 	if errors.Is(err, errPathOutOfRoot) || errors.Is(err, errDotfile) || errors.Is(err, errBadPath) {
 		h.badRequest(w, err)
 		return
@@ -456,8 +484,8 @@ func (h *handler) storePart(comps []string, filename string, src io.Reader, limi
 	if name == "." || name == ".." || name == string(os.PathSeparator) {
 		return errors.New("invalid filename")
 	}
-	if strings.HasPrefix(name, ".") {
-		return errDotfile
+	if h.blockedName(name) {
+		return h.blockedErr()
 	}
 	return h.storeIn(comps, name, ".upload-", false, storeReplace, func(dst io.Writer) error {
 		// Read one byte past the cap: if that byte materializes the part is

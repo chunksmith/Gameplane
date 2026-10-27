@@ -1563,7 +1563,7 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 			},
 			// Per-GameServer Secret with tls.crt, tls.key, ca.crt.
 			// Reconciled by reconcileAgentTLS before this StatefulSet.
-			agentTLSVolume(gs),
+			agentTLSVolume(gs.Name),
 			captureVolume(),
 		}
 		// Extra volumes (spec.storage.extra / template's), one PVC each,
@@ -2278,21 +2278,14 @@ func buildAgentContainer(
 		res = tmpl.Spec.Agent.Resources
 	}
 	mountPath := effectiveMountPath(tmpl)
-	nonRoot := true
-	roRootFS := true
-	noPrivEsc := false
-	uid := int64(65532)
-	args := []string{
-		"--tls-cert=/etc/gameplane/agent-tls/tls.crt",
-		"--tls-key=/etc/gameplane/agent-tls/tls.key",
-		"--tls-client-ca=/etc/gameplane/agent-tls/ca.crt",
+	args := append(agentTLSArgs(),
 		// Must match the "data" VolumeMount below (agentVolumeMounts also takes
 		// mountPath) so the agent's file ops, mods dir, and disk-usage stats are
 		// rooted at the same path the game container's data volume is mounted at
 		// — not the agent's own /data default, which is only correct when the
 		// template happens to mount storage at /data.
-		"--data-root=" + mountPath,
-	}
+		"--data-root="+mountPath,
+	)
 	if tmpl.Spec.LogPath != "" {
 		args = append(args, "--game-log-path="+tmpl.Spec.LogPath)
 	}
@@ -2375,15 +2368,8 @@ func buildAgentContainer(
 			{Name: "agent", ContainerPort: 8090},
 			{Name: "metrics", ContainerPort: 9090},
 		},
-		Resources: res,
-		SecurityContext: &corev1.SecurityContext{
-			RunAsNonRoot:             &nonRoot,
-			RunAsUser:                &uid,
-			ReadOnlyRootFilesystem:   &roRootFS,
-			AllowPrivilegeEscalation: &noPrivEsc,
-			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-			SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
-		},
+		Resources:       res,
+		SecurityContext: agentSecurityContext(),
 	}
 	// Only when explicitly configured — an empty value leaves
 	// ImagePullPolicy unset so Kubernetes applies its own default, matching
@@ -2393,6 +2379,29 @@ func buildAgentContainer(
 		c.ImagePullPolicy = corev1.PullPolicy(pullPolicy)
 	}
 	return c
+}
+
+func agentTLSArgs() []string {
+	return []string{
+		"--tls-cert=/etc/gameplane/agent-tls/tls.crt",
+		"--tls-key=/etc/gameplane/agent-tls/tls.key",
+		"--tls-client-ca=/etc/gameplane/agent-tls/ca.crt",
+	}
+}
+
+func agentSecurityContext() *corev1.SecurityContext {
+	nonRoot := true
+	roRootFS := true
+	noPrivEsc := false
+	uid := int64(65532)
+	return &corev1.SecurityContext{
+		RunAsNonRoot:             &nonRoot,
+		RunAsUser:                &uid,
+		ReadOnlyRootFilesystem:   &roRootFS,
+		AllowPrivilegeEscalation: &noPrivEsc,
+		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+		SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+	}
 }
 
 // reconcileBackupSchedule synchronizes automated backup schedules with the server backup policy.

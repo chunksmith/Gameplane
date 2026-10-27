@@ -11,3 +11,4 @@ resources:
   - gameplane.local_modules.yaml
   - gameplane.local_clusters.yaml
   - gameplane.local_networkcaptures.yaml
+  - gameplane.local_repositories.yaml

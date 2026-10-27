@@ -7,6 +7,9 @@ import {
   Check,
   ChevronRight,
   FileText,
+  FolderGit2,
+  GitCommitHorizontal,
+  GitCompare,
   Loader2,
   Lock,
   MessageSquarePlus,
@@ -98,6 +101,12 @@ const STARTER_MESSAGES = defineMessages({
   findOutagesTitle: { id: "web.components.assistant.assistant_panel.find_outages", defaultMessage: "Find outages", description: "Assistant panel: title of a fleet starter card that asks which servers are offline; keep it short" },
   findOutagesPrompt: { id: "web.components.assistant.assistant_panel.which_servers_are_offline", defaultMessage: "Which servers are offline?", description: "Assistant panel: message put in the message box when the Find outages starter card is clicked" },
   checkBackupsTitle: { id: "web.components.assistant.assistant_panel.check_backups", defaultMessage: "Check backups", description: "Assistant panel: title of a fleet starter card that asks for the latest backups; keep it short" },
+  reviewChangesTitle: { id: "web.repositories.assistant.review_changes", defaultMessage: "Review changes", description: "Repository assistant: title of a starter card that asks the assistant to review the uncommitted changes; keep it short" },
+  reviewChangesPrompt: { id: "web.repositories.assistant.review_changes_prompt", defaultMessage: "Review my uncommitted changes", description: "Repository assistant: message put in the message box when the Review changes starter card is clicked" },
+  writeCommitTitle: { id: "web.repositories.assistant.write_commit", defaultMessage: "Write a commit", description: "Repository assistant: title of a starter card that asks the assistant to write a commit message and commit; keep it short" },
+  writeCommitPrompt: { id: "web.repositories.assistant.write_commit_prompt", defaultMessage: "Write a commit message for the staged changes and commit them", description: "Repository assistant: message put in the message box when the Write a commit starter card is clicked" },
+  explainRepositoryTitle: { id: "web.repositories.assistant.explain_repository", defaultMessage: "Explain the project", description: "Repository assistant: title of a starter card that asks the assistant to explain how the repository is laid out; keep it short" },
+  explainRepositoryPrompt: { id: "web.repositories.assistant.explain_repository_prompt", defaultMessage: "Explain how this repository is organized", description: "Repository assistant: message put in the message box when the Explain the project starter card is clicked" },
   checkBackupsPrompt: { id: "web.components.assistant.assistant_panel.show_the_latest_backups", defaultMessage: "Show the latest backups", description: "Assistant panel: message put in the message box when the Check backups starter card is clicked" },
 });
 
@@ -105,6 +114,12 @@ const serverStarters: Starter[] = [
   { icon: <Activity />, title: STARTER_MESSAGES.checkHealthTitle, prompt: STARTER_MESSAGES.checkHealthPrompt },
   { icon: <FileText />, title: STARTER_MESSAGES.readConfigTitle, prompt: STARTER_MESSAGES.readConfigPrompt },
   { icon: <Package />, title: STARTER_MESSAGES.auditPluginsTitle, prompt: STARTER_MESSAGES.auditPluginsPrompt },
+];
+
+const repositoryStarters: Starter[] = [
+  { icon: <GitCompare />, title: STARTER_MESSAGES.reviewChangesTitle, prompt: STARTER_MESSAGES.reviewChangesPrompt },
+  { icon: <GitCommitHorizontal />, title: STARTER_MESSAGES.writeCommitTitle, prompt: STARTER_MESSAGES.writeCommitPrompt },
+  { icon: <FileText />, title: STARTER_MESSAGES.explainRepositoryTitle, prompt: STARTER_MESSAGES.explainRepositoryPrompt },
 ];
 
 const fleetStarters: Starter[] = [
@@ -208,7 +223,8 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const own = !conv || conv.userId === me?.id;
   const running = conv?.status === "running";
   const busy = running || conv?.status === "awaiting_approval" || submit.isPending;
-  const starters = scope.server ? serverStarters : fleetStarters;
+  const scoped = scope.server ?? scope.repository;
+  const starters = scope.repository ? repositoryStarters : scope.server ? serverStarters : fleetStarters;
   const pending = detail.data?.pending ?? [];
   const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
   const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data.defaultModel, effort: status.data.defaultEffort });
@@ -225,9 +241,9 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   };
   const actionError = submit.error ?? decide.error ?? stop.error;
   const subtitle = conv
-    ? [conv.server || intl.formatMessage({ id: "web.components.assistant.assistant_panel.all_servers", defaultMessage: "All servers", description: "Assistant panel: server shown under the title of a conversation that is not tied to one server; keep it short" }), conv.namespace, all && conv.username].filter(Boolean).join(` ${dotSeparator} `)
-    : scope.server
-      ? [scope.server, scope.namespace].filter(Boolean).join(` ${dotSeparator} `)
+    ? [conv.server || conv.repository || intl.formatMessage({ id: "web.components.assistant.assistant_panel.all_servers", defaultMessage: "All servers", description: "Assistant panel: server shown under the title of a conversation that is not tied to one server; keep it short" }), conv.namespace, all && conv.username].filter(Boolean).join(` ${dotSeparator} `)
+    : scoped
+      ? [scoped, scope.namespace].filter(Boolean).join(` ${dotSeparator} `)
       : intl.formatMessage({ id: "web.components.assistant.assistant_panel.all_servers_you_can_access", defaultMessage: "All servers you can access", description: "Assistant panel: subtitle under the title of a new conversation that is not tied to one server" });
 
   return (
@@ -327,9 +343,11 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/20">
                   <Sparkles className="h-6 w-6" />
                 </span>
-                <h2 className="text-lg font-semibold">{scope.server ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.what_should_i_do_on_server", defaultMessage: "What should I do on {server}?", description: "Assistant panel: heading of the empty chat when the assistant is scoped to one server; {server} is the server name" }, { server: scope.server }) : intl.formatMessage({ id: "web.components.assistant.assistant_panel.what_should_i_do", defaultMessage: "What should I do?", description: "Assistant panel: heading of the empty chat when the assistant covers all servers" })}</h2>
+                <h2 className="text-lg font-semibold">{scoped ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.what_should_i_do_on_server", defaultMessage: "What should I do on {server}?", description: "Assistant panel: heading of the empty chat when the assistant is scoped to one server; {server} is the server name" }, { server: scoped }) : intl.formatMessage({ id: "web.components.assistant.assistant_panel.what_should_i_do", defaultMessage: "What should I do?", description: "Assistant panel: heading of the empty chat when the assistant covers all servers" })}</h2>
                 <p className="max-w-xl text-sm leading-relaxed text-muted">
-                  {scope.server
+                  {scope.repository
+                    ? intl.formatMessage({ id: "web.repositories.assistant.intro", defaultMessage: "I can read and change {repository}'s files, show its Git status and diffs, commit and push — only what your own permissions allow.", description: "Repository assistant: intro under the heading of the empty chat when the assistant is scoped to one repository; {repository} is the repository name" }, { repository: scope.repository })
+                    : scope.server
                     ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.i_can_read_and_change_server", defaultMessage: "I can read and change {server}'s files, plugins, players and backups — only what your own permissions allow.", description: "Assistant panel: intro under the heading of the empty chat when the assistant is scoped to one server; {server} is the server name" }, { server: scope.server })
                     : intl.formatMessage({ id: "web.components.assistant.assistant_panel.ask_about_any_server", defaultMessage: "Ask about any server you can access, or about all of them. I act only with your own permissions.", description: "Assistant panel: intro under the heading of the empty chat when the assistant covers all servers" })}
                 </p>
@@ -389,7 +407,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
 
         <div className="space-y-2 border-t border-border bg-surface/60 p-3 sm:px-4">
           <div className="flex flex-wrap items-center gap-1.5">
-            {scope.server && <span className={chipClass}><Server className="h-3 w-3" />{scope.server}</span>}
+            {scoped && <span className={chipClass}>{scope.repository ? <FolderGit2 className="h-3 w-3" /> : <Server className="h-3 w-3" />}{scoped}</span>}
             <span className={chipClass}><Lock className="h-3 w-3" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.acts_with_your_permissions", defaultMessage: "Acts with your permissions", description: "Assistant panel: chip above the message box reminding that the assistant acts with the user's own permissions; keep it short" })}</span>
             <Select aria-label={modeLabel} selectedKey={mode} isDisabled={!own} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
               <Select.Trigger data-chip className={cn(chipClass, "hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
@@ -417,7 +435,9 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
               value={prompt}
               disabled={!own}
               placeholder={own
-                ? scope.server
+                ? scope.repository
+                  ? intl.formatMessage({ id: "web.repositories.assistant.placeholder", defaultMessage: "Ask Claude about this repository…", description: "Repository assistant: placeholder of the message box when the assistant is scoped to one repository" })
+                  : scope.server
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.placeholder_server_example", defaultMessage: "e.g. \"Set max-players to 50 in server.properties\"", description: "Assistant panel: example prompt shown as the placeholder of the message box when the assistant is scoped to one server; keep the example command as it is" })
                   : intl.formatMessage({ id: "web.components.assistant.assistant_panel.placeholder_lobby_example", defaultMessage: "e.g. \"On lobby, change the MOTD\"", description: "Assistant panel: example prompt shown as the placeholder of the message box when the assistant covers all servers; keep the example as it is" })
                 : intl.formatMessage({ id: "web.components.assistant.assistant_panel.read_only_other_user", defaultMessage: "Read-only: this conversation belongs to another user", description: "Assistant panel: placeholder of the message box when the conversation belongs to another user, so it cannot be changed" })}
@@ -425,7 +445,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
               onEnter={send}
             />
             <div className="flex items-center gap-2 px-1 pt-1">
-              <p className="flex-1 text-[11px] text-muted">{scope.server
+              <p className="flex-1 text-[11px] text-muted">{scoped
                 ? status.data.linear
                   ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions_linear", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file, a folder or Linear", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file, a folder or the Linear workspace to give as context" })
                   : intl.formatMessage({ id: "web.components.assistant.assistant_panel.enter_sends_mentions", defaultMessage: "Enter sends · Shift + Enter adds a line · @ adds a file or folder", description: "Assistant panel: hint under the message box of a server's assistant explaining the Enter and Shift + Enter keys and that typing @ picks a server file or folder to give as context" })

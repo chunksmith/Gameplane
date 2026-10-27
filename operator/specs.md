@@ -50,18 +50,18 @@ operator/
 ├── api/v1alpha1/
 │   CRD type definitions (gameserver_types.go, gameserverset_types.go, gametemplate_types.go, backup_types.go,
 │   backupschedule_types.go, restore_types.go, module_types.go, modulesource_types.go,
-│   cluster_types.go, networkcapture_types.go) and generated deepcopy helpers (zz_generated.deepcopy.go).
+│   cluster_types.go, networkcapture_types.go, repository_types.go) and generated deepcopy helpers (zz_generated.deepcopy.go).
 │   Edited manually; regenerate deepcopy + YAML after any type edit.
 │
 ├── config/
-│   ├── crd/              Generated CRD YAML (10 kinds). Do not hand-edit.
+│   ├── crd/              Generated CRD YAML (11 kinds). Do not hand-edit.
 │   ├── rbac/             Generated ServiceAccount, Role, RoleBinding, ClusterRole,
 │   │                     ClusterRoleBinding. Do not hand-edit.
 │   ├── manager/          Manager deployment, StatefulSet, and RBAC references.
 │   └── samples/          Sample GameServer, GameTemplate, Backup, etc. CRs for testing.
 │
 ├── internal/
-│   ├── controller/       Reconciler implementations (10 controllers + co-located envtest).
+│   ├── controller/       Reconciler implementations (11 controllers + co-located envtest).
 │   │   ├── gameserver_controller.go        Reconciles GameServer → StatefulSet+Service+PVC
 │   │   ├── gameserver_*.go                 Split concerns: config, modcreds, rcon, restart,
 │   │   │                                   wipe, version, stop_attach, node, status, extravolumes
@@ -77,6 +77,7 @@ operator/
 │   │   ├── module_locales.go               Validates module translations, writes the <template>-locales ConfigMap, LocalesValid condition + events
 │   │   ├── cluster_controller.go           Health checks remote clusters via kubeconfig
 │   │   ├── networkcapture_controller.go    Drives NetworkCapture → sidecar injection + retention/expiry
+│   │   ├── repository_controller.go        Reconciles Repository → PVC + repo agent StatefulSet + Service + agent cert
 │   │   ├── agent_certs.go                  Generates per-GameServer agent mTLS certs
 │   │   ├── agent_rbac.go                   Creates per-GameServer ServiceAccount + Role
 │   │   ├── metrics.go                      Prometheus collectors for GameServer/Backup phases
@@ -107,7 +108,7 @@ operator/
 
 ## Custom Resource Definitions
 
-Ten CRD kinds under `gameplane.local/v1alpha1`:
+Eleven CRD kinds under `gameplane.local/v1alpha1`:
 
 ### Cluster-scoped (4)
 
@@ -118,7 +119,7 @@ Ten CRD kinds under `gameplane.local/v1alpha1`:
 | **ModuleSource** | `modulesource_types.go` | Registry of module bundles (OCI, git, HTTP, or local). Declares source location, refresh interval, optional credentials Secret, and optional cosign verification policy. Status lists available modules. |
 | **Cluster** | `cluster_types.go` | Metadata for a remote Kubernetes cluster (displayName, kubeconfig Secret ref). Cluster-scoped so multiple control planes can discover each other. Status tracks health (Unknown/Healthy/Unhealthy), lastCheckTime, conditions. |
 
-### Namespaced (6)
+### Namespaced (7)
 
 | Kind | File | Purpose |
 |------|------|---------|
@@ -128,8 +129,9 @@ Ten CRD kinds under `gameplane.local/v1alpha1`:
 | **BackupSchedule** | `backupschedule_types.go` | Recurring backup schedule for a GameServer. Spec declares cron expression, retention rules (keep-daily, keep-weekly, keep-monthly, keep-yearly), optional suspend. Status reports next firing time, last fire time, retention condition. |
 | **Restore** | `restore_types.go` | One-shot restore of a Backup into a GameServer (typically a fresh copy). Spec refs the source Backup and target GameServer. `RestorePhase` declares Pending/Suspending/Running/Resuming/Succeeded/Failed, but the controller only ever assigns Pending/Suspending/Running/Succeeded/Failed — it clears the GameServer's suspend flag and sets Succeeded in the same pass, with no intermediate Resuming (`RestorePhaseResuming` is declared but never written; see F-260). Coordinates suspend → restic restore Job → resume. |
 | **NetworkCapture** | `networkcapture_types.go` | Opt-in packet-capture session for a GameServer. Spec declares gameServer ref, optional pcap filter, max duration, max file size, and optional TTL. Status tracks phase (Pending/Running/Completed/Failed/Expired), start/completion times, packet/byte counts, and error messages. Owned by its parent GameServer via ownerReferences. |
+| **Repository** | `repository_types.go` | A GitHub repository working copy (spec 029). Spec declares `url` (HTTPS `github.com/<owner>/<repo>` only, CRD pattern, immutable), `branch` (empty = default branch), `storage.size` (operator default 2Gi) and `storage.storageClassName`. Owner, collaborators, collaborator grants and network ride on the same annotations as GameServer. Status `phase` (Pending/Cloning/Ready/Failed), `head`, `branch`, `ahead`, `behind`, `dirty`, `lastFetch`, `conditions`; the operator writes only `phase: Pending` and `AgentReady`, the API derives the live fields from the agent. |
 
-**Verification:** CRD YAML in `config/crd/` generated from types via `make manifests`. All 10 kinds present and scopes correct (verified against `gameplane.local_*.yaml` files): 4 cluster-scoped (GameTemplate, Module, ModuleSource, Cluster) + 6 namespaced (GameServer, GameServerSet, Backup, BackupSchedule, Restore, NetworkCapture).
+**Verification:** CRD YAML in `config/crd/` generated from types via `make manifests`. All 11 kinds present and scopes correct (verified against `gameplane.local_*.yaml` files): 4 cluster-scoped (GameTemplate, Module, ModuleSource, Cluster) + 7 namespaced (GameServer, GameServerSet, Backup, BackupSchedule, Restore, NetworkCapture, Repository).
 
 ## Reconcilers
 
@@ -348,6 +350,12 @@ Primary reconcilers register with the manager in `cmd/main.go` and handle CRD li
 - **Pod restart / eviction detection.** The reconciler records the observed game Pod's UID on the NetworkCapture (`gameplane.local/capture-pod-uid` annotation) at the moment it starts the capture — not a new CRD status field, to avoid a schema/codegen change for what is pure internal bookkeeping. On every Running-phase reconcile, before trusting the sidecar's reported status, the reconciler re-fetches the game pod (`<gs>-0`): if it's gone (`NotFound`), or present but its UID no longer matches the recorded one (the StatefulSet rebuilt a pod with the same name after a delete/eviction), the capture transitions straight to Failed with condition reason `PodRestarted`, skipping the sidecar poll entirely — a dead or replaced sidecar can't answer `GetCaptureStatus` meaningfully anyway, and a same-named replacement pod would otherwise surface as a misleading "capture not found" from the sidecar client rather than the real cause. `NetworkCaptureReconciler.mapPodToNetworkCaptures` watches game Pods directly (label-based lookup, since the Pod is owned by its StatefulSet, never by a NetworkCapture, so `Owns()` would never fire) and enqueues the Running NetworkCapture immediately on the delete/recreate event rather than waiting for the next 5s poll. Either way, the terminal transition clears the parent GameServer's `status.capture.activeCapture`, same as any other Failed/Completed transition.
 - **Sidecar crash, no retry.** On the same Running-phase pre-poll check, the reconciler also inspects the pod's `status.ephemeralContainerStatuses` entry for the capture container: if it reports `State.Terminated` with a non-zero exit code while the pod itself is still present and its UID unchanged (i.e. the game container is fine, only the sidecar process died), the capture is failed with condition reason `SidecarCrashed`. There is no retry path — Terminal phases (Completed/Failed/Expired) short-circuit at the top of `Reconcile` before any further work, so a crashed capture stays Failed; starting a fresh capture requires the caller to issue a new `POST :capture-start`, which is deliberate (mid-capture state on the sidecar side, e.g. a partially-written PCAPNG file, cannot be safely resumed).
 
+### RepositoryReconciler
+- **Responsibility:** Run one repo agent per Repository (spec 029). It owns a PVC `<repo>-data`, a single-replica StatefulSet `<repo>` (labels `app.kubernetes.io/name=gameplane-repo`, `app.kubernetes.io/instance=<repo>`), a ClusterIP Service `<repo>-agent` on 8090 (`publishNotReadyAddresses`) and the agent mTLS Secret `<repo>-agent-tls` signed by `agent_certs.go` with the same SANs as a game agent.
+- **Pod:** container `agent` from `--repo-agent-image`, args `--mode=repository --data-root=/repo` plus the agent TLS flags; the PVC at `/repo`, an `emptyDir` at `/tmp` (`HOME`), read-only root filesystem, uid 65532, all capabilities dropped, no service account token, no heartbeat and no RCON. `GAMEPLANE_SERVER_UID` is the Repository UID so the agent's `/v1/targets/{uid}` guard works.
+- **Status:** sets `phase: Pending` when empty and the `AgentReady` condition from the StatefulSet's ready replicas. It never runs Git, never holds a user token and never moves the phase past `Pending`; clones start from the API.
+- **Name collisions:** a Repository and a GameServer of the same name in one namespace would share child names; `SetControllerReference` fails the second reconcile and the API refuses such names (409 `name_taken`).
+
 ### Sidecar client (operator/internal/agent/sidecar_capture.go)
 
 - **`SidecarCaptureClient interface`** — injected into NetworkCaptureReconciler; abstracts mTLS communication with capture sidecar's `:9091` HTTP control endpoint (testable; tests inject a stub)
@@ -418,6 +426,7 @@ Primary reconcilers register with the manager in `cmd/main.go` and handle CRD li
 | `--capture-max-retention-seconds` | int64 | `604800` | Maximum retention period (seconds) for captures; clamps any higher retention request. 7-day default, a storage-limitation-informed constraint. |
 | `--capture-default-max-duration-seconds` | int64 | `300` | Default maximum duration (seconds) for a single capture when the request does not provide an explicit `maxDuration`. 5-minute default. |
 | `--capture-default-max-size-bytes` | int64 | `5368709120` | Default maximum file size (bytes) for a single capture when the request does not provide an explicit `maxSize`. 5 GiB default. |
+| `--repo-agent-image` | string | `ghcr.io/gameplanepanel/gameplane/repo-agent:dev`, or `GAMEPLANE_REPO_AGENT_IMAGE` env | Repo agent image (agent binary plus the `git` CLI, `agent/Dockerfile.repo`) run by Repository StatefulSets; chart `repositories.agentImage`. |
 | `--capture-sidecar-image` | string | `ghcr.io/gameplanepanel/gameplane/capture-sidecar:dev` | Container image for the network capture sidecar injected when capture is enabled. |
 
 **Manager configuration:**

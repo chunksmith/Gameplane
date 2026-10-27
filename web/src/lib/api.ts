@@ -62,6 +62,8 @@ interface ProblemFields {
   detail: string;
   messageId?: string;
   args?: Record<string, string | number>;
+  code?: string;
+  files?: string[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -89,6 +91,8 @@ function parseProblem(body: string, contentType?: string): ProblemFields | null 
     }
     fields.args = args;
   }
+  if (typeof parsed.code === "string") fields.code = parsed.code;
+  if (Array.isArray(parsed.files)) fields.files = parsed.files.filter((file): file is string => typeof file === "string");
   return fields;
 }
 
@@ -103,6 +107,8 @@ export class APIError extends Error {
   messageId?: string;
   /** Interpolation arguments for `messageId` (problem+json `args`). */
   args?: Record<string, string | number>;
+  code?: string;
+  files?: string[];
   constructor(status: number, body: string, statusText?: string, contentType?: string, retryAfter: string | null = null) {
     const isHTML = body.trimStart().startsWith("<") || (contentType?.includes("text/html") ?? false);
     const problem = parseProblem(body, contentType);
@@ -121,6 +127,8 @@ export class APIError extends Error {
       this.detail = problem.detail;
       this.messageId = problem.messageId;
       this.args = problem.args;
+      this.code = problem.code;
+      this.files = problem.files;
     }
   }
 }
@@ -457,6 +465,7 @@ export const Shares = makeShares(api);
 export interface ResourceScope {
   readonly cluster: string;
   readonly namespace?: string;
+  readonly resource?: "repositories";
 }
 
 /** Immutable request scope for a resource, independent of list filters and storage. */
@@ -471,7 +480,7 @@ export function createRequestClient(input: ResourceScope, signal?: AbortSignal) 
     if (clusters.length > 1 || (clusters.length === 1 && clusters[0] !== scope.cluster)) {
       throw new Error("The request cluster does not match its resource.");
     }
-    const namespaced = ["/servers", "/serversets", "/backups", "/schedules", "/restores", "/backup-destinations", "/ws/servers"].some(
+    const namespaced = ["/servers", "/serversets", "/backups", "/schedules", "/restores", "/backup-destinations", "/ws/servers", "/repositories"].some(
       (prefix) => parsed.pathname === prefix || parsed.pathname.startsWith(prefix + "/"),
     );
     if (namespaced && scope.namespace) {

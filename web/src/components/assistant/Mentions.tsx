@@ -37,15 +37,16 @@ export function MentionTextArea({ scope, linear = false, value, onValueChange, o
   const before = value.slice(0, caret);
   const term = linear && !closed ? LINEAR_TYPING.exec(before)?.[1] : undefined;
   const query = !closed && term === undefined ? TYPING.exec(before)?.[1] : undefined;
-  const fileQuery = scope.server ? query : undefined;
+  const target = scope.server ?? scope.repository;
+  const fileQuery = target ? query : undefined;
   const workspace = linear && query !== undefined && LINEAR.startsWith(query.toLowerCase());
   const issuesShown = linear && (term !== undefined || query?.toLowerCase() === LINEAR);
   const slash = fileQuery?.lastIndexOf("/") ?? -1;
   const dir = fileQuery && slash >= 0 ? `/${fileQuery.slice(0, slash)}` : "/";
   const needle = fileQuery?.slice(slash + 1).toLowerCase() ?? "";
   const listing = useQuery({
-    queryKey: ["ai", "mentions", scope.cluster, scope.namespace, scope.server, dir],
-    queryFn: ({ signal }) => clientOf(scope, signal).Files.list(scope.server ?? "", dir, scope.namespace),
+    queryKey: ["ai", "mentions", scope.cluster, scope.namespace, scope.server, scope.repository, dir],
+    queryFn: ({ signal }) => clientOf(scope, signal).Files.list(target ?? "", dir, scope.namespace),
     enabled: fileQuery !== undefined,
     staleTime: 30_000,
   });
@@ -178,7 +179,7 @@ export function MentionTextArea({ scope, linear = false, value, onValueChange, o
 }
 
 export async function mentionContext(scope: AssistantScope, text: string): Promise<string> {
-  const server = scope.server;
+  const server = scope.server ?? scope.repository;
   if (!server) return "";
   const client = clientOf(scope);
   const paths = [...new Set([...text.matchAll(MENTIONED)].map((match) => match[1]).filter((mention) => mention.toLowerCase() !== LINEAR))];
@@ -203,5 +204,5 @@ export async function mentionContext(scope: AssistantScope, text: string): Promi
 }
 
 function clientOf(scope: AssistantScope, signal?: AbortSignal) {
-  return createResourceClient({ cluster: scope.cluster ?? "local", namespace: scope.namespace }, signal);
+  return createResourceClient({ cluster: scope.cluster ?? "local", namespace: scope.namespace, resource: scope.repository ? "repositories" : undefined }, signal);
 }

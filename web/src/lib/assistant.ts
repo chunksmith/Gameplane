@@ -78,6 +78,7 @@ export const LINEAR_PREFIX = "linear_";
 
 export interface AssistantScope {
   server?: string;
+  repository?: string;
   namespace?: string;
   cluster?: string;
 }
@@ -92,6 +93,7 @@ export interface AssistantConversation {
   cluster: string;
   namespace: string;
   server: string;
+  repository?: string;
   model: string;
   effort: string;
   mode: AssistantMode;
@@ -149,6 +151,7 @@ export function requestOf(text: string): string {
 
 export function scopeQuery(scope: AssistantScope, all: boolean): string {
   if (all) return "?scope=all";
+  if (scope.repository) return `?${new URLSearchParams({ repository: scope.repository, namespace: scope.namespace ?? "" }).toString()}`;
   if (!scope.server) return "";
   const params = new URLSearchParams({ server: scope.server, namespace: scope.namespace ?? "", cluster: scope.cluster ?? "local" });
   return `?${params.toString()}`;

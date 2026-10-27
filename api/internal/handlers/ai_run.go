@@ -64,7 +64,27 @@ type aiToolUse struct {
 func (in aiToolInput) needsApproval() bool {
 	method := strings.ToUpper(in.Method)
 	return method == http.MethodDelete || strings.HasSuffix(in.Path, ":wipe-data") ||
-		(method == http.MethodPost && strings.HasPrefix(in.Path, "/restores"))
+		(method == http.MethodPost && strings.HasPrefix(in.Path, "/restores")) ||
+		(method == http.MethodPost && strings.HasPrefix(in.Path, "/repositories/") && aiGitNeedsApproval(in))
+}
+
+func aiGitNeedsApproval(in aiToolInput) bool {
+	for _, op := range []string{"/git/push", "/git/pull", "/git/discard", "/git/undo", "/git/revert"} {
+		if strings.HasSuffix(in.Path, op) {
+			return true
+		}
+	}
+	if !strings.HasSuffix(in.Path, "/git/commit") {
+		return false
+	}
+	body, _ := aiBody(in.Body)
+	var commit struct {
+		Push bool `json:"push"`
+	}
+	if json.Unmarshal(body, &commit) != nil || !bytes.HasPrefix(bytes.TrimSpace(body), []byte("{")) {
+		return true
+	}
+	return commit.Push
 }
 
 func (use aiToolUse) linear() (string, bool) {
@@ -121,7 +141,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			h.settle(ctx, conv.ID, runID, aiFailed, "Could not load the conversation.")
 			return
 		}
-		if uses := aiToolUses(msgs); len(uses) > 0 {
+		if uses := aiToolUsesIn(conv.Repository, msgs); len(uses) > 0 {
 			if approved == nil && conv.Mode != aiModeBypass && slices.ContainsFunc(uses, aiToolUse.needsApproval) {
 				h.settle(ctx, conv.ID, runID, aiAwaiting, "")
 				return
@@ -232,6 +252,14 @@ func (h *aiHandler) authorize(ctx context.Context, conv aiConversation, creds ai
 		q.Set(k, v)
 	}
 	seg := aiSegment(p)
+	if conv.Repository != "" {
+		base := "/repositories/" + conv.Repository + "/"
+		if !strings.HasPrefix(p, base+"files/") && !strings.HasPrefix(p, base+"git/") {
+			return "", fmt.Errorf("this conversation is limited to repository %s", conv.Repository)
+		}
+		q.Set("namespace", conv.Namespace)
+		return aiTarget(p, q), nil
+	}
 	if conv.Server == "" {
 		if !aiGeneralWrite[seg] && (!aiGeneralRead[seg] || method != http.MethodGet) {
 			return "", errAIEndpoint
@@ -297,7 +325,7 @@ func aiParams(conv aiConversation, history []anthropic.BetaMessageParam) anthrop
 		MaxTokens:    64000,
 		System:       []anthropic.BetaTextBlockParam{{Text: aiSystemPrompt(conv)}},
 		Messages:     history,
-		Tools:        aiBetaTools(),
+		Tools:        aiBetaToolsFor(conv),
 		OutputConfig: anthropic.BetaOutputConfigParam{Effort: anthropic.BetaOutputConfigEffort(conv.Effort)},
 		CacheControl: anthropic.NewBetaCacheControlEphemeralParam(),
 	}
@@ -319,6 +347,12 @@ func aiHistory(msgs []json.RawMessage) ([]anthropic.BetaMessageParam, error) {
 }
 
 func aiToolUses(msgs []json.RawMessage) []aiToolUse {
+	return aiToolUsesIn("", msgs)
+}
+
+// aiToolUsesIn reads the pending tool calls; Git tools become the
+// repository API calls they stand for.
+func aiToolUsesIn(repository string, msgs []json.RawMessage) []aiToolUse {
 	if len(msgs) == 0 {
 		return nil
 	}
@@ -340,7 +374,11 @@ func aiToolUses(msgs []json.RawMessage) []aiToolUse {
 			continue
 		}
 		use := aiToolUse{id: block.ID, name: block.Name, raw: block.Input}
-		if _, ok := use.linear(); !ok && !aiIsFileTool(block.Name) {
+		_, isLinear := use.linear()
+		switch {
+		case aiIsGitTool(block.Name):
+			use.input, use.err = aiGitInput(repository, block.Name, block.Input)
+		case !isLinear && !aiIsFileTool(block.Name):
 			use.err = json.Unmarshal(block.Input, &use.input)
 		}
 		uses = append(uses, use)
@@ -438,6 +476,9 @@ func aiApprovalText(mode string) string {
 }
 
 func aiSystemPrompt(conv aiConversation) string {
+	if conv.Repository != "" {
+		return aiRepositoryPrompt(conv)
+	}
 	scopeLine := "This conversation is not tied to one server. Use GET /fleet/servers to find servers; pass namespace (and cluster when it is not \"local\") on every namespaced call."
 	if conv.Server != "" {
 		scopeLine = fmt.Sprintf("This conversation is about server %q in namespace %q on cluster %q. You can act only on this server and its own backups, schedules and restores; namespace and cluster are added to every call for you.", conv.Server, conv.Namespace, conv.Cluster)

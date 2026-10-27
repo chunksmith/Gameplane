@@ -45,6 +45,7 @@ agent/
 │   ├── caps/                # Mirrors GameTemplate.spec.capabilities schema (JSON unmarshaling)
 │   ├── console/             # Duplex WebSocket console bridge (RCON stdin/stdout)
 │   ├── files/               # File-browser HTTP API (list, read, write, upload, mkdir, delete)
+│   ├── git/                 # Repository mode: /git/* over the git CLI (status, diff, commit, log, branches, fetch, pull, push, clone)
 │   ├── heartbeat/           # GameServer status patcher (lastHeartbeat, players, version, usage)
 │   ├── lifecycle/           # Stop sequence execution before scale-to-zero
 │   ├── logs/                # Log file streaming over WebSocket (tail from start or end)
@@ -80,6 +81,7 @@ Per-package roles:
 - **`caps`**: Unmarshals JSON capabilities blob from `GAMEPLANE_CAPABILITIES` env; exposes `Spec` with `Players`, `Quiesce`, `Lifecycle`, `Actions`, `Status`, `Mods`.
 - **`console`**: Accepts `{ kind: "cmd", body: "<rcon cmd>" }` JSON over WebSocket, runs it via RCON, replies with `{ kind: "out"|"err", body: "<response>" }`. On an RCON failure the `err` body is the generic `upstream unavailable`; the detailed error is logged with every occurrence of the submitted command replaced by `<redacted>`, since RCON clients embed the command in their errors and it may carry a secret.
 - **`files`**: Walks the filesystem under `--data-root`, validates paths lexically, then performs every operation relative to a directory descriptor on the root with `openat(O_NOFOLLOW)` per component (no `..`, no symlink at any component), handles multipart uploads.
+- **`git`**: Repository mode only (spec 029). Runs the `git` CLI in `--data-root` with no shell, hooks disabled (`core.hooksPath=/dev/null`), no credential helper and no system config. One mutex per working copy serializes write and network commands (busy → `409 busy`); reads never lock. Network commands (clone, fetch, pull, push, commit with `push`) take the user's token from `X-Gameplane-Git-Token`, pass it to Git only through `GIT_ASKPASS` (the agent binary re-executed as the askpass helper, username `x-access-token`) for that one command, and redact it from every output and error. Remotes must match `^https://github.com/<owner>/<repo>$` and `github.com` must resolve through `netguard.IsPublic`. Pull is `--rebase`; a conflict aborts and reports the files.
 - **`heartbeat`**: Runs a background goroutine that every 20 seconds patches `gameservers/<name>/status` with `status.agent.lastHeartbeat`, `status.agent.playersOnline`, `status.agent.playersMax`, `status.agent.gameVersion`, and resource usage via the pod's ServiceAccount. `gameVersion` is currently always patched `null` ("unknown") — the agent has no source for the game's actual running version; it must never be filled in with the game/template identifier (e.g. `minecraft-java`), which is a different value.
 - **`lifecycle`**: HTTP handler for the operator's `/lifecycle/stop` call; runs module-declared stop commands over RCON before the game process terminates.
 - **`logs`**: Tails a game log file (path from `--game-log-path`) over WebSocket; supports streaming from end (default, "live") or start ("backlog"). Absolute paths must be inside `--data-root`; relative paths resolve beneath it. Downloads and all tail opens, rotation probes, and reopens use regular-file descriptors confined to the trusted data root. Symlinks in any component below the root and nonregular files are rejected; FIFO rejection does not block. Downloads serve the opened descriptor even if the path changes. Ordinary rename rotation and missing-file retries remain supported. Filesystem failures use generic client errors.
@@ -104,6 +106,7 @@ Mode: In-pod HTTP/HTTPS sidecar (runs as a container sidecar or as a pod share-p
 | `--addr` | `:8090` | — | HTTP listen address for the mTLS control mux (e.g., `:8090` for all interfaces) |
 | `--metrics-addr` | `:9090` | `GAMEPLANE_METRICS_ADDR` | Listen address for the separate Prometheus metrics listener, plain HTTP with no auth (empty disables it); never shares `--addr`'s mTLS control mux, so a scraper needs no client cert |
 | `--data-root` | `/data` | — | Root path for file operations (agent restricts all I/O here) |
+| `--mode` | `server` | — | `server` (game server sidecar) or `repository` (repo agent: only `/healthz`, `/files/*` and `/git/*`) |
 | `--rcon-host` | `127.0.0.1` | — | RCON server host (loopback in-pod) |
 | `--rcon-port` | `25575` | — | RCON server port (game-specific default) |
 | `--rcon-password-file` | `` | — | Path to file holding the RCON password |
@@ -193,6 +196,13 @@ Resource usage env vars (set by the operator):
 
 All endpoints on the `--addr` control mux, except `/healthz`, return `401 Unauthorized` if the request lacks a valid cert or token. `/healthz` is outside the auth middleware: in mTLS mode (always used by the operator) the TLS handshake still requires a verified client certificate for it, as for every path; in bearer-token fallback mode it answers without a token. `/metrics` is not on that mux at all — it lives on the separate `--metrics-addr` listener, which has no auth of its own.
 
+### Repository mode (`--mode=repository`, spec 029)
+
+The repo agent runs from the `repo-agent` image (`agent/Dockerfile.repo`: the agent binary plus `git` on Alpine, uid 65532, `HOME=/tmp`) in a Repository's StatefulSet with `--data-root=/repo`. It mounts only `/healthz`, `/files/*` and `/git/*`, also under `/v1/targets/{uid}/` guarded by `GAMEPLANE_SERVER_UID`; console, logs, players, mods, quiesce, lifecycle, actions, status and the heartbeat are off.
+
+- **Files:** the `/files` contract above, with dotfiles allowed (`.github`, `.gitignore`) and `.git` (any path component) hidden from list, size and archive and refused with `403` body `git_dir`. Game-server mode still refuses dotfiles with 400.
+- **Git routes:** `GET /git/status|diff|log|commits/{sha}|branches|clone`, `POST /git/stage|unstage|discard|commit|revert|undo|branches|checkout|fetch|pull|push|clone`. Errors are JSON `{code, message, output?, files?, commit?}` with the codes listed in `specs/029-repositories/contracts/repositories-api.md`; `output` is the redacted stderr tail (64 KiB). `POST /git/clone {url, branch?, wipe?}` is asynchronous (202) and holds the lock while it runs; `GET /git/clone` reports `idle|running|done|failed` with progress. Commit and revert need `X-Gameplane-Git-Author-Name` / `-Email`; pull uses them as the committer of rebased commits.
+
 ## Key invariants
 
 - **Every protected request is authenticated**: The `auth` package gates all protected game-data routes (`/files`, `/logs`, `/console`, `/players`, RCON) with either mTLS verification or bearer-token matching. The documented public endpoints (`/healthz` on the control mux, `/metrics` on its separate listener) are the only exceptions; see above.
@@ -253,6 +263,7 @@ The agent and operator modules use `k8s.io/apimachinery`/`k8s.io/client-go` v0.3
 ## Security considerations
 
 - **mTLS + token auth**: All protected endpoints require either a valid mTLS client cert (signed by `--tls-client-ca`) or a bearer token (from `--api-token-file`).
+- **Git tokens never persist** (repository mode): the token arrives per request in `X-Gameplane-Git-Token`, reaches Git only through the `GIT_ASKPASS` environment of a network command, is never written to disk or `.git/config`, and is replaced with `[REDACTED]` in all output. `.git` is unreachable through `/files`, so hooks and config cannot be planted from the file API, and hooks are disabled for every Git command.
 - **SSRF guard on mod downloads**: `netguard.IsPublic()` gates every mod download dial; private or loopback registries are rejected regardless of `allowedHosts`, which only narrows the host allowlist.
 - **Console-injection guard on RCON actions**: `gameaction.Resolve()` validates action inputs independently on the agent side; control characters, oversized inputs, and required-parameter validation prevent blind command injection. Kick/ban reasons go through the same guard (gameaction.CheckText) before being rendered into the module's .Reason template variable.
 - **Path-traversal protection**: The `files` package rejects `..`, any symlink component below `--data-root`, and dotfile access; all I/O goes through descriptors rooted at the data directory, so it is also safe against a path being swapped for a symlink after validation (race-oriented tests cover this).

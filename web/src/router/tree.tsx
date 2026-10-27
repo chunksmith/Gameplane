@@ -8,6 +8,8 @@ import { SharePage } from "@/routes/Share";
 import { DashboardPage } from "@/routes/Dashboard";
 import { ServersPage } from "@/routes/Servers";
 import { ServerDetailPage } from "@/routes/ServerDetail";
+import { RepositoriesPage } from "@/routes/Repositories";
+import { RepositoryDetailPage } from "@/routes/RepositoryDetail";
 import { ModulesPage } from "@/routes/Modules";
 import { ClusterPage } from "@/routes/Cluster";
 import { ClustersPage } from "@/routes/Clusters";
@@ -81,6 +83,26 @@ const serverDetailRoute = new Route({
 
 const serverFilesRoute = new Route({
   getParentRoute: () => serverDetailRoute,
+  path: "files/$",
+});
+
+const repositoriesRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/repositories",
+  component: RepositoriesPage,
+});
+
+const repositoryDetailRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/repositories/$name",
+  component: RepositoryDetailPage,
+  validateSearch: (search: Record<string, unknown>): { ns?: string } => ({
+    ns: typeof search.ns === "string" && search.ns !== "" ? search.ns : undefined,
+  }),
+});
+
+const repositoryFilesRoute = new Route({
+  getParentRoute: () => repositoryDetailRoute,
   path: "files/$",
 });
 
@@ -273,6 +295,8 @@ export const routeTree = rootRoute.addChildren([
     createServerRoute,
     serversRoute,
     serverDetailRoute.addChildren([serverFilesRoute]),
+    repositoriesRoute,
+    repositoryDetailRoute.addChildren([repositoryFilesRoute]),
     modulesRoute,
     clusterRoute,
     clustersRoute,

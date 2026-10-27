@@ -102,7 +102,8 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, token: rand.Text(), done: runCtx.Done(), cancel: cancel}
 	h.track(run)
 	defer h.untrack(run)
-	out, wait, err := h.spawn(runCtx, aiCLIEnv(token, creds.admin), prompt, aiCLIArgs(conv, h.mcpURL, run.token, creds.admin, linear.names()...)...)
+	shell := creds.admin && conv.Repository == ""
+	out, wait, err := h.spawn(runCtx, aiCLIEnv(token, shell), prompt, aiCLIArgs(conv, h.mcpURL, run.token, shell, linear.names()...)...)
 	if err != nil {
 		slog.Warn("start claude", "err", err)
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code could not be started.")
@@ -206,6 +207,11 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
 	allowedTools := aiMCPTools()
+	if conv.Repository != "" {
+		for _, spec := range aiGitTools {
+			allowedTools = append(allowedTools, aiMCPPrefix+spec.name)
+		}
+	}
 	for _, name := range linear {
 		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
@@ -213,7 +219,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	if len(linear) > 0 {
 		system += aiLinearPrompt
 	}
-	if admin {
+	if admin && conv.Repository == "" {
 		tools, allowedTools, system = "Bash", append(allowedTools, "Bash"), system+aiShellText(conv.Mode)
 	}
 	allowed := strings.Join(allowedTools, ",")
@@ -278,6 +284,11 @@ func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 	for _, spec := range aiTools {
 		server.AddTool(spec.mcp(), h.mcpCall)
 	}
+	if run != nil && run.conv.Repository != "" {
+		for _, spec := range aiGitTools {
+			server.AddTool(spec.mcp(), h.mcpCall)
+		}
+	}
 	if run != nil && run.linear != nil {
 		for _, tool := range run.linear.tools {
 			server.AddTool(&mcp.Tool{Name: aiLinearPrefix + tool.Name, Description: tool.Description, InputSchema: tool.InputSchema}, h.mcpLinearCall)
@@ -328,7 +339,11 @@ func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, arg
 		return h.fileTool(ctx, run.conv, run.creds, name, args)
 	}
 	var in aiToolInput
-	if err := json.Unmarshal(args, &in); err != nil {
+	err := json.Unmarshal(args, &in)
+	if aiIsGitTool(name) {
+		in, err = aiGitInput(run.conv.Repository, name, args)
+	}
+	if err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
 	if run.conv.Mode != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {

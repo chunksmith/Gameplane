@@ -183,10 +183,11 @@ KIND_E2E_CLUSTER ?= gameplane-e2e
 KIND_E2E_TAG     ?= e2e
 
 .PHONY: e2e-images
-e2e-images: ## Build operator/api/agent/fakeoidc images tagged for e2e
+e2e-images: ## Build operator/api/agent/repo-agent/fakeoidc images tagged for e2e
 	docker build -t gameplane-test/operator:$(KIND_E2E_TAG) -f operator/Dockerfile .
 	docker build -t gameplane-test/api:$(KIND_E2E_TAG)      -f api/Dockerfile      .
 	docker build -t gameplane-test/agent:$(KIND_E2E_TAG)    -f agent/Dockerfile    .
+	docker build -t gameplane-test/repo-agent:$(KIND_E2E_TAG) -f agent/Dockerfile.repo .
 	docker build -t gameplane-test/telemetry-receiver:$(KIND_E2E_TAG) -f telemetry-receiver/Dockerfile .
 	docker build -t gameplane-test/fakeoidc:$(KIND_E2E_TAG) -f test/e2e/Dockerfile.fakeoidc .
 
@@ -320,10 +321,10 @@ IMAGES := operator api web agent telemetry-receiver sentinel mcp-server capture-
 # sentinel, a tunnel relay, telemetry-receiver, the audit-syslog bridge)
 # work out of the box on a Kind dev cluster instead of silently failing to
 # pull their image.
-ALL_IMAGE_NAMES := $(IMAGES) audit-syslog-bridge tunnel-frp tunnel-tailscale tunnel-playit
+ALL_IMAGE_NAMES := $(IMAGES) audit-syslog-bridge repo-agent tunnel-frp tunnel-tailscale tunnel-playit
 
 .PHONY: images
-images: $(addprefix image-,$(IMAGES)) image-audit-syslog image-tunnel-frp image-tunnel-tailscale image-tunnel-playit ## Build all container images
+images: $(addprefix image-,$(IMAGES)) image-audit-syslog image-repo-agent image-tunnel-frp image-tunnel-tailscale image-tunnel-playit ## Build all container images
 
 # Pattern rule for standard-shaped images
 image-%: ## Build container image
@@ -332,6 +333,9 @@ image-%: ## Build container image
 # Non-standard images (target name ≠ dir, or special Dockerfile paths)
 image-audit-syslog: ## Build audit-syslog-bridge image
 	docker build -t $(REGISTRY)/audit-syslog-bridge:$(TAG) -f audit-syslog-bridge/Dockerfile .
+
+image-repo-agent: ## Build repo-agent image (agent binary + git)
+	docker build -t $(REGISTRY)/repo-agent:$(TAG) -f agent/Dockerfile.repo .
 
 image-tunnel-frp: ## Build tunnel-frp image
 	docker build -t $(REGISTRY)/tunnel-frp:$(TAG) -f tunnel/Dockerfile.frp .

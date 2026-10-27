@@ -133,6 +133,9 @@ var rows = []row{
 	{types: []string{"IdleScheduleInvalid"}, reason: "WakeWindowUnparseable", english: "A wake window in the idle schedule cannot be parsed: {details}", description: "Condition when spec.idle has an invalid wake window. details is the English parse error."},
 	{types: []string{"DataWipe"}, reason: "JobFailed", english: "The data wipe job did not complete. The volume may not be fully cleared.", description: "DataWipe condition when the wipe job fails."},
 
+	{types: []string{"AgentReady"}, reason: "AgentNotReady", english: "The repository agent pod is not ready.", description: "Repository AgentReady condition while the repository agent pod is starting or failing."},
+	{types: []string{"AgentReady"}, reason: "AgentReady", english: "The repository agent pod is ready.", description: "Repository AgentReady condition once the repository agent pod is ready."},
+
 	// Backup, Restore, Unquiesced, SnapshotForgotten (Type Completed is shared)
 	{types: []string{"Completed"}, reason: "Succeeded", english: "The backup or restore completed successfully.", description: "Completed condition on a Backup or Restore that finished."},
 	{types: []string{"Completed"}, reason: "Failed", english: "The backup or restore failed.", description: "Completed condition on a Backup or Restore that failed. The message holds the English detail."},

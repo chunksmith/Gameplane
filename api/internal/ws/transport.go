@@ -38,7 +38,9 @@ type agentRequest struct {
 	path     string
 	rawQuery string
 	header   http.Header
-	body     io.Reader
+	// extra carries API-generated headers that bypass the browser allowlist.
+	extra http.Header
+	body  io.Reader
 }
 
 // agentTransport separates agent operations from their network route. A
@@ -125,6 +127,9 @@ func (t *directAgentTransport) Do(ctx context.Context, operation agentRequest) (
 	}
 	// Keep browser session material out of agents even for internal callers.
 	copyProxyHeaders(req.Header, operation.header)
+	for key, values := range operation.extra {
+		req.Header[key] = values
+	}
 	return t.http.Do(req)
 }
 

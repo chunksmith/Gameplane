@@ -23,6 +23,7 @@ rules:
       - backupschedules
       - restores
       - networkcaptures
+      - repositories
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["gameplane.local"]
     resources:
@@ -32,6 +33,7 @@ rules:
       - backupschedules/status
       - restores/status
       - networkcaptures/status
+      - repositories/status
     verbs: ["get", "update", "patch"]
   # Finalizers: mirrors charts/gameplane/templates/operator.yaml's
   # namespace-scoped Role. Only the cluster-scoped Module's finalizer is
@@ -43,6 +45,7 @@ rules:
       - backups/finalizers
       - backupschedules/finalizers
       - restores/finalizers
+      - repositories/finalizers
     verbs: ["update"]
   # Deployments: the sentinel and tunnel-client Deployments live beside
   # their GameServer.

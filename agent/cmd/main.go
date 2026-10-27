@@ -22,6 +22,7 @@ import (
 	"github.com/GameplanePanel/gameplane/agent/internal/caps"
 	"github.com/GameplanePanel/gameplane/agent/internal/console"
 	"github.com/GameplanePanel/gameplane/agent/internal/files"
+	"github.com/GameplanePanel/gameplane/agent/internal/git"
 	"github.com/GameplanePanel/gameplane/agent/internal/heartbeat"
 	"github.com/GameplanePanel/gameplane/agent/internal/lifecycle"
 	"github.com/GameplanePanel/gameplane/agent/internal/logs"
@@ -40,7 +41,11 @@ var Version = "dev"
 
 // main is the entrypoint for the Gameplane sidecar agent process.
 func main() {
+	if git.Askpass() {
+		return
+	}
 	var (
+		mode         string
 		addr         string
 		metricsAddr  string
 		dataRoot     string
@@ -62,6 +67,7 @@ func main() {
 		cliPipe      string
 		logLevel     string
 	)
+	flag.StringVar(&mode, "mode", "server", "agent mode: server (game server sidecar) or repository (Git working copy)")
 	flag.StringVar(&addr, "addr", ":8090", "HTTP listen address")
 	flag.StringVar(&metricsAddr, "metrics-addr", envOr("GAMEPLANE_METRICS_ADDR", ":9090"),
 		"listen address for the Prometheus metrics endpoint, separate from --addr and served "+
@@ -99,6 +105,11 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: parseLogLevel(logLevel)}))
 	slog.SetDefault(logger)
+
+	if mode != modeServer && mode != modeRepository {
+		logger.Error("unknown --mode", "mode", mode)
+		os.Exit(1)
+	}
 
 	if err := validateTLSFlags(certFile, keyFile); err != nil {
 		logger.Error("tls flags", "err", err)
@@ -178,7 +189,13 @@ func main() {
 	// and isn't meant to be trusted with the console/files/RCON routes that
 	// cert would also unlock.
 
+	gitRoutes := git.Routes(dataRoot)
 	mountProtected := func(protected chi.Router) {
+		if mode == modeRepository {
+			files.MountRepository(protected, dataRoot)
+			gitRoutes(protected)
+			return
+		}
 
 		// Console/Logs open long-lived WebSockets and Mods installs can run
 		// well past a short request deadline (a large download bounded by
@@ -308,6 +325,11 @@ func main() {
 		_ = metricsSrv.Shutdown(shutdownCtx)
 	}
 }
+
+const (
+	modeServer     = "server"
+	modeRepository = "repository"
+)
 
 // errTLSFlagsUnpaired reports that only one of --tls-cert / --tls-key was set.
 var errTLSFlagsUnpaired = errors.New("--tls-cert and --tls-key must both be set or both be empty")
