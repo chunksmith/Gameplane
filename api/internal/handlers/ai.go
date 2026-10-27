@@ -47,6 +47,7 @@ const (
 	aiModeDefault = "default"
 	aiModeAuto    = "auto"
 	aiModeBypass  = "bypassPermissions"
+	aiModePlan    = "plan"
 
 	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode`
 	aiFrom    = ` FROM ai_conversations c LEFT JOIN users u ON u.id = c.user_id`
@@ -58,7 +59,7 @@ const (
 var (
 	aiModels     = []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"}
 	aiEfforts    = []string{"low", "medium", "high", "xhigh", "max"}
-	aiModes      = []string{aiModeDefault, aiModeAuto, aiModeBypass}
+	aiModes      = []string{aiModeDefault, aiModeAuto, aiModeBypass, aiModePlan}
 	errAIStopped = errors.New("ai run stopped")
 )
 
@@ -197,6 +198,7 @@ func (h *aiHandler) mount(r chi.Router) {
 	r.Get("/ai/conversations/{id}/stream", h.sse)
 	r.Post("/ai/conversations/{id}/messages", h.post)
 	r.Post("/ai/conversations/{id}/approval", h.approval)
+	r.Post("/ai/conversations/{id}/answer", h.answerQuestion)
 	r.Post("/ai/conversations/{id}/cancel", h.cancel)
 }
 
@@ -530,6 +532,30 @@ func (h *aiHandler) approval(w http.ResponseWriter, req *http.Request) {
 	conv.Status, conv.Error = aiRunning, ""
 	go h.run(context.WithoutCancel(req.Context()), conv, aiCredentials(req), key, runID, &body.Approve)
 	writeJSON(w, conv)
+}
+
+func (h *aiHandler) answerQuestion(w http.ResponseWriter, req *http.Request) {
+	conv, ok := h.load(w, req, true)
+	if !ok {
+		return
+	}
+	var body struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	answer := strings.TrimSpace(body.Answer)
+	if utf8.RuneCountInString(answer) > aiMaxAnswer {
+		http.Error(w, "answer is too long", http.StatusBadRequest)
+		return
+	}
+	if !h.answer(req.Context(), conv.ID, answer) {
+		http.Error(w, "the conversation is not waiting for an answer", http.StatusConflict)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *aiHandler) cancel(w http.ResponseWriter, req *http.Request) {

@@ -1383,6 +1383,82 @@
     "defaultMessage": "{tokens} tokens",
     "description": "Assistant panel: chip in the header with the conversation's total token count; {tokens} is the formatted number"
   },
+  "web.components.assistant.assistant_panel.tool_ended": {
+    "defaultMessage": "Ended",
+    "description": "Assistant panel: badge of a background command whose status is no longer known; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_exited": {
+    "defaultMessage": "Exited {code}",
+    "description": "Assistant panel: badge of a background command that finished; {code} is its exit code"
+  },
+  "web.components.assistant.assistant_panel.tool_fetch": {
+    "defaultMessage": "Fetch",
+    "description": "Assistant panel: name of a tool call that reads a web page; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_files": {
+    "defaultMessage": "{count, plural, one {# file} other {# files}}",
+    "description": "Assistant panel: result badge of a glob tool call; {count} is the number of matching files"
+  },
+  "web.components.assistant.assistant_panel.tool_find_files": {
+    "defaultMessage": "Find files",
+    "description": "Assistant panel: action of a glob tool call that finds files by name pattern; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_glob": {
+    "defaultMessage": "Glob",
+    "description": "Assistant panel: name of a tool call that finds files by a name pattern; a tool name, keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_grep": {
+    "defaultMessage": "Grep",
+    "description": "Assistant panel: name of a tool call that searches file contents; a tool name, keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_grep_in": {
+    "defaultMessage": "\"{pattern}\" in",
+    "description": "Assistant panel: action of a grep tool call, put before the folder it searches; {pattern} is the text searched for, quoted; keep the word in"
+  },
+  "web.components.assistant.assistant_panel.tool_in_background": {
+    "defaultMessage": "In background",
+    "description": "Assistant panel: action of a shell tool call that runs in the background; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_job": {
+    "defaultMessage": "Job",
+    "description": "Assistant panel: name of a tool call that reads the output of a background command; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_matches": {
+    "defaultMessage": "{count, plural, one {# match} other {# matches}}",
+    "description": "Assistant panel: result badge of a grep tool call; {count} is the number of matching lines"
+  },
+  "web.components.assistant.assistant_panel.tool_monitor": {
+    "defaultMessage": "Monitor",
+    "description": "Assistant panel: name of a tool call that watches a background process; a tool name, keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_output_of": {
+    "defaultMessage": "Output of",
+    "description": "Assistant panel: action of a tool call that reads the output of a background job; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_read_page": {
+    "defaultMessage": "Read page",
+    "description": "Assistant panel: action of a tool call that reads a web page; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_running": {
+    "defaultMessage": "Running",
+    "description": "Assistant panel: badge of a background command that is still running; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_search": {
+    "defaultMessage": "Search",
+    "description": "Assistant panel: action of a web search tool call; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_shell": {
+    "defaultMessage": "Shell",
+    "description": "Assistant panel: name of a tool call that runs a shell command in the background; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_stop": {
+    "defaultMessage": "Stop",
+    "description": "Assistant panel: name of a tool call that stops a background command; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_web_search": {
+    "defaultMessage": "Web search",
+    "description": "Assistant panel: name of a tool call that searches the web; keep it short"
+  },
   "web.components.assistant.assistant_panel.what_is_this_server_s_status": {
     "defaultMessage": "What is this server's status?",
     "description": "Assistant panel: message put in the message box when the Check health starter card is clicked, asking for the server status"
@@ -1450,6 +1526,74 @@
   "web.components.assistant.model_picker.value": {
     "defaultMessage": "{model} · {effort}",
     "description": "Assistant model picker: text of the dropdown button; {model} is the model name and {effort} its fixed effort level such as medium or high"
+  },
+  "web.components.assistant.tool_cards.approve_plan": {
+    "defaultMessage": "Approve plan",
+    "description": "Assistant tool card: button that approves the proposed plan so the assistant carries it out; keep it short"
+  },
+  "web.components.assistant.tool_cards.hide_output": {
+    "defaultMessage": "Hide output",
+    "description": "Assistant tool card: button that hides the output of a background command; keep it short"
+  },
+  "web.components.assistant.tool_cards.keep_planning": {
+    "defaultMessage": "Keep planning",
+    "description": "Assistant tool card: button that declines the proposed plan so the assistant keeps planning; keep it short"
+  },
+  "web.components.assistant.tool_cards.other_answer": {
+    "defaultMessage": "Other answer…",
+    "description": "Assistant tool card: placeholder of the free-text answer box under the options of a question; keep it short"
+  },
+  "web.components.assistant.tool_cards.plan": {
+    "defaultMessage": "Plan",
+    "description": "Assistant tool card: heading of a plan the assistant proposes before making changes; keep it short"
+  },
+  "web.components.assistant.tool_cards.plan_note": {
+    "defaultMessage": "Plan mode · nothing changed yet",
+    "description": "Assistant tool card: warning note on a plan that waits for approval, saying the assistant has not changed anything yet; keep it short"
+  },
+  "web.components.assistant.tool_cards.plan_ready": {
+    "defaultMessage": "Ready for your approval",
+    "description": "Assistant tool card: text under the Plan heading while the plan waits for the user's approval; keep it short"
+  },
+  "web.components.assistant.tool_cards.question": {
+    "defaultMessage": "Question",
+    "description": "Assistant tool card: label above a question the assistant asks the user; keep it short"
+  },
+  "web.components.assistant.tool_cards.send_answer": {
+    "defaultMessage": "Send answer",
+    "description": "Assistant tool card: button that sends the chosen answer to a question; keep it short"
+  },
+  "web.components.assistant.tool_cards.show_output": {
+    "defaultMessage": "Show output",
+    "description": "Assistant tool card: button that shows the latest output of a background command; keep it short"
+  },
+  "web.components.assistant.tool_cards.skip": {
+    "defaultMessage": "Skip",
+    "description": "Assistant tool card: button that skips a question without answering; keep it short"
+  },
+  "web.components.assistant.tool_cards.stop_job": {
+    "defaultMessage": "Stop",
+    "description": "Assistant tool card: button that stops a background command still running; keep it short"
+  },
+  "web.components.assistant.tool_cards.subagent": {
+    "defaultMessage": "Subagent",
+    "description": "Assistant tool card: heading of a card for a subagent the assistant started; keep it short"
+  },
+  "web.components.assistant.tool_cards.subagent_done": {
+    "defaultMessage": "{count, plural, one {# step} other {# steps}}",
+    "description": "Assistant tool card: finished subagent with its number of steps; {count} is the number of steps"
+  },
+  "web.components.assistant.tool_cards.subagent_running": {
+    "defaultMessage": "Running · {count, plural, one {# step} other {# steps}}",
+    "description": "Assistant tool card: subagent still running with its number of steps so far; {count} is the number of steps"
+  },
+  "web.components.assistant.tool_cards.tasks": {
+    "defaultMessage": "Tasks",
+    "description": "Assistant tool card: heading of the task list the assistant keeps while it works; keep it short"
+  },
+  "web.components.assistant.tool_cards.tasks_progress": {
+    "defaultMessage": "{done} of {total} done",
+    "description": "Assistant tool card: count of finished tasks in the task list; {done} and {total} are numbers"
   },
   "web.components.backups.active_backups.bytes_done_of_total": {
     "defaultMessage": "{done} of {total}",
@@ -4639,13 +4783,33 @@
     "defaultMessage": "Auto",
     "description": "Assistant permission mode where Claude Code's auto mode approves safe shell commands itself and blocks risky ones; keep it short"
   },
+  "web.lib.assistant.mode_auto_hint": {
+    "defaultMessage": "Safe commands run, risky ones stop",
+    "description": "Assistant permission mode hint: one line under Auto in the mode menu; keep it short"
+  },
   "web.lib.assistant.mode_bypass": {
     "defaultMessage": "Bypass permissions",
     "description": "Assistant permission mode where every action runs at once without asking for approval; keep it short"
   },
+  "web.lib.assistant.mode_bypass_hint": {
+    "defaultMessage": "Every action runs without asking",
+    "description": "Assistant permission mode hint: one line under Bypass permissions in the mode menu; keep it short"
+  },
   "web.lib.assistant.mode_default": {
     "defaultMessage": "Ask permissions",
     "description": "Assistant permission mode that pauses deletes, data wipes and restores until the user approves them; keep it short"
+  },
+  "web.lib.assistant.mode_default_hint": {
+    "defaultMessage": "Deletes, wipes and restores wait for you",
+    "description": "Assistant permission mode hint: one line under Ask permissions in the mode menu; keep it short"
+  },
+  "web.lib.assistant.mode_plan": {
+    "defaultMessage": "Plan",
+    "description": "Assistant permission mode where the assistant only reads and writes a plan for the user to approve before any change; keep it short"
+  },
+  "web.lib.assistant.mode_plan_hint": {
+    "defaultMessage": "Reads and plans; changes need approval",
+    "description": "Assistant permission mode hint: one line under Plan in the mode menu; keep it short"
   },
   "web.lib.assistant.pick_haiku": {
     "defaultMessage": "Fastest · {effort} effort",

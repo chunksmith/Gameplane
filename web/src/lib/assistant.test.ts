@@ -1,7 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
-import { Assistant, AssistantAdmin, blocksOf, callLabel, modelLabel, resultStatus, resultText, scopeQuery } from "./assistant";
+import {
+  ASSISTANT_MODES,
+  Assistant,
+  AssistantAdmin,
+  blocksOf,
+  callLabel,
+  jobIdOf,
+  jobStatus,
+  latestTodos,
+  modelLabel,
+  resultCount,
+  resultStatus,
+  resultText,
+  scopeQuery,
+  toolView,
+} from "./assistant";
 
 describe("assistant helpers", () => {
   it("builds the conversation list query", () => {
@@ -88,5 +103,70 @@ describe("assistant helpers", () => {
   it("labels file tools", () => {
     expect(callLabel({ type: "tool_use", name: "edit_file", input: { file_path: "/config.yml", old_string: "a", new_string: "b" } })).toBe("EDIT /config.yml");
     expect(callLabel({ type: "tool_use", name: "read_file", input: {} })).toBe("READ");
+  });
+});
+
+describe("Claude Code tool views", () => {
+  it("labels search, fetch, job and background tools", () => {
+    expect(toolView({ type: "tool_use", name: "grep", input: { pattern: "motd", path: "/srv" } })).toEqual({ kind: "grep", action: "motd", arg: "/srv" });
+    expect(toolView({ type: "tool_use", name: "grep", input: { pattern: "motd" } })?.arg).toBe("/");
+    expect(toolView({ type: "tool_use", name: "glob", input: { pattern: "**/*.jar" } })).toEqual({ kind: "glob", action: "", arg: "**/*.jar" });
+    expect(toolView({ type: "tool_use", name: "WebSearch", input: { query: "paper 26.2" } })).toEqual({ kind: "search", action: "", arg: "paper 26.2" });
+    expect(toolView({ type: "tool_use", name: "web_fetch", input: { url: "https://example.com/a" } })?.arg).toBe("example.com/a");
+    expect(toolView({ type: "tool_use", name: "shell", input: { command: "sleep 5", run_in_background: true } })).toEqual({ kind: "background", action: "", arg: "sleep 5" });
+    expect(toolView({ type: "tool_use", name: "Bash", input: { command: "npm start", run_in_background: true } })?.kind).toBe("background");
+    expect(toolView({ type: "tool_use", name: "shell", input: { command: "ls" } })).toBeNull();
+    expect(toolView({ type: "tool_use", name: "Bash", input: { command: "ls" } })).toBeNull();
+    expect(toolView({ type: "tool_use", name: "shell_output", input: { job_id: "0123456789ab" } })).toEqual({ kind: "job", action: "", arg: "0123456789ab" });
+    expect(toolView({ type: "tool_use", name: "shell_stop", input: { job_id: "0123456789ab" } })?.kind).toBe("stop");
+    expect(toolView({ type: "tool_use", name: "Monitor", input: { x: 1 } })).toEqual({ kind: "monitor", action: "", arg: '{"x":1}' });
+    expect(toolView({ type: "tool_use", name: "edit_file", input: {} })).toBeNull();
+  });
+
+  it("reads the job id and the job status", () => {
+    expect(jobIdOf("Started background job 0123456789ab. Read it with shell_output {\"job_id\":\"0123456789ab\"}; stop it with shell_stop.")).toBe("0123456789ab");
+    expect(jobIdOf("HTTP 200")).toBe("");
+    expect(jobStatus("status: running\n\ntick 1\ntick 2")).toEqual({ state: "running", output: "tick 1\ntick 2" });
+    expect(jobStatus("status: exited 3\n\nboom")).toEqual({ state: "exited", code: 3, output: "boom" });
+    expect(jobStatus("status: gone\n\n")).toEqual({ state: "gone", output: "" });
+    expect(jobStatus("nope")).toBeNull();
+  });
+
+  it("counts grep and glob results", () => {
+    expect(resultCount({ type: "tool_use", name: "grep" }, "a.txt:1: motd\nb.txt:2: motd\n")).toBe(2);
+    expect(resultCount({ type: "tool_use", name: "glob" }, "No files found")).toBe(0);
+    expect(resultCount({ type: "tool_use", name: "web_fetch" }, "text")).toBeNull();
+  });
+
+  it("keeps the latest top-level todo list", () => {
+    const todoWrite = (todos: unknown, parent?: string) => ({ role: "assistant" as const, parent, content: [{ type: "tool_use", id: "x", name: "todo_write", input: { todos } }] });
+    expect(latestTodos([])).toBeNull();
+    expect(latestTodos([todoWrite([{ content: "a", status: "completed" }]), todoWrite([{ content: "b", status: "in_progress" }, { content: "c", status: "bogus" }])])).toEqual([
+      { content: "b", status: "in_progress" },
+      { content: "c", status: "pending" },
+    ]);
+    expect(latestTodos([todoWrite([{ content: "a", status: "completed" }], "t1")])).toBeNull();
+  });
+
+  it("lists the permission modes with plan", () => {
+    expect(ASSISTANT_MODES.map((mode) => mode.id)).toEqual(["default", "auto", "plan", "bypassPermissions"]);
+    expect(ASSISTANT_MODES[2].label.defaultMessage).toBe("Plan");
+  });
+
+  it("posts a stop command for a background job", async () => {
+    let url = "";
+    let body: unknown;
+    server.use(
+      http.post(/\/servers\/lobby\/shell/, async ({ request }) => {
+        url = request.url;
+        body = await request.json();
+        return HttpResponse.json({});
+      }),
+    );
+    await Assistant.stopJob({ server: "lobby", namespace: "games", cluster: "eu" }, "0123456789ab");
+    expect(new URL(url).searchParams.get("namespace")).toBe("games");
+    expect(new URL(url).searchParams.get("cluster")).toBe("eu");
+    expect(body).toEqual({ command: expect.stringContaining("/tmp/gameplane-jobs/0123456789ab.pid") });
+    await expect(Assistant.stopJob({ server: "lobby" }, "../etc")).rejects.toThrow("invalid job id");
   });
 });
