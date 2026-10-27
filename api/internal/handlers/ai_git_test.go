@@ -66,7 +66,7 @@ func TestAIRepositoryScope(t *testing.T) {
 	}
 	args := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
 	allowed := args[slices.Index(args, "--allowedTools")+1]
-	if !hasArg(args, "--tools", "") || strings.Contains(allowed, "Bash") || !strings.Contains(allowed, aiMCPPrefix+aiGitPush) {
+	if !hasArg(args, "--tools", "Task,WebSearch") || strings.Contains(allowed, "Bash") || !strings.Contains(allowed, aiMCPPrefix+aiGitPush) {
 		t.Errorf("repository CLI args = %v", args)
 	}
 	if prompt := aiSystemPrompt(conv); !strings.Contains(prompt, `repository "site"`) || strings.Contains(prompt, "kubectl") {

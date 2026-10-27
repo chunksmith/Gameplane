@@ -116,6 +116,12 @@ linters:
       - path: (^|/)internal/packager/packager\.go$
         linters: [gosec]
         text: "G204"
+      # The repository agent runs the fixed git binary. The arguments are built
+      # by the handlers from validated refs, pathspecs and literal flags. G204
+      # remains active everywhere else.
+      - path: (^|/)internal/git/git\.go$
+        linters: [gosec]
+        text: "G204"
 
 formatters:
   enable:

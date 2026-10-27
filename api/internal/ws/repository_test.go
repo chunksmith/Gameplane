@@ -40,7 +40,7 @@ func TestRepoAgentProxy(t *testing.T) {
 	agent := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		body, _ := io.ReadAll(req.Body)
 		mu.Lock()
-		seen = agentSeen{path: req.URL.Path, token: req.Header.Get(gitTokenHeader), author: req.Header.Get(gitAuthorEmailHeader), body: string(body)}
+		seen = agentSeen{path: req.URL.Path, token: req.Header.Get(gitAuthHeader), author: req.Header.Get(gitAuthorEmailHeader), body: string(body)}
 		respond := reply
 		mu.Unlock()
 		respond(w)
@@ -76,7 +76,7 @@ func TestRepoAgentProxy(t *testing.T) {
 	do := func(user, method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 		req.Header.Set("X-User", user)
-		req.Header.Set(gitTokenHeader, "browser-injected")
+		req.Header.Set(gitAuthHeader, "browser-injected")
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 		return rr

@@ -25,12 +25,12 @@ import (
 )
 
 const (
-	tokenHeader       = "X-Gameplane-Git-Token"
+	gitAuthHeader     = "X-Gameplane-Git-Token"
 	authorNameHeader  = "X-Gameplane-Git-Author-Name"
 	authorEmailHeader = "X-Gameplane-Git-Author-Email"
 
-	askpassEnv     = "GAMEPLANE_GIT_ASKPASS"
-	tokenEnv       = "GAMEPLANE_GIT_TOKEN"
+	helperEnv      = "GAMEPLANE_GIT_ASKPASS"
+	gitAuthEnv     = "GAMEPLANE_GIT_TOKEN"
 	tokenUser      = "x-access-token"
 	redacted       = "[REDACTED]"
 	maxDiffBytes   = 5 << 20
@@ -44,10 +44,10 @@ var githubRemote = regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_.-]+/[A-Z
 
 // Askpass answers a GIT_ASKPASS prompt when the process runs as the askpass helper.
 func Askpass() bool {
-	if os.Getenv(askpassEnv) != "1" {
+	if os.Getenv(helperEnv) != "1" {
 		return false
 	}
-	answer := os.Getenv(tokenEnv)
+	answer := os.Getenv(gitAuthEnv)
 	if len(os.Args) > 1 && strings.HasPrefix(os.Args[1], "Username") {
 		answer = tokenUser
 	}
@@ -153,7 +153,7 @@ type diffText string
 
 func (h *handler) newCall(req *http.Request, readOnly bool) (*call, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(req.Context()), commandTimeout)
-	return &call{h: h, ctx: ctx, req: req, token: req.Header.Get(tokenHeader), readOnly: readOnly}, cancel
+	return &call{h: h, ctx: ctx, req: req, token: req.Header.Get(gitAuthHeader), readOnly: readOnly}, cancel
 }
 
 func (h *handler) reader(op func(*call) (any, error)) http.HandlerFunc {
@@ -227,19 +227,15 @@ func (c *call) decode(dst any) error {
 	return nil
 }
 
-func (c *call) requireNetwork() (string, error) {
+func (c *call) requireNetwork() error {
 	if c.token == "" {
-		return "", errTokenRequired
+		return errTokenRequired
 	}
 	remote, err := c.output("remote", "get-url", "origin")
 	if err != nil {
-		return "", err
+		return err
 	}
-	remote = strings.TrimSpace(remote)
-	if err := c.h.checkRemote(c.ctx, remote); err != nil {
-		return "", err
-	}
-	return remote, nil
+	return c.h.checkRemote(c.ctx, strings.TrimSpace(remote))
 }
 
 func (c *call) run(network bool, stdin io.Reader, stdout io.Writer, args ...string) error {
@@ -261,7 +257,7 @@ func (c *call) run(network bool, stdin io.Reader, stdout io.Writer, args ...stri
 		cmd.Env = append(cmd.Env, "GIT_OPTIONAL_LOCKS=0")
 	}
 	if network {
-		cmd.Env = append(cmd.Env, "GIT_ASKPASS="+c.h.askpass, askpassEnv+"=1", tokenEnv+"="+c.token)
+		cmd.Env = append(cmd.Env, "GIT_ASKPASS="+c.h.askpass, helperEnv+"=1", gitAuthEnv+"="+c.token)
 	}
 	cmd.Env = append(cmd.Env, c.env...)
 	cmd.Stdin = stdin
@@ -295,19 +291,23 @@ func (c *call) network(args ...string) error {
 }
 
 type cappedBuffer struct {
-	bytes.Buffer
+	buf  bytes.Buffer
 	max  int
 	over bool
 }
 
 func (b *cappedBuffer) Write(p []byte) (int, error) {
-	room := b.max - b.Len()
+	room := b.max - b.buf.Len()
 	if len(p) > room {
 		b.over = true
-		_, _ = b.Buffer.Write(p[:max(room, 0)])
+		_, _ = b.buf.Write(p[:max(room, 0)])
 		return len(p), nil
 	}
-	return b.Buffer.Write(p)
+	return b.buf.Write(p)
+}
+
+func (b *cappedBuffer) String() string {
+	return b.buf.String()
 }
 
 type tailBuffer struct {

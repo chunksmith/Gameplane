@@ -83,11 +83,12 @@ func TestAPI_RepositoryCommitPush(t *testing.T) {
 	cli := envInstance.APIClient(t, adminUsername, adminPassword)
 	defer cli.Close()
 
-	_, me, err := cli.Get("/users/me")
+	meResp, me, err := cli.Get("/users/me")
 	if err != nil {
 		t.Fatalf("GET /users/me: %v", err)
 	}
-	tokenSecret := "gameplane-github-" + extractIntField(string(me), "id")
+	_ = meResp.Body.Close()
+	tokenSecret := "gameplane-github-" + extractID(string(me))
 	secret := `apiVersion: v1
 kind: Secret
 metadata:
@@ -104,7 +105,9 @@ stringData: { token: e2e-token, login: e2e-bot, name: E2E Bot, id: "1" }
 		t.Fatalf("apply git fixture: %v\n%s", err, out)
 	}
 	t.Cleanup(func() {
-		_, _, _ = cli.Delete("/repositories/" + repo + query)
+		if delResp, _, err := cli.Delete("/repositories/" + repo + query); err == nil {
+			_ = delResp.Body.Close()
+		}
 		ctx := context.Background()
 		_, _ = envInstance.Kubectl(ctx, "delete", "--ignore-not-found", "-n", "gameplane-system", "secret", tokenSecret)
 		_, _ = envInstance.Kubectl(ctx, "delete", "--ignore-not-found", "-n", ns, "networkpolicy", "e2e-repositories-git-egress")
@@ -115,6 +118,9 @@ stringData: { token: e2e-token, login: e2e-bot, name: E2E Bot, id: "1" }
 	}
 
 	resp, body, err := cli.Post("/repositories"+query, map[string]string{"url": remote, "branch": "main", "name": repo})
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil || resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create repository: %v %d %s", err, statusOf(resp), body)
 	}
@@ -131,6 +137,7 @@ stringData: { token: e2e-token, login: e2e-bot, name: E2E Bot, id: "1" }
 		if err != nil {
 			return false, err.Error()
 		}
+		_ = resp.Body.Close()
 		var state struct {
 			Phase string  `json:"phase"`
 			Error *string `json:"error"`
@@ -165,10 +172,17 @@ stringData: { token: e2e-token, login: e2e-bot, name: E2E Bot, id: "1" }
 		t.Fatalf("write file: %d %s", writeResp.StatusCode, writeBody)
 	}
 
-	if resp, body, err := cli.Post(base+"/git/stage"+query, map[string]any{"paths": "all"}); err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("stage: %v %d %s", err, statusOf(resp), body)
+	stageResp, stageBody, err := cli.Post(base+"/git/stage"+query, map[string]any{"paths": "all"})
+	if stageResp != nil {
+		_ = stageResp.Body.Close()
+	}
+	if err != nil || stageResp.StatusCode != http.StatusOK {
+		t.Fatalf("stage: %v %d %s", err, statusOf(stageResp), stageBody)
 	}
 	resp, body, err = cli.Post(base+"/git/commit"+query, map[string]any{"summary": "e2e commit", "push": true})
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil || resp.StatusCode != http.StatusOK || !bytes.Contains(body, []byte(`"pushed":true`)) {
 		t.Fatalf("commit and push: %v %d %s", err, statusOf(resp), body)
 	}

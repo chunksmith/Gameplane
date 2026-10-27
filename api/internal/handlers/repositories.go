@@ -238,7 +238,7 @@ func (h *repositoryHandler) get(w http.ResponseWriter, req *http.Request) {
 
 func (h *repositoryHandler) del(w http.ResponseWriter, req *http.Request) {
 	obj, grant, ok := h.bound(w, req)
-	if !ok || !requireRepo(w, req, grant, rbac.RepoManage) {
+	if !ok || !requireRepo(w, req, grant) {
 		return
 	}
 	uid := obj.GetUID()
@@ -264,7 +264,7 @@ func (h *repositoryHandler) access(w http.ResponseWriter, req *http.Request) {
 
 func (h *repositoryHandler) setNetwork(w http.ResponseWriter, req *http.Request) {
 	obj, grant, ok := h.bound(w, req)
-	if !ok || !requireRepo(w, req, grant, rbac.RepoManage) {
+	if !ok || !requireRepo(w, req, grant) {
 		return
 	}
 	var body setNetworkReq
@@ -284,7 +284,7 @@ func (h *repositoryHandler) setNetwork(w http.ResponseWriter, req *http.Request)
 
 func (h *repositoryHandler) reclone(w http.ResponseWriter, req *http.Request) {
 	obj, grant, ok := h.bound(w, req)
-	if !ok || !requireRepo(w, req, grant, rbac.RepoManage) {
+	if !ok || !requireRepo(w, req, grant) {
 		return
 	}
 	creds, ok := h.tokens.Credentials(req.Context(), auth.UserFromContext(req.Context()).ID)
@@ -323,7 +323,7 @@ func (h *repositoryHandler) collaborators(w http.ResponseWriter, req *http.Reque
 
 func (h *repositoryHandler) putCollaborator(w http.ResponseWriter, req *http.Request) {
 	obj, grant, ok := h.bound(w, req)
-	if !ok || !requireRepo(w, req, grant, rbac.RepoManage) {
+	if !ok || !requireRepo(w, req, grant) {
 		return
 	}
 	var body struct {
@@ -373,7 +373,7 @@ func (h *repositoryHandler) putCollaborator(w http.ResponseWriter, req *http.Req
 
 func (h *repositoryHandler) deleteCollaborator(w http.ResponseWriter, req *http.Request) {
 	obj, grant, ok := h.bound(w, req)
-	if !ok || !requireRepo(w, req, grant, rbac.RepoManage) {
+	if !ok || !requireRepo(w, req, grant) {
 		return
 	}
 	userID, err := strconv.ParseInt(chi.URLParam(req, "userId"), 10, 64)
@@ -447,8 +447,8 @@ func (h *repositoryHandler) networkExists(w http.ResponseWriter, req *http.Reque
 	return true
 }
 
-func requireRepo(w http.ResponseWriter, req *http.Request, grant rbac.RepositoryGrant, perm string) bool {
-	if !grant.Has(perm) {
+func requireRepo(w http.ResponseWriter, req *http.Request, grant rbac.RepositoryGrant) bool {
+	if !grant.Has(rbac.RepoManage) {
 		httperr.WriteMessage(w, req, messages.New(httperr.IDForbidden, nil))
 		return false
 	}

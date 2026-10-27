@@ -157,12 +157,12 @@ func (f *fixture) expectCode(method, path string, body any, headers map[string]s
 }
 
 func token() map[string]string {
-	return map[string]string{tokenHeader: testToken}
+	return map[string]string{gitAuthHeader: testToken}
 }
 
 func author() map[string]string {
 	return map[string]string{
-		tokenHeader:       testToken,
+		gitAuthHeader:     testToken,
 		authorNameHeader:  "Octo Cat",
 		authorEmailHeader: "42+octocat@users.noreply.github.com",
 	}
@@ -617,7 +617,7 @@ func TestAskpassOverHTTP(t *testing.T) {
 	f.cloneOK(server.URL + "/remote.git")
 	f.commitFile("http.txt", "h\n", "over http")
 	f.expect(http.MethodPost, "/git/push", map[string]any{}, token(), http.StatusOK, nil)
-	wrong := map[string]string{tokenHeader: "ghp_wrongtoken"}
+	wrong := map[string]string{gitAuthHeader: "ghp_wrongtoken"}
 	data := f.expect(http.MethodPost, "/git/fetch", nil, wrong, http.StatusUnprocessableEntity, nil)
 	if strings.Contains(string(data), "ghp_wrongtoken") {
 		t.Fatalf("token leaked: %s", data)

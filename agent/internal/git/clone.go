@@ -43,7 +43,7 @@ func (h *handler) setClone(state cloneState) {
 }
 
 func (h *handler) startClone(w http.ResponseWriter, req *http.Request) {
-	c := &call{h: h, req: req, token: req.Header.Get(tokenHeader)}
+	c := &call{h: h, req: req, token: req.Header.Get(gitAuthHeader)}
 	var body struct {
 		URL    string `json:"url"`
 		Branch string `json:"branch"`

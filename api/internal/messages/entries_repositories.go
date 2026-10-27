@@ -19,7 +19,7 @@ var repositoryEntries = []Entry{
 	{
 		ID:          "server.repositories.remote_not_allowed",
 		English:     "Only HTTPS github.com repository URLs are supported.",
-		Description: "Repository error when the repository URL is not https://github.com/<owner>/<repo>.",
+		Description: "Repository error when the repository URL is not https://github.com/OWNER/REPO.",
 		Status:      http.StatusBadRequest,
 	},
 	{

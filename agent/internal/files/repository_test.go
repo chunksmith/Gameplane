@@ -58,13 +58,13 @@ func repositoryDo(t *testing.T, method, target string, body io.Reader, contentTy
 	if err != nil {
 		t.Fatalf("do: %v", err)
 	}
-	t.Cleanup(func() { _ = resp.Body.Close() })
 	return resp
 }
 
 func TestRepositoryListShowsDotfilesHidesGit(t *testing.T) {
 	srvURL, _ := newRepositoryServer(t)
 	resp := repositoryDo(t, http.MethodGet, srvURL+"/files/list?path=/", nil, "")
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
@@ -80,6 +80,7 @@ func TestRepositoryListShowsDotfilesHidesGit(t *testing.T) {
 		t.Fatalf("unexpected listing %v", names)
 	}
 	resp = repositoryDo(t, http.MethodGet, srvURL+"/files/list?path=/sub", nil, "")
+	defer resp.Body.Close()
 	entries = nil
 	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -92,10 +93,12 @@ func TestRepositoryListShowsDotfilesHidesGit(t *testing.T) {
 func TestRepositoryDotfilesReadWrite(t *testing.T) {
 	srvURL, root := newRepositoryServer(t)
 	resp := repositoryDo(t, http.MethodGet, srvURL+"/files/read?path=/.github/workflows/ci.yml", nil, "")
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("read status %d", resp.StatusCode)
 	}
 	resp = repositoryDo(t, http.MethodPost, srvURL+"/files/write?path=/.gitignore", strings.NewReader("bin/"), "")
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("write status %d", resp.StatusCode)
 	}
@@ -127,6 +130,7 @@ func TestRepositoryGitDirRejected(t *testing.T) {
 	for _, tc := range cases {
 		resp := repositoryDo(t, tc.method, srvURL+tc.path+"?"+tc.query.Encode(), strings.NewReader("x"), "")
 		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusForbidden || strings.TrimSpace(string(body)) != "git_dir" {
 			t.Fatalf("%s %s %v: status %d body %q", tc.method, tc.path, tc.query, resp.StatusCode, body)
 		}
@@ -148,7 +152,9 @@ func TestRepositoryUpload(t *testing.T) {
 		}
 		_, _ = part.Write([]byte("data"))
 		_ = writer.Close()
-		return repositoryDo(t, http.MethodPost, srvURL+"/files/upload?path=/", &buf, writer.FormDataContentType()).StatusCode
+		resp := repositoryDo(t, http.MethodPost, srvURL+"/files/upload?path=/", &buf, writer.FormDataContentType())
+		defer resp.Body.Close()
+		return resp.StatusCode
 	}
 	if status := upload(".editorconfig"); status != http.StatusNoContent {
 		t.Fatalf("dotfile upload status %d", status)
@@ -164,6 +170,7 @@ func TestRepositoryUpload(t *testing.T) {
 func TestRepositorySizeSkipsGit(t *testing.T) {
 	srvURL, _ := newRepositoryServer(t)
 	resp := repositoryDo(t, http.MethodGet, srvURL+"/files/size?path=/", nil, "")
+	defer resp.Body.Close()
 	var out map[string]int64
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -180,6 +187,7 @@ func TestGameServerDotfilesStillRejected(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	resp := repositoryDo(t, http.MethodGet, srvURL+"/files/read?path=/.gitignore", nil, "")
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status %d", resp.StatusCode)
 	}

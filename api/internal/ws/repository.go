@@ -32,7 +32,7 @@ type GitCredentials struct {
 type GitCredentialSource func(ctx context.Context, userID int64) (GitCredentials, bool)
 
 const (
-	gitTokenHeader       = "X-Gameplane-Git-Token"
+	gitAuthHeader        = "X-Gameplane-Git-Token"
 	gitAuthorNameHeader  = "X-Gameplane-Git-Author-Name"
 	gitAuthorEmailHeader = "X-Gameplane-Git-Author-Email"
 	repoAgentBody        = 1 << 20
@@ -101,7 +101,7 @@ func (a *RepoAgent) commitProxy() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		sha := chi.URLParam(req, "sha")
 		if !repoSHAPattern.MatchString(sha) {
-			writeGitError(w, req, http.StatusBadRequest, "bad_request", nil)
+			writeGitError(w, http.StatusBadRequest, "bad_request", nil)
 			return
 		}
 		a.proxy("/git/commits/"+sha, gitNone, 0)(w, req)
@@ -136,7 +136,7 @@ func (a *RepoAgent) proxy(agentPath string, mode gitCreds, maxBody int64) http.H
 		if agentPath == "/git/commit" {
 			raw, err := io.ReadAll(body)
 			if err != nil {
-				writeGitError(w, req, http.StatusRequestEntityTooLarge, "too_large", nil)
+				writeGitError(w, http.StatusRequestEntityTooLarge, "too_large", nil)
 				return
 			}
 			var commit struct {
@@ -153,11 +153,11 @@ func (a *RepoAgent) proxy(agentPath string, mode gitCreds, maxBody int64) http.H
 		if mode != gitNone {
 			creds, ok := a.lookup(req)
 			if !ok && (needToken || mode == gitAuthor || mode == gitTokenAuthor) {
-				writeGitError(w, req, http.StatusPreconditionRequired, "github_token_required", nil)
+				writeGitError(w, http.StatusPreconditionRequired, "github_token_required", nil)
 				return
 			}
 			if ok && needToken {
-				extra.Set(gitTokenHeader, creds.Token)
+				extra.Set(gitAuthHeader, creds.Token)
 			}
 			if ok && mode != gitToken {
 				extra.Set(gitAuthorNameHeader, creds.Name)
@@ -213,10 +213,10 @@ func relayGitError(w http.ResponseWriter, req *http.Request, resp *http.Response
 		slog.Warn("repository agent error", "path", req.URL.Path, "status", resp.StatusCode, "code", agentErr.Code, "message", agentErr.Message)
 		agentErr = agentGitError{Code: "internal"}
 	}
-	writeGitError(w, req, resp.StatusCode, agentErr.Code, &agentErr)
+	writeGitError(w, resp.StatusCode, agentErr.Code, &agentErr)
 }
 
-func writeGitError(w http.ResponseWriter, req *http.Request, status int, code string, detail *agentGitError) {
+func writeGitError(w http.ResponseWriter, status int, code string, detail *agentGitError) {
 	id := messages.ID("server.repositories." + code)
 	if _, known := messages.Lookup(id); !known {
 		id, code = messages.ID(httperr.GenericID(status)), "error"
@@ -289,7 +289,7 @@ func (a *RepoAgent) Clone(ctx context.Context, ns, name, uid, url, branch string
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	code, err := a.call(ctx, ns, name, uid, http.MethodPost, "/git/clone", http.Header{gitTokenHeader: {token}}, body, nil)
+	code, err := a.call(ctx, ns, name, uid, http.MethodPost, "/git/clone", http.Header{gitAuthHeader: {token}}, body, nil)
 	if err != nil {
 		return err
 	}

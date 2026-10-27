@@ -616,7 +616,7 @@ func (h *handler) checkout(c *call) (any, error) {
 }
 
 func (h *handler) fetch(c *call) (any, error) {
-	if _, err := c.requireNetwork(); err != nil {
+	if err := c.requireNetwork(); err != nil {
 		return nil, err
 	}
 	if err := c.network("fetch", "--prune", "--no-recurse-submodules", "origin"); err != nil {
@@ -626,7 +626,7 @@ func (h *handler) fetch(c *call) (any, error) {
 }
 
 func (h *handler) pull(c *call) (any, error) {
-	if _, err := c.requireNetwork(); err != nil {
+	if err := c.requireNetwork(); err != nil {
 		return nil, err
 	}
 	_ = c.author()
@@ -645,8 +645,13 @@ func (h *handler) pull(c *call) (any, error) {
 }
 
 func (c *call) rebasing() bool {
-	for _, name := range []string{"rebase-merge", "rebase-apply"} {
-		if _, err := os.Stat(filepath.Join(c.h.dir, ".git", name)); err == nil {
+	root, err := os.OpenRoot(c.h.dir)
+	if err != nil {
+		return false
+	}
+	defer root.Close()
+	for _, name := range []string{".git/rebase-merge", ".git/rebase-apply"} {
+		if _, err := root.Stat(name); err == nil {
 			return true
 		}
 	}
@@ -654,7 +659,7 @@ func (c *call) rebasing() bool {
 }
 
 func (c *call) pushHead(setUpstream bool) error {
-	if _, err := c.requireNetwork(); err != nil {
+	if err := c.requireNetwork(); err != nil {
 		return err
 	}
 	args := []string{"push", "--recurse-submodules=no"}

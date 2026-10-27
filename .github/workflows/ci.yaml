@@ -970,7 +970,7 @@ jobs:
                       ('PersistentVolumeClaim', 'gameplane-api-data')}
           assert required <= resources, f"reuse-values removed existing resources: {required - resources}"
           crds = {name for kind, name in resources if kind == 'CustomResourceDefinition'}
-          assert len(crds) == 10, f"reuse-values disabled the bundled CRDs: {crds}"
+          assert len(crds) == 11, f"reuse-values disabled the bundled CRDs: {crds}"
           assert ('Deployment', 'gameplane-gateway') not in resources
           assert ('NetworkPolicy', 'allow-api-to-agent') in resources
           assert ('NetworkPolicy', 'allow-api-to-capture') not in resources, "legacy values without capture enabled its ingress"
