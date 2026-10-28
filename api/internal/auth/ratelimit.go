@@ -175,6 +175,7 @@ func (t *TokenBucket) AllowUser(key string) bool { return t.Allow(key) }
 
 type rateLimitSkipKey struct{}
 
+// WithoutRateLimit marks ctx so the rate-limit middlewares let the request through.
 func WithoutRateLimit(ctx context.Context) context.Context {
 	return context.WithValue(ctx, rateLimitSkipKey{}, true)
 }
