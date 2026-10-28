@@ -19,6 +19,7 @@ import {
 
 export interface ResourceInputProps {
   kind: "cpu" | "memory";
+  label?: string;
   value: string; // canonical k8s quantity (e.g., "2", "500m", "4Gi", "512Mi")
   onChange: (qty: string) => void; // emits canonical k8s quantity string
   min?: number; // slider min in base units (cores for cpu, GiB for memory)
@@ -81,6 +82,7 @@ function roundDisplay(n: number): number {
  */
 export function ResourceInput({
   kind,
+  label,
   value,
   onChange,
   min: userMin,
@@ -171,9 +173,9 @@ export function ResourceInput({
 
   const intl = useOptionalIntl();
   const ariaLabel =
-    kind === "cpu"
+    label ?? (kind === "cpu"
       ? intl.formatMessage({ id: "web.components.ui.resource_input.cpu_cores", defaultMessage: "CPU cores", description: "Resource input: accessible name of the CPU slider and its fields" })
-      : intl.formatMessage({ id: "web.components.ui.resource_input.memory_gib", defaultMessage: "Memory (GiB)", description: "Resource input: accessible name of the memory slider and its fields" });
+      : intl.formatMessage({ id: "web.components.ui.resource_input.memory_gib", defaultMessage: "Memory (GiB)", description: "Resource input: accessible name of the memory slider and its fields" }));
   const unitOptions = kind === "cpu" ? CPU_UNIT_OPTIONS : MEM_UNIT_OPTIONS;
 
   return (
@@ -189,7 +191,7 @@ export function ResourceInput({
         value={baseValue}
         disabled={disabled}
         onChange={(e) => handleSliderChange(Number(e.target.value))}
-        className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-2 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
       />
       <input
         id={id ? `${id}-input` : undefined}

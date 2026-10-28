@@ -115,7 +115,7 @@ const SECTIONS: Section[] = [
   { key: "version",    label: SECTION_LABELS.version,    icon: Layers },
   { key: "config",     label: SECTION_LABELS.config,     icon: SlidersHorizontal },
   { key: "startup",    label: SECTION_LABELS.startup,    icon: Rocket,            description: SECTION_DESCRIPTIONS.startup },
-  { key: "resources",  label: SECTION_LABELS.resources,  icon: HardDrive,         framed: true, divider: true, description: SECTION_DESCRIPTIONS.resources },
+  { key: "resources",  label: SECTION_LABELS.resources,  icon: HardDrive,         divider: true, description: SECTION_DESCRIPTIONS.resources },
   { key: "networking", label: SECTION_LABELS.networking, icon: Network,           framed: true, description: SECTION_DESCRIPTIONS.networking },
   { key: "allocations", label: SECTION_LABELS.allocations, icon: Cable,          description: SECTION_DESCRIPTIONS.allocations },
   { key: "env",        label: SECTION_LABELS.env,        icon: Variable,          framed: true, description: SECTION_DESCRIPTIONS.env },
@@ -155,7 +155,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
       if (savingRef.current) return;
       setSectionValidity((previous) => previous[key] === valid ? previous : { ...previous, [key]: valid });
     };
-    return { config: report("config"), startup: report("startup"), networking: report("networking"), capture: report("capture"), placement: report("placement") };
+    return { config: report("config"), startup: report("startup"), resources: report("resources"), networking: report("networking"), capture: report("capture"), placement: report("placement") };
   }, []);
   // `dirty` (does draft differ from the last known-good server snapshot) is
   // read directly in JSX, so it's tracked as its own piece of state,
@@ -349,7 +349,7 @@ export function SettingsTab({ gs, name, ns, onDirtyChange }: SettingsTabProps) {
               {section === "version"    && <VersionSection    draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} />}
               {section === "config"     && <GameConfigSection draft={draft} onChange={onChangeDraft} template={template} moduleText={moduleText} storedConfig={baselineConfig} onValidityChange={validityCallbacks.config} />}
               {section === "startup"    && <StartupSection    draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.startup} />}
-              {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} />}
+              {section === "resources"  && <ResourcesSection  draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.resources} />}
               {section === "networking" && <NetworkingSection draft={draft} onChange={onChangeDraft} template={template} onValidityChange={validityCallbacks.networking} />}
               {section === "allocations" && <AllocationsSection draft={draft} onChange={onChangeDraft} template={template} />}
               {section === "env"        && <EnvVarsSection    draft={draft} onChange={onChangeDraft} template={template} />}
