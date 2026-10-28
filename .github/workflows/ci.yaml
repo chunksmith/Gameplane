@@ -577,7 +577,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      statuses: write
     defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -651,9 +650,65 @@ jobs:
       - name: eslint
         run: npm run lint
       - run: npm run build
-      - name: unit tests + coverage
+
+  web-test:
+    name: web test (${{ matrix.shard }}/4)
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: "24", cache: "npm", cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - name: unit tests + coverage (gates enforced in web coverage)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: >-
+          npx vitest run --shard="$SHARD/4"
+          --reporter=default --reporter=github-actions --reporter=blob
+          --coverage.enabled
+          --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
+          --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-blob-${{ matrix.shard }}
+          path: web/.vitest/blob
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  web-coverage:
+    name: web coverage
+    needs: [changes, web-test]
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      statuses: write
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: "24", cache: "npm", cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: web-blob-*
+          path: web/.vitest/blob
+          merge-multiple: true
+      - name: merge shards + coverage thresholds
         id: cover
-        run: npm run test:cover
+        run: npx vitest run --merge-reports --coverage
       - name: report coverage (commit status)
         if: always()
         continue-on-error: true
@@ -1204,6 +1259,8 @@ jobs:
         lint,
         go,
         web,
+        web-test,
+        web-coverage,
         helm,
         chart-template,
         workflow-lint,
@@ -1299,7 +1356,8 @@ jobs:
 
             const NEEDS_ORDER = [
               'changes', 'docs', 'codegen-drift', 'submodule-freshness', 'lint', 'go',
-              'web', 'helm', 'chart-template', 'workflow-lint', 'go-e2e-unit', 'e2e-buckets',
+              'web', 'web-test', 'web-coverage', 'helm', 'chart-template', 'workflow-lint',
+              'go-e2e-unit', 'e2e-buckets',
             ];
 
             // Maps each workflow job id to how its `name:` field (as reported by
@@ -1312,6 +1370,8 @@ jobs:
               lint: (n) => n.startsWith('lint ('),
               go: (n) => n.startsWith('go (') && n !== 'go (test/e2e)',
               web: (n) => n === 'web',
+              'web-test': (n) => n.startsWith('web test ('),
+              'web-coverage': (n) => n === 'web coverage',
               helm: (n) => n === 'helm lint',
               'chart-template': (n) => n === 'chart render',
               'workflow-lint': (n) => n === 'workflow lint',
