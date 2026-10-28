@@ -58,7 +58,7 @@ func TestAIRepositoryScope(t *testing.T) {
 	if uses := aiToolUses(msgs); uses[0].err == nil {
 		t.Error("git tool outside a repository conversation")
 	}
-	if in, err := aiGitInput("site", aiGitLog, json.RawMessage(`{"limit":999}`)); err != nil || in.Query["limit"] != "200" {
+	if in, err := aiGitInput("site", aiGitLog, json.RawMessage(`{"limit":999}`)); err != nil || in.Query["limit"] != "999" {
 		t.Errorf("git_log limit = %+v %v", in, err)
 	}
 	if in, err := aiGitInput("site", aiGitCommit, json.RawMessage(`{"summary":"fix"}`)); err != nil || strings.Contains(string(in.Body), "push") {

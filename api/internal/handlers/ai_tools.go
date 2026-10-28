@@ -21,25 +21,18 @@ import (
 )
 
 const (
-	aiGrep         = "grep"
-	aiGlob         = "glob"
-	aiJobOutput    = "shell_output"
-	aiJobStop      = "shell_stop"
-	aiWebFetch     = "web_fetch"
-	aiTodoWrite    = "todo_write"
-	aiAskUser      = "ask_user"
-	aiProposePlan  = "propose_plan"
-	aiAskMethod    = "ASK"
-	aiPlanMethod   = "PLAN"
-	aiJobDir       = "/tmp/gameplane-jobs"
-	aiGrepLines    = 500
-	aiGlobFiles    = 500
-	aiGlobScan     = 20000
-	aiFetchMax     = 2 << 20
-	aiFetchPage    = 40000
-	aiFetchErrText = 2000
-	aiMaxWait      = 50
-	aiMaxAnswer    = 2000
+	aiGrep        = "grep"
+	aiGlob        = "glob"
+	aiJobOutput   = "shell_output"
+	aiJobStop     = "shell_stop"
+	aiWebFetch    = "web_fetch"
+	aiTodoWrite   = "todo_write"
+	aiAskUser     = "ask_user"
+	aiProposePlan = "propose_plan"
+	aiAskMethod   = "ASK"
+	aiPlanMethod  = "PLAN"
+	aiJobDir      = "/tmp/gameplane-jobs"
+	aiMaxAnswer   = 2000
 
 	aiPlanText     = "Plan mode is on: this call changes something. Finish reading, then call propose_plan with your plan."
 	aiPlanApproved = "The user approved the plan. Plan mode is off: carry it out now."
@@ -106,7 +99,7 @@ func aiGrepCommand(in aiFileInput) (string, error) {
 	if in.Glob != "" {
 		args = append(args, "-name", aiQuote(in.Glob))
 	}
-	args = append(args, "-exec", "grep", mode, "-e", aiQuote(in.Pattern), "{}", "+", "2>/dev/null", "|", "head", "-n", fmt.Sprint(aiGrepLines+1))
+	args = append(args, "-exec", "grep", mode, "-e", aiQuote(in.Pattern), "{}", "+", "2>/dev/null")
 	return strings.Join(args, " "), nil
 }
 
@@ -115,7 +108,7 @@ func aiGlobCommand(in aiFileInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("find %s -type f -not -path %s 2>/dev/null | head -n %d", aiQuote(dir), aiQuote("*/.*"), aiGlobScan), nil
+	return fmt.Sprintf("find %s -type f -not -path %s 2>/dev/null", aiQuote(dir), aiQuote("*/.*")), nil
 }
 
 func aiGlobRegexp(pattern, dir string) (*regexp.Regexp, error) {
@@ -158,12 +151,9 @@ func aiPaths(out string) []string {
 	return lines
 }
 
-func aiListing(lines []string, none string, limit int) string {
-	switch {
-	case len(lines) == 0:
+func aiListing(lines []string, none string) string {
+	if len(lines) == 0 {
 		return none
-	case len(lines) > limit:
-		return strings.Join(lines[:limit], "\n") + fmt.Sprintf("\n(stopped at %d lines; narrow path or glob)", limit)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -177,7 +167,7 @@ func (h *aiHandler) grep(ctx context.Context, conv aiConversation, creds aiCreds
 	if failure != "" {
 		return failure, true
 	}
-	return aiListing(aiPaths(out.Stdout), "No matches.", aiGrepLines), false
+	return aiListing(aiPaths(out.Stdout), "No matches."), false
 }
 
 func (h *aiHandler) glob(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
@@ -203,7 +193,7 @@ func (h *aiHandler) glob(ctx context.Context, conv aiConversation, creds aiCreds
 		}
 	}
 	slices.Sort(matches)
-	return aiListing(matches, "No files found.", aiGlobFiles), false
+	return aiListing(matches, "No files found."), false
 }
 
 func aiJobID() string {
@@ -224,7 +214,7 @@ func aiJobStartCommand(id, command string) string {
 }
 
 func aiJobOutputCommand(id string, wait int) string {
-	return fmt.Sprintf(`j=%[1]s/%[2]s; [ -f "$j.pid" ] || { echo 'status: gone'; exit 0; }; n=0; while [ ! -f "$j.exit" ] && [ $n -lt %[3]d ] && kill -0 "$(cat "$j.pid")" 2>/dev/null; do sleep 1; n=$((n+1)); done; if [ -f "$j.exit" ]; then echo "status: exited $(cat "$j.exit")"; elif kill -0 "$(cat "$j.pid")" 2>/dev/null; then echo 'status: running'; else echo 'status: gone'; fi; echo; tail -c 40000 "$j.log" 2>/dev/null`, aiJobDir, id, wait)
+	return fmt.Sprintf(`j=%[1]s/%[2]s; [ -f "$j.pid" ] || { echo 'status: gone'; exit 0; }; n=0; while [ ! -f "$j.exit" ] && [ $n -lt %[3]d ] && kill -0 "$(cat "$j.pid")" 2>/dev/null; do sleep 1; n=$((n+1)); done; if [ -f "$j.exit" ]; then echo "status: exited $(cat "$j.exit")"; elif kill -0 "$(cat "$j.pid")" 2>/dev/null; then echo 'status: running'; else echo 'status: gone'; fi; echo; cat "$j.log" 2>/dev/null`, aiJobDir, id, wait)
 }
 
 func aiJobStopCommand(id string) string {
@@ -238,7 +228,7 @@ func (h *aiHandler) startJob(ctx context.Context, conv aiConversation, creds aiC
 	case failure != "":
 		return failure, true
 	case out.ExitCode != 0:
-		return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode, out.Truncated), true
+		return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode), true
 	}
 	return fmt.Sprintf(`Started background job %s. Read it with shell_output {"job_id":"%s"}; stop it with shell_stop.`, id, id), false
 }
@@ -247,12 +237,12 @@ func (h *aiHandler) jobOutput(ctx context.Context, conv aiConversation, creds ai
 	if err := aiJobCheck(in.JobID); err != nil {
 		return err.Error(), true
 	}
-	wait := min(max(in.Wait, 0), aiMaxWait)
+	wait := max(in.Wait, 0)
 	out, failure := h.runShell(ctx, conv, creds, in, aiJobOutputCommand(in.JobID, wait), wait+5)
 	if failure != "" {
 		return failure, true
 	}
-	return aiClip(out.Stdout, aiMaxResult), false
+	return out.Stdout, false
 }
 
 func (h *aiHandler) jobStop(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
@@ -309,12 +299,12 @@ func (h *aiHandler) webFetch(ctx context.Context, raw json.RawMessage) (string, 
 		return "fetch failed: " + err.Error(), true
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, aiFetchMax))
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "fetch failed: " + err.Error(), true
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Sprintf("HTTP %d\n%s", resp.StatusCode, aiClip(string(data), aiFetchErrText)), true
+		return fmt.Sprintf("HTTP %d\n%s", resp.StatusCode, string(data)), true
 	}
 	text := string(data)
 	if strings.Contains(resp.Header.Get("Content-Type"), "html") {
@@ -342,12 +332,7 @@ func aiHTMLText(page string) string {
 func aiPage(text string, offset int, source string) string {
 	runes := []rune(text)
 	start := min(max(offset, 0), len(runes))
-	end := min(start+aiFetchPage, len(runes))
-	out := fmt.Sprintf("URL: %s (characters %d-%d of %d)\n\n%s", source, start, end, len(runes), string(runes[start:end]))
-	if end < len(runes) {
-		out += fmt.Sprintf("\n\n(continue with offset=%d)", end)
-	}
-	return out
+	return fmt.Sprintf("URL: %s (characters %d-%d of %d)\n\n%s", source, start, len(runes), len(runes), string(runes[start:]))
 }
 
 func aiTodoWriteTool(raw json.RawMessage) (string, bool) {

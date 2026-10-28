@@ -23,7 +23,7 @@ func TestDecodeShell(t *testing.T) {
 		{name: "valid", input: `{"command":"ls"}`, command: "ls"},
 		{name: "timeout decoded", input: `{"command":"ls","timeoutSeconds":12}`, command: "ls", timeout: 12},
 		{name: "blank command", input: `{"command":"   "}`, wantErr: true},
-		{name: "oversized command", input: `{"command":"` + strings.Repeat("a", 8<<10+1) + `"}`, wantErr: true},
+		{name: "long command", input: `{"command":"` + strings.Repeat("a", 8<<10+1) + `"}`, command: strings.Repeat("a", 8<<10+1)},
 		{name: "not json", input: "not json", wantErr: true},
 	}
 	for _, test := range tests {
@@ -47,7 +47,7 @@ func TestShellTimeout(t *testing.T) {
 		0:   30 * time.Second,
 		-5:  30 * time.Second,
 		10:  10 * time.Second,
-		999: 55 * time.Second,
+		999: 999 * time.Second,
 	}
 	for seconds, want := range tests {
 		if got := shellTimeout(seconds); got != want {
@@ -67,28 +67,6 @@ func TestDataMountPath(t *testing.T) {
 	noGame := &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "agent"}}}}
 	if got := dataMountPath(noGame); got != "/data" {
 		t.Fatalf("dataMountPath() = %q, want /data", got)
-	}
-}
-
-func TestCappedBuffer(t *testing.T) {
-	buffer := &cappedBuffer{limit: 5}
-	if n, err := buffer.Write([]byte("abc")); n != 3 || err != nil {
-		t.Fatalf("first Write() = %d, %v", n, err)
-	}
-	if n, err := buffer.Write([]byte("defgh")); n != 5 || err != nil {
-		t.Fatalf("second Write() = %d, %v", n, err)
-	}
-	if got := buffer.String(); got != "abcde" {
-		t.Fatalf("String() = %q, want abcde", got)
-	}
-	if !buffer.truncated {
-		t.Fatal("expected truncated buffer")
-	}
-
-	exact := &cappedBuffer{limit: 5}
-	exact.Write([]byte("abcde"))
-	if exact.truncated {
-		t.Fatal("exact-fit buffer must not be truncated")
 	}
 }
 

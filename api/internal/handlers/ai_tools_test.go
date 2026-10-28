@@ -55,11 +55,11 @@ func TestAIGrepCommand(t *testing.T) {
 }
 
 func TestAIListing(t *testing.T) {
-	if got := aiListing(nil, "No matches.", 2); got != "No matches." {
+	if got := aiListing(nil, "No matches."); got != "No matches." {
 		t.Errorf("empty = %q", got)
 	}
-	if got := aiListing([]string{"/a", "/b", "/c"}, "none", 2); got != "/a\n/b\n(stopped at 2 lines; narrow path or glob)" {
-		t.Errorf("capped = %q", got)
+	if got := aiListing([]string{"/a", "/b", "/c"}, "none"); got != "/a\n/b\n/c" {
+		t.Errorf("all = %q", got)
 	}
 	if got := aiPaths("./a:1:x\n./b\n"); !slices.Equal(got, []string{"/a:1:x", "/b"}) {
 		t.Errorf("paths = %q", got)
@@ -90,8 +90,8 @@ func TestAIHTMLText(t *testing.T) {
 }
 
 func TestAIPage(t *testing.T) {
-	got := aiPage(strings.Repeat("é", aiFetchPage+5), 0, "https://x.test/")
-	if !strings.HasPrefix(got, "URL: https://x.test/ (characters 0-40000 of 40005)") || !strings.HasSuffix(got, "(continue with offset=40000)") {
+	got := aiPage(strings.Repeat("é", 40005), 0, "https://x.test/")
+	if !strings.HasPrefix(got, "URL: https://x.test/ (characters 0-40005 of 40005)") || strings.Contains(got, "continue with offset") {
 		t.Errorf("page prefix = %.80q suffix = %q", got, got[len(got)-40:])
 	}
 	if got := aiPage("abc", 1, "u"); got != "URL: u (characters 1-3 of 3)\n\nbc" {

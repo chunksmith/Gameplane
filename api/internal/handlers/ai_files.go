@@ -21,15 +21,12 @@ import (
 )
 
 const (
-	aiReadFile    = "read_file"
-	aiEditFile    = "edit_file"
-	aiWriteFile   = "write_file"
-	aiReadArchive = "read_archive"
-	aiShell       = "shell"
-	aiReadLines   = 2000
-	aiLineLimit   = 2000
-	aiArchiveMax  = 64 << 20
-	aiEntryMax    = 2 << 20
+	aiReadFile     = "read_file"
+	aiEditFile     = "edit_file"
+	aiWriteFile    = "write_file"
+	aiReadArchive  = "read_archive"
+	aiShell        = "shell"
+	aiCLIResultMax = 500000
 )
 
 type aiToolSpec struct {
@@ -48,7 +45,7 @@ func (s aiToolSpec) beta() anthropic.BetaToolUnionParam {
 }
 
 func (s aiToolSpec) mcp() *mcp.Tool {
-	return &mcp.Tool{Name: s.name, Description: s.description, InputSchema: map[string]any{"type": "object", "properties": s.properties, "required": s.required}}
+	return &mcp.Tool{Name: s.name, Description: s.description, InputSchema: map[string]any{"type": "object", "properties": s.properties, "required": s.required}, Meta: mcp.Meta{"anthropic/maxResultSizeChars": aiCLIResultMax}}
 }
 
 var aiFileScope = map[string]any{
@@ -78,7 +75,7 @@ func aiScopedSpec(name, description string, required []string, extra map[string]
 
 var aiShellProperties = map[string]any{
 	"command":           map[string]any{"type": "string", "description": "The shell command, run with sh -c in the data volume folder"},
-	"timeout_seconds":   map[string]any{"type": "integer", "description": "Stop the command after this many seconds (default 30, at most 55)"},
+	"timeout_seconds":   map[string]any{"type": "integer", "description": "Stop the command after this many seconds (default 30)"},
 	"run_in_background": map[string]any{"type": "boolean", "description": "Start the command in the background and return a job id at once; read it later with shell_output. Use it for commands that run longer than a minute, such as a test boot or a long download."},
 	"server":            aiFileScope["server"],
 	"namespace":         aiFileScope["namespace"],
@@ -87,9 +84,9 @@ var aiShellProperties = map[string]any{
 
 var aiTools = []aiToolSpec{
 	{name: "gameplane_api", description: aiToolDescription, properties: aiToolProperties, required: aiToolRequired},
-	aiFileSpec(aiReadFile, "Read a text file from a server's data volume with line numbers, 2000 lines at a time. Use offset (first line, 1-based) and limit (number of lines) to page through long files.", nil, map[string]any{
+	aiFileSpec(aiReadFile, "Read a text file from a server's data volume with line numbers. Use offset (first line, 1-based) and limit (number of lines) to read part of a long file.", nil, map[string]any{
 		"offset": map[string]any{"type": "integer", "description": "First line to show, 1-based (default 1)"},
-		"limit":  map[string]any{"type": "integer", "description": "Number of lines to show (default 2000)"},
+		"limit":  map[string]any{"type": "integer", "description": "Number of lines to show (default: the rest of the file)"},
 	}),
 	aiFileSpec(aiEditFile, "Replace text in a file on a server's data volume. old_string must match the file exactly and only once (include surrounding lines to make it unique) unless replace_all is true; the line-number prefixes shown by read_file are not part of the file. Use this for every change to an existing file instead of rewriting it.", []string{"old_string", "new_string"}, map[string]any{
 		"old_string":  map[string]any{"type": "string", "description": "The exact text to replace"},
@@ -102,30 +99,30 @@ var aiTools = []aiToolSpec{
 	aiFileSpec(aiReadArchive, "Look inside a .jar or .zip archive on a server's data volume. Without entry it lists the files in the archive; with entry it shows that text file with line numbers, for example plugin.yml, paper-plugin.yml, fabric.mod.json or a bundled default config.yml. A last resort: use it only when the server's own files do not show which settings or values a plugin or mod supports.", nil, map[string]any{
 		"entry":  map[string]any{"type": "string", "description": "Path of a text file inside the archive as listed, for example plugin.yml; omit it to list the archive"},
 		"offset": map[string]any{"type": "integer", "description": "First line of entry to show, 1-based (default 1)"},
-		"limit":  map[string]any{"type": "integer", "description": "Number of lines of entry to show (default 2000)"},
+		"limit":  map[string]any{"type": "integer", "description": "Number of lines of entry to show (default: the rest of the entry)"},
 	}),
-	{name: aiShell, description: "Run a shell command (sh -c) in the server's game container, inside its data volume: the same files read_file shows, so read_file's /plugins is ./plugins here. Use it like a terminal to search and inspect: grep -rn, find, ls -la, head, tail, wc, unzip -l some.jar, unzip -p some.jar plugin.yml. Returns the exit code, stdout and stderr; a command stops after timeout_seconds (default 30, at most 55). Change files with edit_file or write_file, not with shell redirects or sed. Available programs depend on the game image; when one is missing, use read_file or read_archive instead. Set run_in_background for long commands and follow them with shell_output.", properties: aiShellProperties, required: []string{"command"}},
-	aiScopedSpec(aiGrep, "Search file contents in a server's data volume with an extended regular expression, like grep -rn. path is the folder or file to search (default /), glob limits the files by name (for example *.yml), files_only lists matching files instead of lines. Returns at most 500 matching lines as path:line:text. Use it instead of shell grep.", []string{"pattern"}, map[string]any{
+	{name: aiShell, description: "Run a shell command (sh -c) in the server's game container, inside its data volume: the same files read_file shows, so read_file's /plugins is ./plugins here. Use it like a terminal to search and inspect: grep -rn, find, ls -la, head, tail, wc, unzip -l some.jar, unzip -p some.jar plugin.yml. Returns the exit code, stdout and stderr; a command stops after timeout_seconds (default 30). Change files with edit_file or write_file, not with shell redirects or sed. Available programs depend on the game image; when one is missing, use read_file or read_archive instead. Set run_in_background for long commands and follow them with shell_output.", properties: aiShellProperties, required: []string{"command"}},
+	aiScopedSpec(aiGrep, "Search file contents in a server's data volume with an extended regular expression, like grep -rn. path is the folder or file to search (default /), glob limits the files by name (for example *.yml), files_only lists matching files instead of lines. Returns the matching lines as path:line:text. Use it instead of shell grep.", []string{"pattern"}, map[string]any{
 		"pattern":     map[string]any{"type": "string", "description": "Extended regular expression to search for"},
 		"path":        map[string]any{"type": "string", "description": "Folder or file to search, for example /plugins (default /)"},
 		"glob":        map[string]any{"type": "string", "description": "Only search files whose name matches, for example *.yml"},
 		"ignore_case": map[string]any{"type": "boolean", "description": "Match regardless of case"},
 		"files_only":  map[string]any{"type": "boolean", "description": "List the matching file paths instead of lines"},
 	}),
-	aiScopedSpec(aiGlob, "Find files in a server's data volume by name pattern, like Claude Code's Glob: * matches within one folder, ** across folders, for example plugins/**/*.yml. path is the folder to start from (default /). Returns at most 500 paths.", []string{"pattern"}, map[string]any{
+	aiScopedSpec(aiGlob, "Find files in a server's data volume by name pattern, like Claude Code's Glob: * matches within one folder, ** across folders, for example plugins/**/*.yml. path is the folder to start from (default /). Returns the matching paths.", []string{"pattern"}, map[string]any{
 		"pattern": map[string]any{"type": "string", "description": "Name pattern, for example plugins/**/*.yml or *.jar"},
 		"path":    map[string]any{"type": "string", "description": "Folder to start from (default /)"},
 	}),
-	aiScopedSpec(aiJobOutput, "Show the status and the last 40000 bytes of output of a background shell job. wait_seconds (at most 50) waits for the job to finish first.", []string{"job_id"}, map[string]any{
+	aiScopedSpec(aiJobOutput, "Show the status and the output of a background shell job. wait_seconds waits for the job to finish first.", []string{"job_id"}, map[string]any{
 		"job_id":       map[string]any{"type": "string", "description": "The job id that shell returned"},
-		"wait_seconds": map[string]any{"type": "integer", "description": "Wait up to this many seconds for the job to finish (at most 50)"},
+		"wait_seconds": map[string]any{"type": "integer", "description": "Wait up to this many seconds for the job to finish"},
 	}),
 	aiScopedSpec(aiJobStop, "Stop a background shell job.", []string{"job_id"}, map[string]any{
 		"job_id": map[string]any{"type": "string", "description": "The job id that shell returned"},
 	}),
-	{name: aiWebFetch, description: "Fetch a public web page or file over http or https and return it as text (HTML tags removed), 40000 characters at a time; continue with offset. Private, cluster and metadata addresses are blocked.", properties: map[string]any{
+	{name: aiWebFetch, description: "Fetch a public web page or file over http or https and return it as text (HTML tags removed); offset skips that many characters. Private, cluster and metadata addresses are blocked.", properties: map[string]any{
 		"url":    map[string]any{"type": "string", "description": "Absolute http or https URL"},
-		"offset": map[string]any{"type": "integer", "description": "Character offset to continue from (default 0)"},
+		"offset": map[string]any{"type": "integer", "description": "Character offset to start from (default 0)"},
 	}, required: []string{"url"}},
 	{name: aiTodoWrite, description: "Keep a short task list for multi-step work that the user sees in the panel. Send the whole list every time; mark one task in_progress while you work on it and completed when it is done.", properties: map[string]any{
 		"todos": map[string]any{"type": "array", "description": "The whole task list", "items": map[string]any{"type": "object", "properties": map[string]any{
@@ -237,10 +234,9 @@ func aiCheckServer(conv aiConversation, in aiFileInput) error {
 }
 
 type aiShellResult struct {
-	Stdout    string `json:"stdout"`
-	Stderr    string `json:"stderr"`
-	ExitCode  int    `json:"exitCode"`
-	Truncated bool   `json:"truncated"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
+	ExitCode int    `json:"exitCode"`
 }
 
 func (h *aiHandler) shell(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
@@ -251,7 +247,7 @@ func (h *aiHandler) shell(ctx context.Context, conv aiConversation, creds aiCred
 	if failure != "" {
 		return failure, true
 	}
-	return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode, out.Truncated), out.ExitCode != 0
+	return aiShellOutput(out.Stdout, out.Stderr, out.ExitCode), out.ExitCode != 0
 }
 
 func (h *aiHandler) runShell(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput, command string, timeout int) (aiShellResult, string) {
@@ -276,16 +272,13 @@ func (h *aiHandler) runShell(ctx context.Context, conv aiConversation, creds aiC
 	return out, ""
 }
 
-func aiShellOutput(stdout, stderr string, exitCode int, truncated bool) string {
+func aiShellOutput(stdout, stderr string, exitCode int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "exit %d\n%s", exitCode, stdout)
 	if stderr != "" {
 		b.WriteString("\n[stderr]\n" + stderr)
 	}
-	if truncated {
-		b.WriteString("\n(output cut at 1 MiB)")
-	}
-	return aiClip(b.String(), aiMaxResult)
+	return b.String()
 }
 
 func (h *aiHandler) fileCall(ctx context.Context, conv aiConversation, creds aiCreds, method, op string, in aiFileInput, body []byte) (int, []byte) {
@@ -317,11 +310,8 @@ func (h *aiHandler) readArchive(ctx context.Context, conv aiConversation, creds 
 		return "Could not list " + dir.Path + ": " + err.Error(), true
 	}
 	index := slices.IndexFunc(entries, func(entry aiListEntry) bool { return entry.Name == path.Base(in.Path) && !entry.Dir })
-	switch {
-	case index < 0:
+	if index < 0 {
 		return in.Path + " was not found", true
-	case entries[index].Size > aiArchiveMax:
-		return fmt.Sprintf("%s is larger than %d MiB", in.Path, aiArchiveMax>>20), true
 	}
 	target, err := h.authorize(ctx, conv, creds, http.MethodGet, aiFileCall(conv, http.MethodGet, "read", in))
 	if err != nil {
@@ -343,7 +333,7 @@ func (h *aiHandler) readArchive(ctx context.Context, conv aiConversation, creds 
 		return fmt.Sprintf("%s has no entry %s", in.Path, in.Entry), true
 	}
 	defer func() { _ = file.Close() }()
-	content, err := io.ReadAll(io.LimitReader(file, aiEntryMax))
+	content, err := io.ReadAll(file)
 	switch {
 	case err != nil:
 		return fmt.Sprintf("Could not read %s: %v", in.Entry, err), true
@@ -355,7 +345,6 @@ func (h *aiHandler) readArchive(ctx context.Context, conv aiConversation, creds 
 
 type aiListEntry struct {
 	Name string `json:"name"`
-	Size int64  `json:"size"`
 	Dir  bool   `json:"dir"`
 }
 
@@ -372,7 +361,7 @@ func aiArchiveListing(archive *zip.Reader) string {
 		}
 	}
 	fmt.Fprintf(&b, "(%d .class files not listed)", classes)
-	return aiClip(b.String(), aiMaxResult)
+	return b.String()
 }
 
 func (h *aiHandler) readFile(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
@@ -434,7 +423,7 @@ func aiNumbered(content string, offset, limit int) string {
 	lines := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
 	start, total := max(offset, 1), len(lines)
 	if limit <= 0 {
-		limit = aiReadLines
+		limit = total
 	}
 	limit = min(limit, total)
 	if start > total {
@@ -443,12 +432,7 @@ func aiNumbered(content string, offset, limit int) string {
 	end := min(start+limit-1, total)
 	var b strings.Builder
 	for i := start; i <= end; i++ {
-		line := fmt.Sprintf("%6d\t%s\n", i, aiClip(lines[i-1], aiLineLimit))
-		if b.Len()+len(line) > aiMaxResult && i > start {
-			end = i - 1
-			break
-		}
-		b.WriteString(line)
+		fmt.Fprintf(&b, "%6d\t%s\n", i, lines[i-1])
 	}
 	if end < total {
 		fmt.Fprintf(&b, "(lines %d-%d of %d; continue with offset=%d)", start, end, total, end+1)

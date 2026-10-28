@@ -28,9 +28,6 @@ import (
 
 const (
 	shellDefaultTimeout = 30 * time.Second
-	shellMaxTimeout     = 55 * time.Second
-	shellMaxCommand     = 8 << 10
-	shellMaxOutput      = 1 << 20
 	shellAuditTarget    = 200
 )
 
@@ -40,10 +37,9 @@ type shellRequest struct {
 }
 
 type shellResponse struct {
-	Stdout    string `json:"stdout"`
-	Stderr    string `json:"stderr"`
-	ExitCode  int    `json:"exitCode"`
-	Truncated bool   `json:"truncated"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
+	ExitCode int    `json:"exitCode"`
 }
 
 func mountShell(r chi.Router, reg *kube.Registry, auditor *audit.Auditor) {
@@ -101,11 +97,11 @@ func runShell(w http.ResponseWriter, req *http.Request, k *kube.Client, auditor 
 
 func decodeShell(r io.Reader) (shellRequest, error) {
 	var body shellRequest
-	if err := json.NewDecoder(io.LimitReader(r, 2*shellMaxCommand)).Decode(&body); err != nil {
+	if err := json.NewDecoder(r).Decode(&body); err != nil {
 		return body, fmt.Errorf("invalid shell request: %w", err)
 	}
-	if strings.TrimSpace(body.Command) == "" || len(body.Command) > shellMaxCommand {
-		return body, errors.New("command must be non-empty and at most 8 KiB")
+	if strings.TrimSpace(body.Command) == "" {
+		return body, errors.New("command must be non-empty")
 	}
 	return body, nil
 }
@@ -114,7 +110,7 @@ func shellTimeout(seconds int) time.Duration {
 	if seconds <= 0 {
 		return shellDefaultTimeout
 	}
-	return min(time.Duration(seconds)*time.Second, shellMaxTimeout)
+	return time.Duration(seconds) * time.Second
 }
 
 func dataMountPath(pod *corev1.Pod) string {
@@ -148,9 +144,9 @@ func execShell(ctx context.Context, k *kube.Client, pod *corev1.Pod, command str
 	if err != nil {
 		return shellResponse{}, fmt.Errorf("build shell executor for pod %s/%s: %w", pod.Namespace, pod.Name, err)
 	}
-	stdout, stderr := &cappedBuffer{limit: shellMaxOutput}, &cappedBuffer{limit: shellMaxOutput}
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{Stdout: stdout, Stderr: stderr})
-	out := shellResponse{Stdout: stdout.String(), Stderr: stderr.String(), Truncated: stdout.truncated || stderr.truncated}
+	out := shellResponse{Stdout: stdout.String(), Stderr: stderr.String()}
 	return shellResult(ctx, out, err, pod)
 }
 
@@ -167,22 +163,6 @@ func shellResult(ctx context.Context, out shellResponse, err error, pod *corev1.
 		return out, fmt.Errorf("run shell in pod %s/%s: %w", pod.Namespace, pod.Name, err)
 	}
 	return out, nil
-}
-
-type cappedBuffer struct {
-	bytes.Buffer
-	limit     int
-	truncated bool
-}
-
-func (b *cappedBuffer) Write(p []byte) (int, error) {
-	n := len(p)
-	if room := b.limit - b.Len(); n > room {
-		b.truncated = true
-		p = p[:max(room, 0)]
-	}
-	b.Buffer.Write(p)
-	return n, nil
 }
 
 func clipRunes(text string, limit int) string {

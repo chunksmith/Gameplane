@@ -977,7 +977,8 @@ func isLargeTransferPath(method, path string) bool {
 			strings.HasSuffix(path, "/files/write") ||
 			strings.HasSuffix(path, "/files/zip") ||
 			strings.HasSuffix(path, "/mods/upload") ||
-			strings.HasSuffix(path, "/mods/install")
+			strings.HasSuffix(path, "/mods/install") ||
+			strings.HasSuffix(path, "/shell")
 	}
 	return false
 }

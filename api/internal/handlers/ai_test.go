@@ -335,8 +335,8 @@ func TestAIHelpers(t *testing.T) {
 	if got := aiResultText([]byte{0xff, 0xfe}); !strings.Contains(got, "binary") {
 		t.Errorf("binary = %q", got)
 	}
-	if got := aiResultText(bytes.Repeat([]byte("a"), aiMaxResult+5)); !strings.HasSuffix(got, "(truncated)") {
-		t.Errorf("truncate suffix missing")
+	if got := aiResultText(bytes.Repeat([]byte("a"), 50005)); got != strings.Repeat("a", 50005) {
+		t.Errorf("long result = %d bytes", len(got))
 	}
 	if body, ct := aiBody(json.RawMessage(`"motd=hi"`)); string(body) != "motd=hi" || ct != "application/octet-stream" {
 		t.Errorf("text body = %q %q", body, ct)

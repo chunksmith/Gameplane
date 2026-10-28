@@ -26,7 +26,7 @@ var aiGitTools = []aiToolSpec{
 	}},
 	{name: aiGitLog, description: "List recent commits, newest first.", properties: map[string]any{
 		"ref":   map[string]any{"type": "string", "description": "Branch or commit to start from (default HEAD)"},
-		"limit": map[string]any{"type": "integer", "description": "Number of commits (default 20, at most 200)"},
+		"limit": map[string]any{"type": "integer", "description": "Number of commits (default 20)"},
 	}},
 	{name: aiGitCommit, description: "Commit the staged changes with the user's own GitHub identity. Stage files first with POST /repositories/{repo}/git/stage. Does not push.", properties: map[string]any{
 		"summary":     map[string]any{"type": "string", "description": "One-line commit message"},
@@ -88,7 +88,7 @@ func aiGitInput(repository, name string, raw json.RawMessage) (aiToolInput, erro
 		if in.Limit <= 0 {
 			in.Limit = 20
 		}
-		query["limit"] = strconv.Itoa(min(in.Limit, 200))
+		query["limit"] = strconv.Itoa(in.Limit)
 		if in.Ref != "" {
 			query["ref"] = in.Ref
 		}
