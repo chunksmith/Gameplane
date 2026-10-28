@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, ArrowLeft, ArrowRight, Check, ExternalLink, Loader2, Megaphone, X } from "lucide-react";
 import { Button, Input, Alert, Select, Label, ListBox, ListBoxItem } from "@heroui/react";
 import { GameIcon } from "@/components/ui/GameIcon";
-import { ResourceInput } from "@/components/ui/ResourceInput";
+import { RequestLimitCard, quantityAmount, resourcesValid } from "@/components/ui/RequestLimitCard";
 import { PortOverridesEditor } from "@/components/server/PortOverridesEditor";
 import { ConfigFields } from "@/components/server/ConfigFields";
 import { assignGameCodesForTemplates } from "@/lib/gameIcon";
@@ -23,10 +23,9 @@ import {
   maskPasswordConfig,
   validateConfig,
 } from "@/lib/validation";
-import { parseCpuQuantity, cpuCores, parseMemQuantity, memBytes } from "@/lib/quantity";
 import { cn, ignoreRejection } from "@/lib/utils";
 import { categoryFilters, categoryLabel, matchesCategory, resolveCategories } from "@/lib/games";
-import type { GameTemplate, PortOverride, GameServerTunnel } from "@/types";
+import type { GameTemplate, PortOverride, GameServerTunnel, ResourceRequirements } from "@/types";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { moduleIds, useModuleText, useModuleTexts, type ModuleText } from "@/lib/i18n/moduleText";
 import { defineMessages, type IntlShape, type MessageDescriptor } from "react-intl";
@@ -58,8 +57,7 @@ interface WizardState {
   template: GameTemplate | null;
   version: string;
   config: Record<string, string>;
-  cpuLimit: string;
-  memoryLimit: string;
+  resources: ResourceRequirements;
   storageSize: string;
   nodePlacement: "auto" | "pin" | "gpu";
   expose: "ClusterIP" | "NodePort" | "LoadBalancer";
@@ -88,7 +86,7 @@ interface WizardState {
 const initial: WizardState = {
   name: "", description: "",
   template: null, version: "", config: {},
-  cpuLimit: "2", memoryLimit: "4Gi",
+  resources: { requests: { cpu: "2", memory: "4Gi" }, limits: { cpu: "2", memory: "4Gi" } },
   storageSize: "20Gi", nodePlacement: "auto",
   expose: "NodePort", hostname: "", sourceRanges: "",
   portOverrides: [],
@@ -216,14 +214,7 @@ function buildCreateBody(state: WizardState): ServerCreate {
       ...(state.requestedAddress.trim() ? { address: state.requestedAddress.trim() } : {}),
       ...(tunnel ? { tunnel } : {}),
     },
-    resources: {
-      // The create form uses Guaranteed QoS: requests == limits, so the pod
-      // is scheduled onto (and kept on) a node that can always give it the
-      // full amount, and never gets OOM-killed or CPU-throttled below what
-      // was configured.
-      requests: { cpu: state.cpuLimit, memory: state.memoryLimit },
-      limits: { cpu: state.cpuLimit, memory: state.memoryLimit },
-    },
+    resources: state.resources,
     ...(nodeSelector && state.mode === "single" ? { nodeSelector } : {}),
   };
 }
@@ -269,15 +260,15 @@ function validateStep(
     if (!state.ephemeral && !isValidQuantity(state.storageSize)) {
       return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_storage_quantity", defaultMessage: "Storage must be a Kubernetes quantity (e.g. 50Gi)", description: "Create server: validation message shown when the storage size is not a valid Kubernetes quantity" }) };
     }
-    if (!isValidQuantity(state.cpuLimit) || !isValidQuantity(state.memoryLimit)) {
-      return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_cpu_memory_quantity", defaultMessage: "CPU and memory must be valid quantities", description: "Create server: validation message shown when the CPU or memory limit is not a valid Kubernetes quantity" }) };
+    if (!resourcesValid(state.resources)) {
+      return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_limit_below_request", defaultMessage: "A limit can't be lower than its request", description: "Create server: validation message shown when a CPU or memory limit is lower than its request" }) };
     }
-    const cpuParsed = parseCpuQuantity(state.cpuLimit);
-    if (caps.maxCpu > 0 && cpuParsed && cpuCores(cpuParsed) > caps.maxCpu) {
+    const cpuMax = Math.max(quantityAmount("cpu", state.resources.requests?.cpu), quantityAmount("cpu", state.resources.limits?.cpu));
+    if (caps.maxCpu > 0 && cpuMax > caps.maxCpu) {
       return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_cpu_over_node", defaultMessage: "CPU can't exceed {cores} cores — no single node has more", description: "Create server: validation message shown when the CPU limit is above the largest node; {cores} is the core count of the largest node" }, { cores: String(caps.maxCpu) }) };
     }
-    const memParsed = parseMemQuantity(state.memoryLimit);
-    if (caps.maxMemGi > 0 && memParsed && memBytes(memParsed) / 1024 ** 3 > caps.maxMemGi) {
+    const memoryMax = Math.max(quantityAmount("memory", state.resources.requests?.memory), quantityAmount("memory", state.resources.limits?.memory));
+    if (caps.maxMemGi > 0 && memoryMax > caps.maxMemGi) {
       return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_memory_over_node", defaultMessage: "Memory can't exceed {gib} GiB — no single node has more", description: "Create server: validation message shown when the memory limit is above the largest node; {gib} is the memory of the largest node in GiB" }, { gib: String(caps.maxMemGi) }) };
     }
     const cfgErrors = validateConfig(state.template?.spec.configSchema ?? [], state.config, intl);
@@ -861,31 +852,17 @@ function Configure({ state, setState, caps, nodeNames, cluster }: { state: Wizar
         <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.overrides_the_template_image_requires", defaultMessage: "Overrides the template image. Requires admin.", description: "Create server: hint under the image field explaining it overrides the template image and needs the admin role" })}</span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.cpu", defaultMessage: "CPU", description: "Create server: field label for the CPU amount given to the server; technical term, usually left untranslated" })}</label>
-          <ResourceInput
-            kind="cpu"
-            value={state.cpuLimit}
-            onChange={(q) => setState({ ...state, cpuLimit: q })}
-            max={maxCpu > 0 ? maxCpu : undefined}
-          />
-          {maxCpu > 0 && (
-            <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.max_maxcpu_largest_node", defaultMessage: "Max {maxCpu} (largest node)", description: "Create server: hint under the CPU field; {maxCpu} is the largest CPU count one node can provide" }, { maxCpu: maxCpu })}</span>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.memory", defaultMessage: "Memory", description: "Create server: field label for the memory amount given to the server" })}</label>
-          <ResourceInput
-            kind="memory"
-            value={state.memoryLimit}
-            onChange={(q) => setState({ ...state, memoryLimit: q })}
-            max={maxMemGi > 0 ? maxMemGi : undefined}
-          />
-          {maxMemGi > 0 && (
-            <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.max_maxmemgi_gib_largest_node", defaultMessage: "Max {maxMemGi} GiB (largest node)", description: "Create server: hint under the memory field; {maxMemGi} is the largest memory in GiB one node can provide" }, { maxMemGi: maxMemGi })}</span>
-          )}
-        </div>
+      <div className="space-y-1.5">
+        <RequestLimitCard kind="cpu" resources={state.resources} onChange={(resources) => setState({ ...state, resources })} max={maxCpu > 0 ? maxCpu : undefined} />
+        {maxCpu > 0 && (
+          <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.max_maxcpu_largest_node", defaultMessage: "Max {maxCpu} (largest node)", description: "Create server: hint under the CPU field; {maxCpu} is the largest CPU count one node can provide" }, { maxCpu: maxCpu })}</span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <RequestLimitCard kind="memory" resources={state.resources} onChange={(resources) => setState({ ...state, resources })} max={maxMemGi > 0 ? maxMemGi : undefined} />
+        {maxMemGi > 0 && (
+          <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.max_maxmemgi_gib_largest_node", defaultMessage: "Max {maxMemGi} GiB (largest node)", description: "Create server: hint under the memory field; {maxMemGi} is the largest memory in GiB one node can provide" }, { maxMemGi: maxMemGi })}</span>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -1266,14 +1243,15 @@ const DEPLOYMENT_MODE = defineMessages({
   group: { id: "web.routes.create_server.server_group", defaultMessage: "Server group", description: "Create server: deployment choice for a group of identical replicas" },
 });
 
-const REVIEW_LABELS = defineMessages({
+const REVIEW_LABELS: Record<string, MessageDescriptor> = defineMessages({
   template: { id: "web.routes.create_server.review_template", defaultMessage: "Template", description: "Create server: review section title and row label for the chosen game template" },
   version: { id: "web.routes.create_server.review_version", defaultMessage: "Version", description: "Create server: review section title and row label for the chosen game version" },
   configuration: { id: "web.routes.create_server.review_configuration", defaultMessage: "Configuration", description: "Create server: review section title for the server name, location and resources" },
   name: { id: "web.routes.create_server.review_name", defaultMessage: "Name", description: "Create server: review row label for the server name" },
   location: { id: "web.routes.create_server.review_location", defaultMessage: "Location", description: "Create server: review row label for the cluster and namespace the server is created in" },
-  cpu: { id: "web.routes.create_server.review_cpu", defaultMessage: "CPU", description: "Create server: review row label for the CPU limit" },
-  memory: { id: "web.routes.create_server.review_memory", defaultMessage: "Memory", description: "Create server: review row label for the memory limit" },
+  cpu: { id: "web.routes.create_server.review_cpu", defaultMessage: "CPU", description: "Create server: review row label for the CPU request and limit" },
+  memory: { id: "web.routes.create_server.review_memory", defaultMessage: "Memory", description: "Create server: review row label for the memory request and limit" },
+  request_limit: { id: "web.routes.create_server.review_request_limit", defaultMessage: "{request} request · {limit} limit", description: "Create server: review value for CPU or memory; {request} and {limit} are amounts, or a dash when unset" },
   storage: { id: "web.routes.create_server.review_storage", defaultMessage: "Storage", description: "Create server: review row label for the storage size" },
   placement: { id: "web.routes.create_server.review_placement", defaultMessage: "Placement", description: "Create server: review row label for the node placement option" },
   network: { id: "web.routes.create_server.review_network", defaultMessage: "Network", description: "Create server: review section title for the network settings" },
@@ -1324,8 +1302,8 @@ function Review({ state, onEdit, location, cluster }: { state: WizardState; onEd
       rows: [
         [intl.formatMessage(REVIEW_LABELS.name), state.name || empty],
         [intl.formatMessage(REVIEW_LABELS.location), location],
-        [intl.formatMessage(REVIEW_LABELS.cpu), state.cpuLimit],
-        [intl.formatMessage(REVIEW_LABELS.memory), state.memoryLimit],
+        [intl.formatMessage(REVIEW_LABELS.cpu), intl.formatMessage(REVIEW_LABELS.request_limit, { request: state.resources.requests?.cpu ?? empty, limit: state.resources.limits?.cpu ?? empty })],
+        [intl.formatMessage(REVIEW_LABELS.memory), intl.formatMessage(REVIEW_LABELS.request_limit, { request: state.resources.requests?.memory ?? empty, limit: state.resources.limits?.memory ?? empty })],
         [intl.formatMessage(REVIEW_LABELS.deployment), state.mode === "group" ? intl.formatMessage({ id: "web.routes.create_server.review_group_of_replicas", defaultMessage: "Group of {count}", description: "Create server: review value for a server group; {count} is the number of replicas" }, { count: state.replicas }) : intl.formatMessage(DEPLOYMENT_MODE.single)],
         ...(state.mode === "group" ? [[intl.formatMessage(REVIEW_LABELS.nodes), state.nodes.length ? state.nodes.join(", ") : intl.formatMessage(REVIEW_LABELS.any)] as [string, string]] : []),
         [intl.formatMessage(REVIEW_LABELS.image), state.image.trim() || intl.formatMessage(REVIEW_LABELS.template_default)],
@@ -1443,8 +1421,8 @@ spec:
 ${isGroup ? `  replicas: ${state.replicas}\n` : ""}  templateRef:
     name: ${state.template.metadata.name}
 ${state.version ? `  version: ${state.version}\n` : ""}  resources:
-    cpu: ${state.cpuLimit}
-    memory: ${state.memoryLimit}
+    requests: ${JSON.stringify(state.resources.requests ?? {})}
+    limits: ${JSON.stringify(state.resources.limits ?? {})}
     storage: ${state.ephemeral ? "ephemeral" : state.storageSize}
 `
     : intl.formatMessage({ id: "web.routes.create_server.yaml_pick_a_template", defaultMessage: "# Pick a template to preview the YAML.", description: "Create server: YAML preview comment shown until a template is picked" });

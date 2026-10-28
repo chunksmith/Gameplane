@@ -1,45 +1,67 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesSection } from "./Resources";
-import { makeServer } from "@/test/factories";
+import { makeServer, makeTemplate } from "@/test/factories";
 
 describe("ResourcesSection", () => {
-  it("renders default CPU and memory values when no resources set", () => {
+  it("shows 0 for unset request and limit", () => {
     render(<ResourcesSection draft={makeServer()} onChange={() => {}} />);
-    // Defaults are 2 CPU / 4 Gi.
-    expect(screen.getByLabelText("CPU cores value")).toHaveValue(2);
-    expect(screen.getByLabelText("Memory (GiB) value")).toHaveValue(4);
+    expect(screen.getByLabelText("CPU request value")).toHaveValue(0);
+    expect(screen.getByLabelText("CPU limit value")).toHaveValue(0);
+    expect(screen.getByLabelText("Memory request value")).toHaveValue(0);
+    expect(screen.getByLabelText("Memory limit value")).toHaveValue(0);
   });
 
-  it("changing CPU slider updates draft to a quantity", () => {
+  it("sets the CPU request without touching the limit", () => {
     const onChange = vi.fn();
     render(<ResourcesSection draft={makeServer()} onChange={onChange} />);
-    const cpuInput = screen.getByLabelText("CPU cores value");
-    fireEvent.change(cpuInput, { target: { value: "4" } });
-    fireEvent.blur(cpuInput);
-    const lastCall = onChange.mock.calls.at(-1)![0];
-    expect(lastCall.spec.resources.requests.cpu).toBe("4");
-    expect(lastCall.spec.resources.limits.cpu).toBe("4");
+    const input = screen.getByLabelText("CPU request value");
+    fireEvent.change(input, { target: { value: "0.5" } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls.at(-1)![0].spec.resources).toEqual({ requests: { cpu: "500m" } });
   });
 
-  it("fractional CPU produces a milli-string", () => {
+  it("sets the memory limit separately from the request", () => {
     const onChange = vi.fn();
-    render(<ResourcesSection draft={makeServer()} onChange={onChange} />);
-    const cpuInput = screen.getByLabelText("CPU cores value");
-    fireEvent.change(cpuInput, { target: { value: "0.5" } });
-    fireEvent.blur(cpuInput);
-    const lastCall = onChange.mock.calls.at(-1)![0];
-    expect(lastCall.spec.resources.requests.cpu).toBe("500m");
+    const draft = { ...makeServer(), spec: { ...makeServer().spec, resources: { requests: { memory: "2Gi" } } } };
+    render(<ResourcesSection draft={draft} onChange={onChange} />);
+    const input = screen.getByLabelText("Memory limit value");
+    fireEvent.change(input, { target: { value: "8" } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls.at(-1)![0].spec.resources).toEqual({ requests: { memory: "2Gi" }, limits: { memory: "8Gi" } });
   });
 
-  it("memory slider sets memory limits", () => {
+  it("0 removes the value instead of storing it", () => {
     const onChange = vi.fn();
-    render(<ResourcesSection draft={makeServer()} onChange={onChange} />);
-    const memInput = screen.getByLabelText("Memory (GiB) value");
-    fireEvent.change(memInput, { target: { value: "8" } });
-    fireEvent.blur(memInput);
-    const lastCall = onChange.mock.calls.at(-1)![0];
-    expect(lastCall.spec.resources.requests.memory).toBe("8Gi");
+    const draft = { ...makeServer(), spec: { ...makeServer().spec, resources: { requests: { cpu: "1" }, limits: { cpu: "2" } } } };
+    render(<ResourcesSection draft={draft} onChange={onChange} />);
+    const input = screen.getByLabelText("CPU limit value");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls.at(-1)![0].spec.resources).toEqual({ requests: { cpu: "1" } });
+  });
+
+  it("falls back to the template resources when the server has none", () => {
+    render(<ResourcesSection draft={makeServer()} onChange={() => {}} template={{ ...makeTemplate(), spec: { ...makeTemplate().spec, resources: { limits: { cpu: "3" } } } }} />);
+    expect(screen.getByLabelText("CPU limit value")).toHaveValue(3);
+  });
+
+  it("reports invalid when the limit is below the request", () => {
+    const onValidityChange = vi.fn();
+    const draft = { ...makeServer(), spec: { ...makeServer().spec, resources: { requests: { cpu: "4" }, limits: { cpu: "2" } } } };
+    render(<ResourcesSection draft={draft} onChange={() => {}} onValidityChange={onValidityChange} />);
+    expect(onValidityChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByText("The limit can't be lower than the request.")).toBeInTheDocument();
+  });
+
+  it("keeps storage when resources change", () => {
+    const onChange = vi.fn();
+    const draft = { ...makeServer(), spec: { ...makeServer().spec, storage: { size: "10Gi" } } };
+    render(<ResourcesSection draft={draft} onChange={onChange} />);
+    const input = screen.getByLabelText("CPU request value");
+    fireEvent.change(input, { target: { value: "8" } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls.at(-1)![0].spec.storage.size).toBe("10Gi");
   });
 
   it("rejects an invalid storage size with an error message", () => {
@@ -141,50 +163,5 @@ describe("ResourcesSection", () => {
     );
     expect(screen.getByDisplayValue("50Gi")).toBeInTheDocument();
     expect(screen.getByDisplayValue("fast-ssd")).toBeInTheDocument();
-  });
-
-  it("CPU slider to 0 clamps to the 100m floor", () => {
-    const onChange = vi.fn();
-    render(<ResourcesSection draft={makeServer()} onChange={onChange} />);
-    const cpuInput = screen.getByLabelText("CPU cores value");
-    // ResourceInput's CPU_DEFAULTS floors the slider at 0.1 cores (100m) —
-    // a raw DOM value of "0" (below the slider's own min) still gets
-    // clamped there by emitBase, it never reaches true zero.
-    fireEvent.change(cpuInput, { target: { value: "0" } });
-    fireEvent.blur(cpuInput);
-    const lastCall = onChange.mock.calls.at(-1)![0];
-    expect(lastCall.spec.resources.requests.cpu).toBe("100m");
-  });
-
-  it("memory slider min value", () => {
-    const onChange = vi.fn();
-    render(<ResourcesSection draft={makeServer()} onChange={onChange} />);
-    const memInput = screen.getByLabelText("Memory (GiB) value");
-    fireEvent.change(memInput, { target: { value: "1" } });
-    fireEvent.blur(memInput);
-    const lastCall = onChange.mock.calls.at(-1)![0];
-    expect(lastCall.spec.resources.requests.memory).toBe("1Gi");
-  });
-
-  it("preserves storage config when updating resources", () => {
-    const onChange = vi.fn();
-    render(
-      <ResourcesSection
-        draft={{
-          ...makeServer(),
-          spec: {
-            ...makeServer().spec,
-            storage: { size: "10Gi" },
-          },
-        }}
-        onChange={onChange}
-      />,
-    );
-    const cpuInput = screen.getByLabelText("CPU cores value");
-    fireEvent.change(cpuInput, { target: { value: "8" } });
-    fireEvent.blur(cpuInput);
-    const lastCall = onChange.mock.calls.at(-1)![0];
-    expect(lastCall.spec.storage.size).toBe("10Gi");
-    expect(lastCall.spec.resources.requests.cpu).toBe("8");
   });
 });

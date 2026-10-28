@@ -4639,6 +4639,86 @@
     "defaultMessage": "Remove {label}",
     "description": "Removable chip: accessible name of the remove button; {label} is the chip text, e.g. a group or role name"
   },
+  "web.components.ui.request_limit_card.both_set": {
+    "defaultMessage": "Request {request} of {limit} limit · {qos} QoS",
+    "description": "Resources card: summary under the bar when both are set; {request} and {limit} are amounts, {qos} is the Kubernetes QoS class name (Guaranteed, Burstable or BestEffort), keep it untranslated"
+  },
+  "web.components.ui.request_limit_card.cores": {
+    "defaultMessage": "{count, plural, one {# core} other {# cores}}",
+    "description": "Resources card: a CPU amount in cores used inside the summary line"
+  },
+  "web.components.ui.request_limit_card.cpu_description": {
+    "defaultMessage": "The request is reserved on the node; the limit is the hard cap.",
+    "description": "Resources card: text under the CPU card title explaining request and limit"
+  },
+  "web.components.ui.request_limit_card.cpu_limit_hint": {
+    "defaultMessage": "Throttled above this. 0 = no limit.",
+    "description": "Resources card: hint under the CPU limit field; 0 leaves the limit unset"
+  },
+  "web.components.ui.request_limit_card.cpu_limit_label": {
+    "defaultMessage": "CPU limit",
+    "description": "Resources card: accessible name of the CPU limit slider and fields"
+  },
+  "web.components.ui.request_limit_card.cpu_request_label": {
+    "defaultMessage": "CPU request",
+    "description": "Resources card: accessible name of the CPU request slider and fields"
+  },
+  "web.components.ui.request_limit_card.cpu_title": {
+    "defaultMessage": "CPU",
+    "description": "Resources card: title of the CPU request and limit card; technical term, usually left untranslated"
+  },
+  "web.components.ui.request_limit_card.gib": {
+    "defaultMessage": "{count} GiB",
+    "description": "Resources card: a memory amount in GiB used inside the summary line"
+  },
+  "web.components.ui.request_limit_card.limit": {
+    "defaultMessage": "Limit",
+    "description": "Resources card: label of the limit field (hard cap for the server)"
+  },
+  "web.components.ui.request_limit_card.limit_below_request": {
+    "defaultMessage": "The limit can't be lower than the request.",
+    "description": "Resources card: error under the bar when the limit is below the request"
+  },
+  "web.components.ui.request_limit_card.limit_only": {
+    "defaultMessage": "No request, so Kubernetes uses the {limit} limit · {qos} QoS",
+    "description": "Resources card: summary under the bar when only the limit is set; Kubernetes then sets the request equal to the limit; {qos} is the Kubernetes QoS class name, keep it untranslated"
+  },
+  "web.components.ui.request_limit_card.memory_description": {
+    "defaultMessage": "Above the limit the server is OOM-killed; keep the Java heap below it.",
+    "description": "Resources card: text under the memory card title; OOM-killed means the process is stopped for using too much memory"
+  },
+  "web.components.ui.request_limit_card.memory_limit_hint": {
+    "defaultMessage": "OOM-killed above this. 0 = no limit.",
+    "description": "Resources card: hint under the memory limit field; 0 leaves the limit unset"
+  },
+  "web.components.ui.request_limit_card.memory_limit_label": {
+    "defaultMessage": "Memory limit",
+    "description": "Resources card: accessible name of the memory limit slider and fields"
+  },
+  "web.components.ui.request_limit_card.memory_request_label": {
+    "defaultMessage": "Memory request",
+    "description": "Resources card: accessible name of the memory request slider and fields"
+  },
+  "web.components.ui.request_limit_card.memory_title": {
+    "defaultMessage": "Memory",
+    "description": "Resources card: title of the memory request and limit card"
+  },
+  "web.components.ui.request_limit_card.none_set": {
+    "defaultMessage": "No request or limit · {qos} QoS",
+    "description": "Resources card: summary under the bar when neither is set; {qos} is the Kubernetes QoS class name, keep it untranslated"
+  },
+  "web.components.ui.request_limit_card.request": {
+    "defaultMessage": "Request",
+    "description": "Resources card: label of the request field (amount reserved for the server on the node)"
+  },
+  "web.components.ui.request_limit_card.request_hint": {
+    "defaultMessage": "Reserved for the server. 0 = no request.",
+    "description": "Resources card: hint under the request field; 0 leaves the request unset"
+  },
+  "web.components.ui.request_limit_card.request_only": {
+    "defaultMessage": "Request {request} · no limit · {qos} QoS",
+    "description": "Resources card: summary under the bar when only the request is set; {qos} is the Kubernetes QoS class name, keep it untranslated"
+  },
   "web.components.ui.resource_input.cpu_cores": {
     "defaultMessage": "CPU cores",
     "description": "Resource input: accessible name of the CPU slider and its fields"
@@ -7831,10 +7911,6 @@
     "defaultMessage": "Continue to {stepIndex}",
     "description": "Create server: label of the button that moves to the next wizard step; {stepIndex} is the next step name"
   },
-  "web.routes.create_server.cpu": {
-    "defaultMessage": "CPU",
-    "description": "Create server: field label for the CPU amount given to the server; technical term, usually left untranslated"
-  },
   "web.routes.create_server.create_group": {
     "defaultMessage": "Create group",
     "description": "Create server: label of the final footer button when the wizard creates a server group, shown instead of Create server; keep it short"
@@ -8031,10 +8107,6 @@
     "defaultMessage": "mc-hardcore",
     "description": "Create server: example placeholder shown in the server name field before the user types; an example value, not a default"
   },
-  "web.routes.create_server.memory": {
-    "defaultMessage": "Memory",
-    "description": "Create server: field label for the memory amount given to the server"
-  },
   "web.routes.create_server.memory_tip": {
     "defaultMessage": "Memory tip.",
     "description": "Create server: bold label that starts the memory hint at the bottom of the YAML preview panel"
@@ -8225,7 +8297,7 @@
   },
   "web.routes.create_server.review_cpu": {
     "defaultMessage": "CPU",
-    "description": "Create server: review row label for the CPU limit"
+    "description": "Create server: review row label for the CPU request and limit"
   },
   "web.routes.create_server.review_credentials_configured": {
     "defaultMessage": "✓ Configured",
@@ -8277,7 +8349,7 @@
   },
   "web.routes.create_server.review_memory": {
     "defaultMessage": "Memory",
-    "description": "Create server: review row label for the memory limit"
+    "description": "Create server: review row label for the memory request and limit"
   },
   "web.routes.create_server.review_name": {
     "defaultMessage": "Name",
@@ -8302,6 +8374,10 @@
   "web.routes.create_server.review_port_overrides": {
     "defaultMessage": "Port overrides",
     "description": "Create server: review row label for the port override names"
+  },
+  "web.routes.create_server.review_request_limit": {
+    "defaultMessage": "{request} request · {limit} limit",
+    "description": "Create server: review value for CPU or memory; {request} and {limit} are amounts, or a dash when unset"
   },
   "web.routes.create_server.review_storage": {
     "defaultMessage": "Storage",
@@ -8455,10 +8531,6 @@
     "defaultMessage": "Choose a version to continue",
     "description": "Create server: validation message shown when the version step has no version chosen"
   },
-  "web.routes.create_server.validation_cpu_memory_quantity": {
-    "defaultMessage": "CPU and memory must be valid quantities",
-    "description": "Create server: validation message shown when the CPU or memory limit is not a valid Kubernetes quantity"
-  },
   "web.routes.create_server.validation_cpu_over_node": {
     "defaultMessage": "CPU can't exceed {cores} cores — no single node has more",
     "description": "Create server: validation message shown when the CPU limit is above the largest node; {cores} is the core count of the largest node"
@@ -8478,6 +8550,10 @@
   "web.routes.create_server.validation_group_name_length": {
     "defaultMessage": "Group name must be at most 40 characters",
     "description": "Create server: validation message shown when a server group name is longer than 40 characters"
+  },
+  "web.routes.create_server.validation_limit_below_request": {
+    "defaultMessage": "A limit can't be lower than its request",
+    "description": "Create server: validation message shown when a CPU or memory limit is lower than its request"
   },
   "web.routes.create_server.validation_memory_over_node": {
     "defaultMessage": "Memory can't exceed {gib} GiB — no single node has more",
@@ -12747,10 +12823,6 @@
     "defaultMessage": "allowVolumeExpansion: true",
     "description": "Resources: Kubernetes StorageClass field name shown in the storage size hint"
   },
-  "web.routes.tabs.settings.resources.cpu_cores": {
-    "defaultMessage": "CPU cores",
-    "description": "Resources: field label for the number of CPU cores reserved for the server; CPU is a technical term, usually left untranslated"
-  },
   "web.routes.tabs.settings.resources.fast_ssd": {
     "defaultMessage": "fast-ssd",
     "description": "Resources: example placeholder in the StorageClass box; an example class name, not a default"
@@ -12767,21 +12839,9 @@
     "defaultMessage": "Leave blank to use the cluster default.",
     "description": "Resources: hint under the StorageClass field saying a blank value uses the cluster default storage class"
   },
-  "web.routes.tabs.settings.resources.memory_gib": {
-    "defaultMessage": "Memory (GiB)",
-    "description": "Resources: field label for the memory amount in GiB reserved for the server"
-  },
   "web.routes.tabs.settings.resources.resizing_requires_a_storageclass_with": {
     "defaultMessage": "Resizing requires a StorageClass with {setting}.",
     "description": "Resources: hint under the storage size field saying resizing needs a StorageClass that allows volume expansion; {setting} is the allowVolumeExpansion: true field, shown in monospace"
-  },
-  "web.routes.tabs.settings.resources.sets_requests_limits_to_the_same_value": {
-    "defaultMessage": "Sets requests=limits to the same value (Guaranteed QoS).",
-    "description": "Resources: hint under the CPU cores field saying the request and limit are set to the same value, which gives the Guaranteed QoS class; QoS is a technical term"
-  },
-  "web.routes.tabs.settings.resources.sets_requests_limits_to_the_same_value_2": {
-    "defaultMessage": "Sets requests=limits to the same value.",
-    "description": "Resources: hint under the memory field saying the request and limit are set to the same value"
   },
   "web.routes.tabs.settings.resources.storage_size": {
     "defaultMessage": "Storage size",
