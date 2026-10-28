@@ -42,7 +42,7 @@ var errAICLIFull = errors.New("claude process limit reached")
 
 const aiShellPrompt = `
 
-Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it. Long commands can run with run_in_background; follow them with Monitor and stop them with TaskStop.`
+Shell (admins only): you also have a Bash tool with kubectl, curl and wget. It runs inside the Gameplane API container, and kubectl uses the API's Kubernetes service account in this cluster. Use it for what the API cannot do: cluster and node inspection, pod logs, kubectl exec into game containers, and resources outside Gameplane. Change GameServers, backups and schedules through gameplane_api: the operator owns the StatefulSets, Services and PVCs it creates and reverts direct edits. In a server conversation, stay on that server unless the user asks for more. A kubectl Forbidden error means the service account lacks that permission: say so instead of working around it.`
 
 const aiCLIPrompt = `
 
@@ -349,6 +349,7 @@ func aiCLIEnv(token string, admin bool) []string {
 		"CLAUDE_CODE_OAUTH_TOKEN=" + token,
 		"DISABLE_UPDATES=1",
 		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
+		"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1",
 		"MCP_TOOL_TIMEOUT=" + strconv.FormatInt((aiApprovalWait+5*time.Minute).Milliseconds(), 10),
 	}
 	if admin {
