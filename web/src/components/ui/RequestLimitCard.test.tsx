@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { RequestLimitCard, limitBelowRequest, qosClass, quantityAmount, resourcesValid, setResource } from "./RequestLimitCard";
 
 describe("RequestLimitCard helpers", () => {
@@ -49,5 +49,17 @@ describe("RequestLimitCard", () => {
   it("shows the error when the limit is below the request", () => {
     render(<RequestLimitCard kind="cpu" resources={{ requests: { cpu: "4" }, limits: { cpu: "2" } }} onChange={vi.fn()} />);
     expect(screen.getByText("The limit can't be lower than the request.")).toBeInTheDocument();
+  });
+
+  it("clears the limit with the Remove limit button", () => {
+    const onChange = vi.fn();
+    render(<RequestLimitCard kind="memory" resources={{ requests: { memory: "5Gi" }, limits: { memory: "6Gi" } }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove limit" }));
+    expect(onChange).toHaveBeenCalledWith({ requests: { memory: "5Gi" } });
+  });
+
+  it("hides Remove limit when no limit is set", () => {
+    render(<RequestLimitCard kind="memory" resources={{ requests: { memory: "5Gi" } }} onChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Remove limit" })).not.toBeInTheDocument();
   });
 });

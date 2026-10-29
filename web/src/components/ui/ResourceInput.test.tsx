@@ -112,6 +112,23 @@ describe("ResourceInput", () => {
       expect(fn).toHaveBeenCalledWith("2Gi");
     });
 
+    it("commits the typed input on Enter", () => {
+      const fn = vi.fn();
+      render(<ResourceInput kind="memory" value="6Gi" onChange={fn} />);
+      const input = screen.getByRole("spinbutton");
+      fireEvent.change(input, { target: { value: "4" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(fn).toHaveBeenCalledWith("4Gi");
+    });
+
+    it("selects the value on focus so typing replaces it", () => {
+      const select = vi.spyOn(HTMLInputElement.prototype, "select");
+      render(<ResourceInput kind="memory" value="6Gi" onChange={() => {}} />);
+      fireEvent.focus(screen.getByRole("spinbutton"));
+      expect(select).toHaveBeenCalled();
+      select.mockRestore();
+    });
+
     it("switching memory unit converts displayed value without changing emitted amount", () => {
       render(<ResourceInput kind="memory" value="4Gi" onChange={() => {}} />);
       expect(screen.getByRole("spinbutton")).toHaveValue(4);

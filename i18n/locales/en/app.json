@@ -4707,6 +4707,10 @@
     "defaultMessage": "No request or limit · {qos} QoS",
     "description": "Resources card: summary under the bar when neither is set; {qos} is the Kubernetes QoS class name, keep it untranslated"
   },
+  "web.components.ui.request_limit_card.remove_limit": {
+    "defaultMessage": "Remove limit",
+    "description": "Resources card: button under the limit field that clears the limit so the server has no hard cap"
+  },
   "web.components.ui.request_limit_card.request": {
     "defaultMessage": "Request",
     "description": "Resources card: label of the request field (amount reserved for the server on the node)"

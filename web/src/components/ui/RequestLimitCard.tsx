@@ -1,3 +1,4 @@
+import { Button } from "@heroui/react";
 import { defineMessages, type MessageDescriptor } from "react-intl";
 import { ResourceInput } from "@/components/ui/ResourceInput";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const messages: Record<string, MessageDescriptor> = defineMessages({
   limitOnly: { id: "web.components.ui.request_limit_card.limit_only", defaultMessage: "No request, so Kubernetes uses the {limit} limit · {qos} QoS", description: "Resources card: summary under the bar when only the limit is set; Kubernetes then sets the request equal to the limit; {qos} is the Kubernetes QoS class name, keep it untranslated" },
   noneSet: { id: "web.components.ui.request_limit_card.none_set", defaultMessage: "No request or limit · {qos} QoS", description: "Resources card: summary under the bar when neither is set; {qos} is the Kubernetes QoS class name, keep it untranslated" },
   limitBelowRequest: { id: "web.components.ui.request_limit_card.limit_below_request", defaultMessage: "The limit can't be lower than the request.", description: "Resources card: error under the bar when the limit is below the request" },
+  removeLimit: { id: "web.components.ui.request_limit_card.remove_limit", defaultMessage: "Remove limit", description: "Resources card: button under the limit field that clears the limit so the server has no hard cap" },
 });
 
 export function quantityAmount(kind: ResourceKind, quantity: string | undefined): number {
@@ -124,6 +126,11 @@ export function RequestLimitCard({
               onChange={(quantity) => onChange(setResource(current, kind, field.side, quantity))}
             />
             <p className="text-xs text-muted">{intl.formatMessage(field.hint)}</p>
+            {field.side === "limits" && limit > 0 && (
+              <Button variant="ghost" size="sm" onPress={() => onChange(setResource(current, kind, "limits", "0"))}>
+                {intl.formatMessage(messages.removeLimit)}
+              </Button>
+            )}
           </div>
         ))}
       </div>
