@@ -29,7 +29,7 @@ import { ErrorCard } from "@/components/ui/ErrorCard";
 import { PageHeader } from "@/components/PageHeader";
 import {
   cn,
-  describeStorageProvisioned,
+  describeDiskUsage,
   formatBytes,
   formatCores,
   formatRelative,
@@ -104,9 +104,13 @@ export function DashboardPage() {
   const network = sumNetwork(servers);
   const emptyValue = intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
   const inventoryUnavailable = intl.formatMessage({ id: "web.routes.dashboard.inventory_unavailable", defaultMessage: "inventory unavailable", description: "Dashboard: sub-label on the storage and nodes cards when inventory cannot be read" });
-  const storage = clusterView.usedStorageBytes === undefined ? { valueText: emptyValue, subText: inventoryUnavailable, overcommitted: false } : describeStorageProvisioned(clusterView.usedStorageBytes, clusterView.totalStorageBytes, intl);
-  const storageKnown = clusterView.usedStorageBytes !== undefined;
-  const storagePct = clusterView.totalStorageBytes ? ((clusterView.usedStorageBytes ?? 0) / clusterView.totalStorageBytes) * 100 : 0;
+  const disk = clusterView.disk;
+  const diskUnknown = nodesKnown
+    ? intl.formatMessage({ id: "web.routes.dashboard.disk_needs_prometheus", defaultMessage: "needs Prometheus", description: "Dashboard: sub-label on the disk card and storage meter when disk usage cannot be measured because Prometheus is not connected" })
+    : inventoryUnavailable;
+  const storage = disk ? describeDiskUsage(disk.used, disk.total, intl) : { valueText: emptyValue, subText: diskUnknown };
+  const storageKnown = disk !== undefined;
+  const storagePct = disk ? (disk.used / disk.total) * 100 : 0;
   const isLoading = serversLoading || clusterLoading || backupsLoading || (canAudit && auditLoading);
 
   return (
@@ -189,11 +193,11 @@ export function DashboardPage() {
               }
             />
             <KpiCard
-              label={intl.formatMessage({ id: "web.routes.dashboard.storage_provisioned", defaultMessage: "Storage provisioned", description: "Dashboard: label of the summary card with the total provisioned storage; the line under it says whether the figure covers returned or all authorized inventory" })}
+              label={intl.formatMessage({ id: "web.routes.dashboard.disk_used", defaultMessage: "Disk used", description: "Dashboard: label of the summary card with the disk space used on the cluster nodes; the line under it shows the total disk" })}
               icon={HardDrive}
-              accent={storage.overcommitted ? "text-warning" : "text-chart-stat"}
+              accent="text-chart-stat"
               value={storage.valueText}
-              sub={storage.subText ?? emptyValue}
+              sub={storage.subText}
             />
           </div>
 
@@ -554,7 +558,7 @@ function ClusterResourcesCard({
             pct={storagePct}
             sub={storage.subText}
             unknown={!storageKnown}
-            accent={storage.overcommitted ? "warning" : "success"}
+            accent="success"
           />
           <div>
             <div className="flex items-center justify-between text-[11px]">

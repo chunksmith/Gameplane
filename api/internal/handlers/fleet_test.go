@@ -51,7 +51,7 @@ func fleetObject(kind, namespace, name, uid string) *unstructured.Unstructured {
 func fleetRouter(reg *kube.Registry) http.Handler {
 	r := chi.NewRouter()
 	r.Use(rbac.Middleware(reg))
-	MountFleet(r, reg, nil)
+	MountFleet(r, reg, nil, nil)
 	return r
 }
 
@@ -345,6 +345,38 @@ func TestFleetInventory_SeparateAuthorityAndUnknownMetrics(t *testing.T) {
 	denied := decodeFleet[fleetInventory](t, fleetRouter(reg), &auth.User{ID: 42}, "/fleet/inventory")
 	if denied.Partial || len(denied.Items) != 0 {
 		t.Fatalf("unrelated cluster failure leaked to caller: %+v", denied)
+	}
+}
+
+func TestFleetInventory_HomeDiskUsageFromPrometheus(t *testing.T) {
+	home := fleetTestClient(newCluster("remote", nil, nil))
+	home.Typed = kubefake.NewClientset(readyNode("local-node", true, "4", "8Gi"))
+	remote := fleetTestClient()
+	remote.Typed = kubefake.NewClientset(readyNode("remote-node", true, "8", "16Gi"))
+	reg := clusterTestRegistry(home)
+	reg.Set("remote", remote)
+	r := chi.NewRouter()
+	r.Use(rbac.Middleware(reg))
+	MountFleet(r, reg, nil, fakePrometheus(t,
+		fakeSeries{"node_filesystem_avail_bytes", map[string]string{}, "400"},
+		fakeSeries{"device) (node_filesystem_size_bytes", map[string]string{}, "1000"},
+	))
+	u := inventoryUser("local", "*", "cluster:read")
+	u.Perms["remote"] = map[string]map[string]struct{}{"*": {"cluster:read": {}}}
+	got := decodeFleet[fleetInventory](t, r, u, "/fleet/inventory")
+	if len(got.Items) != 2 {
+		t.Fatalf("inventory=%+v", got)
+	}
+	stats := map[string]clusterStats{}
+	for _, item := range got.Items {
+		stats[item.Cluster] = item.Stats
+	}
+	local, remoteStats := stats["local"], stats["remote"]
+	if local.DiskUsedBytes == nil || *local.DiskUsedBytes != 400 || local.DiskTotalBytes == nil || *local.DiskTotalBytes != 1000 {
+		t.Fatalf("home disk = %+v", local)
+	}
+	if remoteStats.DiskUsedBytes != nil || remoteStats.DiskTotalBytes != nil {
+		t.Fatalf("remote disk measured by home Prometheus: %+v", remoteStats)
 	}
 }
 

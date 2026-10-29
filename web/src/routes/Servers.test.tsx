@@ -82,19 +82,17 @@ describe("ServersPage", () => {
     expect(within(stoppedTab).getByText("1")).toBeInTheDocument();
   });
 
-  // Regression: usedStorageBytes/totalStorageBytes are provisioned-vs-physical,
-  // not used-vs-total, so networked storage can legitimately read >100% — that
-  // must present as an explicit overcommit state, not a silently broken meter.
-  it("flags storage as overcommitted when provisioned exceeds physical capacity", async () => {
+  it("shows the disk used on the nodes, not provisioned volume capacity", async () => {
     server.use(
       http.get("/servers", () => HttpResponse.json({ items: [] })),
       http.get("/cluster/stats", () =>
-        HttpResponse.json(makeClusterStats({ usedStorageBytes: 102_000_000_000, totalStorageBytes: 86_000_000_000 })),
+        HttpResponse.json(makeClusterStats({ usedStorageBytes: 2000 * 1024 ** 3, diskUsedBytes: 578 * 1024 ** 3, diskTotalBytes: 935 * 1024 ** 3 })),
       ),
     );
     renderWithQuery(<ServersPage />);
-    await screen.findByText("Storage provisioned");
-    expect(await screen.findAllByText(/overcommitted/i)).not.toHaveLength(0);
+    await screen.findByText("Disk used");
+    expect(await screen.findByText("578 GB")).toBeInTheDocument();
+    expect(screen.getByText("of 935 GB disk")).toBeInTheDocument();
   });
 
   it("filters by name via the search box", async () => {

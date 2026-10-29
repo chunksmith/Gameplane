@@ -36,7 +36,7 @@ import { GameIcon } from "@/components/ui/GameIcon";
 import { PageHeader } from "@/components/PageHeader";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { describeStorageProvisioned, formatBytes, formatCpuPercent, formatUptime, cn } from "@/lib/utils";
+import { describeDiskUsage, formatBytes, formatCpuPercent, formatUptime, cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/media";
 import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
 import { Networks, Servers, createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
@@ -141,7 +141,10 @@ export function ServersPage() {
   const vcpus = (clusterView?.nodes ?? []).reduce((s, n) => s + (n.cpu?.capacity ?? 0), 0);
   const emptyValue = intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" });
   const inventoryUnavailable = intl.formatMessage({ id: "web.routes.servers.inventory_unavailable", defaultMessage: "inventory unavailable", description: "Servers: sub-label on the storage and inventory-nodes cards when inventory cannot be read" });
-  const storage = cluster.usedStorageBytes === undefined ? { valueText: emptyValue, subText: inventoryUnavailable, overcommitted: false } : describeStorageProvisioned(cluster.usedStorageBytes, cluster.totalStorageBytes, intl);
+  const diskUnknown = !inventoryError && cluster.nodes > 0
+    ? intl.formatMessage({ id: "web.routes.servers.disk_needs_prometheus", defaultMessage: "needs Prometheus", description: "Servers: sub-label on the disk card when disk usage cannot be measured because Prometheus is not connected" })
+    : inventoryUnavailable;
+  const storage = cluster.disk ? describeDiskUsage(cluster.disk.used, cluster.disk.total, intl) : { valueText: emptyValue, subText: diskUnknown };
 
   // Derive distinct games and namespaces from servers
   const distinctGames = useMemo(() => {
@@ -326,11 +329,11 @@ export function ServersPage() {
             accent="warning"
           />
           <StatCard
-            label={intl.formatMessage({ id: "web.routes.servers.storage_provisioned", defaultMessage: "Storage provisioned", description: "Servers: label of the summary card with the total provisioned storage; the line under it says whether it covers returned or all authorized inventory" })}
+            label={intl.formatMessage({ id: "web.routes.servers.disk_used", defaultMessage: "Disk used", description: "Servers: label of the summary card with the disk space used on the cluster nodes; the line under it shows the total disk" })}
             icon={<HardDrive className="h-4 w-4" />}
             value={storage.valueText}
-            sub={storage.subText ?? emptyValue}
-            accent={storage.overcommitted ? "warning" : "violet"}
+            sub={storage.subText}
+            accent="violet"
           />
           <StatCard
             label={intl.formatMessage({ id: "web.routes.servers.inventory_nodes", defaultMessage: "Inventory nodes", description: "Servers: label of the summary card counting the nodes in the cluster inventory" })}

@@ -184,6 +184,8 @@ func TestStatisticsLiveWithPrometheus(t *testing.T) {
 		fakeSeries{"node_network_receive_bytes_total", map[string]string{"nodename": "n1"}, "100"},
 		fakeSeries{"node_network_transmit_bytes_total", map[string]string{"nodename": "n1"}, "50"},
 		fakeSeries{"node_load1", map[string]string{"nodename": "n1"}, "0.25"},
+		fakeSeries{"node_filesystem_avail_bytes", map[string]string{"nodename": "n1"}, "400"},
+		fakeSeries{"device) (node_filesystem_size_bytes", map[string]string{"nodename": "n1"}, "1000"},
 		fakeSeries{"container_cpu_usage_seconds_total", map[string]string{"namespace": scope.DefaultNamespace, "pod": "alpha-0", "node": "n1"}, "0.5"},
 		fakeSeries{"gameplane_agent_players_online", map[string]string{"namespace": scope.DefaultNamespace, "server": "alpha"}, "3"},
 	)
@@ -204,6 +206,9 @@ func TestStatisticsLiveWithPrometheus(t *testing.T) {
 	}
 	if len(live.Nodes) != 1 || live.Nodes[0].RX == nil || *live.Nodes[0].RX != 100 || live.Nodes[0].Load1 == nil || *live.Nodes[0].Load1 != 0.25 {
 		t.Fatalf("nodes = %+v", live.Nodes)
+	}
+	if live.Nodes[0].DiskUsed == nil || *live.Nodes[0].DiskUsed != 400 || live.Nodes[0].DiskCapacity == nil || *live.Nodes[0].DiskCapacity != 1000 {
+		t.Fatalf("node disk = %+v", live.Nodes[0])
 	}
 	if len(live.Servers) != 1 || live.Servers[0].Name != "alpha" || live.Servers[0].Players == nil || *live.Servers[0].Players != 3 || live.Servers[0].CPU == nil || *live.Servers[0].CPU != 0.5 {
 		t.Fatalf("servers = %+v", live.Servers)

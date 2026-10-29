@@ -84,6 +84,9 @@ export const messages: Record<string, MessageDescriptor> = defineMessages({
   columnStatus: { id: "web.routes.statistics.column_status", defaultMessage: "Status", description: "Statistics node table: column with the Ready or NotReady status" },
   columnCpu: { id: "web.routes.statistics.column_cpu", defaultMessage: "CPU", description: "Statistics node table: column with CPU utilization of the node" },
   columnMemory: { id: "web.routes.statistics.column_memory", defaultMessage: "Memory", description: "Statistics node table: column with memory utilization of the node" },
+  columnDisk: { id: "web.routes.statistics.column_disk", defaultMessage: "Disk", description: "Statistics node table: column with the disk space used on the node and its total disk" },
+  nodeDisk: { id: "web.routes.statistics.node_disk", defaultMessage: "{used} / {capacity}", description: "Statistics node table: disk space used and total disk of the node; {used} and {capacity} are byte sizes such as 412 GB" },
+  mobileDisk: { id: "web.routes.statistics.mobile_disk", defaultMessage: "Disk {disk}", description: "Statistics nodes list on phones: disk space used and total disk of the node; {disk} is the used and total size such as 412 GB / 1 TB, or — when unknown" },
   columnNetIn: { id: "web.routes.statistics.column_net_in", defaultMessage: "Net in", description: "Statistics node table: column with the inbound network rate of the node" },
   columnNetOut: { id: "web.routes.statistics.column_net_out", defaultMessage: "Net out", description: "Statistics node table: column with the outbound network rate of the node" },
   columnLoad: { id: "web.routes.statistics.column_load", defaultMessage: "Load 1m", description: "Statistics node table: column with the one-minute load average" },
@@ -122,7 +125,7 @@ const METRICS: Metric[] = ["cpu", "memory", "network"];
 
 const ROLLING_POINTS = 90;
 const TOP_SERVER_COUNT = 8;
-const NODE_COLUMNS = "@5xl:grid-cols-[minmax(0,1.6fr)_7.5rem_minmax(0,1.2fr)_minmax(0,1.2fr)_5.5rem_5.5rem_4.5rem_3.5rem_6.5rem_1rem]";
+const NODE_COLUMNS = "@5xl:grid-cols-[minmax(0,1.6fr)_7.5rem_minmax(0,1.2fr)_minmax(0,1.2fr)_8rem_5.5rem_5.5rem_4.5rem_3.5rem_6.5rem_1rem]";
 const SERVER_COLUMNS = "@4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_minmax(0,0.9fr)]";
 const HEATMAP_COLOR: Record<Metric, string> = { cpu: "var(--accent)", memory: "var(--chart-stat)", network: "var(--chart-inbound)" };
 const HEADER_CLASS = "text-[11px] font-semibold uppercase tracking-wider text-muted";
@@ -521,7 +524,7 @@ function NodesCard({ nodes, history, range }: { nodes: StatisticsNodeSummary[]; 
   const format = useFormat();
   const cores = nodes.reduce((sum, node) => sum + node.cpuCapacity, 0);
   const memory = nodes.reduce((sum, node) => sum + node.memoryCapacity, 0);
-  const columns = [messages.columnNode, messages.columnStatus, messages.columnCpu, messages.columnMemory, messages.columnNetIn, messages.columnNetOut, messages.columnLoad, messages.columnPods, messages.columnTrend];
+  const columns = [messages.columnNode, messages.columnStatus, messages.columnCpu, messages.columnMemory, messages.columnDisk, messages.columnNetIn, messages.columnNetOut, messages.columnLoad, messages.columnPods, messages.columnTrend];
   return (
     <Card className="min-w-0 gap-3 border border-border bg-card p-4 sm:p-5">
       <div>
@@ -556,6 +559,9 @@ function NodeRow({ node, trend, range }: { node: StatisticsNodeSummary; trend: S
   const mbpsText = (value: number | null) => (value === null ? emptyValue : mbps(value, format));
   const cpuPct = percent(node.cpuUsed, node.cpuCapacity);
   const memoryPct = percent(node.memoryUsed, node.memoryCapacity);
+  const disk = node.diskUsed === null || node.diskCapacity === null
+    ? emptyValue
+    : intl.formatMessage(messages.nodeDisk, { used: formatBytes(node.diskUsed), capacity: formatBytes(node.diskCapacity) });
   const spec = node.internalIP
     ? intl.formatMessage(messages.nodeSpec, { cores: format.number(node.cpuCapacity), memory: formatBytes(node.memoryCapacity), ip: node.internalIP })
     : intl.formatMessage(messages.nodeSpecNoIp, { cores: format.number(node.cpuCapacity), memory: formatBytes(node.memoryCapacity) });
@@ -586,6 +592,7 @@ function NodeRow({ node, trend, range }: { node: StatisticsNodeSummary; trend: S
             <span className="w-8 shrink-0 text-muted">{intl.formatMessage(messages.mobileMemory)}</span>
             <InlineMeter pct={memoryPct} tone="memory" />
           </span>
+          <span className="font-mono text-foreground">{intl.formatMessage(messages.mobileDisk, { disk })}</span>
           <span className="font-mono text-foreground">{intl.formatMessage(messages.mobileRates, { rx: mbpsText(node.rx), tx: mbpsText(node.tx) })}</span>
         </span>
       </span>
@@ -597,6 +604,7 @@ function NodeRow({ node, trend, range }: { node: StatisticsNodeSummary; trend: S
         <NodeStatusPill ready={node.ready} />
         <InlineMeter pct={cpuPct} tone="cpu" />
         <InlineMeter pct={memoryPct} tone="memory" />
+        <span className="whitespace-nowrap font-mono text-xs text-foreground">{disk}</span>
         <span className="font-mono text-xs text-foreground">{rate(node.rx)}</span>
         <span className="font-mono text-xs text-foreground">{rate(node.tx)}</span>
         <span className="font-mono text-xs text-foreground">{amount(node.load1, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
