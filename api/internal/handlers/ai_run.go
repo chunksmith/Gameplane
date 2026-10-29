@@ -18,12 +18,11 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/shared/constant"
 	"github.com/go-chi/chi/v5"
+
+	"github.com/GameplanePanel/gameplane/api/internal/auth"
 )
 
-const (
-	aiMaxSteps  = 40
-	aiMaxResult = 45000
-)
+const aiMaxSteps = 40
 
 var (
 	aiMethods        = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
@@ -309,7 +308,7 @@ func (h *aiHandler) checkServerRef(ctx context.Context, conv aiConversation, cre
 }
 
 func (h *aiHandler) call(ctx context.Context, creds aiCreds, method, target string, body []byte, contentType string) (int, []byte) {
-	req, err := http.NewRequestWithContext(context.WithValue(ctx, chi.RouteCtxKey, nil), method, target, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.WithValue(auth.WithoutRateLimit(ctx), chi.RouteCtxKey, nil), method, target, bytes.NewReader(body))
 	if err != nil {
 		return http.StatusBadRequest, []byte(err.Error())
 	}
@@ -469,9 +468,6 @@ func aiResultText(data []byte) string {
 	if !utf8.Valid(data) {
 		return fmt.Sprintf("(binary content, %d bytes, not shown)", len(data))
 	}
-	if len(data) > aiMaxResult {
-		return string(data[:aiMaxResult]) + "\n…(truncated)"
-	}
 	return string(data)
 }
 
@@ -511,7 +507,7 @@ Working rules:
 - Work fast: when several reads or listings do not depend on each other, make those tool calls together in one step instead of one by one. Read only the parts of a file you need.
 - Match the file: before adding or changing an entry, look at how the file's other entries of the same kind are written (nesting, key names, list or map, quoting, value formats, comments) and build yours the same way.
 - Supported settings: decide from the file itself, its comments and the plugin's or mod's other files. Only when those leave it unclear whether a key or value is supported, look inside the plugin or mod jar as a last resort: shell with unzip -l and unzip -p (plugin.yml, paper-plugin.yml, fabric.mod.json, the bundled default config), or read_archive when unzip is missing; skip this when the answer is already clear.
-- Files: read_file shows a file with line numbers, 2000 lines at a time (offset, limit); work through a long file in parts. Change an existing file with edit_file: old_string is the exact text to replace, kept short but unique, and new_string takes its place; one call per change, and keep formatting, comments and unrelated settings unchanged. write_file creates a file or replaces one you rewrote completely. Never send file contents through gameplane_api.
+- Files: read_file shows a file with line numbers; offset and limit read part of it. Change an existing file with edit_file: old_string is the exact text to replace, kept short but unique, and new_string takes its place; one call per change, and keep formatting, comments and unrelated settings unchanged. write_file creates a file or replaces one you rewrote completely. Never send file contents through gameplane_api.
 - Shell: use shell like a terminal to find and inspect files fast (grep -rn, find, ls -la, unzip -l), instead of many read_file calls; run independent commands in one step. Read and change files with read_file, edit_file and write_file, not with cat, sed or redirects. A missing program means the game image lacks it: fall back to the file tools.
 - Search: grep searches file contents and glob finds files by name across a server's data volume; prefer them over shell grep and find.
 - Long work: for tasks with three or more steps keep todo_write up to date. Start long shell commands with run_in_background and follow them with shell_output.

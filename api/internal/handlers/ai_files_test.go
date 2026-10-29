@@ -28,10 +28,10 @@ func TestAINumbered(t *testing.T) {
 		t.Errorf("past end = %q", got)
 	}
 	big := strings.Repeat(strings.Repeat("x", 999)+"\n", 60)
-	if got := aiNumbered(big, 1, 0); len(got) > aiMaxResult+100 || !strings.Contains(got, "of 60; continue with offset=") {
-		t.Errorf("capped read = %d bytes", len(got))
+	if got := aiNumbered(big, 1, 0); len(got) != 60*1007 || strings.Contains(got, "continue with offset") {
+		t.Errorf("full read = %d bytes", len(got))
 	}
-	if got := aiNumbered(strings.Repeat("y", 3000), 1, 0); !strings.HasSuffix(got, "…\n") || len(got) > 3000 {
+	if got := aiNumbered(strings.Repeat("y", 3000), 1, 0); got != "     1\t"+strings.Repeat("y", 3000)+"\n" {
 		t.Errorf("long line = %d bytes", len(got))
 	}
 }
@@ -120,14 +120,14 @@ func TestAIEditFileCRLF(t *testing.T) {
 }
 
 func TestAIShellOutput(t *testing.T) {
-	if got := aiShellOutput("a\n", "", 0, false); got != "exit 0\na\n" {
+	if got := aiShellOutput("a\n", "", 0); got != "exit 0\na\n" {
 		t.Errorf("plain = %q", got)
 	}
-	if got := aiShellOutput("", "boom", 2, false); !strings.Contains(got, "exit 2") || !strings.Contains(got, "[stderr]\nboom") {
+	if got := aiShellOutput("", "boom", 2); !strings.Contains(got, "exit 2") || !strings.Contains(got, "[stderr]\nboom") {
 		t.Errorf("stderr = %q", got)
 	}
-	if got := aiShellOutput("x", "", 0, true); !strings.Contains(got, "(output cut at 1 MiB)") {
-		t.Errorf("truncated = %q", got)
+	if got := aiShellOutput(strings.Repeat("x", 60000), "", 0); got != "exit 0\n"+strings.Repeat("x", 60000) {
+		t.Errorf("long output = %d bytes", len(got))
 	}
 }
 

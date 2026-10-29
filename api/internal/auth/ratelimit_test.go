@@ -176,3 +176,25 @@ func TestTokenBucketMiddleware_429IsGenericProblem(t *testing.T) {
 		t.Fatalf("messageId=%v, want server.generic.429", doc["messageId"])
 	}
 }
+
+func TestTokenBucket_WithoutRateLimitSkipsBothMiddlewares(t *testing.T) {
+	b := newTokenBucket(0, 0)
+	called := 0
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called++
+		w.WriteHeader(http.StatusNoContent)
+	})
+	ctx := WithUser(WithoutRateLimit(t.Context()), &User{ID: 42})
+	for _, h := range []http.Handler{b.Middleware(next), b.UserMiddleware(next)} {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/servers/a/files/write", nil)
+		req.RemoteAddr = "10.0.0.1:1234"
+		h.ServeHTTP(rr, req)
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("status=%d", rr.Code)
+		}
+	}
+	if called != 2 {
+		t.Fatalf("calls=%d", called)
+	}
+}

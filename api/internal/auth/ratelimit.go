@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -100,7 +101,7 @@ func (t *TokenBucket) Middleware(next http.Handler) http.Handler {
 				clientIP = host
 			}
 		}
-		if !t.Allow(clientIP) {
+		if !rateLimitSkipped(req.Context()) && !t.Allow(clientIP) {
 			w.Header().Set("Retry-After", "30")
 			httperr.WriteCode(w, req, http.StatusTooManyRequests, errors.New("too many requests"))
 			return
@@ -151,7 +152,7 @@ func (t *TokenBucket) UserMiddleware(next http.Handler) http.Handler {
 			httperr.WriteMessage(w, req, messages.New("server.common.unauthenticated", nil))
 			return
 		}
-		if !t.AllowUser(strconv.FormatInt(u.ID, 10)) {
+		if !rateLimitSkipped(req.Context()) && !t.AllowUser(strconv.FormatInt(u.ID, 10)) {
 			w.Header().Set("Retry-After", "1")
 			httperr.WriteMessage(w, req, messages.New("server.common.too_many_requests", nil))
 			return
@@ -171,3 +172,15 @@ var ShareLimiter = newTokenBucket(20.0/60.0, 20)
 // than the IP (e.g. username). Returns the same bool as Middleware's
 // check but lets callers produce custom 429 responses.
 func (t *TokenBucket) AllowUser(key string) bool { return t.Allow(key) }
+
+type rateLimitSkipKey struct{}
+
+// WithoutRateLimit marks ctx so the rate-limit middlewares let the request through.
+func WithoutRateLimit(ctx context.Context) context.Context {
+	return context.WithValue(ctx, rateLimitSkipKey{}, true)
+}
+
+func rateLimitSkipped(ctx context.Context) bool {
+	skipped, _ := ctx.Value(rateLimitSkipKey{}).(bool)
+	return skipped
+}

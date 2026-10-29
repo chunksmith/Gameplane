@@ -37,6 +37,7 @@ func TestIsStreamingRequest(t *testing.T) {
 		{"files zip POST", "POST", "/servers/a/files/zip", "", true},
 		{"mods upload POST", "POST", "/servers/a/mods/upload", "", true},
 		{"mods install POST", "POST", "/servers/a/mods/install", "", true},
+		{"shell POST", "POST", "/servers/a/shell", "", true},
 		{"mods install wrong method", "GET", "/servers/a/mods/install", "", false},
 		{"mods install outside servers", "POST", "/other/mods/install", "", false},
 		{"files download wrong method", "POST", "/servers/a/files/download", "", false},
