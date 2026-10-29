@@ -51,7 +51,7 @@ export function useAttachments() {
   return { items, add, onPaste, remove: (index: number) => setItems((current) => current.filter((_, i) => i !== index)), clear: () => setItems([]) };
 }
 
-export function AttachButton({ onFiles, disabled }: { onFiles: (files: File[]) => void; disabled?: boolean }) {
+export function AttachButton({ onFiles, disabled, className }: { onFiles: (files: File[]) => void; disabled?: boolean; className?: string }) {
   const intl = useOptionalIntl();
   const input = useRef<HTMLInputElement>(null);
   return (
@@ -66,7 +66,7 @@ export function AttachButton({ onFiles, disabled }: { onFiles: (files: File[]) =
           event.target.value = "";
         }}
       />
-      <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.attach)} isDisabled={disabled} onPress={() => input.current?.click()}>
+      <Button isIconOnly size="sm" variant="ghost" aria-label={intl.formatMessage(MESSAGES.attach)} isDisabled={disabled} onPress={() => input.current?.click()} className={className}>
         <Paperclip className="h-4 w-4" />
       </Button>
     </>

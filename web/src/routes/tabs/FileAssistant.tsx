@@ -317,7 +317,7 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
           <MentionTextArea
             scope={scope}
             aria-label={intl.formatMessage(MESSAGES.message)}
-            className="field-sizing-content max-h-32 min-h-[2.5rem] w-full resize-none border-0 bg-transparent px-2 py-1 shadow-none focus:ring-0"
+            className="field-sizing-content max-h-32 min-h-[2rem] w-full resize-none border-0 bg-transparent px-2 py-1 text-xs shadow-none focus:ring-0"
             rows={2}
             value={prompt}
             disabled={!ready}
@@ -326,10 +326,10 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
             onEnter={send}
             onPaste={attachments.onPaste}
           />
-          <div className="flex items-center justify-between gap-2 px-1 pt-1">
-            <AttachButton onFiles={attachments.add} disabled={!ready} />
+          <div className="flex items-center justify-between gap-1.5 px-1 pt-1">
+            <AttachButton onFiles={attachments.add} disabled={!ready} className="h-6 w-6 min-w-0 shrink-0" />
             <Select aria-label={intl.formatMessage(MESSAGES.mode)} selectedKey={mode} isDisabled={!ready} onSelectionChange={(key) => setPickedMode(ASSISTANT_MODES.find((option) => option.id === key)?.id)}>
-              <Select.Trigger data-chip className={cn("inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
+              <Select.Trigger data-chip className={cn("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-foreground/5 px-1.5 py-0.5 text-[11px] text-muted hover:bg-foreground/10", mode === "bypassPermissions" && "bg-danger/10 text-danger")}>
                 <ShieldCheck className="h-3 w-3" />
                 <Select.Value />
                 <Select.Indicator className="h-3 w-3" />
@@ -343,19 +343,19 @@ function ChatPanel({ id, onStarted, scope, file }: { id: string | null; onStarte
               </Select.Popover>
             </Select>
             {file && (
-              <span title={intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: tooltip of the chip in the Claude message box naming the file Claude sees; {file} is the file path" }, { file: file.path })} className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-muted">
+              <span title={intl.formatMessage({ id: "web.routes.tabs.file_assistant.context", defaultMessage: "Context: {file}", description: "Files tab: tooltip of the chip in the Claude message box naming the file Claude sees; {file} is the file path" }, { file: file.path })} className="inline-flex min-w-0 items-center gap-1 rounded-md bg-foreground/5 px-1.5 py-0.5 text-[11px] text-muted">
                 <FileText className="h-3 w-3 shrink-0" />
                 <span className="truncate">{fileName}</span>
               </span>
             )}
-            <ModelPicker value={model} onChange={setPickedModel} isDisabled={!ready} className="mr-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs" />
+            <ModelPicker value={model} onChange={setPickedModel} isDisabled={!ready} className="mr-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px]" />
             {running && (
-              <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={interrupt}>
-                <Square className="h-4 w-4" />
+              <Button isIconOnly size="sm" variant="outline" aria-label={intl.formatMessage(MESSAGES.stop)} isDisabled={stop.isPending} onPress={interrupt} className="h-6 w-6 min-w-0 shrink-0">
+                <Square className="h-3 w-3" />
               </Button>
             )}
-            <Button size="sm" variant="primary" isDisabled={!ready || !prompt.trim() || (busy && attachments.items.length > 0)} onPress={send}>
-              <Send className="h-3.5 w-3.5" /> {intl.formatMessage(MESSAGES.send)}
+            <Button size="sm" variant="primary" isDisabled={!ready || !prompt.trim() || (busy && attachments.items.length > 0)} onPress={send} className="h-6 shrink-0 gap-1 px-2 text-[11px]">
+              <Send className="h-3 w-3" /> {intl.formatMessage(MESSAGES.send)}
             </Button>
           </div>
         </div>
