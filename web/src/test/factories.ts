@@ -232,7 +232,7 @@ export function makeClusterView(over: Partial<ClusterView> = {}): ClusterView {
 }
 
 export function makeClusterStats(over: Partial<ClusterStats> = {}): ClusterStats {
-  return { nodes: 3, totalStorageBytes: 1_000_000_000_000, usedStorageBytes: 250_000_000_000, ...over };
+  return { nodes: 3, totalStorageBytes: 1_000_000_000_000, usedStorageBytes: 250_000_000_000, diskUsedBytes: 400 * 1024 ** 3, diskTotalBytes: 1000 * 1024 ** 3, ...over };
 }
 
 export function makeClusterInfo(over: Partial<ClusterInfo> = {}): ClusterInfo {
@@ -363,9 +363,9 @@ const statisticsNow = 1_792_000_000;
 const gib = 1024 ** 3;
 
 const statisticsNodes: StatisticsNodeSummary[] = [
-  { name: "node-a", ready: true, internalIP: "10.0.0.11", cpuCapacity: 16, memoryCapacity: 64 * gib, pods: 14, cpuUsed: 3.4, memoryUsed: 42 * gib, rx: 9.8e6, tx: 12.6e6, load1: 2.41 },
-  { name: "node-b", ready: true, internalIP: "10.0.0.21", cpuCapacity: 32, memoryCapacity: 128 * gib, pods: 21, cpuUsed: 5.1, memoryUsed: 90 * gib, rx: 17.9e6, tx: 22.3e6, load1: 3.3 },
-  { name: "node-c", ready: true, internalIP: "10.0.0.22", cpuCapacity: 32, memoryCapacity: 128 * gib, pods: 19, cpuUsed: 2.9, memoryUsed: 81 * gib, rx: 14.2e6, tx: 18.1e6, load1: 2.92 },
+  { name: "node-a", ready: true, internalIP: "10.0.0.11", cpuCapacity: 16, memoryCapacity: 64 * gib, pods: 14, cpuUsed: 3.4, memoryUsed: 42 * gib, rx: 9.8e6, tx: 12.6e6, load1: 2.41, diskUsed: 412 * gib, diskCapacity: 1000 * gib },
+  { name: "node-b", ready: true, internalIP: "10.0.0.21", cpuCapacity: 32, memoryCapacity: 128 * gib, pods: 21, cpuUsed: 5.1, memoryUsed: 90 * gib, rx: 17.9e6, tx: 22.3e6, load1: 3.3, diskUsed: 655 * gib, diskCapacity: 2000 * gib },
+  { name: "node-c", ready: true, internalIP: "10.0.0.22", cpuCapacity: 32, memoryCapacity: 128 * gib, pods: 19, cpuUsed: 2.9, memoryUsed: 81 * gib, rx: 14.2e6, tx: 18.1e6, load1: 2.92, diskUsed: 588 * gib, diskCapacity: 2000 * gib },
 ];
 
 const statisticsServers: StatisticsServerSummary[] = [

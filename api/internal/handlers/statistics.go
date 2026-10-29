@@ -54,6 +54,8 @@ var (
 const (
 	physicalDevices = `device!~"lo|veth.*|cni.*|flannel.*|cali.*|vxlan.*|docker.*|br-.*|virbr.*|tailscale.*|tun.*|wg.*|kube-.*|cilium.*|lxc.*|genev.*"`
 	filesystemTypes = `fstype!~"tmpfs|overlay|squashfs|nsfs|ramfs|fuse.*|autofs|devtmpfs"`
+	fsSizeMetric    = "node_filesystem_size_bytes{" + filesystemTypes + "}"
+	fsUsedMetric    = "(" + fsSizeMetric + " - node_filesystem_avail_bytes{" + filesystemTypes + "})"
 	nodeJoin        = ` * on(instance) group_left(nodename) node_uname_info`
 	perNode         = "sum by (nodename)"
 	clusterSum      = "sum"
@@ -137,6 +139,10 @@ func loadExpr(metric, join string) string {
 
 func diskExpr(metric, window, join string) string {
 	return fmt.Sprintf(`sum by (nodename) (rate(%s[%s])%s)`, metric, window, join)
+}
+
+func filesystemExpr(agg, metric, join string) string {
+	return fmt.Sprintf(`%s (max by (nodename, device) (%s%s))`, agg, metric, join)
 }
 
 func bootExpr(join string) string {
@@ -355,10 +361,12 @@ type statisticsNode struct {
 	RX             *float64 `json:"rx"`
 	TX             *float64 `json:"tx"`
 	Load1          *float64 `json:"load1"`
+	DiskUsed       *float64 `json:"diskUsed"`
+	DiskCapacity   *float64 `json:"diskCapacity"`
 }
 
 type nodeValues struct {
-	cpu, memory, rx, tx, load1 map[string]float64
+	cpu, memory, rx, tx, load1, diskUsed, diskSize map[string]float64
 }
 
 func usageValues(usage map[string]nodeUsage) nodeValues {
@@ -395,6 +403,8 @@ func summarizeNode(item *corev1.Node, pods map[string]int64, values nodeValues) 
 		RX:             valueAt(values.rx, item.Name),
 		TX:             valueAt(values.tx, item.Name),
 		Load1:          valueAt(values.load1, item.Name),
+		DiskUsed:       valueAt(values.diskUsed, item.Name),
+		DiskCapacity:   valueAt(values.diskSize, item.Name),
 	}
 	for _, address := range item.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP {
@@ -430,7 +440,7 @@ func sumOf(nodes []statisticsNode, field func(statisticsNode) *float64) *float64
 }
 
 type nodeSamples struct {
-	cpu, memory, rx, tx, load1 []prom.Sample
+	cpu, memory, rx, tx, load1, diskUsed, diskSize []prom.Sample
 }
 
 func queueNodeSamples(run *promRun, samples *nodeSamples, agg, window, join string) {
@@ -439,15 +449,19 @@ func queueNodeSamples(run *promRun, samples *nodeSamples, agg, window, join stri
 	run.instant(&samples.rx, networkExpr(agg, rxMetric, window, join))
 	run.instant(&samples.tx, networkExpr(agg, txMetric, window, join))
 	run.instant(&samples.load1, loadExpr("node_load1", join))
+	run.instant(&samples.diskUsed, filesystemExpr(agg, fsUsedMetric, join))
+	run.instant(&samples.diskSize, filesystemExpr(agg, fsSizeMetric, join))
 }
 
 func (s *nodeSamples) values() nodeValues {
 	return nodeValues{
-		cpu:    byLabel(s.cpu, "nodename"),
-		memory: byLabel(s.memory, "nodename"),
-		rx:     byLabel(s.rx, "nodename"),
-		tx:     byLabel(s.tx, "nodename"),
-		load1:  byLabel(s.load1, "nodename"),
+		cpu:      byLabel(s.cpu, "nodename"),
+		memory:   byLabel(s.memory, "nodename"),
+		rx:       byLabel(s.rx, "nodename"),
+		tx:       byLabel(s.tx, "nodename"),
+		load1:    byLabel(s.load1, "nodename"),
+		diskUsed: byLabel(s.diskUsed, "nodename"),
+		diskSize: byLabel(s.diskSize, "nodename"),
 	}
 }
 

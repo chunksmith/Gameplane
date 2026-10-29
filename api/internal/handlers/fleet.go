@@ -22,6 +22,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
 	"github.com/GameplanePanel/gameplane/api/internal/messages"
+	"github.com/GameplanePanel/gameplane/api/internal/prom"
 	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
@@ -38,8 +39,8 @@ const (
 
 // MountFleet exposes authenticated, permission-filtered reads across clusters.
 // Mutations continue through the existing explicitly targeted resource routes.
-func MountFleet(r chi.Router, reg *kube.Registry, store *db.Store) {
-	h := fleetHandler{reg: reg, store: store}
+func MountFleet(r chi.Router, reg *kube.Registry, store *db.Store, p *prom.Client) {
+	h := fleetHandler{reg: reg, store: store, prom: p}
 	limit := auth.NewFleetReadLimiter().UserMiddleware
 	for _, kind := range []string{"servers", "serversets", "backups", "schedules", "restores"} {
 		r.With(limit).Get("/fleet/"+kind, h.resources(kind))
@@ -52,6 +53,7 @@ func MountFleet(r chi.Router, reg *kube.Registry, store *db.Store) {
 type fleetHandler struct {
 	reg   *kube.Registry
 	store *db.Store
+	prom  *prom.Client
 }
 
 type fleetTarget struct {
@@ -623,9 +625,22 @@ func (h fleetHandler) readInventory(ctx context.Context, c fleetCluster) (*fleet
 	}
 	// Version is optional in clusterView. Discovery.ServerVersion has no
 	// context argument, so fleet reads omit it rather than break their deadline.
-	return &fleetInventory{Cluster: c.id, Name: name, View: view, Stats: clusterStats{
-		Nodes: len(nodes.Items), TotalStorageBytes: nodeStorageCapacity(nodes.Items), UsedStorageBytes: boundVolumeBytes(pvs.Items),
-	}}, nil
+	stats := clusterStats{Nodes: len(nodes.Items), TotalStorageBytes: nodeStorageCapacity(nodes.Items), UsedStorageBytes: boundVolumeBytes(pvs.Items)}
+	if c.id == h.reg.DefaultID() {
+		stats.DiskUsedBytes, stats.DiskTotalBytes = h.diskUsage(ctx)
+	}
+	return &fleetInventory{Cluster: c.id, Name: name, View: view, Stats: stats}, nil
+}
+
+func (h fleetHandler) diskUsage(ctx context.Context) (used, total *float64) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var usedSamples, totalSamples []prom.Sample
+	run := newPromRun(ctx, h.prom, time.Now())
+	run.instant(&usedSamples, filesystemExpr(clusterSum, fsUsedMetric, nodeJoin))
+	run.instant(&totalSamples, filesystemExpr(clusterSum, fsSizeMetric, nodeJoin))
+	run.wait()
+	return firstValue(usedSamples), firstValue(totalSamples)
 }
 
 func (h fleetHandler) serverAccess(w http.ResponseWriter, req *http.Request) {

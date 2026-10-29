@@ -139,41 +139,18 @@ export function formatCpuPercent(cores: number): string {
 
 export interface StorageReading {
   valueText: string;
-  // subText is undefined when totalBytes is unknown (0/undefined) — callers
-  // fall back to their own placeholder ("—").
-  subText?: string;
-  overcommitted: boolean;
+  subText: string;
 }
 
-// describeStorageProvisioned turns the cluster stats' {usedStorageBytes,
-// totalStorageBytes} pair into copy that's honest about what they measure:
-// usedStorageBytes is PersistentVolume capacity *provisioned* to workloads,
-// not disk usage, and totalStorageBytes is node *physical* disk — with
-// networked storage (Ceph, EBS, …) provisioned can legitimately exceed
-// physical. Flags that case as `overcommitted` so callers can present it as
-// an explicit state rather than a >100% bar.
-export function describeStorageProvisioned(
-  usedBytes?: number,
-  totalBytes?: number,
-  intl: IntlShape = englishIntl,
-): StorageReading {
-  const used = usedBytes ?? 0;
-  const total = totalBytes ?? 0;
-  const overcommitted = total > 0 && used > total;
-  const valueText = formatBytes(used);
-  if (!total) return { valueText, overcommitted: false };
-  const subText = overcommitted
-    ? intl.formatMessage({
-      id: "web.lib.utils.storage_overcommitted",
-      defaultMessage: "of {total} physical — overcommitted",
-      description: "Storage capacity line when provisioned storage exceeds physical disk; {total} is a formatted size such as 40 GB",
-    }, { total: formatBytes(total) })
-    : intl.formatMessage({
-      id: "web.lib.utils.storage_of_physical",
-      defaultMessage: "of {total} physical",
-      description: "Storage capacity line: provisioned storage out of node physical disk; {total} is a formatted size such as 40 GB",
-    }, { total: formatBytes(total) });
-  return { valueText, subText, overcommitted };
+export function describeDiskUsage(usedBytes: number, totalBytes: number, intl: IntlShape = englishIntl): StorageReading {
+  return {
+    valueText: formatBytes(usedBytes),
+    subText: intl.formatMessage({
+      id: "web.lib.utils.disk_of_total",
+      defaultMessage: "of {total} disk",
+      description: "Disk usage line: disk space used out of the total disk of the nodes; {total} is a formatted size such as 40 GB",
+    }, { total: formatBytes(totalBytes) }),
+  };
 }
 
 export function formatUptime(startedAt?: string, intl: IntlShape = englishIntl): string {

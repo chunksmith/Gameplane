@@ -43,6 +43,8 @@ describe("StatisticsPage", () => {
     expect(await screen.findByRole("img", { name: "Utilization heatmap" })).toBeInTheDocument();
     expect(screen.getByText("Nodes")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^node-a/ })).toHaveAttribute("href", "/statistics/nodes/node-a?range=24h");
+    expect(screen.getByText("412 GB / 1000 GB")).toBeInTheDocument();
+    expect(screen.getByText("Disk 412 GB / 1000 GB")).toBeInTheDocument();
     expect(screen.getByText("Top game servers")).toBeInTheDocument();
   });
 

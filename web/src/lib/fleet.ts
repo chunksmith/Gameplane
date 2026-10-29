@@ -179,14 +179,15 @@ export function sumNodeUsage(nodes: ClusterNode[], key: "cpu" | "memory") {
 
 export function inventoryTotals(items: FleetInventory[]) {
   const nodes = items.flatMap((item) => (item.view.nodes ?? []).map((node) => ({ ...node, name: `${item.cluster} / ${node.name}` })));
-  const storageKnown = items.length > 0 && items.every((item) =>
-    typeof item.stats.usedStorageBytes === "number" && typeof item.stats.totalStorageBytes === "number" && item.stats.totalStorageBytes > 0);
+  const diskKnown = items.length > 0 && items.every((item) =>
+    typeof item.stats.diskUsedBytes === "number" && typeof item.stats.diskTotalBytes === "number" && item.stats.diskTotalBytes > 0);
   return {
     nodes,
     ready: items.reduce((sum, item) => sum + (item.view.ready ?? 0), 0),
     total: items.reduce((sum, item) => sum + (item.view.total ?? item.view.nodes?.length ?? 0), 0),
-    usedStorageBytes: storageKnown ? items.reduce((sum, item) => sum + (item.stats.usedStorageBytes ?? 0), 0) : undefined,
-    totalStorageBytes: storageKnown ? items.reduce((sum, item) => sum + (item.stats.totalStorageBytes ?? 0), 0) : undefined,
+    disk: diskKnown
+      ? { used: items.reduce((sum, item) => sum + (item.stats.diskUsedBytes ?? 0), 0), total: items.reduce((sum, item) => sum + (item.stats.diskTotalBytes ?? 0), 0) }
+      : undefined,
   };
 }
 

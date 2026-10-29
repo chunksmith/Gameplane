@@ -29,14 +29,17 @@ describe("fleet identities and resource totals", () => {
     expect(sumNodeUsage([{ name: "zero", status: "Ready", cpu: { used: 0, capacity: 0 } }], "cpu").known).toBe(false);
   });
 
-  it("keeps measured zero and storage overcommit meaningful", () => {
+  it("keeps measured zero and sums disk usage only when every cluster reports it", () => {
     expect(sumNodeUsage([{ name: "idle", status: "Ready", cpu: { used: 0, capacity: 4 } }], "cpu")).toMatchObject({ known: true, pct: 0 });
     const totals = inventoryTotals([
-      { cluster: "a", name: "A", view: makeClusterView({ nodes: [], ready: 0, total: 0 }), stats: makeClusterStats({ usedStorageBytes: 80, totalStorageBytes: 50 }) },
-      { cluster: "b", name: "B", view: makeClusterView({ nodes: [], ready: 0, total: 0 }), stats: makeClusterStats({ usedStorageBytes: 70, totalStorageBytes: 50 }) },
+      { cluster: "a", name: "A", view: makeClusterView({ nodes: [], ready: 0, total: 0 }), stats: makeClusterStats({ diskUsedBytes: 30, diskTotalBytes: 50 }) },
+      { cluster: "b", name: "B", view: makeClusterView({ nodes: [], ready: 0, total: 0 }), stats: makeClusterStats({ diskUsedBytes: 20, diskTotalBytes: 50 }) },
     ]);
-    expect(totals.usedStorageBytes).toBe(150);
-    expect(totals.totalStorageBytes).toBe(100);
-    expect(inventoryTotals([]).usedStorageBytes).toBeUndefined();
+    expect(totals.disk).toEqual({ used: 50, total: 100 });
+    expect(inventoryTotals([]).disk).toBeUndefined();
+    expect(inventoryTotals([
+      { cluster: "a", name: "A", view: makeClusterView({ nodes: [], ready: 0, total: 0 }), stats: makeClusterStats({ diskUsedBytes: 30, diskTotalBytes: 50 }) },
+      { cluster: "b", name: "B", view: makeClusterView({ nodes: [], ready: 0, total: 0 }), stats: makeClusterStats({ diskUsedBytes: undefined, diskTotalBytes: undefined }) },
+    ]).disk).toBeUndefined();
   });
 });

@@ -179,7 +179,9 @@ type clusterStats struct {
 	// "usedStorageBytes" for API compatibility; the web client is
 	// responsible for labeling it "provisioned" and presenting the
 	// overcommit case explicitly rather than as a >100% bar.
-	UsedStorageBytes int64 `json:"usedStorageBytes"`
+	UsedStorageBytes int64    `json:"usedStorageBytes"`
+	DiskUsedBytes    *float64 `json:"diskUsedBytes,omitempty"`
+	DiskTotalBytes   *float64 `json:"diskTotalBytes,omitempty"`
 }
 
 func (h *clusterHandler) view(w http.ResponseWriter, req *http.Request) {

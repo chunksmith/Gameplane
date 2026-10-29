@@ -151,19 +151,28 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 
-  // Regression: usedStorageBytes/totalStorageBytes are provisioned-vs-physical,
-  // not used-vs-total — a networked-storage cluster can legitimately read
-  // >100%, which must present as an explicit overcommit state, not a broken
-  // meter.
-  it("flags storage as overcommitted when provisioned exceeds physical capacity", async () => {
+  it("shows the disk used on the nodes, not provisioned volume capacity", async () => {
     server.use(
       http.get("/cluster/stats", () =>
-        HttpResponse.json(makeClusterStats({ usedStorageBytes: 102_000_000_000, totalStorageBytes: 86_000_000_000 })),
+        HttpResponse.json(makeClusterStats({ usedStorageBytes: 2000 * 1024 ** 3, diskUsedBytes: 578 * 1024 ** 3, diskTotalBytes: 935 * 1024 ** 3 })),
       ),
     );
     renderWithQuery(<DashboardPage />);
-    await screen.findByText("Storage provisioned");
-    expect(await screen.findAllByText(/overcommitted/i)).not.toHaveLength(0);
+    await screen.findByText("Disk used");
+    expect(screen.getByText("578 GB")).toBeInTheDocument();
+    expect(screen.getAllByText("of 935 GB disk")).not.toHaveLength(0);
+    expect(screen.queryByText(/overcommitted|provisioned/i)).not.toBeInTheDocument();
+  });
+
+  it("asks for Prometheus when disk usage is not measured", async () => {
+    server.use(
+      http.get("/cluster/stats", () =>
+        HttpResponse.json(makeClusterStats({ diskUsedBytes: undefined, diskTotalBytes: undefined })),
+      ),
+    );
+    renderWithQuery(<DashboardPage />);
+    await screen.findByText("Disk used");
+    expect(await screen.findAllByText("needs Prometheus")).not.toHaveLength(0);
   });
 
   it("lists recent backups with their phase", async () => {
@@ -396,7 +405,7 @@ describe("DashboardPage", () => {
     renderWithQuery(<DashboardPage />);
     const backupName = await screen.findByText("srv");
     // Should not crash; size just doesn't render. Scope to this backup's
-    // row — the unrelated Storage provisioned stat card legitimately
+    // row — the unrelated Disk used stat card legitimately
     // renders a "233 GB" / "3.7 GB / 15 GB" string elsewhere on the page,
     // which would otherwise false-match the same regex.
     const row = backupName.closest("div.flex.items-center.gap-3");

@@ -5183,6 +5183,10 @@
     "defaultMessage": "in {count}d",
     "description": "Relative time until a future event in days; {count} is a number of days"
   },
+  "web.lib.utils.disk_of_total": {
+    "defaultMessage": "of {total} disk",
+    "description": "Disk usage line: disk space used out of the total disk of the nodes; {total} is a formatted size such as 40 GB"
+  },
   "web.lib.utils.due": {
     "defaultMessage": "due",
     "description": "Schedule timing: the next scheduled run time has already passed"
@@ -5210,14 +5214,6 @@
   "web.lib.utils.seconds_until": {
     "defaultMessage": "in {count}s",
     "description": "Relative time until a future event in seconds; {count} is a number of seconds"
-  },
-  "web.lib.utils.storage_of_physical": {
-    "defaultMessage": "of {total} physical",
-    "description": "Storage capacity line: provisioned storage out of node physical disk; {total} is a formatted size such as 40 GB"
-  },
-  "web.lib.utils.storage_overcommitted": {
-    "defaultMessage": "of {total} physical — overcommitted",
-    "description": "Storage capacity line when provisioned storage exceeds physical disk; {total} is a formatted size such as 40 GB"
   },
   "web.lib.utils.uptime_days_hours": {
     "defaultMessage": "{days}d {hours}h",
@@ -8711,6 +8707,14 @@
     "defaultMessage": "Dashboard",
     "description": "Dashboard: page title at the top of the dashboard; keep it short"
   },
+  "web.routes.dashboard.disk_needs_prometheus": {
+    "defaultMessage": "needs Prometheus",
+    "description": "Dashboard: sub-label on the disk card and storage meter when disk usage cannot be measured because Prometheus is not connected"
+  },
+  "web.routes.dashboard.disk_used": {
+    "defaultMessage": "Disk used",
+    "description": "Dashboard: label of the summary card with the disk space used on the cluster nodes; the line under it shows the total disk"
+  },
   "web.routes.dashboard.everything_looks_healthy": {
     "defaultMessage": "Everything looks healthy",
     "description": "Dashboard: heading of the Needs attention box in the fleet status card when no server needs attention"
@@ -8930,10 +8934,6 @@
   "web.routes.dashboard.storage": {
     "defaultMessage": "Storage",
     "description": "Dashboard: label of the storage usage bar in the cluster resources card"
-  },
-  "web.routes.dashboard.storage_provisioned": {
-    "defaultMessage": "Storage provisioned",
-    "description": "Dashboard: label of the summary card with the total provisioned storage; the line under it says whether the figure covers returned or all authorized inventory"
   },
   "web.routes.dashboard.target_and_reason": {
     "defaultMessage": "{target} · {reason}",
@@ -9551,6 +9551,14 @@
     "defaultMessage": "Disk",
     "description": "Servers: column heading for disk use per server; keep it short"
   },
+  "web.routes.servers.disk_needs_prometheus": {
+    "defaultMessage": "needs Prometheus",
+    "description": "Servers: sub-label on the disk card when disk usage cannot be measured because Prometheus is not connected"
+  },
+  "web.routes.servers.disk_used": {
+    "defaultMessage": "Disk used",
+    "description": "Servers: label of the summary card with the disk space used on the cluster nodes; the line under it shows the total disk"
+  },
   "web.routes.servers.expand_group": {
     "defaultMessage": "Expand group {name}",
     "description": "Servers: accessible name of the button on a server group card that expands the card to show its servers; {name} is the group name"
@@ -9763,10 +9771,6 @@
     "defaultMessage": "Stopped",
     "description": "Servers: status filter tab that shows only stopped servers, followed by their count; keep it short"
   },
-  "web.routes.servers.storage_provisioned": {
-    "defaultMessage": "Storage provisioned",
-    "description": "Servers: label of the summary card with the total provisioned storage; the line under it says whether it covers returned or all authorized inventory"
-  },
   "web.routes.servers.uptime": {
     "defaultMessage": "Uptime",
     "description": "Servers: column heading for how long each server has been running; keep it short"
@@ -9870,6 +9874,10 @@
   "web.routes.statistics.column_cpu": {
     "defaultMessage": "CPU",
     "description": "Statistics node table: column with CPU utilization of the node"
+  },
+  "web.routes.statistics.column_disk": {
+    "defaultMessage": "Disk",
+    "description": "Statistics node table: column with the disk space used on the node and its total disk"
   },
   "web.routes.statistics.column_load": {
     "defaultMessage": "Load 1m",
@@ -10011,6 +10019,10 @@
     "defaultMessage": "CPU",
     "description": "Statistics nodes list on phones: label of the CPU meter; technical term, usually left untranslated"
   },
+  "web.routes.statistics.mobile_disk": {
+    "defaultMessage": "Disk {disk}",
+    "description": "Statistics nodes list on phones: disk space used and total disk of the node; {disk} is the used and total size such as 412 GB / 1 TB, or — when unknown"
+  },
   "web.routes.statistics.mobile_memory": {
     "defaultMessage": "Mem",
     "description": "Statistics nodes list on phones: short label of the memory meter"
@@ -10034,6 +10046,10 @@
   "web.routes.statistics.network_title": {
     "defaultMessage": "Network throughput",
     "description": "Statistics: title of the cluster network throughput chart"
+  },
+  "web.routes.statistics.node_disk": {
+    "defaultMessage": "{used} / {capacity}",
+    "description": "Statistics node table: disk space used and total disk of the node; {used} and {capacity} are byte sizes such as 412 GB"
   },
   "web.routes.statistics.node_picker": {
     "defaultMessage": "Node",

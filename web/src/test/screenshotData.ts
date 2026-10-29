@@ -631,6 +631,8 @@ export function screenshotClusterStats() {
     nodes: 3,
     totalStorageBytes: 86 * 1024 ** 3,
     usedStorageBytes: 77 * 1024 ** 3,
+    diskUsedBytes: 61 * 1024 ** 3,
+    diskTotalBytes: 86 * 1024 ** 3,
   });
 }
 

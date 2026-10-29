@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   cn,
   capitalize,
-  describeStorageProvisioned,
+  describeDiskUsage,
   formatBytes,
   formatCores,
   formatRelative,
@@ -137,28 +137,11 @@ describe("formatCores", () => {
   });
 });
 
-describe("describeStorageProvisioned", () => {
-  it("reports provisioned-of-physical when under capacity", () => {
-    const r = describeStorageProvisioned(250_000_000_000, 1_000_000_000_000);
-    expect(r.overcommitted).toBe(false);
-    expect(r.subText).toContain("physical");
-    expect(r.subText).not.toContain("overcommitted");
-  });
-  it("flags overcommit when provisioned exceeds physical capacity", () => {
-    // The reported bug: 102 GB provisioned vs 86 GB physical (networked
-    // storage doesn't come off node disk).
-    const r = describeStorageProvisioned(102_000_000_000, 86_000_000_000);
-    expect(r.overcommitted).toBe(true);
-    expect(r.subText).toContain("overcommitted");
-  });
-  it("omits subText when total is unknown", () => {
-    const r = describeStorageProvisioned(5_000, undefined);
-    expect(r.subText).toBeUndefined();
-    expect(r.overcommitted).toBe(false);
-  });
-  it("defaults used to 0 when undefined", () => {
-    const r = describeStorageProvisioned(undefined, 1_000_000_000);
-    expect(r.valueText).toBe(formatBytes(0));
+describe("describeDiskUsage", () => {
+  it("reports disk used out of the total disk", () => {
+    const r = describeDiskUsage(578 * 1024 ** 3, 935 * 1024 ** 3);
+    expect(r.valueText).toBe("578 GB");
+    expect(r.subText).toBe("of 935 GB disk");
   });
 });
 

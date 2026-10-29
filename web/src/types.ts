@@ -889,6 +889,8 @@ export interface ClusterStats {
   nodes?: number;
   totalStorageBytes?: number;
   usedStorageBytes?: number;
+  diskUsedBytes?: number;
+  diskTotalBytes?: number;
 }
 
 export interface ClusterNode {
@@ -1232,6 +1234,8 @@ export interface StatisticsNodeSummary {
   rx: number | null;
   tx: number | null;
   load1: number | null;
+  diskUsed: number | null;
+  diskCapacity: number | null;
 }
 
 export interface StatisticsServerSummary {
