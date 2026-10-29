@@ -199,6 +199,13 @@ export function ResourceInput({
         value={buffer ?? derivedText}
         onChange={(e) => setBuffer(e.target.value)}
         onBlur={handleInputBlur}
+        onFocus={(e) => e.currentTarget.select()}
+        onMouseUp={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          handleInputBlur();
+        }}
         disabled={disabled}
         step={stepBase}
         aria-label={intl.formatMessage({ id: "web.components.ui.resource_input.value_label", defaultMessage: "{name} value", description: "Resource input: accessible name of the number field; {name} is the resource name, e.g. CPU cores" }, { name: ariaLabel })}
