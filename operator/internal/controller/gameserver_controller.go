@@ -400,6 +400,10 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		logger.Error(err, "reconcile StatefulSet")
 		return ctrl.Result{}, err
 	}
+	if err := r.recoverStuckRollout(ctx, &gs); err != nil {
+		logger.Error(err, "recover stuck rollout")
+		return ctrl.Result{}, err
+	}
 	if err := r.reconcileFilesPod(ctx, &gs, &tmpl, ver, wantFilesPod(&gs, idle, replicas)); err != nil {
 		logger.Error(err, "reconcile files pod")
 		return ctrl.Result{}, err
