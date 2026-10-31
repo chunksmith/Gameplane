@@ -1300,7 +1300,7 @@ function reviewNodes(state: WizardState, intl: IntlShape): string {
   if (!placement.length) return any;
   return placement
     .map(({ ordinal, node }) => intl.formatMessage({ id: "web.routes.create_server.review_replica_on_node", defaultMessage: "{name}-{ordinal} on {node}", description: "Create server: review value for one pinned replica; {name} is the group name, {ordinal} the replica number and {node} its node" }, { name: state.name || "<name>", ordinal, node }))
-    .join(", ");
+    .join("\n");
 }
 
 function yamlPlacement(state: WizardState): string {
@@ -1451,7 +1451,7 @@ function Review({ state, onEdit, location, cluster }: { state: WizardState; onEd
           {sec.rows.map(([k, v]) => (
             <div key={k} className="flex justify-between border-b border-border py-1.5">
               <span className="text-muted">{k}</span>
-              <span className="font-mono">{v}</span>
+              <span className="whitespace-pre-line text-right font-mono">{v}</span>
             </div>
           ))}
         </div>

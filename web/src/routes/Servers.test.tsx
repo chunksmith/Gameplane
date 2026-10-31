@@ -910,6 +910,9 @@ describe("server groups", () => {
     expect(await screen.findByText("lobby-0")).toBeInTheDocument();
     expect(screen.getByText("lobby-1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Collapse group lobby" })).toHaveAttribute("aria-expanded", "true");
+    const logs = screen.getAllByRole("link", { name: "Logs" });
+    expect(logs).toHaveLength(2);
+    expect(logs[0]).toHaveAttribute("href", expect.stringContaining("tab=logs"));
   });
 
   it("scales the set through its replica controls", async () => {

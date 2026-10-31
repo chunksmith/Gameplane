@@ -9691,6 +9691,14 @@
     "defaultMessage": "of {count} total",
     "description": "Servers: sub-label on the Running card; {count} is the total number of servers"
   },
+  "web.routes.servers.open_console": {
+    "defaultMessage": "Console",
+    "description": "Servers: accessible name and tooltip of the icon button on a server group replica card that opens that replica's Console tab"
+  },
+  "web.routes.servers.open_logs": {
+    "defaultMessage": "Logs",
+    "description": "Servers: accessible name and tooltip of the icon button on a server group replica card that opens that replica's Logs tab"
+  },
   "web.routes.servers.peak_players": {
     "defaultMessage": "peak {count}",
     "description": "Servers: sub-label on the Players online card with the peak player count; {count} is the peak"
