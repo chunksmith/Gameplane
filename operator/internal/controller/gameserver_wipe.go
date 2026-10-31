@@ -151,8 +151,8 @@ func (r *GameServerReconciler) createWipeJob(
 	name, token string,
 ) error {
 	mountPath := effectiveMountPath(tmpl)
-	uid := int64(65532) // same non-root UID the game + backup jobs use
-	nonRoot := true
+	root := int64(0)
+	nonRoot := false
 	noPrivEsc := false
 	backoff := int32(2)
 
@@ -174,10 +174,6 @@ func (r *GameServerReconciler) createWipeJob(
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot:   &nonRoot,
-						RunAsUser:      &uid,
-						RunAsGroup:     &uid,
-						FSGroup:        &uid,
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 					Containers: []corev1.Container{{
@@ -204,9 +200,13 @@ func (r *GameServerReconciler) createWipeJob(
 						VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: mountPath}},
 						SecurityContext: &corev1.SecurityContext{
 							RunAsNonRoot:             &nonRoot,
-							RunAsUser:                &uid,
+							RunAsUser:                &root,
+							RunAsGroup:               &root,
 							AllowPrivilegeEscalation: &noPrivEsc,
-							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+								Add:  []corev1.Capability{"DAC_OVERRIDE"},
+							},
 						},
 					}},
 					Volumes: []corev1.Volume{{

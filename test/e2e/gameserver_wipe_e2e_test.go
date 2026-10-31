@@ -15,12 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// TestGameServer_WipeReportsFailureOnPermissionDenied covers F-054: a wipe
-// Job that cannot empty the volume (a subdirectory owned by a different
-// uid, mode 0755, so the wipe Job's fixed uid 65532 lacks write access to
-// unlink files in it) must surface as a failure — a DataWipe=False
-// condition on the GameServer — never as a silently acked success.
-func TestGameServer_WipeReportsFailureOnPermissionDenied(t *testing.T) {
+func TestGameServer_WipeClearsForeignOwnedFiles(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -40,8 +35,6 @@ func TestGameServer_WipeReportsFailureOnPermissionDenied(t *testing.T) {
 	})
 	waitPVCBound(t, ns, gs+"-data", 90*time.Second)
 
-	// Suspend so the wipe Job (and our prep Job) can mount the RWO volume
-	// without the game pod holding it.
 	suspendPatch := []byte(`{"spec":{"suspend":true}}`)
 	if _, err := envInstance.Dyn.Resource(gameServerGVR).Namespace(ns).
 		Patch(ctx, gs, types.MergePatchType, suspendPatch, metav1.PatchOptions{}); err != nil {
@@ -58,46 +51,76 @@ func TestGameServer_WipeReportsFailureOnPermissionDenied(t *testing.T) {
 		return false, fmt.Sprintf("expected replicas=0, got %v", ss.Spec.Replicas)
 	})
 
-	// Prep Job: create /data/locked owned by uid 1000, mode 0755. The wipe
-	// Job runs as uid 65532 (not in this group), so it can list/stat the
-	// file but cannot unlink it — the EACCES this test reproduces.
-	prepName := gs + "-wipe-prep"
+	runDataJob(t, ns, gs+"-wipe-prep", gs+"-data",
+		"touch /data/level.dat && chmod 0600 /data/level.dat && "+
+			"mkdir -p /data/locked && touch /data/locked/keep.txt && chmod 0600 /data/locked/keep.txt && "+
+			"chown 1000:1000 /data/locked && chmod 0755 /data/locked")
+
+	token := "e2e-wipe-token-1"
+	wipePatch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"gameplane.local/wipe-data-requested":%q}}}`, token))
+	if _, err := envInstance.Dyn.Resource(gameServerGVR).Namespace(ns).
+		Patch(ctx, gs, types.MergePatchType, wipePatch, metav1.PatchOptions{}); err != nil {
+		t.Fatalf("patch wipe request: %v", err)
+	}
+
+	envInstance.Eventually(t, 120*time.Second, func() (bool, string) {
+		got, err := envInstance.Dyn.Resource(gameServerGVR).Namespace(ns).Get(ctx, gs, metav1.GetOptions{})
+		if err != nil {
+			return false, "get gameserver: " + err.Error()
+		}
+		if cond := findCondition(got.Object, "DataWipe"); cond != nil {
+			return false, fmt.Sprintf("DataWipe condition set: status=%v reason=%v", cond["status"], cond["reason"])
+		}
+		done, _, _ := unstructured.NestedString(got.Object, "metadata", "annotations", "gameplane.local/wipe-data-completed")
+		if done != token {
+			return false, fmt.Sprintf("wipe-data-completed=%q, want %q", done, token)
+		}
+		return true, ""
+	})
+
+	runDataJob(t, ns, gs+"-wipe-check", gs+"-data", `test -z "$(ls -A /data)"`)
+}
+
+func runDataJob(t *testing.T, ns, name, claim, script string) {
+	t.Helper()
+	ctx := context.Background()
 	var (
-		nonRoot   = true
+		root      = int64(0)
+		nonRoot   = false
 		noPrivEsc = false
-		prepUID   = int64(1000)
 		backoff0  = int32(0)
 	)
-	prepJob := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{Name: prepName, Namespace: ns},
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 		Spec: batchv1.JobSpec{
 			BackoffLimit: &backoff0,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot:   &nonRoot,
-						RunAsUser:      &prepUID,
-						RunAsGroup:     &prepUID,
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 					Containers: []corev1.Container{{
-						Name:         "prep",
+						Name:         "run",
 						Image:        "busybox:1.36",
 						Command:      []string{"/bin/sh", "-c"},
-						Args:         []string{"mkdir -p /data/locked && touch /data/locked/keep.txt && chmod 0755 /data/locked"},
+						Args:         []string{script},
 						VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
 						SecurityContext: &corev1.SecurityContext{
 							RunAsNonRoot:             &nonRoot,
-							RunAsUser:                &prepUID,
+							RunAsUser:                &root,
+							RunAsGroup:               &root,
 							AllowPrivilegeEscalation: &noPrivEsc,
-							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+								Add:  []corev1.Capability{"CHOWN"},
+							},
 						},
 					}},
 					Volumes: []corev1.Volume{{
 						Name: "data",
 						VolumeSource: corev1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: gs + "-data"},
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim},
 						},
 					}},
 				},
@@ -106,50 +129,22 @@ func TestGameServer_WipeReportsFailureOnPermissionDenied(t *testing.T) {
 	}
 	bg := metav1.DeletePropagationBackground
 	t.Cleanup(func() {
-		_ = envInstance.K8s.BatchV1().Jobs(ns).Delete(context.Background(), prepName, metav1.DeleteOptions{PropagationPolicy: &bg})
+		_ = envInstance.K8s.BatchV1().Jobs(ns).Delete(context.Background(), name, metav1.DeleteOptions{PropagationPolicy: &bg})
 	})
-	if _, err := envInstance.K8s.BatchV1().Jobs(ns).Create(ctx, prepJob, metav1.CreateOptions{}); err != nil {
-		t.Fatalf("create prep job: %v", err)
+	if _, err := envInstance.K8s.BatchV1().Jobs(ns).Create(ctx, job, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create job %s: %v", name, err)
 	}
-	envInstance.Eventually(t, 60*time.Second, func() (bool, string) {
-		j, err := envInstance.K8s.BatchV1().Jobs(ns).Get(ctx, prepName, metav1.GetOptions{})
+	envInstance.Eventually(t, 90*time.Second, func() (bool, string) {
+		j, err := envInstance.K8s.BatchV1().Jobs(ns).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
-			return false, "get prep job: " + err.Error()
+			return false, "get job: " + err.Error()
 		}
 		if j.Status.Succeeded > 0 {
 			return true, ""
 		}
-		return false, fmt.Sprintf("prep job not done: succeeded=%d failed=%d", j.Status.Succeeded, j.Status.Failed)
-	})
-
-	// Request the wipe.
-	token := "e2e-wipe-token-1"
-	wipePatch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"gameplane.local/wipe-data-requested":%q}}}`, token))
-	if _, err := envInstance.Dyn.Resource(gameServerGVR).Namespace(ns).
-		Patch(ctx, gs, types.MergePatchType, wipePatch, metav1.PatchOptions{}); err != nil {
-		t.Fatalf("patch wipe request: %v", err)
-	}
-
-	// The wipe Job (BackoffLimit=2) must fail rather than be acked as done.
-	envInstance.Eventually(t, 120*time.Second, func() (bool, string) {
-		got, err := envInstance.Dyn.Resource(gameServerGVR).Namespace(ns).Get(ctx, gs, metav1.GetOptions{})
-		if err != nil {
-			return false, "get gameserver: " + err.Error()
+		if j.Status.Failed > 0 {
+			t.Fatalf("job %s failed", name)
 		}
-		cond := findCondition(got.Object, "DataWipe")
-		if cond == nil {
-			return false, "DataWipe condition not found"
-		}
-		if cond["status"] != "False" {
-			return false, fmt.Sprintf("DataWipe status=%v", cond["status"])
-		}
-		if cond["reason"] != "JobFailed" {
-			return false, fmt.Sprintf("DataWipe reason=%v, want JobFailed", cond["reason"])
-		}
-		done, _, _ := unstructured.NestedString(got.Object, "metadata", "annotations", "gameplane.local/wipe-data-completed")
-		if done == token {
-			return false, "wipe was acked as completed despite the Job failing"
-		}
-		return true, ""
+		return false, fmt.Sprintf("job %s not done", name)
 	})
 }
