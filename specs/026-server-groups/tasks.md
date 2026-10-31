@@ -42,6 +42,8 @@ description: "Task list for Feature 026: Server Groups (GameServerSet)"
 
 - [ ] T016 [Operator] `mode`, `placement`, `replicaPorts`, `minReadySeconds` in `gameserverset_types.go`; `make generate && make manifests`.
 - [ ] T017 [Operator] `gameserverset_statefulset.go`, `gameserver_replica.go`, `gameserver_workload.go`; pod template builder shared with standalone servers; tests in `gameserverset_statefulset_test.go`.
-- [ ] T018 [API] Replica pod resolution (`ws/target.go`, `ws/podlogs.go`, `ws/actions.go`, `handlers/pod_events.go`), ownership label/owner stripping, `externalIPs` admin guard, lifecycle 409.
-- [ ] T019 [Web] Per-replica node pins in the create wizard; start/stop disabled on replicas.
+- [ ] T018 [API] Replica pod resolution (`ws/target.go`, `ws/podlogs.go`, `ws/actions.go`, `handlers/pod_events.go`), ownership label/owner stripping, `externalIPs` admin guard.
+- [ ] T019 [Web] Per-replica node pins in the create wizard.
 - [ ] T020 [Chart] `deployers[]` + `.github/actions/deploy-server-group`.
+- [ ] T021 [Operator/Agent] Hold gate (`agent --mode=hold`), OnDelete rollout with `status.updatedReplicas`, replica stop, wipe and restore with pod fencing.
+- [ ] T022 [Operator/API] Admin-only `envFrom`, `lifecycle`, `scratchVolumes`, `podLabels`; chart `networkPolicies.gameMetricsPorts`; statistics map replica pods.

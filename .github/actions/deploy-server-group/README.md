@@ -1,10 +1,10 @@
 # Deploy server group image
 
-Sets `spec.template.image` of a StatefulSet server group (`GameServerSet` with `mode: StatefulSet`). The operator writes the image into the group's StatefulSet, which replaces the replicas one at a time, highest ordinal first, waiting for each to be Ready for `spec.minReadySeconds`.
+Sets `spec.template.image` of a StatefulSet server group (`GameServerSet` with `mode: StatefulSet`). The operator writes the image into the group's StatefulSet (`OnDelete`) and replaces the replicas one at a time, highest ordinal first, waiting for each to be Ready for `spec.minReadySeconds`. Stopped replicas are recreated on the new image right away and stay stopped. The action waits until `status.updatedReplicas` reaches `spec.replicas`.
 
 ## Cluster side
 
-Add a deployer to the chart values. It may only `get`/`patch` the listed groups and read their StatefulSets:
+Add a deployer to the chart values. It may only `get`/`patch` the listed groups:
 
 ```yaml
 deployers:

@@ -31,10 +31,6 @@ rules:
     resources: [gameserversets]
     resourceNames: {{ toJson .serverSets }}
     verbs: [get, patch]
-  - apiGroups: ["apps"]
-    resources: [statefulsets]
-    resourceNames: {{ toJson .serverSets }}
-    verbs: [get, list, watch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

@@ -95,6 +95,8 @@ type GameServerSetStatus struct {
 	Replicas int32 `json:"replicas"`
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas"`
+	// +optional
+	UpdatedReplicas int32 `json:"updatedReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true

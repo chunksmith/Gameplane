@@ -12,15 +12,21 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 - **StatefulSet server groups:** `GameServerSet.spec.mode: StatefulSet` runs
   the group as one StatefulSet `<set>` with pods `<set>-0…`, a headless
   Service for per-replica DNS, one `data-<set>-<i>` volume per replica and a
-  one-by-one rolling update (`spec.minReadySeconds`). `spec.placement` pins a
-  replica's volume, and so the replica, to a node; `spec.replicaPorts` gives
-  every replica its own `basePort+i` Service (optional `externalIPs`, admin
-  only). The create wizard builds StatefulSet groups and, with persistent
-  storage, picks a node per replica.
+  one-by-one rolling update (`spec.minReadySeconds`) that skips stopped
+  replicas. Each replica can be started, stopped, wiped and restored on its
+  own. `spec.placement` pins a replica's volume, and so the replica, to a node;
+  `spec.replicaPorts` gives every replica its own `basePort+i` Service
+  (optional `externalIPs`, admin only). The create wizard builds StatefulSet
+  groups and, with persistent storage, picks a node per replica.
+- **Admin-only pod fields:** `GameServer.spec.envFrom`, `spec.lifecycle`,
+  `spec.scratchVolumes` (emptyDir) and `spec.podLabels`.
+- **Game metric ports:** `networkPolicies.gameMetricsPorts` lets the
+  Prometheus namespace in `serviceMonitors.scrapeNamespaceSelector` scrape
+  game containers.
 - **CI deployers:** `deployers[]` chart values create a ServiceAccount that may
   only patch the listed server groups;
   `.github/actions/deploy-server-group` sets a group's image from a workflow
-  and waits for the rollout.
+  and waits until `status.updatedReplicas` reaches `spec.replicas`.
 
 ### Changed
 

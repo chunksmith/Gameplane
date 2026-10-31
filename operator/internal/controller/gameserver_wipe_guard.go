@@ -131,7 +131,7 @@ func wipeWorkers(ctx context.Context, reader client.Reader, gs *gameplanev1alpha
 		owner := metav1.GetControllerOf(pod)
 		owned := gs.UID != "" && pod.Labels[wipeUIDLabel] == string(gs.UID)
 		if owner != nil && owner.Kind == "Job" {
-			owned = owned || ownedUIDs[owner.UID] || (owner.Name == gs.Name+"-wipe" && pod.Labels[wipeUIDLabel] == "" && podMountsRestoreTarget(pod, gs.Name))
+			owned = owned || ownedUIDs[owner.UID] || (owner.Name == gs.Name+"-wipe" && pod.Labels[wipeUIDLabel] == "" && podMountsRestoreTarget(pod, dataClaimName(gs)))
 		}
 		if owned {
 			state.livePods, state.busy = true, true
@@ -208,6 +208,10 @@ func (r *GameServerReconciler) ensureWipeGuard(ctx context.Context, gs *gameplan
 // Stamp the owned workload with a checked write before workers launch. A stale
 // workload update then conflicts, while callbacks reading the fence stay at 0.
 func (r *GameServerReconciler) wipeTargetStopped(ctx context.Context, gs *gameplanev1alpha1.GameServer) (bool, error) {
+	if statefulSetReplica(gs) {
+		stopped, _, err := replicaTargetStopped(ctx, r.Client, r.wipeReader(), gs)
+		return stopped, err
+	}
 	var ss appsv1.StatefulSet
 	err := r.wipeReader().Get(ctx, client.ObjectKeyFromObject(gs), &ss)
 	if apierrors.IsNotFound(err) {
@@ -242,7 +246,7 @@ func (r *GameServerReconciler) wipeTargetStopped(ctx context.Context, gs *gamepl
 			continue
 		}
 		owner := metav1.GetControllerOf(pod)
-		if pod.Name == gs.Name+"-0" || podMountsRestoreTarget(pod, gs.Name) || (owner != nil && ((owner.Kind == "StatefulSet" && owner.Name == gs.Name) || (owner.Kind == "GameServer" && owner.UID == gs.UID))) {
+		if pod.Name == gs.Name+"-0" || podMountsRestoreTarget(pod, dataClaimName(gs)) || (owner != nil && ((owner.Kind == "StatefulSet" && owner.Name == gs.Name) || (owner.Kind == "GameServer" && owner.UID == gs.UID))) {
 			return false, nil
 		}
 	}
@@ -253,7 +257,7 @@ func (r *GameServerReconciler) wipeTargetStopped(ctx context.Context, gs *gamepl
 	for i := range jobs.Items {
 		job := &jobs.Items[i]
 		if !job.DeletionTimestamp.IsZero() || job.Status.Active > 0 || (job.Status.Succeeded == 0 && !jobPermanentlyFailed(job)) {
-			if podMountsRestoreTarget(&corev1.Pod{Spec: job.Spec.Template.Spec}, gs.Name) {
+			if podMountsRestoreTarget(&corev1.Pod{Spec: job.Spec.Template.Spec}, dataClaimName(gs)) {
 				return false, nil
 			}
 		}

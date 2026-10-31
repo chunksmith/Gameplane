@@ -15,6 +15,7 @@ import (
 const (
 	serverSetStatefulSetLabel = "gameplane.local/server-set-statefulset"
 	statefulSetPodNameLabel   = "statefulset.kubernetes.io/pod-name"
+	replicaFenceAnnotation    = "gameplane.local/replica-fence"
 )
 
 func statefulSetReplica(gs *gameplanev1alpha1.GameServer) bool {
@@ -70,4 +71,8 @@ func (r *GameServerReconciler) workloadState(ctx context.Context, gs *gameplanev
 		return false, false, err
 	}
 	return true, ss.Status.ReadyReplicas > 0, nil
+}
+
+func scratchVolumeName(name string) string {
+	return "scratch-" + name
 }

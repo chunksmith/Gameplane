@@ -110,10 +110,6 @@ func wipeDataHandler(reg *kube.Registry) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if statefulSetReplica(obj) {
-			httperr.WriteMessage(w, req, messages.New("server.lifecycle.statefulset_replica", nil))
-			return
-		}
 		var body wipeDataReq
 		if err := json.NewDecoder(io.LimitReader(req.Body, 1<<16)).Decode(&body); err != nil {
 			httperr.WriteMessage(w, req, messages.New("server.bad_request", nil))
@@ -153,10 +149,6 @@ func patchSuspend(reg *kube.Registry, suspend bool) http.HandlerFunc {
 		}
 		obj, ok := authorizedServer(w, req, k, ns, name)
 		if !ok {
-			return
-		}
-		if statefulSetReplica(obj) {
-			httperr.WriteMessage(w, req, messages.New("server.lifecycle.statefulset_replica", nil))
 			return
 		}
 		if err := patchServerSuspend(req.Context(), k, obj, suspend); err != nil {
@@ -329,8 +321,4 @@ func cloneHandler(reg *kube.Registry) http.HandlerFunc {
 		newConfigRuleCache(k).redact(req.Context(), created)
 		writeOrErr(w, req, created, nil)
 	}
-}
-
-func statefulSetReplica(obj *unstructured.Unstructured) bool {
-	return obj.GetLabels()["gameplane.local/server-set-statefulset"] != ""
 }

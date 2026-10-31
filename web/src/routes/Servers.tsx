@@ -42,7 +42,7 @@ import type { GameServer, GameServerPhase, GameTemplate } from "@/types";
 import { Networks, Servers, createResourceClient, type LifecycleVerb } from "@/lib/endpoints";
 import { NETWORK_ANNOTATION, PRIORITY_ANNOTATION } from "@/lib/annotations";
 import { byPriority, countByState, reorderPriorities } from "@/lib/servers";
-import { groupServers, isStatefulSetReplica, type ServerGroup } from "@/lib/serverSets";
+import { groupServers, type ServerGroup } from "@/lib/serverSets";
 import { resourceCan } from "@/lib/resourceTarget";
 import { useFleetLocation, Fleet, inventoryTotals, playerCoverage, templateKey, useFleetGameCodes, located, resourceTarget, targetKey, targetLabel, targetSearch, useFleetPlacements, useFleetServerSelection, useFleetServerSets, useFleetServers, type FleetItem, type FleetResult, type FleetTarget, type Located } from "@/lib/fleet";
 import { FleetCoverage, FleetScopeFilter } from "@/components/FleetScope";
@@ -669,7 +669,6 @@ function ServerLifecycleActions({
   const running = phase === "Running" || phase === "Starting";
   const stopped = !asleep && (phase === "Stopped" || phase === "Suspended");
   const stopping = phase === "Stopping";
-  const replica = isStatefulSetReplica(gs);
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["fleet", "servers"] });
   };
@@ -686,7 +685,7 @@ function ServerLifecycleActions({
       ) : !(compact > 1 && running) && (
         <ActionButton
           title={intl.formatMessage({ id: "web.routes.servers.start", defaultMessage: "Start", description: "Servers: tooltip of the icon button that starts a stopped server; keep it short" })}
-          disabled={pending || !gs.fleetAccess?.canControl || running || replica}
+          disabled={pending || !gs.fleetAccess?.canControl || running}
           onClick={() => onAct({ target: gs.fleetTarget, verb: "start" })}
         >
           <Play className="h-4 w-4" />
@@ -702,7 +701,7 @@ function ServerLifecycleActions({
             // action there — it patches spec.suspend=true, which the operator
             // honors immediately, distinct from an idle sleep a wake window
             // would otherwise resurrect.
-            disabled={pending || !gs.fleetAccess?.canControl || stopped || (replica && !stopping)}
+            disabled={pending || !gs.fleetAccess?.canControl || stopped}
             onClick={() => onAct({ target: gs.fleetTarget, verb: stopping ? "kill" : "stop" })}
           >
             {stopping ? <Skull className="h-4 w-4 text-danger" /> : <Square className="h-4 w-4" />}

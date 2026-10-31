@@ -803,10 +803,6 @@
     "defaultMessage": "newName required",
     "description": "API error from the server lifecycle API (lifecycle.go:cloneHandler)."
   },
-  "server.lifecycle.statefulset_replica": {
-    "defaultMessage": "this action is not available for a StatefulSet server group replica",
-    "description": "API error from the server lifecycle API when start, stop or wipe targets a replica of a StatefulSet server group (lifecycle.go)."
-  },
   "server.namespace_forbidden": {
     "defaultMessage": "namespace not permitted",
     "description": "API error when the user's role does not cover the requested namespace."

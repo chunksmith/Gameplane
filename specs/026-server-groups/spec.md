@@ -26,7 +26,9 @@
 - Q: How are persistent replicas placed? → A: Per replica: `spec.placement[{ordinal,node}]` pre-creates `data-<set>-<i>` with `volume.kubernetes.io/selected-node`; the local volume's node affinity then holds the replica on that node. Ephemeral groups keep the node list.
 - Q: What happens to data on scale-down or group delete? → A: Kept. StatefulSet claims use `Retain`/`Retain`, pinned claims have no owner, and Independent children no longer own `<name>-data`.
 - Q: Per-replica voice ports? → A: `spec.replicaPorts[{name,protocol,basePort,externalIPs}]`: Service `<set>-<i>-<name>` on `basePort+i` per replica plus a NetworkPolicy for the range. `externalIPs` need admin.
-- Q: How does CI deploy? → A: A chart `deployers[]` ServiceAccount limited to get/patch of the named sets; `.github/actions/deploy-server-group` patches `spec.template.image` and waits for the rollout.
+- Q: How does CI deploy? → A: A chart `deployers[]` ServiceAccount limited to get/patch of the named sets; `.github/actions/deploy-server-group` patches `spec.template.image` and waits until `status.updatedReplicas` reaches `spec.replicas`.
+- Q: Can one replica be stopped, wiped or restored? → A: Yes. A `hold` init container (agent `--mode=hold`) waits while the child is suspended or holds a wipe/restore guard; the operator rolls the StatefulSet itself (`OnDelete`) and skips held replicas.
+- Q: What else does a hand-written fleet need? → A: Admin-only `spec.envFrom`, `spec.lifecycle`, `spec.scratchVolumes` (emptyDir `scratch-<name>`) and `spec.podLabels`; chart `networkPolicies.gameMetricsPorts` opens game metric ports to `serviceMonitors.scrapeNamespaceSelector`.
 
 ## Design
 
@@ -61,9 +63,12 @@
 
 ### StatefulSet mode
 
-- Set controller (`gameserverset_statefulset.go`): StatefulSet `<set>` (Parallel, RollingUpdate, `minReadySeconds`, claim template `data`, PVC retention `Retain`), headless Service `<set>`, set-owned config/files/RCON Secrets, agent ServiceAccount + heartbeat Role naming every child, one agent TLS cert with every `<child>-agent` SAN, replica port Services + NetworkPolicy, pinned claims (replicas are held back until they bind).
-- Children `<set>-<i>` carry `gameplane.local/server-set-statefulset=<set>` and stay as per-replica handles: their GameServer reconcile only keeps the game and agent Services and NetworkPolicy (selector `statefulset.kubernetes.io/pod-name`), status from pod `<set>-<i>`, restart (pod delete), kill and backup schedule. Child `spec.suspend` mirrors the set template.
-- Not available on a replica: per-replica start/stop, wipe and restore (API 409 / restore fails), idle sleep, tunnels, extra and mod volumes, versioned gateway routes (no per-pod UID).
+- Set controller (`gameserverset_statefulset.go`): StatefulSet `<set>` (Parallel, OnDelete, `minReadySeconds`, claim template `data`, PVC retention `Retain`), headless Service `<set>`, set-owned config/files/RCON Secrets, agent ServiceAccount + heartbeat Role naming every child, one agent TLS cert with every `<child>-agent` SAN, replica port Services + NetworkPolicy, pinned claims (replicas are held back until they bind).
+- Rollout: the set controller deletes outdated pods from the highest ordinal down, one at a time, waiting for each updated non-held pod to be Ready for `minReadySeconds`; held pods are replaced at once and stay held. `status.updatedReplicas` counts pods on the update revision that are available or held.
+- Children `<set>-<i>` carry `gameplane.local/server-set-statefulset=<set>` and stay as per-replica handles: their GameServer reconcile only keeps the game and agent Services and NetworkPolicy (selector `statefulset.kubernetes.io/pod-name`), status from pod `<set>-<i>`, restart (pod delete), kill, wipe, stop and backup schedule. The child's own `spec.suspend` is the replica's power switch; the set template's `suspend` scales the whole StatefulSet to 0.
+- Hold gate: every pod starts with init container `hold` (agent image, `--mode=hold`), which polls its child and exits once it is not suspended and holds no `gameplane.local/wipe-owner` / `restore.gameplane.local/owner` guard. Stopping a replica deletes its pod once it is past the gate (preStop and termination grace apply); the recreated pod waits in the gate.
+- Wipe and restore on a replica: the guard suspends the child, then the operator records the current pod UID in `gameplane.local/replica-fence` and deletes it; the target counts as stopped only for a newer pod still in the gate (or no pod) and no other live pod or Job mounting `data-<set>-<i>`. The fence is cleared once no guard remains.
+- Not available on a replica: idle sleep, tunnels, extra and mod volumes, the stopped-server files pod, versioned gateway routes (no per-pod UID).
 - API: replica pod name resolution in logs/actions/stream targets (`<set>` StatefulSet controlled by the set), `server-set` labels and ownerReferences stripped from user GameServer writes.
 
 ## Out of scope

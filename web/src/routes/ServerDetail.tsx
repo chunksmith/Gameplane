@@ -54,7 +54,6 @@ import { BackupsTab } from "./tabs/Backups";
 import { SettingsTab } from "./tabs/Settings";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { conditionMessageText } from "@/lib/i18n/conditionMessage";
-import { isStatefulSetReplica } from "@/lib/serverSets";
 import { defineMessages, type MessageDescriptor } from "react-intl";
 
 // Console (xterm) and Files (Monaco) bring in heavy vendor deps; load on demand.
@@ -223,8 +222,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   // duplicate mutations from a double-click. When asleep, Start is a silent
   // no-op (spec.suspend is already false) — only :wake clears the operator's
   // sleep marker.
-  const replica = isStatefulSetReplica(gs);
-  const canStart = (phase === "Stopped" || phase === "Suspended" || phase === "Failed") && !asleep && !replica;
+  const canStart = (phase === "Stopped" || phase === "Suspended" || phase === "Failed") && !asleep;
   const version = gs?.status?.agent?.gameVersion;
   const uptime = formatUptime(gs?.status?.startedAt, intl);
 
@@ -340,7 +338,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               className="rounded-full"
               size="sm"
               onPress={() => act.mutate(stopping ? "kill" : "stop")}
-              isDisabled={!access?.canControl || (!running && !asleep && !stopping) || (replica && !stopping) || act.isPending}
+              isDisabled={!access?.canControl || (!running && !asleep && !stopping) || act.isPending}
             >
               {stopping
                 ? <><Skull className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.kill", defaultMessage: "Kill", description: "Server detail: header button that force-kills a server that is still stopping; keep it short" })}</>

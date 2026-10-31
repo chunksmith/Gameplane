@@ -27,7 +27,9 @@ const (
 	serverSetPortLabel     = "gameplane.local/server-set-port"
 	selectedNodeAnnotation = "volume.kubernetes.io/selected-node"
 	agentContainerName     = "agent"
+	holdContainerName      = "hold"
 	placementRequeue       = 5 * time.Second
+	rolloutRequeue         = 10 * time.Second
 )
 
 func (r *GameServerSetReconciler) reconcileStatefulSetMode(
@@ -94,8 +96,16 @@ func (r *GameServerSetReconciler) reconcileStatefulSetMode(
 	if err := r.reconcileSetStatefulSet(ctx, set, carrier, &tmpl, ver, mc, placed); err != nil {
 		return ctrl.Result{}, err
 	}
+	held := map[string]bool{}
+	for name, child := range owned {
+		held[name] = child.Spec.Suspend
+	}
+	updated, requeue, err := r.rolloutStatefulSet(ctx, set, held)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	status := gameplanev1alpha1.GameServerSetStatus{ObservedGeneration: set.Generation}
+	status := gameplanev1alpha1.GameServerSetStatus{ObservedGeneration: set.Generation, UpdatedReplicas: updated}
 	for _, name := range names {
 		child, ok := owned[name]
 		delete(owned, name)
@@ -107,14 +117,14 @@ func (r *GameServerSetReconciler) reconcileStatefulSetMode(
 			if taken {
 				continue
 			}
-			if err := r.createChild(ctx, set, name, statefulSetChildSpec(set, spec), hash); err != nil {
+			if err := r.createChild(ctx, set, name, statefulSetChildSpec(spec, false), hash); err != nil {
 				return ctrl.Result{}, err
 			}
 			status.Replicas++
 			continue
 		}
 		if statefulSetChildStale(set, child, hash) {
-			if err := r.updateStatefulSetChild(ctx, set, child, statefulSetChildSpec(set, spec), hash); err != nil {
+			if err := r.updateStatefulSetChild(ctx, set, child, statefulSetChildSpec(spec, child.Spec.Suspend), hash); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -137,7 +147,7 @@ func (r *GameServerSetReconciler) reconcileStatefulSetMode(
 	if !placed {
 		return ctrl.Result{RequeueAfter: placementRequeue}, nil
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: requeue}, nil
 }
 
 func serverSetCarrier(set *gameplanev1alpha1.GameServerSet, spec *gameplanev1alpha1.GameServerSpec) *gameplanev1alpha1.GameServer {
@@ -151,15 +161,14 @@ func serverSetCarrier(set *gameplanev1alpha1.GameServerSet, spec *gameplanev1alp
 	}
 }
 
-func statefulSetChildSpec(set *gameplanev1alpha1.GameServerSet, spec *gameplanev1alpha1.GameServerSpec) *gameplanev1alpha1.GameServerSpec {
+func statefulSetChildSpec(spec *gameplanev1alpha1.GameServerSpec, suspend bool) *gameplanev1alpha1.GameServerSpec {
 	child := spec.DeepCopy()
-	child.Suspend = set.Spec.Template.Suspend
+	child.Suspend = suspend
 	return child
 }
 
 func statefulSetChildStale(set *gameplanev1alpha1.GameServerSet, child *gameplanev1alpha1.GameServer, hash string) bool {
-	if child.Annotations[serverSetHashAnnotation] != hash || child.Labels[serverSetStatefulSetLabel] != set.Name ||
-		child.Spec.Suspend != set.Spec.Template.Suspend {
+	if child.Annotations[serverSetHashAnnotation] != hash || child.Labels[serverSetStatefulSetLabel] != set.Name {
 		return true
 	}
 	for _, key := range serverSetInheritedAnnotations {
@@ -305,6 +314,11 @@ func (r *GameServerSetReconciler) reconcileSetAgentRBAC(ctx context.Context, set
 				Resources:     []string{"gameservers/status"},
 				ResourceNames: slices.Clone(names),
 				Verbs:         []string{"get", "patch"},
+			}, {
+				APIGroups:     []string{"gameplane.local"},
+				Resources:     []string{"gameservers"},
+				ResourceNames: slices.Clone(names),
+				Verbs:         []string{"get"},
 			}}
 		}
 		return controllerutil.SetControllerReference(set, role, r.Scheme)
@@ -513,9 +527,7 @@ func (r *GameServerSetReconciler) reconcileSetStatefulSet(
 		sts.Spec.Replicas = &replicas
 		sts.Spec.ServiceName = set.Name
 		sts.Spec.MinReadySeconds = set.Spec.MinReadySeconds
-		if sts.Spec.UpdateStrategy.Type != appsv1.RollingUpdateStatefulSetStrategyType {
-			sts.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
-		}
+		sts.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
 		sts.Spec.PersistentVolumeClaimRetentionPolicy = &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
 			WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
 			WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
@@ -543,16 +555,113 @@ func applyReplicaPodOverrides(spec *corev1.PodSpec, carrier *gameplanev1alpha1.G
 		grace := int64(*carrier.Spec.StopGracePeriodSeconds)
 		spec.TerminationGracePeriodSeconds = &grace
 	}
+	podName := corev1.EnvVar{
+		Name:      "GAMEPLANE_SERVER_NAME",
+		ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+	}
 	for i := range spec.Containers {
-		if spec.Containers[i].Name != agentContainerName {
+		agent := &spec.Containers[i]
+		if agent.Name != agentContainerName {
 			continue
 		}
-		env := slices.DeleteFunc(slices.Clone(spec.Containers[i].Env), func(variable corev1.EnvVar) bool {
+		env := slices.DeleteFunc(slices.Clone(agent.Env), func(variable corev1.EnvVar) bool {
 			return variable.Name == "GAMEPLANE_SERVER_NAME" || variable.Name == "GAMEPLANE_SERVER_UID"
 		})
-		spec.Containers[i].Env = append(env, corev1.EnvVar{
-			Name:      "GAMEPLANE_SERVER_NAME",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-		})
+		agent.Env = append(env, podName)
+		hold := corev1.Container{
+			Name:            holdContainerName,
+			Image:           agent.Image,
+			ImagePullPolicy: agent.ImagePullPolicy,
+			Args:            []string{"--mode=hold"},
+			Env:             []corev1.EnvVar{podName},
+			SecurityContext: agent.SecurityContext,
+		}
+		spec.InitContainers = append([]corev1.Container{hold}, spec.InitContainers...)
 	}
+}
+
+func replicaReleased(pod *corev1.Pod) bool {
+	if !slices.ContainsFunc(pod.Spec.InitContainers, func(c corev1.Container) bool { return c.Name == holdContainerName }) {
+		return true
+	}
+	for _, status := range pod.Status.InitContainerStatuses {
+		if status.Name == holdContainerName {
+			return status.State.Terminated != nil && status.State.Terminated.ExitCode == 0
+		}
+	}
+	return false
+}
+
+func podAvailable(pod *corev1.Pod, minReady time.Duration) (bool, time.Duration) {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type != corev1.PodReady || condition.Status != corev1.ConditionTrue {
+			continue
+		}
+		if remaining := minReady - time.Since(condition.LastTransitionTime.Time); remaining > 0 {
+			return false, remaining
+		}
+		return true, 0
+	}
+	return false, 0
+}
+
+func (r *GameServerSetReconciler) rolloutStatefulSet(
+	ctx context.Context, set *gameplanev1alpha1.GameServerSet, held map[string]bool,
+) (int32, time.Duration, error) {
+	var sts appsv1.StatefulSet
+	if err := r.Get(ctx, client.ObjectKeyFromObject(set), &sts); err != nil {
+		return 0, 0, client.IgnoreNotFound(err)
+	}
+	if sts.Status.ObservedGeneration < sts.Generation || sts.Status.UpdateRevision == "" || sts.Spec.Replicas == nil {
+		return 0, rolloutRequeue, nil
+	}
+	var list corev1.PodList
+	if err := r.List(ctx, &list, client.InNamespace(set.Namespace), client.MatchingLabels(statefulSetSelector(set))); err != nil {
+		return 0, 0, fmt.Errorf("list set pods: %w", err)
+	}
+	pods := make(map[string]*corev1.Pod, len(list.Items))
+	for i := range list.Items {
+		pods[list.Items[i].Name] = &list.Items[i]
+	}
+	minReady := time.Duration(set.Spec.MinReadySeconds) * time.Second
+	current := func(pod *corev1.Pod) bool {
+		return pod.Labels[appsv1.ControllerRevisionHashLabelKey] == sts.Status.UpdateRevision
+	}
+
+	var updated int32
+	for ordinal := range *sts.Spec.Replicas {
+		name := fmt.Sprintf("%s-%d", set.Name, ordinal)
+		pod := pods[name]
+		if pod == nil || pod.DeletionTimestamp != nil || !current(pod) {
+			continue
+		}
+		if available, _ := podAvailable(pod, minReady); available || held[name] {
+			updated++
+		}
+	}
+
+	for ordinal := *sts.Spec.Replicas - 1; ordinal >= 0; ordinal-- {
+		name := fmt.Sprintf("%s-%d", set.Name, ordinal)
+		pod := pods[name]
+		if pod == nil || pod.DeletionTimestamp != nil {
+			return updated, rolloutRequeue, nil
+		}
+		if !current(pod) {
+			uid := pod.UID
+			if err := r.Delete(ctx, pod, client.Preconditions{UID: &uid}); client.IgnoreNotFound(err) != nil {
+				return updated, 0, fmt.Errorf("roll set pod %s: %w", name, err)
+			}
+			if held[name] {
+				continue
+			}
+			return updated, rolloutRequeue, nil
+		}
+		if held[name] {
+			continue
+		}
+		if available, remaining := podAvailable(pod, minReady); !available {
+			return updated, max(remaining, time.Second), nil
+		}
+	}
+	return updated, 0, nil
 }

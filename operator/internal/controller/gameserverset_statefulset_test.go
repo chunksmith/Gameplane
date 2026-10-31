@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -85,6 +86,10 @@ func TestApplyReplicaPodOverrides(t *testing.T) {
 	if spec.Containers[0].Env[0].Value != "keep" {
 		t.Errorf("game env changed: %v", spec.Containers[0].Env)
 	}
+	if len(spec.InitContainers) != 1 || spec.InitContainers[0].Name != holdContainerName ||
+		spec.InitContainers[0].Args[0] != "--mode=hold" || spec.InitContainers[0].Env[0].ValueFrom == nil {
+		t.Errorf("init containers = %+v, want the hold gate first", spec.InitContainers)
+	}
 	agentEnv := spec.Containers[1].Env
 	if len(agentEnv) != 2 || agentEnv[0].Name != "GAMEPLANE_TEMPLATE" {
 		t.Fatalf("agent env = %v", agentEnv)
@@ -127,8 +132,8 @@ func TestStatefulSetChildStale(t *testing.T) {
 	}
 	child.Annotations["gameplane.local/owner-id"] = "7"
 	child.Spec.Suspend = true
-	if !statefulSetChildStale(set, child, "h") {
-		t.Error("child suspend differing from the set not reported stale")
+	if statefulSetChildStale(set, child, "h") {
+		t.Error("held child reported stale: replica suspend belongs to the replica")
 	}
 }
 
@@ -223,6 +228,10 @@ func TestReconcileSetStatefulSetHoldsReplicasUntilPlaced(t *testing.T) {
 	ctx := context.Background()
 	set := statefulSetTestSet(4)
 	set.Spec.MinReadySeconds = 10
+	set.Spec.Template.PodLabels = map[string]string{"app": "smp", serverSetLabel: "hijack"}
+	set.Spec.Template.ScratchVolumes = []gameplanev1alpha1.ScratchVolume{{Name: "tools", MountPath: "/opt/tools"}}
+	set.Spec.Template.EnvFrom = []corev1.EnvFromSource{{ConfigMapRef: &corev1.ConfigMapEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: "global-env"}}}}
+	set.Spec.Template.Lifecycle = &corev1.Lifecycle{PreStop: &corev1.LifecycleHandler{Exec: &corev1.ExecAction{Command: []string{"stop"}}}}
 	carrier := serverSetCarrier(set, serverSetChildSpec(set))
 	tmpl := &gameplanev1alpha1.GameTemplate{ObjectMeta: metav1.ObjectMeta{Name: "paper"}, Spec: gameplanev1alpha1.GameTemplateSpec{Image: "paper:1"}}
 	c := fake.NewClientBuilder().WithScheme(statefulSetTestScheme(t)).WithObjects(set).Build()
@@ -246,6 +255,17 @@ func TestReconcileSetStatefulSetHoldsReplicasUntilPlaced(t *testing.T) {
 	}
 	if sts.Spec.Template.Labels[serverSetStatefulSetLabel] != "smp" || sts.Spec.Template.Spec.ServiceAccountName != "smp-agent" {
 		t.Errorf("pod template = %+v", sts.Spec.Template.ObjectMeta)
+	}
+	if sts.Spec.Template.Labels["app"] != "smp" || sts.Spec.Template.Labels[serverSetLabel] != "smp" {
+		t.Errorf("pod labels = %v, want app added and set label kept", sts.Spec.Template.Labels)
+	}
+	game := sts.Spec.Template.Spec.Containers[0]
+	if len(game.EnvFrom) != 1 || game.Lifecycle == nil || game.Lifecycle.PreStop == nil {
+		t.Errorf("game container envFrom/lifecycle = %+v / %+v", game.EnvFrom, game.Lifecycle)
+	}
+	if !slices.ContainsFunc(game.VolumeMounts, func(m corev1.VolumeMount) bool { return m.Name == "scratch-tools" && m.MountPath == "/opt/tools" }) ||
+		!slices.ContainsFunc(sts.Spec.Template.Spec.Volumes, func(v corev1.Volume) bool { return v.Name == "scratch-tools" && v.EmptyDir != nil }) {
+		t.Errorf("scratch volume missing: mounts %+v", game.VolumeMounts)
 	}
 
 	if err := r.reconcileSetStatefulSet(ctx, set, carrier, tmpl, nil, mc, true); err != nil {
@@ -273,5 +293,84 @@ func TestReconcileSetAgentRBACWithoutReplicas(t *testing.T) {
 	}
 	if len(role.Rules) != 0 {
 		t.Errorf("rules = %+v, want none: empty resourceNames would grant every GameServer", role.Rules)
+	}
+}
+
+func rolloutTestPod(name, revision string, ready bool) *corev1.Pod {
+	set := statefulSetTestSet(0)
+	labels := statefulSetSelector(set)
+	labels[appsv1.ControllerRevisionHashLabelKey] = revision
+	status := corev1.ConditionFalse
+	if ready {
+		status = corev1.ConditionTrue
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "games", UID: types.UID(name), Labels: labels},
+		Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{
+			Type: corev1.PodReady, Status: status, LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
+		}}},
+	}
+}
+
+func TestRolloutStatefulSetSkipsHeldReplicas(t *testing.T) {
+	ctx := context.Background()
+	set := statefulSetTestSet(3)
+	replicas := int32(3)
+	sts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "smp", Namespace: "games", Generation: 2},
+		Spec:       appsv1.StatefulSetSpec{Replicas: &replicas},
+		Status:     appsv1.StatefulSetStatus{ObservedGeneration: 2, UpdateRevision: "new"},
+	}
+	run := func(pods ...*corev1.Pod) (client.Client, int32) {
+		objects := []client.Object{set, sts}
+		for _, pod := range pods {
+			objects = append(objects, pod)
+		}
+		c := fake.NewClientBuilder().WithScheme(statefulSetTestScheme(t)).WithObjects(objects...).Build()
+		r := &GameServerSetReconciler{Client: c, Scheme: c.Scheme()}
+		updated, _, err := r.rolloutStatefulSet(ctx, set, map[string]bool{"smp-1": true})
+		if err != nil {
+			t.Fatalf("rolloutStatefulSet: %v", err)
+		}
+		return c, updated
+	}
+	exists := func(c client.Client, name string) bool {
+		return c.Get(ctx, client.ObjectKey{Namespace: "games", Name: name}, &corev1.Pod{}) == nil
+	}
+
+	c, updated := run(rolloutTestPod("smp-0", "old", true), rolloutTestPod("smp-1", "old", false), rolloutTestPod("smp-2", "new", true))
+	if updated != 1 {
+		t.Errorf("updated = %d, want 1", updated)
+	}
+	if exists(c, "smp-1") || exists(c, "smp-0") || !exists(c, "smp-2") {
+		t.Error("want the held pod and the next outdated pod rolled, the updated pod kept")
+	}
+
+	c, _ = run(rolloutTestPod("smp-0", "old", true), rolloutTestPod("smp-1", "new", false), rolloutTestPod("smp-2", "new", false))
+	if !exists(c, "smp-0") {
+		t.Error("rolled smp-0 while the updated smp-2 is not ready")
+	}
+
+	c, updated = run(rolloutTestPod("smp-0", "old", true), rolloutTestPod("smp-1", "new", false), rolloutTestPod("smp-2", "new", true))
+	if updated != 2 || exists(c, "smp-0") {
+		t.Errorf("updated = %d, smp-0 kept = %v; want a held updated pod counted and smp-0 rolled", updated, exists(c, "smp-0"))
+	}
+}
+
+func TestReplicaReleased(t *testing.T) {
+	pod := &corev1.Pod{Spec: corev1.PodSpec{InitContainers: []corev1.Container{{Name: holdContainerName}}}}
+	if replicaReleased(pod) {
+		t.Error("pod without gate status reported released")
+	}
+	pod.Status.InitContainerStatuses = []corev1.ContainerStatus{{Name: holdContainerName, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}}
+	if replicaReleased(pod) {
+		t.Error("pod waiting in the gate reported released")
+	}
+	pod.Status.InitContainerStatuses[0].State = corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 0}}
+	if !replicaReleased(pod) {
+		t.Error("pod past the gate reported held")
+	}
+	if !replicaReleased(&corev1.Pod{}) {
+		t.Error("pod without a gate reported held")
 	}
 }

@@ -1555,6 +1555,11 @@ func (r *GameServerReconciler) applyGamePodTemplate(
 		delete(ann, configHashAnnotation)
 	}
 	tpl.Annotations = ann
+	for key, value := range gs.Spec.PodLabels {
+		if _, taken := tpl.Labels[key]; !taken {
+			tpl.Labels[key] = value
+		}
+	}
 	tpl.Spec.Containers = []corev1.Container{
 		buildGameContainer(gs, tmpl, image, ver, mc),
 		buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy),
@@ -1624,6 +1629,12 @@ func (r *GameServerReconciler) applyGamePodTemplate(
 	// inject credentials on install. Assigned wholesale so removing the
 	// secret ref drops the mount on the next reconcile.
 	volumes = append(volumes, modCredsVolumes(resolveModCreds(tmpl))...)
+	for _, scratch := range gs.Spec.ScratchVolumes {
+		volumes = append(volumes, corev1.Volume{
+			Name:         scratchVolumeName(scratch.Name),
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		})
+	}
 	tpl.Spec.Volumes = volumes
 	// Assign unconditionally so clearing spec.nodeSelector also clears the
 	// pod template's selector (nil resets it); the previous nil-guard left
@@ -2118,6 +2129,9 @@ func buildGameContainer(
 		mounts = append(mounts, *m)
 	}
 	mounts = append(mounts, extraVolumeMounts(gs, tmpl)...)
+	for _, scratch := range gs.Spec.ScratchVolumes {
+		mounts = append(mounts, corev1.VolumeMount{Name: scratchVolumeName(scratch.Name), MountPath: scratch.MountPath})
+	}
 
 	c := corev1.Container{
 		Name:         gameContainerName,
@@ -2125,9 +2139,11 @@ func buildGameContainer(
 		Command:      tmpl.Spec.Command,
 		Args:         tmpl.Spec.Args,
 		Env:          env,
+		EnvFrom:      gs.Spec.EnvFrom,
 		Ports:        ports,
 		VolumeMounts: mounts,
 		Resources:    res,
+		Lifecycle:    gs.Spec.Lifecycle,
 	}
 	if tmpl.Spec.Probes != nil {
 		c.ReadinessProbe = tmpl.Spec.Probes.Readiness

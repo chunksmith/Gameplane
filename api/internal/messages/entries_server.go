@@ -66,12 +66,6 @@ var serverEntries = []Entry{
 		Status:      http.StatusUnsupportedMediaType,
 	},
 	{
-		ID:          "server.lifecycle.statefulset_replica",
-		English:     "this action is not available for a StatefulSet server group replica",
-		Description: "API error from the server lifecycle API when start, stop or wipe targets a replica of a StatefulSet server group (lifecycle.go).",
-		Status:      http.StatusConflict,
-	},
-	{
 		ID:          "server.lifecycle.confirmation_mismatch",
 		English:     "confirmation does not match server name",
 		Description: "API error from the server lifecycle API (lifecycle.go:wipeDataHandler).",

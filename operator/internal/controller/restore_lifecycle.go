@@ -133,9 +133,9 @@ func liveRestorePod(pod *corev1.Pod) bool {
 	return !pod.DeletionTimestamp.IsZero() || (pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed)
 }
 
-func podMountsRestoreTarget(pod *corev1.Pod, serverName string) bool {
+func podMountsRestoreTarget(pod *corev1.Pod, claim string) bool {
 	for _, volume := range pod.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == serverName+"-data" {
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == claim {
 			return true
 		}
 	}
@@ -147,6 +147,9 @@ func podMountsRestoreTarget(pod *corev1.Pod, serverName string) bool {
 // A successful fence write reports progress, so callers immediately requeue
 // for fresh safety reads instead of waiting for the external-work polling timer.
 func (r *RestoreReconciler) restoreTargetStopped(ctx context.Context, gs *gameplanev1alpha1.GameServer) (stopped, progressed bool, err error) {
+	if statefulSetReplica(gs) {
+		return replicaTargetStopped(ctx, r.Client, r.apiReader(), gs)
+	}
 	var ss appsv1.StatefulSet
 	err = r.apiReader().Get(ctx, client.ObjectKeyFromObject(gs), &ss)
 	if apierrors.IsNotFound(err) {
@@ -174,7 +177,7 @@ func (r *RestoreReconciler) restoreTargetStopped(ctx context.Context, gs *gamepl
 		}
 		controller := metav1.GetControllerOf(pod)
 		owned := controller != nil && ((controller.Kind == "StatefulSet" && controller.Name == gs.Name) || (controller.Kind == "GameServer" && controller.UID == gs.UID))
-		if owned || pod.Name == gs.Name+"-0" || podMountsRestoreTarget(pod, gs.Name) {
+		if owned || pod.Name == gs.Name+"-0" || podMountsRestoreTarget(pod, dataClaimName(gs)) {
 			return false, false, nil
 		}
 	}
@@ -188,7 +191,7 @@ func (r *RestoreReconciler) restoreTargetStopped(ctx context.Context, gs *gamepl
 		job := &jobs.Items[i]
 		if (job.Status.Succeeded == 0 && !jobPermanentlyFailed(job)) || job.Status.Active > 0 || !job.DeletionTimestamp.IsZero() {
 			pod := &corev1.Pod{Spec: job.Spec.Template.Spec}
-			if podMountsRestoreTarget(pod, gs.Name) {
+			if podMountsRestoreTarget(pod, dataClaimName(gs)) {
 				return false, false, nil
 			}
 		}

@@ -67,7 +67,7 @@ func main() {
 		cliPipe      string
 		logLevel     string
 	)
-	flag.StringVar(&mode, "mode", "server", "agent mode: server (game server sidecar) or repository (Git working copy)")
+	flag.StringVar(&mode, "mode", "server", "agent mode: server (game server sidecar), repository (Git working copy) or hold (init gate that waits while the GameServer is suspended)")
 	flag.StringVar(&addr, "addr", ":8090", "HTTP listen address")
 	flag.StringVar(&metricsAddr, "metrics-addr", envOr("GAMEPLANE_METRICS_ADDR", ":9090"),
 		"listen address for the Prometheus metrics endpoint, separate from --addr and served "+
@@ -106,6 +106,9 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: parseLogLevel(logLevel)}))
 	slog.SetDefault(logger)
 
+	if mode == modeHold {
+		os.Exit(awaitRelease(logger, serverName))
+	}
 	if mode != modeServer && mode != modeRepository {
 		logger.Error("unknown --mode", "mode", mode)
 		os.Exit(1)
@@ -329,7 +332,18 @@ func main() {
 const (
 	modeServer     = "server"
 	modeRepository = "repository"
+	modeHold       = "hold"
 )
+
+func awaitRelease(logger *slog.Logger, serverName string) int {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	if err := heartbeat.AwaitRelease(ctx, serverName, 3*time.Second); err != nil {
+		logger.Error("hold", "err", err)
+		return 1
+	}
+	return 0
+}
 
 // errTLSFlagsUnpaired reports that only one of --tls-cert / --tls-key was set.
 var errTLSFlagsUnpaired = errors.New("--tls-cert and --tls-key must both be set or both be empty")

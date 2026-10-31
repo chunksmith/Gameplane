@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
+	"github.com/GameplanePanel/gameplane/api/internal/prom"
 	"github.com/GameplanePanel/gameplane/api/internal/rbac"
 )
 
@@ -73,5 +75,59 @@ func TestProtectServerOwnership(t *testing.T) {
 	protectServerOwnership(update, live)
 	if update.GetLabels()["gameplane.local/server-set-statefulset"] != "smp" || len(update.GetOwnerReferences()) != 1 {
 		t.Errorf("live ownership not restored: %v %v", update.GetLabels(), update.GetOwnerReferences())
+	}
+}
+
+func TestAdminSpecFieldsKeepLiveForNonAdmins(t *testing.T) {
+	viewer := auth.WithUser(context.Background(), &auth.User{Role: "viewer"})
+	admin := auth.WithUser(context.Background(), &auth.User{Role: rbac.RoleAdmin})
+	envFrom := []any{map[string]any{"configMapRef": map[string]any{"name": "global-env"}}}
+	spec := func(fields map[string]any) *unstructured.Unstructured {
+		spec := map[string]any{"templateRef": map[string]any{"name": "minecraft"}}
+		for key, value := range fields {
+			spec[key] = value
+		}
+		return &unstructured.Unstructured{Object: map[string]any{"spec": spec}}
+	}
+	if err := validateAndProtectGameServer(viewer, nil, "default", "games", "smp", spec(map[string]any{"envFrom": envFrom}), nil); err == nil {
+		t.Error("viewer created a server with envFrom")
+	}
+	if err := validateAndProtectGameServer(admin, nil, "default", "games", "smp", spec(map[string]any{"envFrom": envFrom}), nil); err != nil {
+		t.Errorf("admin envFrom rejected: %v", err)
+	}
+	live := spec(map[string]any{"envFrom": envFrom, "podLabels": map[string]any{"app": "smp"}})
+	desired := spec(nil)
+	if err := validateAndProtectGameServer(viewer, nil, "default", "games", "smp", desired, live); err != nil {
+		t.Fatalf("viewer update without admin fields rejected: %v", err)
+	}
+	if got, _, _ := unstructured.NestedSlice(desired.Object, "spec", "envFrom"); len(got) != 1 {
+		t.Errorf("live envFrom not restored: %v", got)
+	}
+	if got, _, _ := unstructured.NestedStringMap(desired.Object, "spec", "podLabels"); got["app"] != "smp" {
+		t.Errorf("live podLabels not restored: %v", got)
+	}
+	changed := spec(map[string]any{"envFrom": envFrom, "podLabels": map[string]any{"app": "other"}})
+	if err := validateAndProtectGameServer(viewer, nil, "default", "games", "smp", changed, live); err == nil {
+		t.Error("viewer changed podLabels")
+	}
+}
+
+func TestStatisticsRowsMapReplicaPods(t *testing.T) {
+	cpu := func(pod string, value float64) prom.Sample {
+		return prom.Sample{Labels: map[string]string{"namespace": "games", "pod": pod}, Value: value}
+	}
+	samples := serverSamples{
+		cpu:      []prom.Sample{cpu("lobby-0", 1), cpu("smp-0", 2), cpu("smp-3", 3)},
+		replicas: map[string]bool{"games/smp-0": true, "games/smp-3": true},
+	}
+	got := map[string]float64{}
+	for _, row := range samples.rows() {
+		if row.CPU != nil {
+			got[row.Name] = *row.CPU
+		}
+	}
+	want := map[string]float64{"lobby": 1, "smp-0": 2, "smp-3": 3}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("rows = %v, want %v", got, want)
 	}
 }

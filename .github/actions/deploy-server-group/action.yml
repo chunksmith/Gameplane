@@ -37,16 +37,18 @@ runs:
         umask 077
         printf '%s' "$GAMEPLANE_KUBECONFIG" > "$KUBECONFIG"
         patch=$(jq -cn --arg image "$SET_IMAGE" '{spec: {template: {image: $image}}}')
-        kubectl -n "$SET_NAMESPACE" patch gameserverset "$SET_NAME" --type merge -p "$patch"
+        generation=$(kubectl -n "$SET_NAMESPACE" patch gameserverset "$SET_NAME" --type merge -p "$patch" \
+          -o jsonpath='{.metadata.generation}')
         [ "$ROLLOUT_TIMEOUT" = "0" ] && exit 0
-        for _ in $(seq 60); do
-          current=$(kubectl -n "$SET_NAMESPACE" get statefulset "$SET_NAME" \
-            -o jsonpath='{.spec.template.spec.containers[?(@.name=="game")].image}')
-          [ "$current" = "$SET_IMAGE" ] && break
-          sleep 2
-        done
-        if [ "$current" != "$SET_IMAGE" ]; then
-          echo "::error::operator did not apply $SET_IMAGE to statefulset/$SET_NAME"
+        export SET_NAMESPACE SET_NAME generation
+        if ! timeout "$ROLLOUT_TIMEOUT" bash -c '
+          while :; do
+            read -r observed updated replicas < <(kubectl -n "$SET_NAMESPACE" get gameserverset "$SET_NAME" -o json |
+              jq -r "[.status.observedGeneration // 0, .status.updatedReplicas // 0, .spec.replicas // 1] | @tsv")
+            echo "observed generation $observed/$generation, updated $updated/$replicas"
+            [ "$observed" -ge "$generation" ] && [ "$updated" -ge "$replicas" ] && exit 0
+            sleep 10
+          done'; then
+          echo "::error::gameserverset/$SET_NAME did not finish rolling out $SET_IMAGE within $ROLLOUT_TIMEOUT"
           exit 1
         fi
-        kubectl -n "$SET_NAMESPACE" rollout status statefulset "$SET_NAME" --timeout "$ROLLOUT_TIMEOUT"

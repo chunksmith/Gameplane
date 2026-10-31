@@ -43,7 +43,9 @@ func isGameplaneAnnotation(key string) bool {
 	return qualified && (domain == "gameplane.local" || strings.HasSuffix(domain, ".gameplane.local"))
 }
 
-var serverSetLabels = []string{"gameplane.local/server-set", "gameplane.local/server-set-statefulset"}
+const serverSetStatefulSetLabel = "gameplane.local/server-set-statefulset"
+
+var serverSetLabels = []string{"gameplane.local/server-set", serverSetStatefulSetLabel}
 
 func protectServerOwnership(desired, live *unstructured.Unstructured) {
 	labels := desired.GetLabels()

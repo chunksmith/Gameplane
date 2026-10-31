@@ -661,6 +661,14 @@ func validateAndProtectGameServer(
 		}
 	}
 
+	if !isAdmin {
+		for _, field := range []string{"envFrom", "lifecycle", "scratchVolumes", "podLabels"} {
+			if err := protectAdminSpecField(desired, live, field); err != nil {
+				return err
+			}
+		}
+	}
+
 	// 4. Validate spec.env for unowned secret/configmap references
 	envSlice, hasEnv, _ := unstructured.NestedSlice(desired.Object, "spec", "env")
 	if hasEnv {
@@ -740,6 +748,24 @@ func validateAndProtectGameServer(
 		}
 	}
 
+	return nil
+}
+
+func protectAdminSpecField(desired, live *unstructured.Unstructured, field string) error {
+	value, has, _ := unstructured.NestedFieldNoCopy(desired.Object, "spec", field)
+	var liveValue any
+	if live != nil {
+		liveValue, _, _ = unstructured.NestedFieldNoCopy(live.Object, "spec", field)
+	}
+	if has && value != nil {
+		if !reflect.DeepEqual(value, liveValue) {
+			return fmt.Errorf("spec.%s requires admin privileges", field)
+		}
+		return nil
+	}
+	if liveValue != nil {
+		_ = unstructured.SetNestedField(desired.Object, liveValue, "spec", field)
+	}
 	return nil
 }
 

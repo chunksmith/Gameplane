@@ -668,7 +668,7 @@ export interface GameServerSet {
     minReadySeconds?: number;
     template: GameServer["spec"];
   };
-  status?: { replicas?: number; readyReplicas?: number; observedGeneration?: number };
+  status?: { replicas?: number; readyReplicas?: number; updatedReplicas?: number; observedGeneration?: number };
 }
 
 // A Kubernetes Event about a server's pod/StatefulSet/GameServer, as
