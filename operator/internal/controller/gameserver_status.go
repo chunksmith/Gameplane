@@ -54,12 +54,10 @@ func (r *GameServerReconciler) reconcileStatus(
 	base := gs.DeepCopy()
 	orig := gs.Status.DeepCopy()
 
-	var ss appsv1.StatefulSet
-	ssErr := r.Get(ctx, types.NamespacedName{Name: gs.Name, Namespace: gs.Namespace}, &ss)
-	if ssErr != nil && !apierrors.IsNotFound(ssErr) {
-		return 0, ssErr
+	ssExists, ssReady, err := r.workloadState(ctx, gs)
+	if err != nil {
+		return 0, err
 	}
-	ssExists := ssErr == nil
 
 	var svc corev1.Service
 	svcErr := r.Get(ctx, types.NamespacedName{Name: gs.Name, Namespace: gs.Namespace}, &svc)
@@ -77,7 +75,7 @@ func (r *GameServerReconciler) reconcileStatus(
 	// callers reach the same decision without the reconcile carrying it.
 	addrPlan := r.addressPlanFor(gs)
 
-	phase := derivePhase(gs, ssExists, ss.Status.ReadyReplicas > 0, heartbeatFresh(gs), idle)
+	phase := derivePhase(gs, ssExists, ssReady, heartbeatFresh(gs), idle)
 
 	// Check for PVC provisioning failures early. If the game-data PVC is stuck
 	// Pending due to a missing StorageClass or other provisioning error, report it
@@ -87,7 +85,7 @@ func (r *GameServerReconciler) reconcileStatus(
 	// in a non-terminal phase (Pending or Starting) per the spec (not escalated to Failed).
 	var prov *provisioningInfo
 	if phase == gameplanev1alpha1.GameServerPhasePending || phase == gameplanev1alpha1.GameServerPhaseStarting {
-		pvcName := gs.Name + "-data"
+		pvcName := dataClaimName(gs)
 		if scName, pvcMsg, provisioning, err := checkPVCProvisioningFailure(ctx, r.Client, gs.Namespace, pvcName); err != nil {
 			// Non-NotFound error checking the PVC or StorageClass; surface it.
 			return 0, fmt.Errorf("check PVC provisioning: %w", err)
@@ -110,12 +108,12 @@ func (r *GameServerReconciler) reconcileStatus(
 	// terminally failed, escalate the phase to Failed.
 	if phase == gameplanev1alpha1.GameServerPhaseStarting && prov == nil {
 		var pod corev1.Pod
-		podErr := r.Get(ctx, types.NamespacedName{Name: gs.Name + "-0", Namespace: gs.Namespace}, &pod)
+		podErr := r.Get(ctx, types.NamespacedName{Name: gamePodName(gs), Namespace: gs.Namespace}, &pod)
 		switch {
 		case apierrors.IsNotFound(podErr):
 			prov = &provisioningInfo{reason: "Pending", message: "scheduling the pod"}
 		case podErr != nil:
-			return 0, fmt.Errorf("get pod %s-0: %w", gs.Name, podErr)
+			return 0, fmt.Errorf("get pod %s: %w", gamePodName(gs), podErr)
 		default:
 			if fr, fm, failed := startupFailure(&pod); failed {
 				// A terminal startup failure (unpullable image, persistent
@@ -845,7 +843,7 @@ func addressRequestSummary(plan addressPlan) string {
 // Best-effort: a failed read just leaves status.startedAt as it was.
 func (r *GameServerReconciler) gameContainerStartedAt(ctx context.Context, gs *gameplanev1alpha1.GameServer) *metav1.Time {
 	var pod corev1.Pod
-	if err := r.Get(ctx, types.NamespacedName{Name: gs.Name + "-0", Namespace: gs.Namespace}, &pod); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: gamePodName(gs), Namespace: gs.Namespace}, &pod); err != nil {
 		return nil
 	}
 	for i := range pod.Status.ContainerStatuses {

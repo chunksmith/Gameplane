@@ -659,8 +659,16 @@ export interface GameServer {
 
 export interface GameServerSet {
   metadata: ObjectMeta & { resourceVersion?: string };
-  spec: { replicas: number; nodes?: string[]; template: GameServer["spec"] };
-  status?: { replicas?: number; readyReplicas?: number; observedGeneration?: number };
+  spec: {
+    replicas: number;
+    mode?: "Independent" | "StatefulSet";
+    nodes?: string[];
+    placement?: { ordinal: number; node: string }[];
+    replicaPorts?: { name: string; protocol?: "TCP" | "UDP"; basePort: number; externalIPs?: string[] }[];
+    minReadySeconds?: number;
+    template: GameServer["spec"];
+  };
+  status?: { replicas?: number; readyReplicas?: number; updatedReplicas?: number; observedGeneration?: number };
 }
 
 // A Kubernetes Event about a server's pod/StatefulSet/GameServer, as

@@ -225,7 +225,7 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		job.Spec.ActiveDeadlineSeconds = &deadline
 		job.Annotations = map[string]string{restoreTargetAnnotation: rs.Annotations[restoreTargetAnnotation]}
 		job.Spec.Template.Labels = map[string]string{backupRestoreJobLabel: backupRestoreJobValue, restoreUIDLabel: string(rs.UID)}
-		job.Spec.Template.Spec = r.buildRestorePodSpec(&rs, &src, &tmpl)
+		job.Spec.Template.Spec = r.buildRestorePodSpec(&rs, &src, &tmpl, dataClaimName(&gs))
 		job.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 		if err := controllerutil.SetControllerReference(&rs, job, r.Scheme); err != nil {
 			return ctrl.Result{}, err
@@ -321,7 +321,7 @@ func (r *RestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // buildRestorePodSpec mirrors backup_controller.buildBackupPodSpec but
 // runs `restic restore <id>` and mounts the data PVC read-write.
 func (r *RestoreReconciler) buildRestorePodSpec(
-	rs *gameplanev1alpha1.Restore, src *gameplanev1alpha1.Backup, tmpl *gameplanev1alpha1.GameTemplate,
+	rs *gameplanev1alpha1.Restore, src *gameplanev1alpha1.Backup, tmpl *gameplanev1alpha1.GameTemplate, claim string,
 ) corev1.PodSpec {
 	nonRoot := true
 	roRootFS := true
@@ -391,7 +391,7 @@ func (r *RestoreReconciler) buildRestorePodSpec(
 				Name: "data",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: rs.Spec.ServerRef.Name + "-data",
+						ClaimName: claim,
 					},
 				},
 			},

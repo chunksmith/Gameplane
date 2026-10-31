@@ -213,7 +213,7 @@ func (r *GameServerReconciler) createWipeJob(
 						Name: "data",
 						VolumeSource: corev1.VolumeSource{
 							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: gs.Name + "-data",
+								ClaimName: dataClaimName(gs),
 							},
 						},
 					}},

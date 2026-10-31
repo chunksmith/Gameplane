@@ -159,6 +159,34 @@ type GameServerSpec struct {
 
 	// +optional
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+
+	// +kubebuilder:validation:MaxItems=16
+	// +optional
+	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
+	// +optional
+	Lifecycle *corev1.Lifecycle `json:"lifecycle,omitempty"`
+
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=8
+	// +optional
+	ScratchVolumes []ScratchVolume `json:"scratchVolumes,omitempty"`
+
+	// +kubebuilder:validation:MaxProperties=16
+	// +kubebuilder:validation:XValidation:rule="self.all(k, !k.startsWith('app.kubernetes.io/') && !k.startsWith('gameplane.local/') && !k.startsWith('statefulset.kubernetes.io/') && !k.startsWith('apps.kubernetes.io/') && k != 'controller-revision-hash')",message="podLabels must not use reserved prefixes"
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
+}
+
+// ScratchVolume is an emptyDir mounted on the game container.
+type ScratchVolume struct {
+	// +kubebuilder:validation:Pattern=`^[a-z]([-a-z0-9]{0,30}[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// +kubebuilder:validation:Pattern=`^/[^:]*$`
+	// +kubebuilder:validation:MaxLength=256
+	MountPath string `json:"mountPath"`
 }
 
 // IdleSpec configures idle auto-sleep: the operator scales the server down

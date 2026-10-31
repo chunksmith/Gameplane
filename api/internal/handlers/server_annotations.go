@@ -42,3 +42,28 @@ func isGameplaneAnnotation(key string) bool {
 	domain, _, qualified := strings.Cut(key, "/")
 	return qualified && (domain == "gameplane.local" || strings.HasSuffix(domain, ".gameplane.local"))
 }
+
+const serverSetStatefulSetLabel = "gameplane.local/server-set-statefulset"
+
+var serverSetLabels = []string{"gameplane.local/server-set", serverSetStatefulSetLabel}
+
+func protectServerOwnership(desired, live *unstructured.Unstructured) {
+	labels := desired.GetLabels()
+	for _, key := range serverSetLabels {
+		delete(labels, key)
+		if live != nil {
+			if value, ok := live.GetLabels()[key]; ok {
+				if labels == nil {
+					labels = map[string]string{}
+				}
+				labels[key] = value
+			}
+		}
+	}
+	desired.SetLabels(labels)
+	if live == nil {
+		desired.SetOwnerReferences(nil)
+		return
+	}
+	desired.SetOwnerReferences(live.GetOwnerReferences())
+}

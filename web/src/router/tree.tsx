@@ -73,11 +73,11 @@ const serverDetailRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/servers/$name",
   component: ServerDetailPage,
-  validateSearch: (search: Record<string, unknown>): { ns?: string; cluster?: string } => {
-    for (const key of ["cluster", "ns"] as const) {
+  validateSearch: (search: Record<string, unknown>): { ns?: string; cluster?: string; tab?: string } => {
+    for (const key of ["cluster", "ns", "tab"] as const) {
       if (search[key] !== undefined && (typeof search[key] !== "string" || !search[key])) throw new Error(`Invalid server ${key}`);
     }
-    return { ns: search.ns as string | undefined, cluster: search.cluster as string | undefined };
+    return { ns: search.ns as string | undefined, cluster: search.cluster as string | undefined, tab: search.tab as string | undefined };
   },
 });
 

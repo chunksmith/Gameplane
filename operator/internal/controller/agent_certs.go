@@ -59,13 +59,19 @@ func (r *GameServerReconciler) reconcileAgentTLS(
 func ensureAgentTLS(
 	ctx context.Context, c client.Client, scheme *runtime.Scheme, caName, caNamespace string, owner client.Object,
 ) error {
+	return ensureAgentTLSNames(ctx, c, scheme, caName, caNamespace, owner, owner.GetName(), agentDNSNames(owner.GetName(), owner.GetNamespace()))
+}
+
+func ensureAgentTLSNames(
+	ctx context.Context, c client.Client, scheme *runtime.Scheme, caName, caNamespace string, owner client.Object,
+	ownerName string, dnsNames []string,
+) error {
 	if caName == "" || caNamespace == "" {
 		return errors.New("agent CA Secret reference not configured (set --agent-ca-secret-name and --agent-ca-secret-namespace)")
 	}
 
-	ownerName, namespace := owner.GetName(), owner.GetNamespace()
+	namespace := owner.GetNamespace()
 	name := agentTLSSecretName(ownerName)
-	dnsNames := agentDNSNames(ownerName, namespace)
 
 	// Fetch the active CA first to compute its fingerprint.
 	var caSecret corev1.Secret

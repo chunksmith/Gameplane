@@ -1,0 +1,54 @@
+name: Deploy server group image
+description: Point a StatefulSet server group at a new image and wait for the one-by-one rollout.
+
+inputs:
+  kubeconfig:
+    description: Kubeconfig of a chart deployer ServiceAccount (deployers[] in values.yaml).
+    required: true
+  name:
+    description: GameServerSet name.
+    required: true
+  image:
+    description: Full image reference, e.g. ghcr.io/org/server:prod-<sha>.
+    required: true
+  namespace:
+    description: Games namespace.
+    required: false
+    default: gameplane-games
+  timeout:
+    description: How long to wait for the rollout; 0 returns right after the patch.
+    required: false
+    default: 90m
+
+runs:
+  using: composite
+  steps:
+    - name: Patch image and wait
+      shell: bash
+      env:
+        GAMEPLANE_KUBECONFIG: ${{ inputs.kubeconfig }}
+        SET_NAME: ${{ inputs.name }}
+        SET_IMAGE: ${{ inputs.image }}
+        SET_NAMESPACE: ${{ inputs.namespace }}
+        ROLLOUT_TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        set -euo pipefail
+        export KUBECONFIG="$RUNNER_TEMP/gameplane-kubeconfig"
+        umask 077
+        printf '%s' "$GAMEPLANE_KUBECONFIG" > "$KUBECONFIG"
+        patch=$(jq -cn --arg image "$SET_IMAGE" '{spec: {template: {image: $image}}}')
+        generation=$(kubectl -n "$SET_NAMESPACE" patch gameserverset "$SET_NAME" --type merge -p "$patch" \
+          -o jsonpath='{.metadata.generation}')
+        [ "$ROLLOUT_TIMEOUT" = "0" ] && exit 0
+        export SET_NAMESPACE SET_NAME generation
+        if ! timeout "$ROLLOUT_TIMEOUT" bash -c '
+          while :; do
+            read -r observed updated replicas < <(kubectl -n "$SET_NAMESPACE" get gameserverset "$SET_NAME" -o json |
+              jq -r "[.status.observedGeneration // 0, .status.updatedReplicas // 0, .spec.replicas // 1] | @tsv")
+            echo "observed generation $observed/$generation, updated $updated/$replicas"
+            [ "$observed" -ge "$generation" ] && [ "$updated" -ge "$replicas" ] && exit 0
+            sleep 10
+          done'; then
+          echo "::error::gameserverset/$SET_NAME did not finish rolling out $SET_IMAGE within $ROLLOUT_TIMEOUT"
+          exit 1
+        fi

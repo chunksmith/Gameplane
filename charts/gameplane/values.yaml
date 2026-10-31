@@ -508,6 +508,8 @@ ingress:
 
 gamesNamespace: gameplane-games
 
+deployers: []
+
 networkPolicies:
   enabled: true
   # CIDRs that hold kubelet source IPs for liveness/readiness probes.
@@ -525,6 +527,7 @@ networkPolicies:
   # safe to restrict this to a known fixed set once your modules settle on
   # one, e.g. [{ protocol: TCP, port: 8090 }].
   probePorts: []
+  gameMetricsPorts: []
   # CIDRs that hold the kube-apiserver endpoint(s) the agent sidecar
   # patches its status heartbeat through. Same fallback semantics as
   # kubeletCIDRs: unset means RFC1918 + link-local on TCP 443/6443.

@@ -77,13 +77,10 @@ func (h *podLogProxy) handle(w http.ResponseWriter, req *http.Request) {
 		httperr.Write(w, req, err)
 		return
 	}
-	// StatefulSet replica naming — the operator pins replicas=1, so -0 is
-	// the only pod that ever exists for a given GameServer.
 	if len(validation.IsDNS1123Subdomain(name)) != 0 {
 		httperr.WriteMessage(w, req, messages.New("server.ws.invalid_server_name", nil))
 		return
 	}
-	podName := name + "-0"
 	fromEnd := req.URL.Query().Get("from") == "end"
 	tail, tailErr := strconv.ParseInt(req.URL.Query().Get("tail"), 10, 32)
 	tailed := tailErr == nil && tail > 0
@@ -120,6 +117,7 @@ func (h *podLogProxy) handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	h.podUID = pod.UID
+	podName := pod.Name
 	gameStarted, _ := containerLogState(pod, gameContainer, false)
 
 	if fromEnd || (tailed && gameStarted) {

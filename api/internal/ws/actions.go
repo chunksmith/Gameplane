@@ -260,7 +260,7 @@ func (p *proxy) runStdinAction(w http.ResponseWriter, req *http.Request, ns, nam
 		return
 	}
 
-	pod := name + "-0"
+	pod := serverPodName(req.Context(), p.k, ns, name)
 	if p.remoteUID != "" {
 		owned, err := serverPodForUID(req.Context(), p.k, ns, name, p.remoteUID)
 		if err != nil {

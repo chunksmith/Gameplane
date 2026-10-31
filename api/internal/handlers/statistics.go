@@ -467,6 +467,27 @@ func (s *nodeSamples) values() nodeValues {
 
 type serverSamples struct {
 	cpu, memory, rx, tx, online, playersMax, cpuLimit, memoryLimit []prom.Sample
+	replicas                                                       map[string]bool
+}
+
+func (h *clusterHandler) statefulSetReplicas(ctx context.Context) map[string]bool {
+	list, err := h.k.Dynamic.Resource(kube.GVRs["servers"]).List(ctx, metav1.ListOptions{LabelSelector: serverSetStatefulSetLabel})
+	replicas := map[string]bool{}
+	if err != nil {
+		return replicas
+	}
+	for _, item := range list.Items {
+		replicas[item.GetNamespace()+"/"+item.GetName()] = true
+	}
+	return replicas
+}
+
+func (h *clusterHandler) serverPodName(ctx context.Context, namespace, name string) string {
+	gs, err := h.k.Dynamic.Resource(kube.GVRs["servers"]).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err == nil && gs.GetLabels()[serverSetStatefulSetLabel] != "" {
+		return name
+	}
+	return name + "-0"
 }
 
 func queueServers(run *promRun, samples *serverSamples, window string) {
@@ -501,15 +522,21 @@ func (s *serverSamples) rows() []statisticsServer {
 		add(sample.Labels["namespace"], sample.Labels["server"])
 	}
 	for _, sample := range s.cpu {
-		if name, ok := strings.CutSuffix(sample.Labels["pod"], "-0"); ok {
+		pod := sample.Labels["pod"]
+		if s.replicas[sample.Labels["namespace"]+"/"+pod] {
+			add(sample.Labels["namespace"], pod)
+		} else if name, ok := strings.CutSuffix(pod, "-0"); ok {
 			add(sample.Labels["namespace"], name)
 		}
 	}
 
 	rows := make([]statisticsServer, 0, len(names))
 	for _, row := range names {
-		podKey := row.Namespace + "/" + row.Name + "-0"
 		serverKey := row.Namespace + "/" + row.Name
+		podKey := serverKey + "-0"
+		if s.replicas[serverKey] {
+			podKey = serverKey
+		}
 		row.CPU = valueOfSample(cpu, podKey)
 		row.Memory = valueOfSample(memory, podKey)
 		row.RX = valueOfSample(rx, podKey)
@@ -659,6 +686,7 @@ func (h *statisticsHandler) live(w http.ResponseWriter, req *http.Request) {
 			TXSeries: firstPoints(data.tx),
 		}
 	}
+	data.servers.replicas = home.statefulSetReplicas(ctx)
 	servers := visibleServers(req, data.servers.rows())
 	if len(servers) > maxServerRows {
 		servers = servers[:maxServerRows]
@@ -1008,6 +1036,7 @@ func (h *statisticsHandler) node(w http.ResponseWriter, req *http.Request) {
 	run := newPromRun(ctx, h.prom, now)
 	queueNode(run, &data, name, spec, now)
 	unreachable, partial := run.wait()
+	data.servers.replicas = home.statefulSetReplicas(ctx)
 	prometheus := h.prom != nil && !unreachable
 	if !prometheus {
 		data = nodeData{}
@@ -1115,8 +1144,8 @@ type serverData struct {
 	diskUsed, diskTotal, diskGrowth []prom.Sample
 }
 
-func queueServer(run *promRun, data *serverData, namespace, name string, spec rangeSpec, now time.Time) {
-	pod := podMatch(namespace, name+"-0")
+func queueServer(run *promRun, data *serverData, namespace, name, podName string, spec rangeSpec, now time.Time) {
+	pod := podMatch(namespace, podName)
 	server := serverMatch(namespace, name)
 	game := `container="game",` + pod
 	window := rateWindow(spec.step)
@@ -1175,7 +1204,7 @@ func (h *statisticsHandler) server(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	ctx := req.Context()
-	podName := name + "-0"
+	podName := home.serverPodName(ctx, namespace, name)
 	pod, err := home.k.Typed.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		pod = nil
@@ -1187,7 +1216,7 @@ func (h *statisticsHandler) server(w http.ResponseWriter, req *http.Request) {
 	now := h.now()
 	var data serverData
 	run := newPromRun(ctx, h.prom, now)
-	queueServer(run, &data, namespace, name, spec, now)
+	queueServer(run, &data, namespace, name, podName, spec, now)
 	unreachable, partial := run.wait()
 	prometheus := h.prom != nil && !unreachable
 	if !prometheus {

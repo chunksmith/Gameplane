@@ -79,6 +79,7 @@ interface WizardState {
   mode: "single" | "group";
   replicas: string;
   nodes: string[];
+  pins: string[];
   ephemeral: boolean;
   image: string;
 }
@@ -101,8 +102,26 @@ const initial: WizardState = {
   playitTunnelName: "",
   addressPool: "",
   requestedAddress: "",
-  mode: "single", replicas: "3", nodes: [], ephemeral: false, image: "",
+  mode: "single", replicas: "3", nodes: [], pins: [], ephemeral: false, image: "",
 };
+
+const ANY_NODE = "__any__";
+
+function replicaOrdinals(replicas: string): number[] {
+  const count = Number(replicas);
+  return Number.isInteger(count) && count >= 1 && count <= 100 ? Array.from({ length: count }, (_, ordinal) => ordinal) : [];
+}
+
+function pinReplica(pins: string[], ordinal: number, node: string): string[] {
+  const next = [...pins];
+  next[ordinal] = node === ANY_NODE ? "" : node;
+  return next;
+}
+
+export function replicaPlacement(state: Pick<WizardState, "pins" | "replicas" | "ephemeral">): { ordinal: number; node: string }[] {
+  if (state.ephemeral) return [];
+  return replicaOrdinals(state.replicas).flatMap((ordinal) => (state.pins[ordinal] ? [{ ordinal, node: state.pins[ordinal] }] : []));
+}
 
 // Largest single-node capacity from the cluster view — the ceiling a pod
 // can ever be scheduled onto. Returns 0 when node data is unavailable
@@ -403,7 +422,14 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
   const create = useMutation({
     mutationFn: async () => {
       if (state.mode === "group") {
-        await ServerSets.create({ ...buildCreateBody(state), replicas: Number(state.replicas), ...(state.nodes.length ? { nodes: state.nodes } : {}) });
+        const placement = replicaPlacement(state);
+        await ServerSets.create({
+          ...buildCreateBody(state),
+          replicas: Number(state.replicas),
+          mode: "StatefulSet",
+          ...(state.ephemeral && state.nodes.length ? { nodes: state.nodes } : {}),
+          ...(placement.length ? { placement } : {}),
+        });
         return null;
       }
       const server = await Servers.create(buildCreateBody(state));
@@ -818,26 +844,55 @@ function Configure({ state, setState, caps, nodeNames, cluster }: { state: Wizar
               className="w-32"
             />
           </div>
-          <div className="space-y-1.5">
-            <span className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.nodes", defaultMessage: "Nodes", description: "Create server: label of the list of nodes a server group's replicas may run on" })}</span>
-            {nodeNames.length === 0 ? (
-              <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.node_list_unavailable", defaultMessage: "Node list unavailable. The scheduler places the replicas.", description: "Create server: hint shown instead of the node list when the nodes cannot be listed" })}</span>
-            ) : (
-              <div className="flex flex-wrap gap-2" role="group" aria-label={intl.formatMessage({ id: "web.routes.create_server.nodes", defaultMessage: "Nodes", description: "Create server: label of the list of nodes a server group's replicas may run on" })}>
-                {nodeNames.map((node) => (
-                  <label key={node} className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={state.nodes.includes(node)}
-                      onChange={(event) => setState({ ...state, nodes: event.target.checked ? [...state.nodes, node] : state.nodes.filter((selected) => selected !== node) })}
-                    />
-                    <span className="font-mono">{node}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-            <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.replicas_run_only_on_the_selected", defaultMessage: "Replicas run only on the selected nodes and spread across them. None selected: any node.", description: "Create server: hint under the node list explaining replicas run only on the selected nodes, or on any node when none is selected" })}</span>
-          </div>
+          {state.ephemeral ? (
+            <div className="space-y-1.5">
+              <span className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.nodes", defaultMessage: "Nodes", description: "Create server: label of the list of nodes a server group's replicas may run on" })}</span>
+              {nodeNames.length === 0 ? (
+                <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.node_list_unavailable", defaultMessage: "Node list unavailable. The scheduler places the replicas.", description: "Create server: hint shown instead of the node list when the nodes cannot be listed" })}</span>
+              ) : (
+                <div className="flex flex-wrap gap-2" role="group" aria-label={intl.formatMessage({ id: "web.routes.create_server.nodes", defaultMessage: "Nodes", description: "Create server: label of the list of nodes a server group's replicas may run on" })}>
+                  {nodeNames.map((node) => (
+                    <label key={node} className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={state.nodes.includes(node)}
+                        onChange={(event) => setState({ ...state, nodes: event.target.checked ? [...state.nodes, node] : state.nodes.filter((selected) => selected !== node) })}
+                      />
+                      <span className="font-mono">{node}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.replicas_run_only_on_the_selected", defaultMessage: "Replicas run only on the selected nodes and spread across them. None selected: any node.", description: "Create server: hint under the node list explaining replicas run only on the selected nodes, or on any node when none is selected" })}</span>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <span className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.replica_nodes", defaultMessage: "Replica nodes", description: "Create server: label of the per-replica node choices of a server group with persistent storage" })}</span>
+              {nodeNames.length === 0 ? (
+                <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.node_list_unavailable", defaultMessage: "Node list unavailable. The scheduler places the replicas.", description: "Create server: hint shown instead of the node list when the nodes cannot be listed" })}</span>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {replicaOrdinals(state.replicas).map((ordinal) => (
+                    <Select
+                      key={ordinal}
+                      value={state.pins[ordinal] || ANY_NODE}
+                      onChange={(value) => setState({ ...state, pins: pinReplica(state.pins, ordinal, String(value)) })}
+                    >
+                      <Label>{intl.formatMessage({ id: "web.routes.create_server.replica_name", defaultMessage: "{name}-{ordinal}", description: "Create server: label of one replica's node choice; {name} is the group name, or <name> while it is empty, and {ordinal} the replica number" }, { name: state.name || "<name>", ordinal })}</Label>
+                      <Select.Trigger aria-label={intl.formatMessage({ id: "web.routes.create_server.node_for_replica", defaultMessage: "Node for {name}-{ordinal}", description: "Create server: screen-reader label of one replica's node dropdown; {name} is the group name, or <name> while it is empty, and {ordinal} the replica number" }, { name: state.name || "<name>", ordinal })}><Select.Value /><Select.Indicator /></Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBoxItem key={ANY_NODE} id={ANY_NODE}>{intl.formatMessage({ id: "web.routes.create_server.any_node", defaultMessage: "Any node", description: "Create server: replica node choice that lets the scheduler pick the node" })}</ListBoxItem>
+                          {nodeNames.map((node) => <ListBoxItem key={node} id={node}>{node}</ListBoxItem>)}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  ))}
+                </div>
+              )}
+              <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.replica_volume_stays_on_node", defaultMessage: "Each replica keeps its volume on its node. Any node: the scheduler picks once, then the replica stays there.", description: "Create server: hint under the per-replica node choices explaining a replica's volume and pod stay on the chosen node" })}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1238,6 +1293,22 @@ function TunnelPortMappingsEditor({
   );
 }
 
+function reviewNodes(state: WizardState, intl: IntlShape): string {
+  const any = intl.formatMessage(REVIEW_LABELS.any);
+  if (state.ephemeral) return state.nodes.length ? state.nodes.join(", ") : any;
+  const placement = replicaPlacement(state);
+  if (!placement.length) return any;
+  return placement
+    .map(({ ordinal, node }) => intl.formatMessage({ id: "web.routes.create_server.review_replica_on_node", defaultMessage: "{name}-{ordinal} on {node}", description: "Create server: review value for one pinned replica; {name} is the group name, {ordinal} the replica number and {node} its node" }, { name: state.name || "<name>", ordinal, node }))
+    .join("\n");
+}
+
+function yamlPlacement(state: WizardState): string {
+  const placement = replicaPlacement(state);
+  if (!placement.length) return "";
+  return `  placement:\n${placement.map(({ ordinal, node }) => `  - { ordinal: ${ordinal}, node: ${node} }\n`).join("")}`;
+}
+
 const DEPLOYMENT_MODE = defineMessages({
   single: { id: "web.routes.create_server.single_server", defaultMessage: "Single server", description: "Create server: deployment choice for one server with its own address" },
   group: { id: "web.routes.create_server.server_group", defaultMessage: "Server group", description: "Create server: deployment choice for a group of identical replicas" },
@@ -1305,7 +1376,7 @@ function Review({ state, onEdit, location, cluster }: { state: WizardState; onEd
         [intl.formatMessage(REVIEW_LABELS.cpu), intl.formatMessage(REVIEW_LABELS.request_limit, { request: state.resources.requests?.cpu ?? empty, limit: state.resources.limits?.cpu ?? empty })],
         [intl.formatMessage(REVIEW_LABELS.memory), intl.formatMessage(REVIEW_LABELS.request_limit, { request: state.resources.requests?.memory ?? empty, limit: state.resources.limits?.memory ?? empty })],
         [intl.formatMessage(REVIEW_LABELS.deployment), state.mode === "group" ? intl.formatMessage({ id: "web.routes.create_server.review_group_of_replicas", defaultMessage: "Group of {count}", description: "Create server: review value for a server group; {count} is the number of replicas" }, { count: state.replicas }) : intl.formatMessage(DEPLOYMENT_MODE.single)],
-        ...(state.mode === "group" ? [[intl.formatMessage(REVIEW_LABELS.nodes), state.nodes.length ? state.nodes.join(", ") : intl.formatMessage(REVIEW_LABELS.any)] as [string, string]] : []),
+        ...(state.mode === "group" ? [[intl.formatMessage(REVIEW_LABELS.nodes), reviewNodes(state, intl)] as [string, string]] : []),
         [intl.formatMessage(REVIEW_LABELS.image), state.image.trim() || intl.formatMessage(REVIEW_LABELS.template_default)],
         [intl.formatMessage(REVIEW_LABELS.storage), state.ephemeral ? intl.formatMessage(REVIEW_LABELS.ephemeral) : state.storageSize],
         ...(state.mode === "single" ? [[intl.formatMessage(REVIEW_LABELS.placement), state.nodePlacement] as [string, string]] : []),
@@ -1380,7 +1451,7 @@ function Review({ state, onEdit, location, cluster }: { state: WizardState; onEd
           {sec.rows.map(([k, v]) => (
             <div key={k} className="flex justify-between border-b border-border py-1.5">
               <span className="text-muted">{k}</span>
-              <span className="font-mono">{v}</span>
+              <span className="whitespace-pre-line text-right font-mono">{v}</span>
             </div>
           ))}
         </div>
@@ -1418,7 +1489,7 @@ kind: ${isGroup ? "GameServerSet" : "GameServer"}
 metadata:
   name: ${state.name || "server-name"}
 spec:
-${isGroup ? `  replicas: ${state.replicas}\n` : ""}  templateRef:
+${isGroup ? `  replicas: ${state.replicas}\n  mode: StatefulSet\n${yamlPlacement(state)}` : ""}  templateRef:
     name: ${state.template.metadata.name}
 ${state.version ? `  version: ${state.version}\n` : ""}  resources:
     requests: ${JSON.stringify(state.resources.requests ?? {})}

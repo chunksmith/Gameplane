@@ -145,7 +145,8 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   const client = useResourceClient();
   const { Servers } = client;
   const access = useResourceAccess();
-  const [tab, setTab] = useState<TabKey>("overview");
+  const { tab: requestedTab } = useSearch({ from: "/app-layout/servers/$name" });
+  const [tab, setTab] = useState<TabKey>((requestedTab as TabKey | undefined) ?? "overview");
   const [settingsDirty, setSettingsDirty] = useState(false);
   const qc = useQueryClient();
   const nav = useNavigate();
@@ -269,7 +270,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   // operator sets startedAt only on first reaching Running). Fires once,
   // after gs first loads, and never fights a manual tab click. Adjusted
   // directly during render (not in an effect), gated on autoTabApplied.
-  const [autoTabApplied, setAutoTabApplied] = useState(false);
+  const [autoTabApplied, setAutoTabApplied] = useState(requestedTab !== undefined);
   if (!autoTabApplied && gs) {
     setAutoTabApplied(true);
     const st = gs.status;

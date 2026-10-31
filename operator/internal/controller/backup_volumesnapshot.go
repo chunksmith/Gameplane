@@ -46,7 +46,7 @@ func (r *BackupReconciler) reconcileVolumeSnapshot(
 		return res, err
 	}
 
-	pvcName := gs.Name + "-data"
+	pvcName := dataClaimName(gs)
 	vs := &snapshotv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{Name: b.Name, Namespace: b.Namespace},
 	}

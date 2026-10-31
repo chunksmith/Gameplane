@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +32,8 @@ var serverSetInheritedAnnotations = []string{
 
 type GameServerSetReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	Servers *GameServerReconciler
 }
 
 // +kubebuilder:rbac:groups=gameplane.local,resources=gameserversets,verbs=get;list;watch
@@ -54,6 +56,9 @@ func (r *GameServerSetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if metav1.IsControlledBy(&children.Items[i], &set) {
 			owned[children.Items[i].Name] = &children.Items[i]
 		}
+	}
+	if set.Spec.Mode == gameplanev1alpha1.GameServerSetModeStatefulSet {
+		return r.reconcileStatefulSetMode(ctx, &set, owned)
 	}
 	spec := serverSetChildSpec(&set)
 	hash, err := serverSetSpecHash(spec)
@@ -115,6 +120,9 @@ func (r *GameServerSetReconciler) createChild(
 			Annotations: map[string]string{serverSetHashAnnotation: hash},
 		},
 		Spec: *spec.DeepCopy(),
+	}
+	if set.Spec.Mode == gameplanev1alpha1.GameServerSetModeStatefulSet {
+		child.Labels[serverSetStatefulSetLabel] = set.Name
 	}
 	for _, key := range serverSetInheritedAnnotations {
 		if value := set.Annotations[key]; value != "" {
@@ -209,5 +217,6 @@ func (r *GameServerSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gameplanev1alpha1.GameServerSet{}).
 		Owns(&gameplanev1alpha1.GameServer{}).
+		Owns(&appsv1.StatefulSet{}).
 		Complete(r)
 }

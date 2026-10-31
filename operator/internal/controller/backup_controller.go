@@ -365,7 +365,7 @@ func (r *BackupReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 			job.Spec.BackoffLimit = &backoff
 			job.Spec.ActiveDeadlineSeconds = &deadline
 			job.Spec.Template.Labels = map[string]string{backupRestoreJobLabel: backupRestoreJobValue, backupUIDLabel: string(b.UID)}
-			job.Spec.Template.Spec = r.buildBackupPodSpec(&b, &tmpl)
+			job.Spec.Template.Spec = r.buildBackupPodSpec(&b, &tmpl, dataClaimName(&gs))
 			job.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 		}
 		return controllerutil.SetControllerReference(&b, job, r.Scheme)
@@ -880,7 +880,7 @@ func (r *BackupReconciler) unquiesceTargetGone(ctx context.Context, b *gameplane
 	}
 
 	var pod corev1.Pod
-	podKey := types.NamespacedName{Namespace: b.Namespace, Name: gs.Name + "-0"}
+	podKey := types.NamespacedName{Namespace: b.Namespace, Name: gamePodName(gs)}
 	switch err := r.Get(ctx, podKey, &pod); {
 	case apierrors.IsNotFound(err):
 		return true, nil
@@ -1075,7 +1075,7 @@ func volumeSnapshotsAvailable(rm meta.RESTMapper) bool {
 //
 // Both containers share the same env (repo + password from the user's
 // Secret) and a tmpfs-backed cache to keep the rootfs read-only.
-func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl *gameplanev1alpha1.GameTemplate) corev1.PodSpec {
+func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl *gameplanev1alpha1.GameTemplate, claim string) corev1.PodSpec {
 	env := resticEnv(b.Spec.RepoRef.Name)
 	containerSec := resticContainerSecurityContext()
 
@@ -1120,7 +1120,7 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 				Name: "data",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: b.Spec.ServerRef.Name + "-data",
+						ClaimName: claim,
 						ReadOnly:  true,
 					},
 				},

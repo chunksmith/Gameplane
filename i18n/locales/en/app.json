@@ -7871,6 +7871,10 @@
     "defaultMessage": "Address preference ignored",
     "description": "Create server: warning title of a notice shown when an address pool or requested address is set but Expose is not LoadBalancer"
   },
+  "web.routes.create_server.any_node": {
+    "defaultMessage": "Any node",
+    "description": "Create server: replica node choice that lets the scheduler pick the node"
+  },
   "web.routes.create_server.back": {
     "defaultMessage": "Back",
     "description": "Create server: footer button that returns to the previous wizard step; keep it short"
@@ -8155,6 +8159,10 @@
     "defaultMessage": "No volume: data is wiped on every restart. Backups are unavailable.",
     "description": "Create server: hint under the ephemeral storage checkbox when it is checked; backups are unavailable"
   },
+  "web.routes.create_server.node_for_replica": {
+    "defaultMessage": "Node for {name}-{ordinal}",
+    "description": "Create server: screen-reader label of one replica's node dropdown; {name} is the group name, or <name> while it is empty, and {ordinal} the replica number"
+  },
   "web.routes.create_server.node_list_unavailable": {
     "defaultMessage": "Node list unavailable. The scheduler places the replicas.",
     "description": "Create server: hint shown instead of the node list when the nodes cannot be listed"
@@ -8267,6 +8275,18 @@
     "defaultMessage": "Remote port",
     "description": "Create server: small field label for the remote port number in a tunnel port mapping row"
   },
+  "web.routes.create_server.replica_name": {
+    "defaultMessage": "{name}-{ordinal}",
+    "description": "Create server: label of one replica's node choice; {name} is the group name, or <name> while it is empty, and {ordinal} the replica number"
+  },
+  "web.routes.create_server.replica_nodes": {
+    "defaultMessage": "Replica nodes",
+    "description": "Create server: label of the per-replica node choices of a server group with persistent storage"
+  },
+  "web.routes.create_server.replica_volume_stays_on_node": {
+    "defaultMessage": "Each replica keeps its volume on its node. Any node: the scheduler picks once, then the replica stays there.",
+    "description": "Create server: hint under the per-replica node choices explaining a replica's volume and pod stay on the chosen node"
+  },
   "web.routes.create_server.replicas": {
     "defaultMessage": "Replicas",
     "description": "Create server: field label for how many identical replicas a server group runs"
@@ -8374,6 +8394,10 @@
   "web.routes.create_server.review_port_overrides": {
     "defaultMessage": "Port overrides",
     "description": "Create server: review row label for the port override names"
+  },
+  "web.routes.create_server.review_replica_on_node": {
+    "defaultMessage": "{name}-{ordinal} on {node}",
+    "description": "Create server: review value for one pinned replica; {name} is the group name, {ordinal} the replica number and {node} its node"
   },
   "web.routes.create_server.review_request_limit": {
     "defaultMessage": "{request} request · {limit} limit",
@@ -9666,6 +9690,14 @@
   "web.routes.servers.of_total": {
     "defaultMessage": "of {count} total",
     "description": "Servers: sub-label on the Running card; {count} is the total number of servers"
+  },
+  "web.routes.servers.open_console": {
+    "defaultMessage": "Console",
+    "description": "Servers: accessible name and tooltip of the icon button on a server group replica card that opens that replica's Console tab"
+  },
+  "web.routes.servers.open_logs": {
+    "defaultMessage": "Logs",
+    "description": "Servers: accessible name and tooltip of the icon button on a server group replica card that opens that replica's Logs tab"
   },
   "web.routes.servers.peak_players": {
     "defaultMessage": "peak {count}",

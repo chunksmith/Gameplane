@@ -17,12 +17,14 @@ import {
   Play,
   Plus,
   RotateCw,
+  ScrollText,
   Search,
   Server as ServerIcon,
   SlidersHorizontal,
   Skull,
   Square,
   Sunrise,
+  Terminal,
   Trash2,
   Users as UsersIcon,
 } from "lucide-react";
@@ -832,7 +834,12 @@ function ServerGroupCard({
                 footer={
                   <div className="flex items-center justify-between gap-2">
                     <StatChip icon={<ServerIcon className="h-3.5 w-3.5" />} value={node ?? intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })} />
-                    <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={pending} onAct={onAct} />
+                    <div className="inline-flex items-center">
+                      <ServerTabLink gs={gs} tab="logs" />
+                      {gs.fleetAccess?.canConsole && <ServerTabLink gs={gs} tab="console" />}
+                      <span className="mx-1 h-4 w-px bg-border" />
+                      <ServerLifecycleActions gs={gs} phase={phase} asleep={asleep} pending={pending} onAct={onAct} />
+                    </div>
                   </div>
                 }
               />
@@ -919,6 +926,29 @@ function ServerCard({
 
       {footer && <div className="relative z-10 mt-3">{footer}</div>}
     </Card>
+  );
+}
+
+const SERVER_TAB_LINKS = defineMessages({
+  logs: { id: "web.routes.servers.open_logs", defaultMessage: "Logs", description: "Servers: accessible name and tooltip of the icon button on a server group replica card that opens that replica's Logs tab" },
+  console: { id: "web.routes.servers.open_console", defaultMessage: "Console", description: "Servers: accessible name and tooltip of the icon button on a server group replica card that opens that replica's Console tab" },
+});
+
+function ServerTabLink({ gs, tab }: { gs: GameServer; tab: "logs" | "console" }) {
+  const intl = useOptionalIntl();
+  const label = intl.formatMessage(SERVER_TAB_LINKS[tab]);
+  const Icon = tab === "logs" ? ScrollText : Terminal;
+  return (
+    <Link
+      to="/servers/$name"
+      params={{ name: gs.metadata.name }}
+      search={{ ...targetSearch(resourceTarget(gs)), tab }}
+      aria-label={label}
+      title={label}
+      className={cn(buttonVariants({ isIconOnly: true, variant: "ghost", size: "sm" }), "text-foreground/60 hover:text-foreground")}
+    >
+      <Icon className="h-4 w-4" />
+    </Link>
   );
 }
 
