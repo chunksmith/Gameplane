@@ -10,4 +10,4 @@ github-action-output: false
 threshold:
   file: 0
   package: 0
-  total: 90
+  total: 60

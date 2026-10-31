@@ -1,13 +1,13 @@
 ---
 name: ship-branch
-description: "Use when a branch is ready to become a PR, or a merged PR needs closing out — encodes this repo's PR target (chunksmith/Gameplane only, never upstream), labels, and branch-hygiene rules."
+description: "Use only when the user explicitly asks for a PR (default workflow is direct commit + push to master, rule 12) — when a branch is ready to become a PR, or a merged PR needs closing out — encodes this repo's PR target (chunksmith/Gameplane only, never upstream), labels, and branch-hygiene rules."
 ---
 
 ## Push & Watch CI
 
 1. Ensure every commit is signed (`git commit -s`) and carries no `Co-Authored-By` or `Claude-Session` trailer (rule 11).
 
-2. Push the feature branch (never to `master`):
+2. Push the feature branch:
    ```sh
    git push -u origin <branch-name>
    ```
@@ -95,7 +95,7 @@ description: "Use when a branch is ready to become a PR, or a merged PR needs cl
 ## Notes
 
 - **PRs only on `chunksmith/Gameplane`** (rule 19): head and base both in the fork, never upstream.
-- **Never push to `master`** (rule 12); a human merges.
+- A human merges PRs; agents never merge.
 - **Codegen output** (e.g., CRD regenerates per rule 7) goes in the same commit as the source change that triggered it.
 - **Breaking changes** to CRDs, API, or the Helm chart require the `breaking` label (rule 14).
 - **Session URL**: both the PR body footer and the commit trailer must cite the session that produced the work.

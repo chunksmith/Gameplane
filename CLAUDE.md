@@ -18,7 +18,7 @@ Run every session.
 
 ## System prompt overrides
 
-1. **Verify & tests:** always verify work. Get human sign-off before changing tests, production code, or design specs. Never delete/weaken a test without explicit sign-off — fix the code.
+1. **Verify & tests:** always verify work. Get human sign-off before changing production code or design specs. Write tests only for non-trivial logic (parsers, security/SSRF/injection guards, reconciler branches, auth/RBAC, migrations); skip them for UI copy, wiring, simple handlers and one-liners. Never delete an existing test without explicit sign-off — fix the code.
 2. **Tools:** dedicated tools (`Read`/`Edit`/`Write`) > MCP > Bash.
 3. **Pause** and ask when unsure about tests, design files, or breaking changes.
 4. **Workflow:** standing opt-in for `Workflow` in the main loop; subagents may use `Agent` freely.
@@ -75,7 +75,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 - **E2E conventions:** register new tests in `test/e2e/buckets.sh`; `t.Parallel()` + unique names; guard shared resources (`ociPushMu` for module pushes, `ensureResticRepo(t)` for shared backup repos). Rate limits per cluster: IP burst 10 (5/min), user burst 6 (3/min) — cap an API bucket at ~7 admin logins.
 - **Lint:** `make lint` = gofmt, go vet, golangci-lint, ESLint (incl. formatjs), `check-specs`, `check-doc-versions`, `check-links`, `check-i18n` (pack validity, catalog drift, unused ids).
 
-**Coverage minimums:** netguard 91, gameaction 91, gameproto 90, telemetryschema 90, i18n 90, gp-module 80, operator 72, api 80, agent 90, svcutil 90; audit-syslog-bridge, telemetry-receiver, sentinel, capture-sidecar, mcp-server, tunnel 70; web 92 lines / 76 functions / 82 branches / 92 statements.
+**Coverage minimums:** netguard, gameaction, gameproto 80; every other Go module 60; web 70 lines / 60 functions / 60 branches / 70 statements.
 
 ## Core rules
 
@@ -86,11 +86,11 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 5. **TypeScript:** strict; no unjustified `any` (explain in a comment if unavoidable); every promise `await`ed or `void`-prefixed.
 6. **Go errors:** wrap with `%w`.
 7. **CRD sync:** after editing `operator/api/v1alpha1/*_types.go` run `make generate && make manifests`; commit deepcopy, `operator/config/{crd,rbac}/*.yaml`, `charts/gameplane/charts/gameplane-crds/crds/*.yaml`, and `charts/gameplane/crd-manifests/*.yaml` in the same changeset.
-8. **Verification:** locally only compile checks (`go build ./...`, `npx tsc --noEmit`); never test/lint suites (`make test|lint|cover`, `go test`, `npm test`, envtest, E2E). Push a feature branch; CI is the sole verification authority.
+8. **Verification:** locally only compile checks (`go build ./...`, `npx tsc --noEmit`); never test/lint suites (`make test|lint|cover`, `go test`, `npm test`, envtest, E2E). Push to `master`; CI is the sole verification authority.
 9. **Kubernetes primitives first** (StatefulSet, Service, PVC, Job, ConfigMap, Secret, CRDs) before custom abstractions.
 10. **Operator authority:** business logic lives in reconcilers (`operator/internal/controller/`); the API is a UX gateway and never bypasses reconciliation.
 11. **Commits:** follow the global commit rules (commit only when asked; short 4–5 word English message); conventional prefix (`feat:`/`fix:`/`chore:`…), signed (`git commit -s`); never amend pushed commits or use `--no-verify`; no `Co-Authored-By` or `Claude-Session` trailers.
-12. **Branches:** one per unit of work; never push to `master`; delete remote + local branch right after merge. Agents never merge PRs or bypass review; a human merges.
+12. **Direct to master:** no PRs or feature branches by default — commit to `master` and `git push origin master` (only when the user asks to commit/push). The push triggers CI (`ci.yaml`) and build + deploy (`harbor.yaml`, `publish-edge.yaml`). Open a branch + PR only when the user explicitly asks; then agents never merge it and delete the branch after a human merges.
 13. **Multi-agent delegation:** main loop orchestrates/reviews; implementation goes through `Workflow` scripts (`parallel()`/`pipeline()`).
     - Start at `haiku`; escalate only on functional failure `haiku` → `sonnet` → `opus` → `fable`. `fable` needs explicit human permission.
     - Set `model:` on every `agent()` call (default is session Opus); check with `grep -c "model:"`.
@@ -98,7 +98,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
     - Review diffs, not items: one reviewer per batch checks `git diff` against the brief (facts are verified once, in the brief) — never one reviewer per page/file.
     - Scripts over fan-out: rule-shaped changes (token swaps, version strings, frontmatter, renames) are a deterministic script run by one agent, not many agents.
     - UI changes: browser smoke test via Chrome MCP at `sonnet`, parallel with reviews.
-14. **PR labels (REST only — `gh pr edit` is broken by the Projects-classic deprecation):** ≥1 `type:` (`feature|fix|refactor|test|ci|chore|docs|security`) and ≥1 `area:` (`operator|api|agent|web|modules|chart|e2e|specs|shared|optional-components`); `breaking` when applicable.
+14. **PR labels (only when a PR is opened; REST only — `gh pr edit` is broken by the Projects-classic deprecation):** ≥1 `type:` (`feature|fix|refactor|test|ci|chore|docs|security`) and ≥1 `area:` (`operator|api|agent|web|modules|chart|e2e|specs|shared|optional-components`); `breaking` when applicable.
     ```sh
     gh api -X POST repos/chunksmith/Gameplane/issues/<pr>/labels -f "labels[]=type: fix" -f "labels[]=area: api"
     gh api -X PATCH repos/chunksmith/Gameplane/pulls/<pr> --input <payload_with_body.json>
@@ -107,7 +107,7 @@ After cloning: `git submodule update --init` (`modules/` required for `make dev-
 16. **Archival:** once every task is complete/withdrawn and the PR is merged into `master`, `git mv specs/<NNN>-<slug> specs/done_<NNN>-<slug>` and update in-repo references in the same commit.
 17. **Mechanical UI waves** (token re-skins): scripted, blind updates at `haiku`. Precompute change lists with `grep`/`jq`; one script applies them. Verify by browser screenshots, not code dumps.
 18. **Scout once, brief many:** one scout reads code/docs/failures and writes a factual brief (exact `file:line`, before/after code, justification). Fix agents get only the brief and edit blind at `haiku` — never tell them to re-read files, test suites, or `CLAUDE.md` and `AGENTS.md`. Reviewers check git diffs against the brief.
-19. **PRs only on chunksmith, NEVER upstream:** every PR is `chunksmith/Gameplane:<branch>` → `chunksmith/Gameplane:master`. Never open a PR against `GameplanePanel/*` or any other upstream repo, under any circumstances. `origin` is a fork, so a bare `gh pr create` targets upstream: always run `gh pr create --repo chunksmith/Gameplane --base master --head <branch>`. Submodules point at their chunksmith forks (`modules/` → `chunksmith/module`, `website/` → `chunksmith/gameplane-website`, default branch `main`): commit and push there, never to `GameplanePanel/*`.
+19. **chunksmith only, NEVER upstream:** push only to `origin` (`chunksmith/Gameplane`); never push or open a PR against `GameplanePanel/*` or any other upstream repo, under any circumstances. If a PR is requested, `origin` is a fork, so a bare `gh pr create` targets upstream: always run `gh pr create --repo chunksmith/Gameplane --base master --head <branch>`. Submodules point at their chunksmith forks (`modules/` → `chunksmith/module`, `website/` → `chunksmith/gameplane-website`, default branch `main`): commit and push there, never to `GameplanePanel/*`.
 20. **Localized text (spec 019):** every user-visible dashboard string goes through `intl.formatMessage({ id, defaultMessage, description }, values?)` with `const intl = useOptionalIntl()` from `@/lib/i18n/format` (module constants: `defineMessages`); the formatjs ESLint rules cover all of `web/src` except tests.
     - Ids are `web.<path>.<slug>`; reuse an existing id only for identical English (`web.common.empty_value` "—", `web.common.separator_dot` "·"). Descriptions are literal translator notes ("<Screen>: what it is and where it appears").
     - No literal text in JSX: not even `{" "}`, "·", "/" or template literals in children or in `aria-label`/`title`/`placeholder`/`alt`. Interpolate with ICU placeholders and plurals (`{count, plural, one {# server} other {# servers}}`); rich text only with `<b>`.

@@ -121,7 +121,7 @@ make test                # FORBIDDEN
 make lint                # FORBIDDEN
 ```
 
-After committing, push to a feature branch and let GitHub Actions run the full test suite (`test-go`, `lint`, `test-integration`). Watch the run and fix failures with follow-up commits.
+After committing, push to `master` and let GitHub Actions run the full test suite (`test-go`, `lint`, `test-integration`). Watch the run and fix failures with follow-up commits.
 
 ## CRD/Reconciler Coupling
 

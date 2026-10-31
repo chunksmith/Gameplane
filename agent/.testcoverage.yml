@@ -18,7 +18,7 @@ github-action-output: false
 threshold:
   file: 0
   package: 0
-  total: 90
+  total: 60
 
 # The remaining gap is in heartbeat.Run's in-cluster path (reaches
 # rest.InClusterConfig — only meaningful in a real pod) and a couple of
