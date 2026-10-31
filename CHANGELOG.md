@@ -38,6 +38,10 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Fixed
 
+- **Data wipe on root game images:** the wipe Job now runs as root with only
+  `DAC_OVERRIDE`, so it clears root-owned `0600` files (Minecraft `level.dat`)
+  and directories owned by another uid instead of failing with permission denied.
+
 - **Server group volumes survive scale-down:** a group child's `<name>-data`
   PVC is no longer owned by the child, so lowering replicas keeps the data and
   raising them again reattaches it.
