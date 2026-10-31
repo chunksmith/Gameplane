@@ -397,7 +397,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.GameServerReconciler{
+	servers := &controller.GameServerReconciler{
 		Client:                 mgr.GetClient(),
 		APIReader:              mgr.GetAPIReader(),
 		Scheme:                 mgr.GetScheme(),
@@ -424,7 +424,8 @@ func main() {
 		CaptureEnabled:           captureEnabled,
 		CaptureSidecarImage:      captureSidecarImage,
 		DefaultStorageClassName:  gameDataStorageClass,
-	}).SetupWithManager(mgr); err != nil {
+	}
+	if err := servers.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "GameServer")
 		os.Exit(1)
 	}
@@ -442,8 +443,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&controller.GameServerSetReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Servers: servers,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "GameServerSet")
 		os.Exit(1)

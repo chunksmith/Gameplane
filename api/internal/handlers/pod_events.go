@@ -76,6 +76,7 @@ func podEventsHandler(reg *kube.Registry) http.HandlerFunc {
 func collectServerEvents(events []corev1.Event, name string) []PodEvent {
 	want := map[string]bool{
 		"Pod/" + name + "-0":  true,
+		"Pod/" + name:         true,
 		"StatefulSet/" + name: true,
 		"GameServer/" + name:  true,
 	}

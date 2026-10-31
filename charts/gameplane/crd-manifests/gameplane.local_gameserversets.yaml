@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: a362ddbc7785043556fe734d9c73b4efc81fdbb6d1dbf11bc36e7a0abebcbd69
+    gameplane.local/crd-bundle-sha256: 5d7af9b51f0f0ee1e9b6571906765a9ca02fbf39c7a86720a11eab8c6533d201
     controller-gen.kubebuilder.io/version: v0.20.1
   name: gameserversets.gameplane.local
 spec:
@@ -56,12 +56,87 @@ spec:
             description: GameServerSetSpec is the desired state of a group of identical
               game servers.
             properties:
+              minReadySeconds:
+                format: int32
+                maximum: 3600
+                minimum: 0
+                type: integer
+              mode:
+                default: Independent
+                description: GameServerSetMode selects how a GameServerSet runs its
+                  replicas.
+                enum:
+                - Independent
+                - StatefulSet
+                type: string
+                x-kubernetes-validations:
+                - message: mode is immutable
+                  rule: self == oldSelf
               nodes:
                 items:
                   maxLength: 253
                   type: string
                 maxItems: 64
                 type: array
+              placement:
+                items:
+                  description: ReplicaPlacement pins one StatefulSet ordinal to a
+                    node.
+                  properties:
+                    node:
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    ordinal:
+                      format: int32
+                      maximum: 99
+                      minimum: 0
+                      type: integer
+                  required:
+                  - node
+                  - ordinal
+                  type: object
+                maxItems: 100
+                type: array
+                x-kubernetes-list-map-keys:
+                - ordinal
+                x-kubernetes-list-type: map
+              replicaPorts:
+                items:
+                  description: ReplicaPort exposes basePort+ordinal on every replica
+                    through its own Service.
+                  properties:
+                    basePort:
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                    externalIPs:
+                      items:
+                        maxLength: 45
+                        type: string
+                      maxItems: 16
+                      type: array
+                    name:
+                      pattern: ^[a-z]([-a-z0-9]{0,13}[a-z0-9])?$
+                      type: string
+                    protocol:
+                      default: UDP
+                      description: Protocol defines network protocols supported for
+                        things like container ports.
+                      enum:
+                      - TCP
+                      - UDP
+                      type: string
+                  required:
+                  - basePort
+                  - name
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               replicas:
                 default: 1
                 format: int32
@@ -4007,6 +4082,16 @@ spec:
             required:
             - template
             type: object
+            x-kubernetes-validations:
+            - message: placement, replicaPorts and minReadySeconds need mode StatefulSet
+              rule: self.mode == 'StatefulSet' || (!has(self.placement) && !has(self.replicaPorts)
+                && !has(self.minReadySeconds))
+            - message: placement needs persistent storage
+              rule: '!has(self.placement) || !has(self.template.storage) || !has(self.template.storage.ephemeral)
+                || !self.template.storage.ephemeral'
+            - message: replicaPorts basePort plus replicas must stay within 65535
+              rule: '!has(self.replicaPorts) || self.replicaPorts.all(p, p.basePort
+                + self.replicas <= 65536)'
           status:
             description: GameServerSetStatus is the observed state of a GameServerSet.
             properties:

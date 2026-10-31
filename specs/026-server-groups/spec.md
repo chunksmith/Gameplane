@@ -20,6 +20,14 @@
 - Q: Who may delete a group or lower its replicas? → A: The set's owner or an admin, as for a server delete, whatever namespace permission the caller holds. Scale-down deletes children, so a PUT that lowers `spec.replicas` takes the same check; raising replicas or other edits need `servers:write`. Settled.
 - Q: Are group reads password-redacted? → A: Yes, with GameServer parity: password-type `spec.template.config` values read as the redaction marker on GET, POST/PUT replies, `/fleet/serversets` and the `/events` stream, and the last-applied-configuration annotation is dropped. PUT restores marker values from the stored set; POST drops them. Settled.
 
+### Session 2026-10-31 (maintainer, in chat)
+
+- Q: Can a group run as one StatefulSet like a hand-written shard fleet? → A: Yes, `spec.mode: StatefulSet` (immutable, default `Independent`). Pods are `<set>-<i>`, set-owned resources replace per-child ones, and the StatefulSet rolls replicas one by one.
+- Q: How are persistent replicas placed? → A: Per replica: `spec.placement[{ordinal,node}]` pre-creates `data-<set>-<i>` with `volume.kubernetes.io/selected-node`; the local volume's node affinity then holds the replica on that node. Ephemeral groups keep the node list.
+- Q: What happens to data on scale-down or group delete? → A: Kept. StatefulSet claims use `Retain`/`Retain`, pinned claims have no owner, and Independent children no longer own `<name>-data`.
+- Q: Per-replica voice ports? → A: `spec.replicaPorts[{name,protocol,basePort,externalIPs}]`: Service `<set>-<i>-<name>` on `basePort+i` per replica plus a NetworkPolicy for the range. `externalIPs` need admin.
+- Q: How does CI deploy? → A: A chart `deployers[]` ServiceAccount limited to get/patch of the named sets; `.github/actions/deploy-server-group` patches `spec.template.image` and waits for the rollout.
+
 ## Design
 
 ### Operator
@@ -50,6 +58,13 @@
 - Servers page: children (controller ownerReference kind `GameServerSet`) are pulled out of the flat list into a "Server groups" section of collapsible group cards: game icon, name, location, ready/desired, players, node count, scale −/+ and delete. Expanding shows one card per replica (phase, address, players, memory, node, Start/Stop/Restart/menu) linking to the normal server detail page.
 - Create wizard: a "Single server / Server group" switch on the Configure step. Group mode adds replicas, a multi-node picker and posts a `GameServerSet`. Both modes get an optional container image and an "Ephemeral storage" switch (default on for groups).
 - Server detail hides the Backups tab for ephemeral servers.
+
+### StatefulSet mode
+
+- Set controller (`gameserverset_statefulset.go`): StatefulSet `<set>` (Parallel, RollingUpdate, `minReadySeconds`, claim template `data`, PVC retention `Retain`), headless Service `<set>`, set-owned config/files/RCON Secrets, agent ServiceAccount + heartbeat Role naming every child, one agent TLS cert with every `<child>-agent` SAN, replica port Services + NetworkPolicy, pinned claims (replicas are held back until they bind).
+- Children `<set>-<i>` carry `gameplane.local/server-set-statefulset=<set>` and stay as per-replica handles: their GameServer reconcile only keeps the game and agent Services and NetworkPolicy (selector `statefulset.kubernetes.io/pod-name`), status from pod `<set>-<i>`, restart (pod delete), kill and backup schedule. Child `spec.suspend` mirrors the set template.
+- Not available on a replica: per-replica start/stop, wipe and restore (API 409 / restore fails), idle sleep, tunnels, extra and mod volumes, versioned gateway routes (no per-pod UID).
+- API: replica pod name resolution in logs/actions/stream targets (`<set>` StatefulSet controlled by the set), `server-set` labels and ownerReferences stripped from user GameServer writes.
 
 ## Out of scope
 

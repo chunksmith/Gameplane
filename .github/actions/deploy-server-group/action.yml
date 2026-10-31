@@ -1,0 +1,52 @@
+name: Deploy server group image
+description: Point a StatefulSet server group at a new image and wait for the one-by-one rollout.
+
+inputs:
+  kubeconfig:
+    description: Kubeconfig of a chart deployer ServiceAccount (deployers[] in values.yaml).
+    required: true
+  name:
+    description: GameServerSet name.
+    required: true
+  image:
+    description: Full image reference, e.g. ghcr.io/org/server:prod-<sha>.
+    required: true
+  namespace:
+    description: Games namespace.
+    required: false
+    default: gameplane-games
+  timeout:
+    description: How long to wait for the rollout; 0 returns right after the patch.
+    required: false
+    default: 90m
+
+runs:
+  using: composite
+  steps:
+    - name: Patch image and wait
+      shell: bash
+      env:
+        GAMEPLANE_KUBECONFIG: ${{ inputs.kubeconfig }}
+        SET_NAME: ${{ inputs.name }}
+        SET_IMAGE: ${{ inputs.image }}
+        SET_NAMESPACE: ${{ inputs.namespace }}
+        ROLLOUT_TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        set -euo pipefail
+        export KUBECONFIG="$RUNNER_TEMP/gameplane-kubeconfig"
+        umask 077
+        printf '%s' "$GAMEPLANE_KUBECONFIG" > "$KUBECONFIG"
+        patch=$(jq -cn --arg image "$SET_IMAGE" '{spec: {template: {image: $image}}}')
+        kubectl -n "$SET_NAMESPACE" patch gameserverset "$SET_NAME" --type merge -p "$patch"
+        [ "$ROLLOUT_TIMEOUT" = "0" ] && exit 0
+        for _ in $(seq 60); do
+          current=$(kubectl -n "$SET_NAMESPACE" get statefulset "$SET_NAME" \
+            -o jsonpath='{.spec.template.spec.containers[?(@.name=="game")].image}')
+          [ "$current" = "$SET_IMAGE" ] && break
+          sleep 2
+        done
+        if [ "$current" != "$SET_IMAGE" ]; then
+          echo "::error::operator did not apply $SET_IMAGE to statefulset/$SET_NAME"
+          exit 1
+        fi
+        kubectl -n "$SET_NAMESPACE" rollout status statefulset "$SET_NAME" --timeout "$ROLLOUT_TIMEOUT"

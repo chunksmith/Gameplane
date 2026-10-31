@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -20,6 +21,8 @@ import (
 // streamClient resolves the same selector RBAC authorizes, then pins a client
 // to this connection. Removed, unknown, or unavailable clusters never fall
 // back to the home cluster. No shared handler state changes per request.
+const serverSetStatefulSetLabel = "gameplane.local/server-set-statefulset"
+
 func streamClient(w http.ResponseWriter, req *http.Request, reg *kube.Registry) (*kube.Client, bool) {
 	if reg == nil {
 		http.Error(w, "cluster unavailable", http.StatusServiceUnavailable)
@@ -89,19 +92,46 @@ func serverPodForUID(ctx context.Context, k *kube.Client, ns, name, expectedUID 
 	if expectedUID != "" && string(gs.GetUID()) != expectedUID {
 		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "gameplane.local", Resource: "gameservers"}, name)
 	}
-	ss, err := k.Typed.AppsV1().StatefulSets(ns).Get(ctx, name, metav1.GetOptions{})
+	workload, ownerKind, ownerName, ownerUID, podName := name, "GameServer", name, gs.GetUID(), name+"-0"
+	if set, setUID, ok := replicaOwner(gs); ok {
+		workload, ownerKind, ownerName, ownerUID, podName = set, "GameServerSet", set, setUID, name
+	}
+	ss, err := k.Typed.AppsV1().StatefulSets(ns).Get(ctx, workload, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("get stream statefulset: %w", err)
 	}
-	pod, err := k.Typed.CoreV1().Pods(ns).Get(ctx, name+"-0", metav1.GetOptions{})
+	pod, err := k.Typed.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("get stream pod: %w", err)
 	}
-	if !controlledBy(ss, "gameplane.local/v1alpha1", "GameServer", name, gs.GetUID()) ||
-		!controlledBy(pod, "apps/v1", "StatefulSet", name, ss.UID) || pod.UID == "" {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, name+"-0")
+	if !controlledBy(ss, "gameplane.local/v1alpha1", ownerKind, ownerName, ownerUID) ||
+		!controlledBy(pod, "apps/v1", "StatefulSet", workload, ss.UID) || pod.UID == "" {
+		return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, podName)
 	}
 	return pod, nil
+}
+
+func replicaOwner(gs *unstructured.Unstructured) (string, types.UID, bool) {
+	set := gs.GetLabels()[serverSetStatefulSetLabel]
+	if set == "" {
+		return "", "", false
+	}
+	owner := metav1.GetControllerOf(gs)
+	if owner == nil || owner.APIVersion != "gameplane.local/v1alpha1" || owner.Kind != "GameServerSet" || owner.Name != set || owner.UID == "" {
+		return "", "", false
+	}
+	return set, owner.UID, true
+}
+
+func serverPodName(ctx context.Context, k *kube.Client, ns, name string) string {
+	if k != nil && k.Dynamic != nil {
+		if gs, err := k.GetServer(ctx, ns, name); err == nil && gs != nil {
+			if _, _, ok := replicaOwner(gs); ok {
+				return name
+			}
+		}
+	}
+	return name + "-0"
 }
 
 func controlledBy(obj metav1.Object, apiVersion, kind, name string, uid types.UID) bool {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
 
 	"github.com/go-chi/chi/v5"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,8 +56,39 @@ func validateServerSet(ctx context.Context, k *kube.Client, cl, ns string, desir
 	var liveTemplate *unstructured.Unstructured
 	if live != nil {
 		liveTemplate = serverSetTemplate(live)
+		if !serverSetExternalIPsEqual(desired, live) && !isClusterAdmin(ctx, cl, ns) {
+			return errors.New("spec.replicaPorts externalIPs require admin privileges")
+		}
+	} else if len(serverSetExternalIPs(desired)) > 0 && !isClusterAdmin(ctx, cl, ns) {
+		return errors.New("spec.replicaPorts externalIPs require admin privileges")
 	}
 	return validateAndProtectGameServer(ctx, k, cl, ns, desired.GetName(), serverSetTemplate(desired), liveTemplate)
+}
+
+func isClusterAdmin(ctx context.Context, cl, ns string) bool {
+	u := auth.UserFromContext(ctx)
+	return u != nil && (u.Role == "admin" || u.Can("*", false, cl, ns))
+}
+
+func serverSetExternalIPs(set *unstructured.Unstructured) map[string][]string {
+	ports, _, _ := unstructured.NestedSlice(set.Object, "spec", "replicaPorts")
+	out := map[string][]string{}
+	for _, raw := range ports {
+		port, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _, _ := unstructured.NestedString(port, "name")
+		ips, _, _ := unstructured.NestedStringSlice(port, "externalIPs")
+		if len(ips) > 0 {
+			out[name] = ips
+		}
+	}
+	return out
+}
+
+func serverSetExternalIPsEqual(desired, live *unstructured.Unstructured) bool {
+	return reflect.DeepEqual(serverSetExternalIPs(desired), serverSetExternalIPs(live))
 }
 
 func protectServerSetCreate(w http.ResponseWriter, req *http.Request, k *kube.Client, ns string, obj *unstructured.Unstructured) bool {

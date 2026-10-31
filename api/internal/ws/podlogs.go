@@ -120,6 +120,7 @@ func (h *podLogProxy) handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	h.podUID = pod.UID
+	podName = pod.Name
 	gameStarted, _ := containerLogState(pod, gameContainer, false)
 
 	if fromEnd || (tailed && gameStarted) {

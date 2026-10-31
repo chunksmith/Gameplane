@@ -60,6 +60,7 @@ import {
 import type { ActionParamDecl, GameServer, GameTemplate, ServerActionDecl, StatusReading } from "@/types";
 import { type LifecycleVerb } from "@/lib/endpoints";
 import { rconAvailable, resolveConsoleMode } from "@/lib/capabilities";
+import { isStatefulSetReplica } from "@/lib/serverSets";
 import { APIError } from "@/lib/api";
 import { errorTextIntl } from "@/lib/errors";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
@@ -213,7 +214,8 @@ export function ServerActionsCard({
     const asleep = gs.status?.idle?.asleep === true && phase !== "Stopping";
     const running = phase === "Running";
     const stopping = phase === "Stopping";
-    const canStart = (phase === "Stopped" || phase === "Suspended" || phase === "Failed") && !asleep;
+    const replica = isStatefulSetReplica(gs);
+    const canStart = (phase === "Stopped" || phase === "Suspended" || phase === "Failed") && !asleep && !replica;
     return (
       <Card className="border border-border bg-card p-0">
         <CardHeader className="flex flex-col gap-0 px-6 pt-5 pb-2">
@@ -237,7 +239,7 @@ export function ServerActionsCard({
               ? intl.formatMessage({ id: "web.components.server.server_actions_card.kill", defaultMessage: "Kill", description: "Server actions card: button that force-kills a server that is still stopping; keep it short" })
               : intl.formatMessage({ id: "web.components.server.server_actions_card.stop", defaultMessage: "Stop", description: "Server actions card: button that stops the running server; keep it short" })}
             onClick={() => lifecycle.mutate(stopping ? "kill" : "stop")}
-            disabled={!canRun || (!running && !asleep && !stopping) || lifecycle.isPending}
+            disabled={!canRun || (!running && !asleep && !stopping) || (replica && !stopping) || lifecycle.isPending}
           />
           {asleep && (
             <LifecycleButton

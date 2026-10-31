@@ -27,12 +27,12 @@ const nodeAnnotation = "gameplane.local/node"
 func (r *GameServerReconciler) reconcileNodePlacement(ctx context.Context, gs *gameplanev1alpha1.GameServer) error {
 	node := ""
 	var pod corev1.Pod
-	err := r.Get(ctx, types.NamespacedName{Name: gs.Name + "-0", Namespace: gs.Namespace}, &pod)
+	err := r.Get(ctx, types.NamespacedName{Name: gamePodName(gs), Namespace: gs.Namespace}, &pod)
 	switch {
 	case apierrors.IsNotFound(err):
 		// No pod (stopped/suspended, or not created yet) — placement unknown.
 	case err != nil:
-		return fmt.Errorf("get pod %s-0: %w", gs.Name, err)
+		return fmt.Errorf("get pod %s: %w", gamePodName(gs), err)
 	default:
 		node = pod.Spec.NodeName
 	}

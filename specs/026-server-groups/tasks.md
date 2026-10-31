@@ -37,3 +37,11 @@ description: "Task list for Feature 026: Server Groups (GameServerSet)"
 ## Phase 5: Docs
 
 - [ ] T015 `operator/specs.md`, `api/specs.md`, `web/specs.md`.
+
+## Phase 6: StatefulSet mode
+
+- [ ] T016 [Operator] `mode`, `placement`, `replicaPorts`, `minReadySeconds` in `gameserverset_types.go`; `make generate && make manifests`.
+- [ ] T017 [Operator] `gameserverset_statefulset.go`, `gameserver_replica.go`, `gameserver_workload.go`; pod template builder shared with standalone servers; tests in `gameserverset_statefulset_test.go`.
+- [ ] T018 [API] Replica pod resolution (`ws/target.go`, `ws/podlogs.go`, `ws/actions.go`, `handlers/pod_events.go`), ownership label/owner stripping, `externalIPs` admin guard, lifecycle 409.
+- [ ] T019 [Web] Per-replica node pins in the create wizard; start/stop disabled on replicas.
+- [ ] T020 [Chart] `deployers[]` + `.github/actions/deploy-server-group`.

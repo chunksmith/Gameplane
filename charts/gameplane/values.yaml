@@ -508,6 +508,8 @@ ingress:
 
 gamesNamespace: gameplane-games
 
+deployers: []
+
 networkPolicies:
   enabled: true
   # CIDRs that hold kubelet source IPs for liveness/readiness probes.

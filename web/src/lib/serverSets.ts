@@ -10,6 +10,10 @@ export interface ServerGroup {
   servers: Located<GameServer>[];
 }
 
+export function isStatefulSetReplica(gs?: GameServer): boolean {
+  return Boolean(gs?.metadata.labels?.["gameplane.local/server-set-statefulset"]);
+}
+
 export function serverSetOwner(gs: GameServer): string | undefined {
   return gs.metadata.ownerReferences?.find((ref) => ref.controller && ref.kind === "GameServerSet")?.name;
 }

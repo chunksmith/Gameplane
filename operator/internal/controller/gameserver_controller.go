@@ -242,6 +242,9 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.Get(ctx, req.NamespacedName, &gs); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if statefulSetReplica(&gs) {
+		return r.reconcileStatefulSetReplica(ctx, &gs)
+	}
 	// Refresh and recover wipe ownership before deriving config or idle state.
 	// A later refresh would mix an older idle calculation with a newer status
 	// patch base and could overwrite a concurrent idle-clock update.
@@ -540,6 +543,9 @@ func (r *GameServerReconciler) mapPodToGameServer(_ context.Context, obj client.
 		return nil
 	}
 	serverName := pod.Labels["app.kubernetes.io/instance"]
+	if pod.Labels[serverSetStatefulSetLabel] != "" {
+		serverName = pod.Name
+	}
 	if serverName == "" {
 		return nil
 	}
@@ -601,6 +607,9 @@ func (r *GameServerReconciler) reconcilePVC(
 				}
 			}
 		}
+		if owner := metav1.GetControllerOf(gs); owner != nil && owner.Kind == "GameServerSet" && owner.Name == gs.Labels[serverSetLabel] {
+			return nil
+		}
 		return controllerutil.SetControllerReference(gs, pvc, r.Scheme)
 	})
 	return err
@@ -642,10 +651,7 @@ func (r *GameServerReconciler) reconcileService(
 				"app.kubernetes.io/instance": gs.Name,
 			}
 		} else {
-			svc.Spec.Selector = map[string]string{
-				"app.kubernetes.io/name":     "gameplane-game",
-				"app.kubernetes.io/instance": gs.Name,
-			}
+			svc.Spec.Selector = gamePodSelector(gs)
 		}
 		svc.Spec.Ports = svcPortsFromTemplate(tmpl, gs)
 		// Address-pool translation. NOTE: svc.Spec.LoadBalancerIP is never
@@ -1032,10 +1038,7 @@ func (r *GameServerReconciler) reconcileAgentService(
 		// don't gate endpoints on whole-pod readiness — the game's
 		// readiness probe would otherwise hold the agent hostage.
 		svc.Spec.PublishNotReadyAddresses = true
-		svc.Spec.Selector = map[string]string{
-			"app.kubernetes.io/name":     "gameplane-game",
-			"app.kubernetes.io/instance": gs.Name,
-		}
+		svc.Spec.Selector = gamePodSelector(gs)
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Name:       "agent",
@@ -1130,12 +1133,7 @@ func (r *GameServerReconciler) reconcileNetworkPolicy(
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, np, func() error {
-		np.Spec.PodSelector = metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"app.kubernetes.io/name":     "gameplane-game",
-				"app.kubernetes.io/instance": gs.Name,
-			},
-		}
+		np.Spec.PodSelector = metav1.LabelSelector{MatchLabels: gamePodSelector(gs)}
 		np.Spec.PolicyTypes = []networkingv1.PolicyType{networkingv1.PolicyTypeIngress}
 		np.Spec.Ingress = []networkingv1.NetworkPolicyIngressRule{{
 			From:  from,
@@ -1535,114 +1533,121 @@ func (r *GameServerReconciler) reconcileStatefulSet(
 			podLabels[serverSetLabel] = owner.Name
 		}
 		ss.Spec.Template.Labels = podLabels
-		// Stamp (or clear) the config fingerprint without touching
-		// annotations other actors may have set on the pod template.
-		ann := ss.Spec.Template.Annotations
-		if mc.hash != "" {
-			if ann == nil {
-				ann = map[string]string{}
-			}
-			ann[configHashAnnotation] = mc.hash
-		} else {
-			delete(ann, configHashAnnotation)
-		}
-		ss.Spec.Template.Annotations = ann
-		ss.Spec.Template.Spec.Containers = []corev1.Container{
-			buildGameContainer(gs, tmpl, image, ver, mc),
-			buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy),
-		}
-		ss.Spec.Template.Spec.ImagePullSecrets = r.ImagePullSecrets
-		dataVolume := corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: gs.Name + "-data",
-			},
-		}
-		if isEphemeral(gs) {
-			dataVolume = corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}
-		}
-		volumes := []corev1.Volume{
-			{
-				Name:         "data",
-				VolumeSource: dataVolume,
-			},
-			// Per-GameServer Secret with tls.crt, tls.key, ca.crt.
-			// Reconciled by reconcileAgentTLS before this StatefulSet.
-			agentTLSVolume(gs.Name),
-			captureVolume(),
-		}
-		// Extra volumes (spec.storage.extra / template's), one PVC each,
-		// mounted only on the game container (see buildGameContainer) — not
-		// nested under the data volume, and never on the agent (see
-		// agentVolumeMounts' doc comment for why). Assigned wholesale with
-		// the rest, so an empty/removed extra list is a no-op here.
-		volumes = append(volumes, extraVolumes(gs, tmpl)...)
-		// Mount the resolved RCON password (operator-generated or the
-		// template's referenced Secret) so the agent sidecar can read it
-		// via --rcon-password-file. Added only when the game exposes RCON
-		// and doesn't use a game-managed password file.
-		if v := rconPasswordVolume(gs, tmpl); v != nil {
-			volumes = append(volumes, *v)
-		}
-		// Volumes and InitContainers are assigned wholesale so removing
-		// configFiles from the template strips them on the next reconcile.
-		var initContainers []corev1.Container
-		if len(mc.files) > 0 {
-			items := make([]corev1.KeyToPath, 0, len(mc.files))
-			for _, f := range mc.files {
-				items = append(items, corev1.KeyToPath{Key: f.key, Path: f.path})
-			}
-			volumes = append(volumes, corev1.Volume{
-				Name: "config-files",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: filesSecretName(gs),
-						Items:      items,
-					},
-				},
-			})
-			initContainers = append(initContainers, buildConfigInitContainer(r.ConfigInitImage, tmpl))
-		}
-		ss.Spec.Template.Spec.InitContainers = append(initContainers, gs.Spec.InitContainers...)
-		// Per-(version+loader) mod volume, nested at storage.mountPath/<path>
-		// so the game image reads mods from its usual dir while they persist
-		// on their own PVC. Assigned wholesale with the rest, so switching to
-		// a loaderless version drops the mount on the next reconcile.
-		if v := modVolume(gs, tmpl, ver); v != nil {
-			volumes = append(volumes, *v)
-		}
-		// Mod-portal credential volumes for each configured provider. When a
-		// provider's CredentialsSecretRef is set, its Secret is mounted
-		// read-only at /etc/gameplane/mod-creds/<provider>/ so the agent can
-		// inject credentials on install. Assigned wholesale so removing the
-		// secret ref drops the mount on the next reconcile.
-		volumes = append(volumes, modCredsVolumes(resolveModCreds(tmpl))...)
-		ss.Spec.Template.Spec.Volumes = volumes
-		// Assign unconditionally so clearing spec.nodeSelector also clears the
-		// pod template's selector (nil resets it); the previous nil-guard left
-		// a removed scheduling pin active on the StatefulSet.
-		ss.Spec.Template.Spec.NodeSelector = gs.Spec.NodeSelector
-		ss.Spec.Template.Spec.Tolerations = gs.Spec.Tolerations
-		ss.Spec.Template.Spec.Affinity = gs.Spec.Affinity
-		// Same unconditional-assign reasoning: removing template.spec.security
-		// must clear a previously-set pod-level FSGroup, not leave it pinned.
-		ss.Spec.Template.Spec.SecurityContext = gamePodSecurityContext(tmpl)
-		// Default to the per-GameServer SA so the agent's heartbeat can
-		// patch gameservers/status (see reconcileAgentRBAC); an explicit
-		// spec.serviceAccountName still wins.
-		ss.Spec.Template.Spec.ServiceAccountName = agentServiceAccountName(gs)
-		if gs.Spec.ServiceAccountName != "" {
-			ss.Spec.Template.Spec.ServiceAccountName = gs.Spec.ServiceAccountName
-		}
-		// Share the pod's PID namespace so the agent sidecar can read the
-		// game process's CPU/memory from /proc. cgroup v2 files are
-		// per-container, so without this the agent only sees its own
-		// (idle) usage. The pod stays non-privileged; /proc/<pid>/stat and
-		// /statm are world-readable, so no extra capabilities are needed.
-		shareProcess := true
-		ss.Spec.Template.Spec.ShareProcessNamespace = &shareProcess
+		r.applyGamePodTemplate(&ss.Spec.Template, gs, tmpl, ver, mc, image)
 		return controllerutil.SetControllerReference(gs, ss, r.Scheme)
 	})
 	return err
+}
+
+func (r *GameServerReconciler) applyGamePodTemplate(
+	tpl *corev1.PodTemplateSpec, gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate,
+	ver *gameplanev1alpha1.GameVersion, mc *materializedConfig, image string,
+) {
+	// Stamp (or clear) the config fingerprint without touching
+	// annotations other actors may have set on the pod template.
+	ann := tpl.Annotations
+	if mc.hash != "" {
+		if ann == nil {
+			ann = map[string]string{}
+		}
+		ann[configHashAnnotation] = mc.hash
+	} else {
+		delete(ann, configHashAnnotation)
+	}
+	tpl.Annotations = ann
+	tpl.Spec.Containers = []corev1.Container{
+		buildGameContainer(gs, tmpl, image, ver, mc),
+		buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy),
+	}
+	tpl.Spec.ImagePullSecrets = r.ImagePullSecrets
+	dataVolume := corev1.VolumeSource{
+		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: dataClaimName(gs),
+		},
+	}
+	if isEphemeral(gs) {
+		dataVolume = corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}
+	}
+	volumes := []corev1.Volume{
+		{
+			Name:         "data",
+			VolumeSource: dataVolume,
+		},
+		// Per-GameServer Secret with tls.crt, tls.key, ca.crt.
+		// Reconciled by reconcileAgentTLS before this StatefulSet.
+		agentTLSVolume(gs.Name),
+		captureVolume(),
+	}
+	// Extra volumes (spec.storage.extra / template's), one PVC each,
+	// mounted only on the game container (see buildGameContainer) — not
+	// nested under the data volume, and never on the agent (see
+	// agentVolumeMounts' doc comment for why). Assigned wholesale with
+	// the rest, so an empty/removed extra list is a no-op here.
+	volumes = append(volumes, extraVolumes(gs, tmpl)...)
+	// Mount the resolved RCON password (operator-generated or the
+	// template's referenced Secret) so the agent sidecar can read it
+	// via --rcon-password-file. Added only when the game exposes RCON
+	// and doesn't use a game-managed password file.
+	if v := rconPasswordVolume(gs, tmpl); v != nil {
+		volumes = append(volumes, *v)
+	}
+	// Volumes and InitContainers are assigned wholesale so removing
+	// configFiles from the template strips them on the next reconcile.
+	var initContainers []corev1.Container
+	if len(mc.files) > 0 {
+		items := make([]corev1.KeyToPath, 0, len(mc.files))
+		for _, f := range mc.files {
+			items = append(items, corev1.KeyToPath{Key: f.key, Path: f.path})
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "config-files",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: filesSecretName(gs),
+					Items:      items,
+				},
+			},
+		})
+		initContainers = append(initContainers, buildConfigInitContainer(r.ConfigInitImage, tmpl))
+	}
+	tpl.Spec.InitContainers = append(initContainers, gs.Spec.InitContainers...)
+	// Per-(version+loader) mod volume, nested at storage.mountPath/<path>
+	// so the game image reads mods from its usual dir while they persist
+	// on their own PVC. Assigned wholesale with the rest, so switching to
+	// a loaderless version drops the mount on the next reconcile.
+	if v := modVolume(gs, tmpl, ver); v != nil {
+		volumes = append(volumes, *v)
+	}
+	// Mod-portal credential volumes for each configured provider. When a
+	// provider's CredentialsSecretRef is set, its Secret is mounted
+	// read-only at /etc/gameplane/mod-creds/<provider>/ so the agent can
+	// inject credentials on install. Assigned wholesale so removing the
+	// secret ref drops the mount on the next reconcile.
+	volumes = append(volumes, modCredsVolumes(resolveModCreds(tmpl))...)
+	tpl.Spec.Volumes = volumes
+	// Assign unconditionally so clearing spec.nodeSelector also clears the
+	// pod template's selector (nil resets it); the previous nil-guard left
+	// a removed scheduling pin active on the StatefulSet.
+	tpl.Spec.NodeSelector = gs.Spec.NodeSelector
+	tpl.Spec.Tolerations = gs.Spec.Tolerations
+	tpl.Spec.Affinity = gs.Spec.Affinity
+	// Same unconditional-assign reasoning: removing template.spec.security
+	// must clear a previously-set pod-level FSGroup, not leave it pinned.
+	tpl.Spec.SecurityContext = gamePodSecurityContext(tmpl)
+	// Default to the per-GameServer SA so the agent's heartbeat can
+	// patch gameservers/status (see reconcileAgentRBAC); an explicit
+	// spec.serviceAccountName still wins.
+	tpl.Spec.ServiceAccountName = agentServiceAccountName(gs)
+	if gs.Spec.ServiceAccountName != "" {
+		tpl.Spec.ServiceAccountName = gs.Spec.ServiceAccountName
+	}
+	// Share the pod's PID namespace so the agent sidecar can read the
+	// game process's CPU/memory from /proc. cgroup v2 files are
+	// per-container, so without this the agent only sees its own
+	// (idle) usage. The pod stays non-privileged; /proc/<pid>/stat and
+	// /statm are world-readable, so no extra capabilities are needed.
+	shareProcess := true
+	tpl.Spec.ShareProcessNamespace = &shareProcess
 }
 
 // effectiveMountPath is where the game's data volume is mounted,

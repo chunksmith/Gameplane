@@ -20,7 +20,7 @@ func (r *GameServerReconciler) forceKill(ctx context.Context, gs *gameplanev1alp
 	if !tokenPending(gs, KillRequestedAnnotation, KillCompletedAnnotation) {
 		return nil
 	}
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: gs.Namespace, Name: gs.Name + "-0"}}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: gs.Namespace, Name: gamePodName(gs)}}
 	if err := r.Delete(ctx, pod, client.GracePeriodSeconds(1)); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("force kill pod: %w", err)
 	}

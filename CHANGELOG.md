@@ -7,6 +7,21 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- **StatefulSet server groups:** `GameServerSet.spec.mode: StatefulSet` runs
+  the group as one StatefulSet `<set>` with pods `<set>-0…`, a headless
+  Service for per-replica DNS, one `data-<set>-<i>` volume per replica and a
+  one-by-one rolling update (`spec.minReadySeconds`). `spec.placement` pins a
+  replica's volume, and so the replica, to a node; `spec.replicaPorts` gives
+  every replica its own `basePort+i` Service (optional `externalIPs`, admin
+  only). The create wizard builds StatefulSet groups and, with persistent
+  storage, picks a node per replica.
+- **CI deployers:** `deployers[]` chart values create a ServiceAccount that may
+  only patch the listed server groups;
+  `.github/actions/deploy-server-group` sets a group's image from a workflow
+  and waits for the rollout.
+
 ### Changed
 
 - **Backups no longer pause world saves by default:** `quiesce` now defaults
@@ -16,6 +31,10 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
   game with auto-save off (which also stops chunk unloads on Minecraft).
 
 ### Fixed
+
+- **Server group volumes survive scale-down:** a group child's `<name>-data`
+  PVC is no longer owned by the child, so lowering replicas keeps the data and
+  raising them again reattaches it.
 
 - **Standalone Helm CRD isolation:** the central panel profile excludes bundled
   native CRDs and their apply hook/RBAC without requiring `--skip-crds`.

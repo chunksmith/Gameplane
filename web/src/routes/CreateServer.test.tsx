@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithQuery } from "@/test/render";
 import type { GameTemplate } from "@/types";
 
@@ -740,6 +741,34 @@ describe("CreateServerWizard server groups", () => {
     expect(body.spec.template.storage).toEqual({ ephemeral: true });
     expect(body.spec.template.templateRef.name).toBe("minecraft-java");
     expect(body.spec.template.nodeSelector).toBeUndefined();
+  });
+
+  it("pins persistent group replicas to nodes and posts a StatefulSet group", async () => {
+    routeFetch({ cluster: { nodes: [{ name: "node-a" }, { name: "node-b" }] } });
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByRole("button", { name: "Server group" }));
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "smp" } });
+    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "2" } });
+    fireEvent.click(screen.getByLabelText("Ephemeral storage"));
+    expect(screen.queryByRole("checkbox", { name: "node-a" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Node for smp-1"));
+    await userEvent.click(await screen.findByRole("option", { name: "node-b" }));
+    expect(screen.getByText(/mode: StatefulSet/)).toBeInTheDocument();
+    expect(screen.getByText(/ordinal: 1, node: node-b/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Review/i }));
+    expect(screen.getByText("smp-1 on node-b")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Create group/i }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/servers" }));
+    const postCall = fetchMock.mock.calls.find((call) => (call[1] as FetchInit).method === "POST")!;
+    const body = JSON.parse((postCall[1] as FetchInit).body as string);
+    expect(body.spec.mode).toBe("StatefulSet");
+    expect(body.spec.replicas).toBe(2);
+    expect(body.spec.placement).toEqual([{ ordinal: 1, node: "node-b" }]);
+    expect(body.spec.nodes).toBeUndefined();
+    expect(body.spec.template.storage.ephemeral).toBeUndefined();
   });
 
   it("validates group replicas and name length on the Configure step", async () => {
