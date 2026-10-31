@@ -29,6 +29,7 @@ import (
 const (
 	shellDefaultTimeout = 30 * time.Second
 	shellAuditTarget    = 200
+	shellScript         = `cd "$0" || exit; umask 002; sh -c "$1"; status=$?; find . -type d ! -perm -g+w -exec chmod g+w {} + 2>/dev/null; exit $status`
 )
 
 type shellRequest struct {
@@ -135,7 +136,7 @@ func execShell(ctx context.Context, k *kube.Client, pod *corev1.Pod, command str
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
 			Container: "game",
-			Command:   []string{"sh", "-c", `cd "$0" && exec sh -c "$1"`, dataMountPath(pod), command},
+			Command:   []string{"sh", "-c", shellScript, dataMountPath(pod), command},
 			Stdout:    true,
 			Stderr:    true,
 		}, scheme.ParameterCodec).
