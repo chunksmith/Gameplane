@@ -96,6 +96,17 @@ function askOf(block: AssistantBlock) {
   return { question: String(input.question ?? ""), options, multi: input.multi_select === true };
 }
 
+const OPTION_CLASS = "flex w-full items-start gap-3 rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-surface/60 data-[selected]:border-primary data-[selected]:bg-primary/5";
+
+function OptionText({ option }: { option: { label: string; description?: string } }) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="block font-medium text-foreground">{option.label}</span>
+      {option.description && <span className="mt-0.5 block text-xs text-muted">{option.description}</span>}
+    </span>
+  );
+}
+
 export function QuestionCard({ block, result, conversationId, interactive }: { block: AssistantBlock; result?: AssistantBlock; conversationId: string; interactive: boolean }) {
   const intl = useOptionalIntl();
   const qc = useQueryClient();
@@ -126,14 +137,12 @@ export function QuestionCard({ block, result, conversationId, interactive }: { b
                   isSelected={picked.includes(option.label)}
                   isDisabled={disabled}
                   onChange={(checked: boolean) => setPicked(checked ? [...picked, option.label] : picked.filter((label) => label !== option.label))}
-                  className="flex-row items-center gap-2"
                 >
-                  <Checkbox.Control className="size-4">
-                    <Checkbox.Indicator />
-                  </Checkbox.Control>
-                  <Checkbox.Content>
-                    <span className="font-medium">{option.label}</span>
-                    {option.description && <span className="block text-xs text-muted">{option.description}</span>}
+                  <Checkbox.Content className={OPTION_CLASS}>
+                    <Checkbox.Control className="mt-0.5 size-4 shrink-0">
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                    <OptionText option={option} />
                   </Checkbox.Content>
                 </Checkbox>
               ))}
@@ -142,10 +151,9 @@ export function QuestionCard({ block, result, conversationId, interactive }: { b
             <RadioGroup aria-label={question} value={picked[0] ?? ""} onChange={(value) => setPicked([value])} isDisabled={disabled} className="space-y-2">
               {options.map((option) => (
                 <Radio key={option.label} value={option.label}>
-                  <Radio.Control />
-                  <Radio.Content>
-                    <span className="font-medium">{option.label}</span>
-                    {option.description && <span className="block text-xs text-muted">{option.description}</span>}
+                  <Radio.Content className={OPTION_CLASS}>
+                    <Radio.Control className="mt-0.5 shrink-0" />
+                    <OptionText option={option} />
                   </Radio.Content>
                 </Radio>
               ))}
