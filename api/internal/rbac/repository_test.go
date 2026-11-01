@@ -39,7 +39,7 @@ func TestRepositoryMembership(t *testing.T) {
 		u.ID = 9
 		return u
 	}
-	member := &auth.User{ID: 4, Networks: map[string][]string{"team": {"repositories:push", "servers:write"}}}
+	member := &auth.User{ID: 4, Networks: map[string][]string{"team": {"servers:write"}}}
 	cases := []struct {
 		name         string
 		user         *auth.User

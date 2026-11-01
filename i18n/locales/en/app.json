@@ -5083,14 +5083,6 @@
     "defaultMessage": "Manage",
     "description": "Permission chips: name of the permission that lets a member start, stop, change files, mods and players of a server; keep it short"
   },
-  "web.lib.permissions.repository_edit": {
-    "defaultMessage": "Repo edit",
-    "description": "Permission chips: name of the permission that lets a network member edit files and commit in the network's repositories; keep it short"
-  },
-  "web.lib.permissions.repository_push": {
-    "defaultMessage": "Repo push",
-    "description": "Permission chips: name of the permission that lets a network member push the network's repositories; keep it short"
-  },
   "web.lib.permissions.view": {
     "defaultMessage": "View",
     "description": "Permission chips: name of the view permission, which every grant includes and cannot be removed; keep it short"
@@ -5824,7 +5816,7 @@
     "description": "Repository settings: accessible name and placeholder of the network name field"
   },
   "web.repositories.settings.network_hint": {
-    "defaultMessage": "Members of the network can open, edit and push this repository with their own token, as their network permissions allow.",
+    "defaultMessage": "Members of the network can open, edit and push this repository with their own token.",
     "description": "Repository settings: text under the network card title"
   },
   "web.repositories.settings.network_none": {

@@ -22,7 +22,7 @@ const M: Record<string, MessageDescriptor> = defineMessages({
   source: { id: "web.repositories.settings.source", defaultMessage: "Source", description: "Repository settings: summary card row label for owner/repo on GitHub" },
   network_title: { id: "web.repositories.settings.network_title", defaultMessage: "Network · {network}", description: "Repository settings: title of the network card; {network} is the network name" },
   network_none: { id: "web.repositories.settings.network_none", defaultMessage: "No network", description: "Repository settings: title of the network card when the repository has no network" },
-  network_hint: { id: "web.repositories.settings.network_hint", defaultMessage: "Members of the network can open, edit and push this repository with their own token, as their network permissions allow.", description: "Repository settings: text under the network card title" },
+  network_hint: { id: "web.repositories.settings.network_hint", defaultMessage: "Members of the network can open, edit and push this repository with their own token.", description: "Repository settings: text under the network card title" },
   change_network: { id: "web.repositories.settings.change_network", defaultMessage: "Change network", description: "Repository settings: button that edits the network; keep it short" },
   network_field: { id: "web.repositories.settings.network_field", defaultMessage: "Network name, empty for none", description: "Repository settings: accessible name and placeholder of the network name field" },
   save: { id: "web.repositories.settings.save", defaultMessage: "Save", description: "Repository settings: button that saves the network; keep it short" },
