@@ -56,7 +56,7 @@ func RepositoryGrantFrom(ctx context.Context) (RepositoryGrant, bool) {
 
 // RepositoryPermissions resolves what u may do on the repository obj: the
 // namespace permissions, then owner (everything), collaborator (read plus
-// the stored grants) and network membership (read plus the network's
+// the stored grants) and network membership (read and write plus the network's
 // repository grants). repositories:manage stands for the owner-only
 // operations.
 func RepositoryPermissions(obj *unstructured.Unstructured, u *auth.User, cluster, ns string) []string {
@@ -81,7 +81,7 @@ func RepositoryPermissions(obj *unstructured.Unstructured, u *auth.User, cluster
 		add(RepoCollaboratorGrants(obj)[u.ID]...)
 	}
 	if granted, member := u.Networks[obj.GetAnnotations()[networkAnnotation]]; member {
-		add(RepoRead)
+		add(RepoRead, RepoWrite)
 		add(granted...)
 	}
 	return perms

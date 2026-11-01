@@ -56,7 +56,7 @@ func TestRepositoryMembership(t *testing.T) {
 		{"editor cannot change collaborators", &auth.User{ID: 3}, "PUT", "/repositories/site/collaborators/9", 403},
 		{"network member reads", member, "GET", "/repositories/site/files/list", 204},
 		{"network member pushes", member, "POST", "/repositories/site/git/push", 204},
-		{"network member cannot write files", member, "POST", "/repositories/site/files/write", 403},
+		{"network member writes files", member, "POST", "/repositories/site/files/write", 204},
 		{"stranger is denied", &auth.User{ID: 9}, "GET", "/repositories/site", 403},
 		{"manager reclones", stranger(RepoManage), "POST", "/repositories/site:reclone", 204},
 		{"namespace reader cannot reclone", stranger(RepoRead, RepoWrite), "POST", "/repositories/site:reclone", 403},
