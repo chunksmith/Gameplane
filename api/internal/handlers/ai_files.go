@@ -25,6 +25,7 @@ const (
 	aiEditFile     = "edit_file"
 	aiWriteFile    = "write_file"
 	aiReadArchive  = "read_archive"
+	aiCopyFile     = "copy_file"
 	aiShell        = "shell"
 	aiCLIResultMax = 500000
 )
@@ -96,6 +97,10 @@ var aiTools = []aiToolSpec{
 	aiFileSpec(aiWriteFile, "Create or overwrite a file on a server's data volume with the given content. Use edit_file for changes to an existing file.", []string{"content"}, map[string]any{
 		"content": map[string]any{"type": "string", "description": "The complete file content"},
 	}),
+	aiFileSpec(aiCopyFile, "Copy a file, text or binary (images, jars, archives), to destination on the same data volume, overwriting it; set move to remove the source afterwards. Use it instead of read_file and write_file whenever a file only has to be copied, moved or renamed.", []string{"destination"}, map[string]any{
+		"destination": map[string]any{"type": "string", "description": "Absolute destination path of the file, for example /pack/textures/item.png"},
+		"move":        map[string]any{"type": "boolean", "description": "Remove the source after copying (default false)"},
+	}),
 	aiFileSpec(aiReadArchive, "Look inside a .jar or .zip archive on a server's data volume. Without entry it lists the files in the archive; with entry it shows that text file with line numbers, for example plugin.yml, paper-plugin.yml, fabric.mod.json or a bundled default config.yml. A last resort: use it only when the server's own files do not show which settings or values a plugin or mod supports.", nil, map[string]any{
 		"entry":  map[string]any{"type": "string", "description": "Path of a text file inside the archive as listed, for example plugin.yml; omit it to list the archive"},
 		"offset": map[string]any{"type": "integer", "description": "First line of entry to show, 1-based (default 1)"},
@@ -133,7 +138,7 @@ var aiTools = []aiToolSpec{
 }
 
 func aiIsFileTool(name string) bool {
-	return slices.Contains([]string{aiReadFile, aiEditFile, aiWriteFile, aiReadArchive, aiShell, aiGrep, aiGlob, aiJobOutput, aiJobStop}, name)
+	return slices.Contains([]string{aiReadFile, aiEditFile, aiWriteFile, aiCopyFile, aiReadArchive, aiShell, aiGrep, aiGlob, aiJobOutput, aiJobStop}, name)
 }
 
 func aiMCPTools() []string {
@@ -163,6 +168,8 @@ type aiFileInput struct {
 	New        string `json:"new_string"`
 	ReplaceAll bool   `json:"replace_all"`
 	Content    string `json:"content"`
+	Dest       string `json:"destination"`
+	Move       bool   `json:"move"`
 	Entry      string `json:"entry"`
 	Command    string `json:"command"`
 	Timeout    int    `json:"timeout_seconds"`
@@ -203,6 +210,8 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 		return h.editFile(ctx, conv, creds, in)
 	case aiReadArchive:
 		return h.readArchive(ctx, conv, creds, in)
+	case aiCopyFile:
+		return h.copyFile(ctx, conv, creds, in)
 	}
 	return h.storeFile(ctx, conv, creds, in, in.Content, fmt.Sprintf("Wrote %d bytes to %s", len(in.Content), in.Path))
 }
@@ -406,6 +415,30 @@ func (h *aiHandler) editFile(ctx context.Context, conv aiConversation, creds aiC
 		replacements = -1
 	}
 	return h.storeFile(ctx, conv, creds, in, strings.Replace(content, in.Old, in.New, replacements), fmt.Sprintf("Edited %s: %d replacement(s)", in.Path, count))
+}
+
+func (h *aiHandler) copyFile(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {
+	dest := in
+	dest.Path = in.Dest
+	if err := aiCheckFile(conv, dest); err != nil {
+		return err.Error(), true
+	}
+	if path.Clean(in.Path) == path.Clean(in.Dest) {
+		return "destination must differ from file_path", true
+	}
+	status, data := h.fileCall(ctx, conv, creds, http.MethodGet, "read", in, nil)
+	if status != http.StatusOK {
+		return fmt.Sprintf("HTTP %d\n%s", status, aiResultText(data)), true
+	}
+	size := len(data)
+	if result, failed := h.storeFile(ctx, conv, creds, dest, string(data), fmt.Sprintf("Copied %s to %s (%d bytes)", in.Path, in.Dest, size)); failed || !in.Move {
+		return result, failed
+	}
+	status, data = h.fileCall(ctx, conv, creds, http.MethodDelete, "delete", in, nil)
+	if status >= http.StatusBadRequest {
+		return fmt.Sprintf("Copied to %s but could not remove %s: HTTP %d\n%s", in.Dest, in.Path, status, aiResultText(data)), true
+	}
+	return fmt.Sprintf("Moved %s to %s (%d bytes)", in.Path, in.Dest, size), false
 }
 
 func (h *aiHandler) storeFile(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput, content, done string) (string, bool) {

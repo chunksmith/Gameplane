@@ -119,6 +119,31 @@ func TestAIEditFileCRLF(t *testing.T) {
 	}
 }
 
+func TestAICopyFileMovesBinary(t *testing.T) {
+	f := newAIFixture(t, true)
+	image := "\x89PNG\r\n\x1a\n\x00\xff"
+	f.routes["GET /servers/lobby/files/read"] = func() (int, string) { return http.StatusOK, image }
+	f.routes["POST /servers/lobby/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
+	f.routes["DELETE /servers/lobby/files/delete"] = func() (int, string) { return http.StatusNoContent, "" }
+	conv := aiConversation{Server: "lobby", Namespace: "games", Cluster: "local"}
+	got, failed := f.h.fileTool(context.Background(), conv, aiCreds{}, aiCopyFile, json.RawMessage(`{"file_path":"/a.png","destination":"/pack/a.png","move":true}`))
+	if failed || got != "Moved /a.png to /pack/a.png (10 bytes)" {
+		t.Fatalf("move = %q (%v)", got, failed)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	write, del := f.calls[len(f.calls)-2], f.calls[len(f.calls)-1]
+	if write.method != http.MethodPost || !strings.Contains(write.target, "path=%2Fpack%2Fa.png") || write.body != image {
+		t.Errorf("write = %+v", write)
+	}
+	if del.method != http.MethodDelete || !strings.Contains(del.target, "path=%2Fa.png") {
+		t.Errorf("delete = %+v", del)
+	}
+	if got, failed := f.h.fileTool(context.Background(), conv, aiCreds{}, aiCopyFile, json.RawMessage(`{"file_path":"/a.png","destination":"/a.png"}`)); !failed {
+		t.Errorf("same path = %q", got)
+	}
+}
+
 func TestAIShellOutput(t *testing.T) {
 	if got := aiShellOutput("a\n", "", 0); got != "exit 0\na\n" {
 		t.Errorf("plain = %q", got)

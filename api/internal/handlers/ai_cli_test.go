@@ -434,7 +434,7 @@ func TestAICLIFailures(t *testing.T) {
 		want  string
 	}{
 		"no result":  {[]string{cliInit}, "Claude Code stopped without a result."},
-		"max turns":  {[]string{cliInit, `{"type":"result","subtype":"error_max_turns","is_error":true}`}, "Stopped after 40 model calls. Send a message to continue."},
+		"max turns":  {[]string{cliInit, `{"type":"result","subtype":"error_max_turns","is_error":true}`}, "Claude Code reached its turn limit. Send a message to continue."},
 		"auth error": {[]string{`{"type":"result","subtype":"success","is_error":true,"result":"Invalid API key · Please run /login"}`}, "Claude Code: Invalid API key · Please run /login"},
 	}
 	for name, tc := range cases {

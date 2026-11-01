@@ -290,7 +290,7 @@ function queryString(query: unknown): string {
 
 export const INLINE_LIMIT = 12_000;
 
-const FILE_TOOLS = new Map([["read_file", "READ"], ["edit_file", "EDIT"], ["write_file", "WRITE"], ["read_archive", "ARCHIVE"]]);
+const FILE_TOOLS = new Map([["read_file", "READ"], ["edit_file", "EDIT"], ["write_file", "WRITE"], ["read_archive", "ARCHIVE"], ["copy_file", "COPY"]]);
 
 export function callLabel(block: AssistantBlock): string {
   const input = block.input ?? {};

@@ -204,7 +204,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 	case last.Type != "result":
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code stopped without a result.")
 	case last.Subtype == "error_max_turns":
-		h.settle(ctx, conv.ID, runID, aiFailed, fmt.Sprintf("Stopped after %d model calls. Send a message to continue.", aiMaxSteps))
+		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code reached its turn limit. Send a message to continue.")
 	case last.IsError:
 		h.settle(ctx, conv.ID, runID, aiFailed, "Claude Code: "+aiClip(cmp.Or(last.Result, last.Subtype), 300))
 	default:
@@ -325,7 +325,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	}
 	allowed := strings.Join(allowedTools, ",")
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-		"--model", conv.Model, "--effort", conv.Effort, "--max-turns", strconv.Itoa(aiMaxSteps),
+		"--model", conv.Model, "--effort", conv.Effort,
 		"--system-prompt", system,
 		"--strict-mcp-config", "--mcp-config", string(servers),
 		"--permission-mode", aiCLIMode(conv.Mode), "--allowedTools", allowed, "--tools", tools}
