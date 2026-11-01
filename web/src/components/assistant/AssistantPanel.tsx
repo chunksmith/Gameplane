@@ -192,7 +192,11 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
     queryKey: ["ai", "conversation", selected],
     queryFn: () => Assistant.get(selected ?? ""),
     enabled: ready && !!selected,
-    refetchInterval: (query) => (query.state.data?.conversation.status === "running" ? 1500 : false),
+    refetchInterval: (query) => {
+      const current = query.state.data?.conversation.status;
+      if (current === "running") return 1500;
+      return current === "awaiting_approval" ? 5000 : false;
+    },
   });
   const tail = useAssistantStream(selected, detail.data?.conversation.status === "running", () =>
     qc.invalidateQueries({ queryKey: ["ai", "conversation", selected] }),
@@ -207,6 +211,10 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   }, [list.data, search]);
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["ai"] });
+  const started = (conv: AssistantConversation) => {
+    qc.setQueryData<AssistantDetail>(["ai", "conversation", conv.id], (old) => old && { ...old, conversation: conv, pending: [] });
+    refresh();
+  };
   const submit = useMutation({
     mutationFn: async ({ text, files }: { text: string; files?: AssistantAttachment[] }) => {
       const body = withContextBlock(text, await mentionContext(scope, text));
@@ -214,7 +222,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
     },
     onSuccess: (conv) => {
       setSelected(conv.id);
-      refresh();
+      started(conv);
     },
   });
   const warmStatus = selected ? detail.data?.conversation.status : "idle";
@@ -223,7 +231,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
     const warmScope = { server: scope.server, namespace: scope.namespace, cluster: scope.cluster };
     void Assistant.warm(selected, warmScope, pickedMode, pickedModel).catch(() => undefined);
   }, [ready, selected, warmStatus, scope.server, scope.namespace, scope.cluster, pickedMode, pickedModel]);
-  const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(selected ?? "", approve), onSuccess: refresh });
+  const decide = useMutation({ mutationFn: (approve: boolean) => Assistant.decide(selected ?? "", approve), onSuccess: started });
   const stop = useMutation({ mutationFn: () => Assistant.cancel(selected ?? ""), onSuccess: refresh });
   const queue = useMessageQueue(warmStatus === "running" || warmStatus === "awaiting_approval", (text) => submit.mutate({ text }), () => stop.mutate());
 
