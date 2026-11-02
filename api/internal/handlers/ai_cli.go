@@ -175,6 +175,7 @@ func (h *aiHandler) runCLI(ctx context.Context, conv aiConversation, creds aiCre
 		h.settle(ctx, conv.ID, runID, aiFailed, "The assistant tool endpoint could not start.")
 		return
 	}
+	conv.Memory = h.serverMemory(runCtx, conv, creds)
 	linear := h.openLinear(runCtx, conv.UserID)
 	defer linear.close()
 	run := &aiLive{conv: conv, creds: creds, linear: linear, runID: runID, done: runCtx.Done(), cancel: cancel}
@@ -326,7 +327,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	allowed := strings.Join(allowedTools, ",")
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--model", conv.Model, "--effort", conv.Effort,
-		"--system-prompt", system,
+		"--append-system-prompt", system,
 		"--strict-mcp-config", "--mcp-config", string(servers),
 		"--permission-mode", aiCLIMode(conv.Mode), "--allowedTools", allowed, "--tools", tools}
 	if conv.SessionID != "" {
@@ -350,6 +351,7 @@ func aiCLIEnv(token string, admin bool) []string {
 		"DISABLE_UPDATES=1",
 		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
 		"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1",
+		"CLAUDE_CODE_DISABLE_AUTO_MEMORY=1",
 		"MCP_TOOL_TIMEOUT=" + strconv.FormatInt((aiApprovalWait+5*time.Minute).Milliseconds(), 10),
 	}
 	if admin {
@@ -403,6 +405,7 @@ func (h *aiHandler) warmCLI(ctx context.Context, conv aiConversation, creds aiCr
 	if h.mcpURL == "" {
 		return
 	}
+	conv.Memory = h.serverMemory(ctx, conv, creds)
 	linear := h.openLinear(ctx, conv.UserID)
 	linear.close()
 	proc, fresh, err := h.process(ctx, conv, token, creds.admin, linear.names(), true)

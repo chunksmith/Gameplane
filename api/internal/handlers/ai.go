@@ -97,6 +97,7 @@ type aiConversation struct {
 	CreatedAt    string `json:"createdAt"`
 	UpdatedAt    string `json:"updatedAt"`
 	SessionID    string `json:"-"`
+	Memory       string `json:"-"`
 }
 
 type aiCreds struct {

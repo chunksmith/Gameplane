@@ -130,6 +130,7 @@ func sendClaude(ctx context.Context, key string, params anthropic.BetaMessageNew
 
 func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds, key, runID string, approved *bool) {
 	defer h.pushFlush(conv.ID)
+	conv.Memory = h.serverMemory(ctx, conv, creds)
 	linear := h.openLinear(ctx, conv.UserID)
 	defer linear.close()
 	for {
@@ -525,6 +526,9 @@ API reference (put query parameters in "query"; send JSON bodies as objects):
 - Backups: GET /backups, GET /backups/{name}, POST /backups with {"apiVersion":"gameplane.local/v1alpha1","kind":"Backup","metadata":{"generateName":"<server>-manual-"},"spec":{"serverRef":{"name":"<server>"}}}, DELETE /backups/{name}.
 - Schedules: GET and POST /schedules, PUT and DELETE /schedules/{name}. Restores: GET /restores, POST /restores (spec.backupRef and spec.serverRef).
 - Namespaced calls take the query parameter namespace; servers outside the "local" cluster also need cluster.`
+	if conv.Server != "" {
+		prompt += aiMemoryPrompt + conv.Memory
+	}
 	if conv.Mode == aiModePlan {
 		prompt += "\n\nPlan mode is on: read and search freely, but change nothing. When you know what to do, call propose_plan with numbered steps; without propose_plan (API key), write the plan as your reply and ask the user to switch the permission mode to apply it."
 	}

@@ -177,7 +177,7 @@ func TestAIPendingIDLocal(t *testing.T) {
 func TestAICLIArgsPlan(t *testing.T) {
 	args := aiCLIArgs(aiConversation{Model: "claude-opus-5-5", Effort: "medium", Mode: aiModePlan}, "http://127.0.0.1:1/mcp", "tok", true)
 	allowed := args[slices.Index(args, "--allowedTools")+1]
-	system := args[slices.Index(args, "--system-prompt")+1]
+	system := args[slices.Index(args, "--append-system-prompt")+1]
 	if !hasArg(args, "--tools", "Task,WebSearch") || strings.Contains(allowed, "Bash") || !strings.Contains(system, "Plan mode is on") || !strings.Contains(allowed, "mcp__gameplane__propose_plan") {
 		t.Errorf("plan args = %v", args)
 	}

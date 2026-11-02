@@ -572,6 +572,19 @@ mode is a UX guard that keeps the assistant from changing things before a
 plan is approved, not an authorization boundary; RBAC still decides every
 `gameplane_api` call.
 
+## AI assistant server memory
+
+In a server conversation the assistant loads `/CLAUDE.md` and
+`/.claude/memory/MEMORY.md` from that server's data volume into its system
+prompt (feature 027) and follows `/CLAUDE.md` as the user's instructions.
+Anyone who can write the server's files, the game process and its plugins
+included, can change them and so steer the assistant. That gains no
+permissions: every tool call still runs with the signed-in user's session,
+RBAC and approvals, but with bypass permissions on it covers the deletes and
+wipes that user could run without asking. Claude Code's built-in auto memory
+is off, because its directory in the API pod would be shared by every user
+and server.
+
 ## Notifications
 
 Notification sinks ([docs](notifications.md)) are a third outbound-dial

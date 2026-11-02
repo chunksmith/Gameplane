@@ -378,6 +378,10 @@ func TestAIHelpers(t *testing.T) {
 	if !strings.Contains(aiSystemPrompt(aiConversation{Server: "lobby", Namespace: "g", Cluster: "local"}), `server "lobby"`) {
 		t.Error("server scope missing from prompt")
 	}
+	memory := aiSystemPrompt(aiConversation{Server: "lobby", Namespace: "g", Cluster: "local", Memory: "\n\nContents of /CLAUDE.md:\nuse spaces"})
+	if !strings.Contains(memory, "/.claude/memory/") || !strings.HasSuffix(memory, "use spaces") || strings.Contains(aiSystemPrompt(aiConversation{}), "/.claude/memory/") {
+		t.Error("server memory in prompt")
+	}
 }
 
 func TestAIParams(t *testing.T) {

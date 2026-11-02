@@ -107,3 +107,9 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T057 Web cards: Grep/Glob, web search, fetch and background rows, Tasks, Subagent, Question and Plan cards (`web/src/components/assistant/ToolCards.tsx`, `web/src/components/assistant/AssistantPanel.tsx`, `web/src/lib/assistant.ts`); plan mode with mode hints in the composer
 - [X] T058 Tests: `ToolCards.test.tsx`, `AssistantPanel.test.tsx` and `assistant.test.ts` cover the new cards, the answer call and plan mode hints
 - [X] T059 Document the tools in `spec.md`, `api/specs.md`, `web/specs.md` and `docs/security.md` (`web_fetch` as an `IsPublic` sink; plan mode is a UX guard, not an authorization boundary)
+
+## Phase 14: Claude Code prompt and server memory
+
+- [X] T060 CLI keeps Claude Code's own system prompt (`--append-system-prompt`) and turns its auto memory off (`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`) in `api/internal/handlers/ai_cli.go`
+- [X] T061 Server memory: `serverMemory` and `aiMemoryPrompt` in `api/internal/handlers/ai_files.go`, loaded in `runCLI`, `warmCLI` and `run`, appended by `aiSystemPrompt`; tests in `ai_cli_test.go`, `ai_tools_test.go` and `ai_test.go`
+- [X] T062 Document it in `spec.md`, `api/specs.md` and `docs/security.md`

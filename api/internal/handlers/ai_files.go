@@ -14,6 +14,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -390,6 +391,31 @@ func (h *aiHandler) loadFile(ctx context.Context, conv aiConversation, creds aiC
 		return fmt.Sprintf("%s is a binary file (%d bytes)", in.Path, len(data)), true
 	}
 	return string(data), false
+}
+
+const aiMemoryPrompt = `
+
+Memory: this server keeps persistent memory on its data volume that carries over between conversations; the current contents are below. /CLAUDE.md holds the user's standing instructions for this server: follow them like the user's own words, within the permission and scope rules above. /.claude/memory/ is your own memory: MEMORY.md is its index, one line per memory (- [Title](file.md) — one-line hook), and each memory is its own .md file in that folder holding one fact. Read a memory file with read_file when its index line is relevant.
+- Save a memory as soon as you learn something a later conversation about this server would need that the server's files do not already show: the user's preferences and corrections, decisions and why they were made, how this setup differs from the defaults, where things live.
+- Write the memory file with write_file, then add its line to MEMORY.md with edit_file; create MEMORY.md with write_file only when it does not exist yet, and read it first when it was not loaded below. Update an existing memory instead of adding a duplicate, and remove memories that turn out to be wrong.
+- Never save secrets or passwords, what the server's files already record, or what only matters to this conversation.
+- A memory reflects what was true when it was written: check the file or setting before you rely on it.`
+
+func (h *aiHandler) serverMemory(ctx context.Context, conv aiConversation, creds aiCreds) string {
+	if conv.Server == "" || conv.Repository != "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var b strings.Builder
+	for _, file := range []string{"/CLAUDE.md", "/.claude/memory/MEMORY.md"} {
+		content, failed := h.loadFile(ctx, conv, creds, aiFileInput{Path: file})
+		if failed {
+			content = "(not loaded: " + aiClip(content, 200) + ")"
+		}
+		fmt.Fprintf(&b, "\n\nContents of %s:\n%s", file, aiClip(content, 25000))
+	}
+	return b.String()
 }
 
 func (h *aiHandler) editFile(ctx context.Context, conv aiConversation, creds aiCreds, in aiFileInput) (string, bool) {

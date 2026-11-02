@@ -705,14 +705,14 @@ func TestAICLIAdminShell(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
 	conv := aiConversation{Model: "claude-opus-5-5", Effort: "medium"}
 	user := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", false)
-	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch"), ",")) || strings.Contains(user[slices.Index(user, "--system-prompt")+1], "kubectl") {
+	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch"), ",")) || strings.Contains(user[slices.Index(user, "--append-system-prompt")+1], "kubectl") {
 		t.Errorf("user args = %v", user)
 	}
 	admin := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
-	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch", "Bash", "Monitor", "TaskStop"), ",")) || !strings.Contains(admin[slices.Index(admin, "--system-prompt")+1], "kubectl") {
+	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch", "Bash", "Monitor", "TaskStop"), ",")) || !strings.Contains(admin[slices.Index(admin, "--append-system-prompt")+1], "kubectl") {
 		t.Errorf("admin args = %v", admin)
 	}
-	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") {
+	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") || !slices.Contains(env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1") {
 		t.Errorf("user env = %v", env)
 	}
 	if env := aiCLIEnv("oat", true); !slices.Contains(env, "SHELL=/bin/bash") || !slices.Contains(env, "KUBERNETES_SERVICE_HOST=10.0.0.1") {
@@ -728,7 +728,7 @@ func TestAICLIAdminShell(t *testing.T) {
 func TestAICLIModes(t *testing.T) {
 	for mode, want := range map[string]string{"": "dontAsk", aiModeDefault: "dontAsk", aiModeAuto: "auto", aiModeBypass: "bypassPermissions", aiModePlan: "dontAsk"} {
 		args := aiCLIArgs(aiConversation{Model: "claude-opus-5-5", Effort: "medium", Mode: mode}, "http://127.0.0.1:1/mcp", "tok", true)
-		system := args[slices.Index(args, "--system-prompt")+1]
+		system := args[slices.Index(args, "--append-system-prompt")+1]
 		if !hasArg(args, "--permission-mode", want) || strings.Contains(system, "Bypass permissions is on") != (mode == aiModeBypass) {
 			t.Errorf("mode %q args = %v", mode, args)
 		}
