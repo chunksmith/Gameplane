@@ -143,9 +143,13 @@ func aiIsFileTool(name string) bool {
 }
 
 func aiMCPTools() []string {
-	var out []string
-	for _, spec := range slices.Concat(aiTools, aiCLITools) {
-		out = append(out, aiMCPPrefix+spec.name)
+	return aiMCPNames(slices.Concat(aiTools, aiCLITools))
+}
+
+func aiMCPNames(specs []aiToolSpec) []string {
+	out := make([]string, len(specs))
+	for i, spec := range specs {
+		out[i] = aiMCPPrefix + spec.name
 	}
 	return out
 }
@@ -395,7 +399,7 @@ func (h *aiHandler) loadFile(ctx context.Context, conv aiConversation, creds aiC
 
 const aiMemoryPrompt = `
 
-Memory: this server keeps persistent memory on its data volume that carries over between conversations; the current contents are below. /CLAUDE.md holds the user's standing instructions for this server: follow them like the user's own words, within the permission and scope rules above. /.claude/memory/ is your own memory: MEMORY.md is its index, one line per memory (- [Title](file.md) — one-line hook), and each memory is its own .md file in that folder holding one fact. Read a memory file with read_file when its index line is relevant.
+Memory: this server keeps persistent memory on its data volume that carries over between conversations; the current contents are below. /CLAUDE.md holds the user's standing instructions for this server: follow them like the user's own words, within the permission and scope rules above. /claude/memory/ is your own memory: MEMORY.md is its index, one line per memory (- [Title](file.md) — one-line hook), and each memory is its own .md file in that folder holding one fact. Read a memory file with read_file when its index line is relevant.
 - Save a memory as soon as you learn something a later conversation about this server would need that the server's files do not already show: the user's preferences and corrections, decisions and why they were made, how this setup differs from the defaults, where things live.
 - Write the memory file with write_file, then add its line to MEMORY.md with edit_file; create MEMORY.md with write_file only when it does not exist yet, and read it first when it was not loaded below. Update an existing memory instead of adding a duplicate, and remove memories that turn out to be wrong.
 - Never save secrets or passwords, what the server's files already record, or what only matters to this conversation.
@@ -408,7 +412,7 @@ func (h *aiHandler) serverMemory(ctx context.Context, conv aiConversation, creds
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var b strings.Builder
-	for _, file := range []string{"/CLAUDE.md", "/.claude/memory/MEMORY.md"} {
+	for _, file := range []string{"/CLAUDE.md", "/claude/memory/MEMORY.md"} {
 		content, failed := h.loadFile(ctx, conv, creds, aiFileInput{Path: file})
 		if failed {
 			content = "(not loaded: " + aiClip(content, 200) + ")"

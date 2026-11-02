@@ -508,9 +508,9 @@ func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
 	}
 	pending := []map[string]string{}
 	if in := h.waitingInput(conv.ID); conv.Status == aiAwaiting && in != nil {
-		pending = append(pending, map[string]string{"id": aiPendingID(msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
+		pending = append(pending, map[string]string{"id": aiPendingID(conv, msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
 	} else if conv.Status == aiAwaiting {
-		for _, use := range aiToolUsesIn(conv.Repository, msgs) {
+		for _, use := range aiToolUsesIn(conv, msgs) {
 			if use.needsApproval() {
 				pending = append(pending, map[string]string{"id": use.id, "method": use.method(), "path": use.target()})
 			}
@@ -562,7 +562,7 @@ func (h *aiHandler) post(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	blocks := []anthropic.BetaContentBlockParamUnion{}
-	for _, use := range aiToolUsesIn(conv.Repository, msgs) {
+	for _, use := range aiToolUsesIn(conv, msgs) {
 		blocks = append(blocks, anthropic.NewBetaToolResultBlock(use.id, "Interrupted: the run was stopped before this call's result was recorded.", true))
 	}
 	blocks = append(blocks, content...)

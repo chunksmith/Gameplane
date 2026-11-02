@@ -363,6 +363,8 @@ func aiPlanBlocked(mode, name string, raw json.RawMessage) bool {
 	switch {
 	case slices.Contains([]string{aiEditFile, aiWriteFile, aiCopyFile, aiShell, aiJobStop}, name):
 		return true
+	case aiIsServerTool(name):
+		return !slices.Contains(aiServerReads, name)
 	case name == "gameplane_api":
 		var in aiToolInput
 		return json.Unmarshal(raw, &in) != nil || !strings.EqualFold(in.Method, http.MethodGet)

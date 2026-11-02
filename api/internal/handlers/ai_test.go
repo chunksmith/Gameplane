@@ -379,14 +379,14 @@ func TestAIHelpers(t *testing.T) {
 		t.Error("server scope missing from prompt")
 	}
 	memory := aiSystemPrompt(aiConversation{Server: "lobby", Namespace: "g", Cluster: "local", Memory: "\n\nContents of /CLAUDE.md:\nuse spaces"})
-	if !strings.Contains(memory, "/.claude/memory/") || !strings.HasSuffix(memory, "use spaces") || strings.Contains(aiSystemPrompt(aiConversation{}), "/.claude/memory/") {
+	if !strings.Contains(memory, "/claude/memory/") || !strings.HasSuffix(memory, "use spaces") || strings.Contains(aiSystemPrompt(aiConversation{}), "/claude/memory/") {
 		t.Error("server memory in prompt")
 	}
 }
 
 func TestAIParams(t *testing.T) {
 	p := aiParams(aiConversation{Model: "claude-opus-5-5", Effort: "high"}, nil)
-	if len(p.Betas) != 1 || p.OutputConfig.Effort != "high" || len(p.Tools) != len(aiTools) {
+	if len(p.Betas) != 1 || p.OutputConfig.Effort != "high" || len(p.Tools) != len(aiTools)+len(aiServerTools) {
 		t.Errorf("opus params = %+v", p)
 	}
 	if p := aiParams(aiConversation{Model: "claude-haiku-5-5", Effort: "low"}, nil); len(p.Betas) != 0 {

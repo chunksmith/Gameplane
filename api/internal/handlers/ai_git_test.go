@@ -48,7 +48,7 @@ func TestAIRepositoryScope(t *testing.T) {
 		}
 	}
 	msgs := []json.RawMessage{json.RawMessage(`{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"git_push","input":{}},{"type":"tool_use","id":"t2","name":"git_diff","input":{"path":"a.txt","staged":true}}]}`)}
-	uses := aiToolUsesIn("site", msgs)
+	uses := aiToolUsesIn(aiConversation{Repository: "site"}, msgs)
 	if len(uses) != 2 || !uses[0].needsApproval() || uses[0].target() != "/repositories/site/git/push" || uses[0].method() != http.MethodPost {
 		t.Fatalf("git_push use = %+v", uses)
 	}

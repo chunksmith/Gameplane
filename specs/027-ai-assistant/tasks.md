@@ -113,3 +113,9 @@ description: "Task list for Feature 027: AI assistant"
 - [X] T060 CLI keeps Claude Code's own system prompt (`--append-system-prompt`) and turns its auto memory off (`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`) in `api/internal/handlers/ai_cli.go`
 - [X] T061 Server memory: `serverMemory` and `aiMemoryPrompt` in `api/internal/handlers/ai_files.go`, loaded in `runCLI`, `warmCLI` and `run`, appended by `aiSystemPrompt`; tests in `ai_cli_test.go`, `ai_tools_test.go` and `ai_test.go`
 - [X] T062 Document it in `spec.md`, `api/specs.md` and `docs/security.md`
+
+## Phase 15: Server tools and memory path
+
+- [X] T063 Typed server tools: `aiServerTools`, `aiServerInput`, `aiCallInput` and `aiScopeTools` in `api/internal/handlers/ai_server.go`, wired into `aiBetaToolsFor`, `aiCLIArgs`, `mcpServer`, `mcpInvoke`, `aiToolUsesIn`, `aiPendingID` and `aiPlanBlocked`; the prompt's API reference points at them
+- [X] T064 Memory folder moved to `/claude/memory/` (the agent refuses dot-prefixed paths); tool cards label typed tools by name (`callLabel` in `web/src/lib/assistant.ts`)
+- [X] T065 Tests: `TestAIServerInput`, typed `aiPendingID` and plan rows in `ai_tools_test.go`/`ai_cli_test.go`; document in `spec.md` and `api/specs.md`

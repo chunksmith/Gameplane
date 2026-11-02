@@ -298,7 +298,8 @@ export function callLabel(block: AssistantBlock): string {
   const fileTool = FILE_TOOLS.get(block.name ?? "");
   if (fileTool) return `${fileTool} ${String(input.file_path ?? "")}`.trim();
   const query = queryString(input.query);
-  return `${String(input.method ?? "").toUpperCase()} ${String(input.path ?? "")}${query ? `?${query}` : ""}`.trim();
+  const call = `${String(input.method ?? "").toUpperCase()} ${String(input.path ?? "")}${query ? `?${query}` : ""}`.trim();
+  return call || [block.name ?? "", ...Object.values(input).filter((value) => typeof value === "string")].join(" ").trim();
 }
 
 export function resultStatus(text: string): string {

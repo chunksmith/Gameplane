@@ -575,7 +575,7 @@ plan is approved, not an authorization boundary; RBAC still decides every
 ## AI assistant server memory
 
 In a server conversation the assistant loads `/CLAUDE.md` and
-`/.claude/memory/MEMORY.md` from that server's data volume into its system
+`/claude/memory/MEMORY.md` from that server's data volume into its system
 prompt (feature 027) and follows `/CLAUDE.md` as the user's instructions.
 Anyone who can write the server's files, the game process and its plugins
 included, can change them and so steer the assistant. That gains no

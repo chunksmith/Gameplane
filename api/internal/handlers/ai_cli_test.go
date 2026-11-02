@@ -226,7 +226,7 @@ func TestAICLIRun(t *testing.T) {
 	first := spawns()[0]
 	if !slices.Equal(first.sent(), []string{"check the fleet"}) || slices.Contains(first.args, "--resume") ||
 		!hasArg(first.args, "--model", "claude-opus-5-5") || !hasArg(first.args, "--effort", "medium") ||
-		!hasArg(first.args, "--tools", "Task,WebSearch") || !hasArg(first.args, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch"), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
+		!hasArg(first.args, "--tools", "Task,WebSearch") || !hasArg(first.args, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiServerTools)), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
 		!hasArg(first.args, "--input-format", "stream-json") || !slices.Contains(first.args, "--include-partial-messages") {
 		t.Errorf("first spawn = %v %v", first.sent(), first.args)
 	}
@@ -666,14 +666,18 @@ func TestAIPendingID(t *testing.T) {
 	use := json.RawMessage(`{"role":"assistant","content":[{"type":"tool_use","id":"tu1","name":"gameplane_api","input":{"method":"DELETE","path":"/backups/b1"}}]}`)
 	done := json.RawMessage(`{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"ok"}]}`)
 	in := aiToolInput{Method: "delete", Path: "/backups/b1"}
-	if got := aiPendingID([]json.RawMessage{use}, in); got != "tu1" {
+	if got := aiPendingID(aiConversation{}, []json.RawMessage{use}, in); got != "tu1" {
 		t.Errorf("open = %q", got)
 	}
-	if got := aiPendingID([]json.RawMessage{use, done}, in); got != "" {
+	if got := aiPendingID(aiConversation{}, []json.RawMessage{use, done}, in); got != "" {
 		t.Errorf("resolved = %q", got)
 	}
-	if got := aiPendingID([]json.RawMessage{json.RawMessage(`"text"`), use}, aiToolInput{Method: "GET", Path: "/backups"}); got != "" {
+	if got := aiPendingID(aiConversation{}, []json.RawMessage{json.RawMessage(`"text"`), use}, aiToolInput{Method: "GET", Path: "/backups"}); got != "" {
 		t.Errorf("other = %q", got)
+	}
+	typed := json.RawMessage(`{"role":"assistant","content":[{"type":"tool_use","id":"tu2","name":"mods_remove","input":{"name":"a.jar"}}]}`)
+	if got := aiPendingID(aiConversation{Server: "lobby"}, []json.RawMessage{typed}, aiToolInput{Method: "DELETE", Path: "/servers/lobby/mods", Query: map[string]string{"name": "a.jar"}}); got != "tu2" {
+		t.Errorf("typed = %q", got)
 	}
 }
 
@@ -705,11 +709,11 @@ func TestAICLIAdminShell(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
 	conv := aiConversation{Model: "claude-opus-5-5", Effort: "medium"}
 	user := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", false)
-	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch"), ",")) || strings.Contains(user[slices.Index(user, "--append-system-prompt")+1], "kubectl") {
+	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiServerTools)), ",")) || strings.Contains(user[slices.Index(user, "--append-system-prompt")+1], "kubectl") {
 		t.Errorf("user args = %v", user)
 	}
 	admin := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
-	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(append(aiMCPTools(), "Task", "WebSearch", "Bash", "Monitor", "TaskStop"), ",")) || !strings.Contains(admin[slices.Index(admin, "--append-system-prompt")+1], "kubectl") {
+	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiServerTools), []string{"Bash", "Monitor", "TaskStop"}), ",")) || !strings.Contains(admin[slices.Index(admin, "--append-system-prompt")+1], "kubectl") {
 		t.Errorf("admin args = %v", admin)
 	}
 	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") || !slices.Contains(env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1") {

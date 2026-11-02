@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -135,6 +136,8 @@ func TestAIPlanBlocked(t *testing.T) {
 		{aiModePlan, aiJobOutput, `{}`, false},
 		{aiModePlan, "gameplane_api", `{"method":"GET","path":"/fleet/servers"}`, false},
 		{aiModePlan, "gameplane_api", `{"method":"POST","path":"/servers/a:start"}`, true},
+		{aiModePlan, aiServerPower, `{"action":"restart"}`, true},
+		{aiModePlan, aiServerStatus, `{}`, false},
 		{aiModeDefault, aiEditFile, `{}`, false},
 		{aiModeDefault, "gameplane_api", `{"method":"DELETE","path":"/backups/b"}`, false},
 	} {
@@ -163,13 +166,13 @@ func TestAIParentMessages(t *testing.T) {
 func TestAIPendingIDLocal(t *testing.T) {
 	ask := json.RawMessage(`{"role":"assistant","content":[{"type":"tool_use","id":"ask1","name":"ask_user","input":{"question":"q"}}]}`)
 	plan := json.RawMessage(`{"role":"assistant","content":[{"type":"tool_use","id":"plan1","name":"propose_plan","input":{"plan":"p"}}]}`)
-	if got := aiPendingID([]json.RawMessage{ask}, aiToolInput{Method: aiAskMethod}); got != "ask1" {
+	if got := aiPendingID(aiConversation{}, []json.RawMessage{ask}, aiToolInput{Method: aiAskMethod}); got != "ask1" {
 		t.Errorf("ask = %q", got)
 	}
-	if got := aiPendingID([]json.RawMessage{ask}, aiToolInput{Method: aiPlanMethod}); got != "" {
+	if got := aiPendingID(aiConversation{}, []json.RawMessage{ask}, aiToolInput{Method: aiPlanMethod}); got != "" {
 		t.Errorf("ask as plan = %q", got)
 	}
-	if got := aiPendingID([]json.RawMessage{plan}, aiToolInput{Method: aiPlanMethod}); got != "plan1" {
+	if got := aiPendingID(aiConversation{}, []json.RawMessage{plan}, aiToolInput{Method: aiPlanMethod}); got != "plan1" {
 		t.Errorf("plan = %q", got)
 	}
 }
@@ -214,5 +217,51 @@ func TestAICLIAskUser(t *testing.T) {
 	}
 	if rr := f.do(http.MethodPost, "/ai/conversations/"+conv.ID+"/answer", "", map[string]string{"answer": "b"}); rr.Code != http.StatusConflict {
 		t.Errorf("second answer = %d", rr.Code)
+	}
+}
+
+func TestAIServerInput(t *testing.T) {
+	server := aiConversation{Server: "lobby", Namespace: "g", Cluster: "local"}
+	fleet := aiConversation{}
+	for _, c := range []struct {
+		conv   aiConversation
+		name   string
+		raw    string
+		method string
+		path   string
+		query  map[string]string
+		body   string
+	}{
+		{server, aiServerStatus, `{}`, "GET", "/servers/lobby/status", nil, ""},
+		{server, aiServerStatus, `{"events":true}`, "GET", "/servers/lobby/events", nil, ""},
+		{server, aiServerPower, `{"action":"restart"}`, "POST", "/servers/lobby:restart", nil, ""},
+		{server, aiModsList, `{"updates":true}`, "GET", "/servers/lobby/mods/updates", nil, ""},
+		{server, aiModsRemove, `{"name":"a.jar"}`, "DELETE", "/servers/lobby/mods", map[string]string{"name": "a.jar"}, ""},
+		{server, aiPlayersList, `{"whitelist":true}`, "GET", "/servers/lobby/players/whitelist", nil, ""},
+		{server, aiPlayerAction, `{"action":"whitelist_add","player":"Steve"}`, "POST", "/servers/lobby/players/whitelist/add", nil, `{"name":"Steve","reason":""}`},
+		{server, aiBackupCreate, `{}`, "POST", "/backups", nil, `{"apiVersion":"gameplane.local/v1alpha1","kind":"Backup","metadata":{"generateName":"lobby-manual-"},"spec":{"serverRef":{"name":"lobby"}}}`},
+		{fleet, aiServersList, `{}`, "GET", "/fleet/servers", nil, ""},
+		{fleet, aiServerPower, `{"action":"start","server":"smp","namespace":"games","cluster":"eu"}`, "POST", "/servers/smp:start", map[string]string{"namespace": "games", "cluster": "eu"}, ""},
+	} {
+		in, err := aiServerInput(c.conv, c.name, json.RawMessage(c.raw))
+		if err != nil || in.Method != c.method || in.Path != c.path || !maps.Equal(in.Query, c.query) || string(in.Body) != c.body {
+			t.Errorf("%s %s = %+v %v", c.name, c.raw, in, err)
+		}
+	}
+	for _, c := range []struct {
+		conv      aiConversation
+		name, raw string
+	}{
+		{server, aiServerPower, `{"action":"delete"}`},
+		{server, aiPlayerAction, `{"action":"op","player":"x"}`},
+		{fleet, aiServerStatus, `{"server":"smp"}`},
+		{aiConversation{Repository: "site"}, aiServerStatus, `{}`},
+	} {
+		if _, err := aiServerInput(c.conv, c.name, json.RawMessage(c.raw)); err == nil {
+			t.Errorf("%s %s accepted", c.name, c.raw)
+		}
+	}
+	if in, _ := aiServerInput(server, aiModsRemove, json.RawMessage(`{"name":"a.jar"}`)); !in.needsApproval() {
+		t.Error("mods_remove needs approval")
 	}
 }

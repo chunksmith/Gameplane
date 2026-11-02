@@ -47,10 +47,8 @@ func aiIsGitTool(name string) bool {
 
 func aiBetaToolsFor(conv aiConversation) []anthropic.BetaToolUnionParam {
 	tools := aiBetaTools()
-	if conv.Repository != "" {
-		for _, spec := range aiGitTools {
-			tools = append(tools, spec.beta())
-		}
+	for _, spec := range aiScopeTools(conv) {
+		tools = append(tools, spec.beta())
 	}
 	return tools
 }

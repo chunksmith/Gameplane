@@ -139,7 +139,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			h.settle(ctx, conv.ID, runID, aiFailed, "Could not load the conversation.")
 			return
 		}
-		if uses := aiToolUsesIn(conv.Repository, msgs); len(uses) > 0 {
+		if uses := aiToolUsesIn(conv, msgs); len(uses) > 0 {
 			if approved == nil && conv.Mode != aiModeBypass && conv.Mode != aiModePlan && slices.ContainsFunc(uses, aiToolUse.needsApproval) {
 				h.settle(ctx, conv.ID, runID, aiAwaiting, "")
 				return
@@ -360,10 +360,10 @@ type aiToolMsg struct {
 }
 
 func aiToolUses(msgs []json.RawMessage) []aiToolUse {
-	return aiToolUsesIn("", msgs)
+	return aiToolUsesIn(aiConversation{}, msgs)
 }
 
-func aiToolUsesIn(repository string, msgs []json.RawMessage) []aiToolUse {
+func aiToolUsesIn(conv aiConversation, msgs []json.RawMessage) []aiToolUse {
 	var last aiToolMsg
 	found := false
 	for i := len(msgs) - 1; i >= 0; i-- {
@@ -385,12 +385,8 @@ func aiToolUsesIn(repository string, msgs []json.RawMessage) []aiToolUse {
 			continue
 		}
 		use := aiToolUse{id: block.ID, name: block.Name, raw: block.Input}
-		_, isLinear := use.linear()
-		switch {
-		case aiIsGitTool(block.Name):
-			use.input, use.err = aiGitInput(repository, block.Name, block.Input)
-		case !isLinear && !aiIsLocalTool(block.Name):
-			use.err = json.Unmarshal(block.Input, &use.input)
+		if _, isLinear := use.linear(); !isLinear && !aiIsLocalTool(block.Name) {
+			use.input, use.err = aiCallInput(conv, block.Name, block.Input)
 		}
 		uses = append(uses, use)
 	}
@@ -487,11 +483,11 @@ func aiSystemPrompt(conv aiConversation) string {
 	if conv.Repository != "" {
 		return aiRepositoryPrompt(conv)
 	}
-	scopeLine := "This conversation is not tied to one server. Use GET /fleet/servers to find servers; pass namespace (and cluster when it is not \"local\") on every namespaced call."
+	scopeLine := "This conversation is not tied to one server. Use servers_list to find servers; pass namespace (and cluster when it is not \"local\") on every namespaced call."
 	if conv.Server != "" {
 		scopeLine = fmt.Sprintf("This conversation is about server %q in namespace %q on cluster %q. You can act only on this server and its own backups, schedules and restores; namespace and cluster are added to every call for you.", conv.Server, conv.Namespace, conv.Cluster)
 	}
-	prompt := `You are the Gameplane assistant. Gameplane is a Kubernetes game-server control panel. You act for the signed-in user through the gameplane_api tool, which calls the panel's REST API with that user's own session, and through read_file, edit_file and write_file, which read and change files on a server's data volume through the same API, and through shell, which runs commands in a server's game container inside that data volume; grep and glob search that volume, web_fetch reads public pages, todo_write keeps a task list, and shell_output and shell_stop follow or stop background shell jobs.
+	prompt := `You are the Gameplane assistant. Gameplane is a Kubernetes game-server control panel. You act for the signed-in user through the gameplane_api tool, which calls the panel's REST API with that user's own session, and through read_file, edit_file and write_file, which read and change files on a server's data volume through the same API, and through shell, which runs commands in a server's game container inside that data volume; grep and glob search that volume, web_fetch reads public pages, todo_write keeps a task list, and shell_output and shell_stop follow or stop background shell jobs. The server tools (servers_list, server_status, server_power, mods_list, mods_install, mods_remove, players_list, player_action, run_action, backups_list, backup_create) cover the common server operations: use them instead of gameplane_api for those, and gameplane_api for everything else.
 
 Permissions: the API enforces the user's role bindings and server ownership on every call. HTTP 403 means the user is not allowed to do that: say so plainly and never look for another route to the same result. ` + aiApprovalText(conv.Mode) + `
 
@@ -516,14 +512,14 @@ Working rules:
 - Answer in the user's language. Be concise and direct: no preamble, no repeating the question, no long explanations unless asked. When you are done, summarize what you changed and anything the user still has to do.
 
 API reference (put query parameters in "query"; send JSON bodies as objects):
-- GET /fleet/servers: every server the user can see, across clusters.
+- servers_list: every server the user can see, across clusters.
 - GET /servers/{name}: the GameServer object. PUT /servers/{name} replaces it; send the full object you read with your change.
-- POST /servers/{name}:start, :stop, :restart, :wake. GET /servers/{name}/status, GET /servers/{name}/events.
+- server_power starts, stops, restarts or wakes a server; server_status shows its status or pod events.
 - Files (paths inside the server's data volume, starting with /): GET /servers/{name}/files/list?path=/dir, POST /servers/{name}/files/mkdir?path=/dir, DELETE /servers/{name}/files/delete?path=/file (add recursive=true for directories). Read, change and create files with read_file, edit_file and write_file; look inside a .jar or .zip with read_archive; run commands with shell, never POST /servers/{name}/shell through gameplane_api.
-- Mods and plugins: GET /servers/{name}/mods, GET /servers/{name}/mods/updates, POST /servers/{name}/mods/install with {"url","name"} (the agent downloads the file into the plugins or mods folder; the URL host must be in the template's spec.capabilities.mods.install.allowedHosts, otherwise HTTP 403), DELETE /servers/{name}/mods?name=<file>.
-- Players: GET /servers/{name}/players, POST /servers/{name}/players/kick, /ban, /unban with {"name","reason"}, GET /servers/{name}/players/whitelist, POST /servers/{name}/players/whitelist/add or /remove with {"name"}.
-- Actions: POST /servers/{name}/actions/run with {"id","params"}; the template (GET /templates/{spec.templateRef.name}) lists them under spec.capabilities.actions.
-- Backups: GET /backups, GET /backups/{name}, POST /backups with {"apiVersion":"gameplane.local/v1alpha1","kind":"Backup","metadata":{"generateName":"<server>-manual-"},"spec":{"serverRef":{"name":"<server>"}}}, DELETE /backups/{name}.
+- Mods and plugins: mods_list (updates: true for available updates), mods_install (the agent downloads the file into the plugins or mods folder; the URL host must be in the template's spec.capabilities.mods.install.allowedHosts, otherwise HTTP 403), mods_remove.
+- Players: players_list (whitelist: true for the whitelist) and player_action (kick, ban, unban, whitelist_add, whitelist_remove).
+- Actions: run_action; the template (GET /templates/{spec.templateRef.name}) lists them under spec.capabilities.actions.
+- Backups: backups_list and backup_create; GET /backups/{name} and DELETE /backups/{name} through gameplane_api.
 - Schedules: GET and POST /schedules, PUT and DELETE /schedules/{name}. Restores: GET /restores, POST /restores (spec.backupRef and spec.serverRef).
 - Namespaced calls take the query parameter namespace; servers outside the "local" cluster also need cluster.`
 	if conv.Server != "" {

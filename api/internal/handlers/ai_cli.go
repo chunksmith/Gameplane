@@ -308,12 +308,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	allowedTools := append(aiMCPTools(), "Task", "WebSearch")
-	if conv.Repository != "" {
-		for _, spec := range aiGitTools {
-			allowedTools = append(allowedTools, aiMCPPrefix+spec.name)
-		}
-	}
+	allowedTools := slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiScopeTools(conv)))
 	for _, name := range linear {
 		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
@@ -556,8 +551,8 @@ func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 	for _, spec := range slices.Concat(aiTools, aiCLITools) {
 		server.AddTool(spec.mcp(), h.mcpCall)
 	}
-	if run != nil && run.conv.Repository != "" {
-		for _, spec := range aiGitTools {
+	if run != nil {
+		for _, spec := range aiScopeTools(run.conv) {
 			server.AddTool(spec.mcp(), h.mcpCall)
 		}
 	}
@@ -623,11 +618,7 @@ func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, arg
 	if aiIsFileTool(name) {
 		return h.fileTool(ctx, run.conv, run.creds, name, args)
 	}
-	var in aiToolInput
-	err := json.Unmarshal(args, &in)
-	if aiIsGitTool(name) {
-		in, err = aiGitInput(run.conv.Repository, name, args)
-	}
+	in, err := aiCallInput(run.conv, name, args)
 	if err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
@@ -842,7 +833,7 @@ func (h *aiHandler) liveByToken(header string) *aiLive {
 	return nil
 }
 
-func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
+func aiPendingID(conv aiConversation, msgs []json.RawMessage, in aiToolInput) string {
 	id, resolved := "", map[string]bool{}
 	for _, raw := range msgs {
 		var msg struct {
@@ -858,7 +849,6 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 			continue
 		}
 		for _, block := range msg.Content {
-			var input aiToolInput
 			linear, isLinear := strings.CutPrefix(block.Name, aiLinearPrefix)
 			switch {
 			case block.Type == "tool_result":
@@ -876,7 +866,7 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 				if in.Method == aiLinearMethod && in.Path == linear {
 					id = block.ID
 				}
-			case json.Unmarshal(block.Input, &input) == nil && strings.EqualFold(input.Method, in.Method) && input.Path == in.Path && maps.Equal(input.Query, in.Query):
+			case aiSameCall(conv, block.Name, block.Input, in):
 				id = block.ID
 			}
 		}
@@ -885,6 +875,11 @@ func aiPendingID(msgs []json.RawMessage, in aiToolInput) string {
 		return ""
 	}
 	return id
+}
+
+func aiSameCall(conv aiConversation, name string, raw json.RawMessage, want aiToolInput) bool {
+	got, err := aiCallInput(conv, name, raw)
+	return err == nil && strings.EqualFold(got.Method, want.Method) && got.Path == want.Path && maps.Equal(got.Query, want.Query)
 }
 
 func aiClip(text string, limit int) string {
