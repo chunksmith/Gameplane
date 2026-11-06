@@ -56,7 +56,7 @@ export function StartupSection({ draft, onChange, template, onValidityChange }: 
   const initField = field("INIT_MEMORY");
   const flagsField = field("JVM_XX_OPTS");
 
-  const limitBytes = parseQuantityToBytes(draft.spec.resources?.limits?.memory ?? template?.spec.resources?.limits?.memory);
+  const limitBytes = parseQuantityToBytes((draft.spec.resources ?? template?.spec.resources)?.limits?.memory);
   const percent = maxField?.autoFromMemoryLimit?.percent;
   const autoHeap = limitBytes > 0 && percent ? `${Math.floor((limitBytes * percent) / 100 / MIB)}M` : "";
   const maxHeap = config.MAX_MEMORY ?? maxField?.default ?? "";
