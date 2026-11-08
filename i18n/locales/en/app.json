@@ -9413,7 +9413,7 @@
   },
   "web.routes.server_detail.kill": {
     "defaultMessage": "Kill",
-    "description": "Server detail: header button that force-kills a server that is still stopping; keep it short"
+    "description": "Server detail: header button that force-kills a server stuck starting or stopping; keep it short"
   },
   "web.routes.server_detail.loading": {
     "defaultMessage": "Loading…",
@@ -9449,7 +9449,7 @@
   },
   "web.routes.server_detail.stop": {
     "defaultMessage": "Stop",
-    "description": "Server detail: header button that stops the running server, or puts a sleeping server to sleep fully; keep it short"
+    "description": "Server detail: header button that stops the running or starting server, or puts a sleeping server to sleep fully; keep it short"
   },
   "web.routes.server_detail.tab_assistant": {
     "defaultMessage": "Assistant",

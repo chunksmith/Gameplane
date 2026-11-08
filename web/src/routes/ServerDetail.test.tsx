@@ -110,14 +110,17 @@ describe("ServerDetailPage lifecycle buttons", () => {
     expect(screen.getByRole("button", { name: /^Restart$/i })).toBeDisabled();
   });
 
-  it("hides Start during a transitional phase (Starting)", async () => {
+  it("while Starting: Start hidden, Stop and Kill enabled", async () => {
     server.use(
       http.get("/servers/alpha", () => HttpResponse.json(makeServer({ status: { phase: "Starting" } }))),
     );
     renderWithQuery(<ServerDetailPage />);
-    await screen.findByRole("button", { name: /^Restart$/i });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^Stop$/i })).not.toBeDisabled(),
+    );
     expect(screen.queryByRole("button", { name: /^Start$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Stop$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Kill$/i })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Restart$/i })).toBeDisabled();
   });
 
   it("when asleep: Wake button shown, Start hidden", async () => {

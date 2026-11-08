@@ -219,7 +219,8 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   );
   // Gate lifecycle actions on phase so they aren't fired during a
   // transition (Starting/Stopping/Pending): Start only from a stopped
-  // state, Stop/Restart only while Running. act.isPending blocks
+  // state, Restart only while Running, Stop also while Starting, and Kill
+  // while Starting or Stopping so a hung boot or drain can be ended. act.isPending blocks
   // duplicate mutations from a double-click. When asleep, Start is a silent
   // no-op (spec.suspend is already false) — only :wake clears the operator's
   // sleep marker.
@@ -335,16 +336,23 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             >
               <RotateCw className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.restart", defaultMessage: "Restart", description: "Server detail: header button that restarts the running server; disabled without control access; keep it short" })}</Button>
             <Button
-              variant={stopping ? "danger" : "outline"}
+              variant="outline"
               className="rounded-full"
               size="sm"
-              onPress={() => act.mutate(stopping ? "kill" : "stop")}
-              isDisabled={!access?.canControl || (!running && !asleep && !stopping) || act.isPending}
+              onPress={() => act.mutate("stop")}
+              isDisabled={!access?.canControl || (!running && !asleep && !provisioning) || act.isPending}
             >
-              {stopping
-                ? <><Skull className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.kill", defaultMessage: "Kill", description: "Server detail: header button that force-kills a server that is still stopping; keep it short" })}</>
-                : <><Square className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.stop", defaultMessage: "Stop", description: "Server detail: header button that stops the running server, or puts a sleeping server to sleep fully; keep it short" })}</>}
-            </Button>
+              <Square className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.stop", defaultMessage: "Stop", description: "Server detail: header button that stops the running or starting server, or puts a sleeping server to sleep fully; keep it short" })}</Button>
+            {(provisioning || stopping) && (
+              <Button
+                variant="danger"
+                className="rounded-full"
+                size="sm"
+                onPress={() => act.mutate("kill")}
+                isDisabled={!access?.canControl || act.isPending}
+              >
+                <Skull className="h-4 w-4" /> {intl.formatMessage({ id: "web.routes.server_detail.kill", defaultMessage: "Kill", description: "Server detail: header button that force-kills a server stuck starting or stopping; keep it short" })}</Button>
+            )}
             {asleep && (
               <Button
                 variant="primary"
