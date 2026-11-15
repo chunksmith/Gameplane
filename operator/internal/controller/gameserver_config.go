@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -121,15 +122,23 @@ func materializeConfig(
 	// present ("" when unset) so `{{ if .Values.X }}` guards work
 	// while missingkey=error still catches typos.
 	values := make(map[string]string, len(schema))
-	fileFieldSet := false
+	resolved := make(map[string]string, len(schema))
 	for _, f := range schema {
-		values[f.Name] = ""
 		val, set := gs.Spec.Config[f.Name]
 		if !set {
 			val = f.Default
 		}
 		if val == "" && f.AutoFromMemoryLimit != nil {
 			val = autoMemoryValue(gs, tmpl, f.AutoFromMemoryLimit.Percent)
+		}
+		resolved[f.Name] = val
+	}
+	fileFieldSet := false
+	for _, f := range schema {
+		values[f.Name] = ""
+		val, err := expandMemoryPercentRefs(resolved[f.Name], resolved)
+		if err != nil {
+			return nil, fmt.Errorf("config field %q: %w", f.Name, err)
 		}
 		if val == "" {
 			if f.Required {
@@ -234,6 +243,53 @@ func autoMemoryValue(
 		return ""
 	}
 	return strconv.FormatInt(mib, 10) + "M"
+}
+
+var memoryPercentRefPattern = regexp.MustCompile(`\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([0-9]+)\s*%\s*\}\}`)
+
+var memoryUnitShifts = map[string]uint{"k": 10, "m": 20, "g": 30, "t": 40}
+
+func expandMemoryPercentRefs(val string, resolved map[string]string) (string, error) {
+	var expandErr error
+	expanded := memoryPercentRefPattern.ReplaceAllStringFunc(val, func(token string) string {
+		match := memoryPercentRefPattern.FindStringSubmatch(token)
+		percent, err := strconv.Atoi(match[2])
+		if err != nil || percent < 1 || percent > 100 {
+			expandErr = fmt.Errorf("%s: percent must be between 1 and 100", token)
+			return token
+		}
+		ref, ok := resolved[match[1]]
+		if !ok || ref == "" {
+			expandErr = fmt.Errorf("%s: field %q is unknown or unset", token, match[1])
+			return token
+		}
+		bytesTotal, err := parseMemoryBytes(ref)
+		if err != nil {
+			expandErr = fmt.Errorf("%s: %w", token, err)
+			return token
+		}
+		mib := bytesTotal * int64(percent) / 100 / (1 << 20)
+		if mib <= 0 {
+			expandErr = fmt.Errorf("%s: resolves to less than 1M", token)
+			return token
+		}
+		return strconv.FormatInt(mib, 10) + "M"
+	})
+	return expanded, expandErr
+}
+
+func parseMemoryBytes(size string) (int64, error) {
+	number, shift := size, uint(0)
+	if n := len(size); n > 0 {
+		if unitShift, ok := memoryUnitShifts[strings.ToLower(size[n-1:])]; ok {
+			number, shift = size[:n-1], unitShift
+		}
+	}
+	value, err := strconv.ParseInt(number, 10, 64)
+	if err != nil || value <= 0 || value > (1<<56)>>shift {
+		return 0, fmt.Errorf("%q is not a memory size like 30G or 6144M", size)
+	}
+	return value << shift, nil
 }
 
 // renderConfigFiles executes every spec.configFiles template against

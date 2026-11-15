@@ -690,3 +690,86 @@ func TestMaterializeConfig_AutoFromMemoryLimit_HashTracksLimit(t *testing.T) {
 		t.Errorf("a memory-limit change must change the config hash so the pod rolls")
 	}
 }
+
+func memoryPercentSchema() []gameplanev1alpha1.ConfigField {
+	return []gameplanev1alpha1.ConfigField{
+		{Name: "JVM_XX_OPTS", Type: "string"},
+		{Name: "MAX_MEMORY", Type: "string"},
+	}
+}
+
+func TestMaterializeConfig_MemoryPercentRef(t *testing.T) {
+	cases := map[string]struct{ memory, opts, want string }{
+		"gigabytes":    {"30G", "-XX:+UseZGC -XX:SoftMaxHeapSize={{MAX_MEMORY*80%}}", "-XX:+UseZGC -XX:SoftMaxHeapSize=24576M"},
+		"megabytes":    {"6144m", "-XX:SoftMaxHeapSize={{ MAX_MEMORY * 50% }}", "-XX:SoftMaxHeapSize=3072M"},
+		"two tokens":   {"10G", "-Xa{{MAX_MEMORY*10%}} -Xb{{MAX_MEMORY*100%}}", "-Xa1024M -Xb10240M"},
+		"no token":     {"30G", "-XX:SoftMaxHeapSize=20G", "-XX:SoftMaxHeapSize=20G"},
+		"no reference": {"", "-XX:+UseZGC", "-XX:+UseZGC"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			gs, tmpl := configFixtures(memoryPercentSchema(), map[string]string{"JVM_XX_OPTS": tc.opts, "MAX_MEMORY": tc.memory})
+			mc, err := materializeConfig(gs, tmpl)
+			if err != nil {
+				t.Fatalf("materializeConfig: %v", err)
+			}
+			if got := envMap(mc.env)["JVM_XX_OPTS"]; got != tc.want {
+				t.Errorf("JVM_XX_OPTS = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMaterializeConfig_MemoryPercentRefUsesAutoMemory(t *testing.T) {
+	schema := append(memoryPercentSchema()[:1], autoMemSchema(75, "")...)
+	gs, tmpl := configFixtures(schema, map[string]string{"JVM_XX_OPTS": "-XX:SoftMaxHeapSize={{MAX_MEMORY*80%}}"})
+	gs.Spec.Resources = limitsMem("8Gi")
+
+	mc, err := materializeConfig(gs, tmpl)
+	if err != nil {
+		t.Fatalf("materializeConfig: %v", err)
+	}
+	if got := envMap(mc.env)["JVM_XX_OPTS"]; got != "-XX:SoftMaxHeapSize=4915M" {
+		t.Errorf("JVM_XX_OPTS = %q, want 80%% of the computed 6144M", got)
+	}
+}
+
+func TestMaterializeConfig_MemoryPercentRefChangesHash(t *testing.T) {
+	opts := map[string]string{"JVM_XX_OPTS": "-XX:SoftMaxHeapSize={{MAX_MEMORY*80%}}"}
+	hash := func(memory string) string {
+		config := map[string]string{"MAX_MEMORY": memory}
+		for k, v := range opts {
+			config[k] = v
+		}
+		gs, tmpl := configFixtures(memoryPercentSchema(), config)
+		mc, err := materializeConfig(gs, tmpl)
+		if err != nil {
+			t.Fatalf("materializeConfig: %v", err)
+		}
+		return mc.hash
+	}
+	if hash("24G") == hash("30G") {
+		t.Errorf("a MAX_MEMORY change must change the config hash so the pod rolls")
+	}
+}
+
+func TestMaterializeConfig_MemoryPercentRefErrors(t *testing.T) {
+	cases := map[string]struct{ memory, opts, wantErr string }{
+		"unknown field": {"30G", "{{NOPE*80%}}", "unknown or unset"},
+		"unset field":   {"", "{{MAX_MEMORY*80%}}", "unknown or unset"},
+		"zero percent":  {"30G", "{{MAX_MEMORY*0%}}", "between 1 and 100"},
+		"over 100":      {"30G", "{{MAX_MEMORY*150%}}", "between 1 and 100"},
+		"bad size":      {"lots", "{{MAX_MEMORY*80%}}", "not a memory size"},
+		"nested token":  {"{{JVM_XX_OPTS*50%}}", "{{MAX_MEMORY*80%}}", "not a memory size"},
+		"below one mib": {"512K", "{{MAX_MEMORY*1%}}", "less than 1M"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			gs, tmpl := configFixtures(memoryPercentSchema(), map[string]string{"JVM_XX_OPTS": tc.opts, "MAX_MEMORY": tc.memory})
+			_, err := materializeConfig(gs, tmpl)
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("err = %v, want it to contain %q", err, tc.wantErr)
+			}
+		})
+	}
+}

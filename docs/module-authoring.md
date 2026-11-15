@@ -780,6 +780,24 @@ configSchema:
 |-------|------|-----|-----|-------|
 | `percent` | int32 | 1 | 100 | percentage of memory limit |
 
+#### Percent of another field (`{{FIELD*N%}}`)
+
+Any config value may embed `{{FIELD*N%}}`, where `FIELD` is another field of
+the same schema holding a memory size (`30G`, `6144M`, `512k`; binary units,
+no suffix means bytes) and `N` is 1–100. The token is replaced with
+`floor(size × N / 100)` as whole mebibytes with an `M` suffix, after defaults
+and `autoFromMemoryLimit` are applied:
+
+```yaml
+config:
+  MAX_MEMORY: 30G
+  JVM_XX_OPTS: -XX:+UseZGC -XX:SoftMaxHeapSize={{MAX_MEMORY*80%}}  # -XX:SoftMaxHeapSize=24576M
+```
+
+Changing `MAX_MEMORY` changes the rendered value and rolls the pod. An unknown
+or unset field, a value that is not a memory size, or a percent outside 1–100
+fails the GameServer.
+
 Materialization rules:
 
 - **Defaults apply at reconcile time.** A key absent from
