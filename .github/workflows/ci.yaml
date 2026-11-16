@@ -355,7 +355,7 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           key-suffix: codegen-drift
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
       - name: regenerate deepcopy, CRDs, RBAC and chart CRD copies
         run: make generate manifests
       - name: go mod tidy across modules
@@ -754,7 +754,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
       - run: helm lint charts/gameplane
 
   chart-template:
@@ -767,7 +767,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
       - run: helm template gameplane charts/gameplane > /tmp/rendered.yaml
       - name: gateway isolation and API-disabled chart renders
         run: python3 charts/tests/check_gateway.py
@@ -1178,7 +1178,7 @@ jobs:
       - name: CI scope regression tests
         run: make test-ci-scope
       - name: zizmor
-        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           inputs: .github
           advanced-security: false
