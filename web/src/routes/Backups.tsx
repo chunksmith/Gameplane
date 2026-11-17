@@ -42,6 +42,7 @@ import { ActiveBackups, isActiveBackup, newestBackupFirst } from "@/components/b
 import { BackupGroupsPanel, groupMembers } from "@/components/backups/BackupGroupsPanel";
 import type { Backup, BackupSchedule } from "@/types";
 import { useOptionalIntl } from "@/lib/i18n/format";
+import { serverSetOwner } from "@/lib/serverSets";
 import { defineMessages, type MessageDescriptor } from "react-intl";
 
 type TabKey = "backups" | "groups" | "schedules" | "restores";
@@ -109,7 +110,7 @@ export function BackupsPage() {
   const activeServerSchedules = allSchedules.filter((s) => !s.spec.suspend && !s.spec.groups?.length);
   const covered = new Set(groupSchedules.filter((s) => !s.spec.suspend).flatMap((s) => groupMembers(s, allServers).map((server) => targetKey(server.fleetTarget))));
   const coverageKnown = !!serverScopes && !!liveSchedules;
-  const unprotected = !coverageKnown ? [] : allServers.filter((server) => !covered.has(targetKey(server.fleetTarget)) && !activeServerSchedules.some((s) => matchesServer(s, targetKey(server.fleetTarget), [server])));
+  const unprotected = !coverageKnown ? [] : allServers.filter((server) => !serverSetOwner(server) && !server.spec.storage?.ephemeral && !covered.has(targetKey(server.fleetTarget)) && !activeServerSchedules.some((s) => matchesServer(s, targetKey(server.fleetTarget), [server])));
   const activeSchedules = allSchedules.filter((s) => !s.spec.suspend).length;
   const nextRun = allSchedules
     .filter((s) => !s.spec.suspend && s.status?.nextScheduleTime)

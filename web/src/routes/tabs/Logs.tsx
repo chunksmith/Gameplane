@@ -211,6 +211,7 @@ export function LogsTab({
     estimateSize: () => 18,
     overscan: 20,
   });
+  const totalSize = rowVirtualizer.getTotalSize();
 
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
@@ -221,7 +222,7 @@ export function LogsTab({
     } else if (stickRef.current) {
       scroller.scrollTop = scroller.scrollHeight;
     }
-  }, [lines]);
+  }, [lines, totalSize]);
 
   // No output yet. While the server is still coming up (image pull /
   // first-boot install), the pod-log stream stays closed (the API replies
@@ -374,7 +375,7 @@ export function LogsTab({
               )}
             </div>
           ) : (
-            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+            <div style={{ height: totalSize, position: "relative", width: "100%" }}>
               {rowVirtualizer.getVirtualItems().map((v) => {
                 const row = filtered[v.index];
                 return (
