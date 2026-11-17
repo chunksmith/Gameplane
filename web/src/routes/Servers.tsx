@@ -8,11 +8,11 @@ import {
   ChevronRight,
   Clock,
   Cpu,
-  Database,
   Filter,
   GripVertical,
   HardDrive,
   Layers,
+  MemoryStick,
   Minus,
   Play,
   Plus,
@@ -875,7 +875,7 @@ function ServerCard({
   footer?: ReactNode;
 }) {
   const intl = useOptionalIntl();
-  const { phase, asleep, memLabel, diskLabel, playersLabel, uptimeLabel } = serverRowData(intl, gs);
+  const { phase, asleep, cpuLabel, memLabel, diskLabel, playersLabel, uptimeLabel } = serverRowData(intl, gs);
 
   // Extract address from the first endpoint, if available
   const endpoint = gs.status?.endpoints?.[0];
@@ -919,7 +919,8 @@ function ServerCard({
       {/* Row 3: Two chips - Players and Memory */}
       <div className="mt-3 flex flex-wrap gap-2">
         <StatChip icon={<UsersIcon className="h-3.5 w-3.5" />} value={playersLabel} />
-        <StatChip icon={<Database className="h-3.5 w-3.5" />} value={memLabel} />
+        <StatChip icon={<Cpu className="h-3.5 w-3.5" />} value={cpuLabel} />
+        <StatChip icon={<MemoryStick className="h-3.5 w-3.5" />} value={memLabel} />
         <StatChip icon={<HardDrive className="h-3.5 w-3.5" />} value={diskLabel} />
         <StatChip icon={<Clock className="h-3.5 w-3.5" />} value={uptimeLabel} />
       </div>
