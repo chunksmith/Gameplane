@@ -435,3 +435,58 @@ func TestReconcileTunnel_CredentialsSecretOwnership(t *testing.T) {
 		t.Fatal("expected error reconciling after unowned secret is created, got nil")
 	}
 }
+
+func TestValidateEnvSourcesSetOwned(t *testing.T) {
+	setOwned := func(name string, uid types.UID) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            name,
+				Namespace:       "games",
+				OwnerReferences: []metav1.OwnerReference{{APIVersion: "gameplane.local/v1alpha1", Kind: "GameServerSet", Name: "relay", UID: uid}},
+			},
+			Data: map[string][]byte{"key": []byte("value")},
+		}
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithObjects(
+		setOwned("relay-s3", "set-uid"),
+		setOwned("relay-stale", "old-set-uid"),
+	).Build()
+	r := &GameServerReconciler{Client: cl}
+	ctx := context.Background()
+	setRef := &metav1.OwnerReference{Kind: "GameServerSet", Name: "relay", UID: "set-uid"}
+	withSecret := func(name string, owners ...metav1.OwnerReference) *gameplanev1alpha1.GameServer {
+		return &gameplanev1alpha1.GameServer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "relay-0",
+				Namespace:       "games",
+				UID:             "child-uid",
+				Labels:          map[string]string{serverSetLabel: "relay"},
+				OwnerReferences: owners,
+			},
+			Spec: gameplanev1alpha1.GameServerSpec{Env: []corev1.EnvVar{{
+				Name:      "KEY",
+				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: name}, Key: "key"}},
+			}}},
+		}
+	}
+	controller := true
+	childOwner := metav1.OwnerReference{APIVersion: "gameplane.local/v1alpha1", Kind: "GameServerSet", Name: "relay", UID: "set-uid", Controller: &controller}
+
+	if err := r.validateEnvSources(ctx, withSecret("relay-s3"), setRef); err != nil {
+		t.Fatalf("set carrier refused set-owned secret: %v", err)
+	}
+	if err := r.validateServerEnvSources(ctx, withSecret("relay-s3", childOwner)); err != nil {
+		t.Fatalf("set child refused set-owned secret: %v", err)
+	}
+	if err := r.validateEnvSources(ctx, withSecret("relay-stale"), setRef); err == nil {
+		t.Fatal("secret owned by another set UID was accepted")
+	}
+	if err := r.validateServerEnvSources(ctx, withSecret("relay-s3")); err == nil {
+		t.Fatal("server without set controller accepted set-owned secret")
+	}
+	otherSet := childOwner
+	otherSet.Name = "other"
+	if err := r.validateServerEnvSources(ctx, withSecret("relay-s3", otherSet)); err == nil {
+		t.Fatal("server controlled by another set accepted set-owned secret")
+	}
+}

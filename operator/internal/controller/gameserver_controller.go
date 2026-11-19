@@ -2200,6 +2200,30 @@ func gameContainerSecurityContext(tmpl *gameplanev1alpha1.GameTemplate) *corev1.
 // gs.Name and gs.UID. Referencing unowned Secrets or ConfigMaps (such as restic credentials,
 // auth provider secrets, or other servers' secrets/configmaps) is refused.
 func (r *GameServerReconciler) validateServerEnvSources(ctx context.Context, gs *gameplanev1alpha1.GameServer) error {
+	return r.validateEnvSources(ctx, gs, serverSetController(gs))
+}
+
+func serverSetController(gs *gameplanev1alpha1.GameServer) *metav1.OwnerReference {
+	owner := metav1.GetControllerOf(gs)
+	if owner == nil || owner.Kind != "GameServerSet" || owner.UID == "" || owner.Name != gs.Labels[serverSetLabel] {
+		return nil
+	}
+	return owner
+}
+
+func ownedBySet(refs []metav1.OwnerReference, set *metav1.OwnerReference) bool {
+	if set == nil || set.UID == "" {
+		return false
+	}
+	for _, ref := range refs {
+		if ref.Kind == "GameServerSet" && ref.Name == set.Name && ref.UID == set.UID {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *GameServerReconciler) validateEnvSources(ctx context.Context, gs *gameplanev1alpha1.GameServer, set *metav1.OwnerReference) error {
 	for _, ev := range gs.Spec.Env {
 		if ev.ValueFrom == nil {
 			continue
@@ -2210,7 +2234,7 @@ func (r *GameServerReconciler) validateServerEnvSources(ctx context.Context, gs 
 			if err := r.Get(ctx, types.NamespacedName{Namespace: gs.Namespace, Name: secName}, &sec); err != nil {
 				return fmt.Errorf("secret reference %q in spec.env: %w", secName, err)
 			}
-			if !isServerOwnedSecret(&sec, gs) {
+			if !isServerOwnedSecret(&sec, gs) && !ownedBySet(sec.OwnerReferences, set) {
 				return fmt.Errorf("secret reference %q in spec.env is not owned by GameServer %s/%s",
 					secName, gs.Namespace, gs.Name)
 			}
@@ -2221,7 +2245,7 @@ func (r *GameServerReconciler) validateServerEnvSources(ctx context.Context, gs 
 			if err := r.Get(ctx, types.NamespacedName{Namespace: gs.Namespace, Name: cmName}, &cm); err != nil {
 				return fmt.Errorf("configmap reference %q in spec.env: %w", cmName, err)
 			}
-			if !isServerOwnedConfigMap(&cm, gs) {
+			if !isServerOwnedConfigMap(&cm, gs) && !ownedBySet(cm.OwnerReferences, set) {
 				return fmt.Errorf("configmap reference %q in spec.env is not owned by GameServer %s/%s",
 					cmName, gs.Namespace, gs.Name)
 			}

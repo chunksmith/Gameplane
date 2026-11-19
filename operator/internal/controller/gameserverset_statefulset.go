@@ -62,7 +62,7 @@ func (r *GameServerSetReconciler) reconcileStatefulSetMode(
 	if len(extraVolumes(carrier, &tmpl)) > 0 || modVolume(carrier, &tmpl, ver) != nil {
 		return ctrl.Result{}, errors.New("StatefulSet server groups do not support extra or mod volumes")
 	}
-	if err := r.Servers.validateServerEnvSources(ctx, carrier); err != nil {
+	if err := r.Servers.validateEnvSources(ctx, carrier, &metav1.OwnerReference{Kind: "GameServerSet", Name: set.Name, UID: set.UID}); err != nil {
 		return ctrl.Result{}, err
 	}
 
