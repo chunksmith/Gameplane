@@ -13,6 +13,10 @@ The agent is a per-pod HTTP/HTTPS sidecar that runs inside every game pod to exp
 - **Console & RCON**: Duplex WebSocket forwarding user commands to the game via RCON and echoing responses; supports Valve/Source, Telnet, WebSocket, BattlEye, Satisfactory, and Palworld protocols.
 - **File I/O**: List, read, download, upload, write, mkdir, delete within the `/data` volume; reject path traversal and any symlink traversal; every operation runs through directory descriptors rooted at the data directory, so it cannot be redirected by a concurrent filesystem change.
 
+  GET `/files/list` returns directories before non-directory entries, with each
+  group sorted by name. The same ordering applies to every directory and repeat
+  request; symlinks remain non-directory entries and are never followed.
+
   File uploads and downloads have no router-level total-duration timeout. The
   remaining file operations retain a 30-second timeout. Authentication, body
   size limits and path checks apply to transfers as well as short operations.
