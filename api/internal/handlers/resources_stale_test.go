@@ -12,16 +12,17 @@ import (
 var usageKeys = []string{
 	"cpuMillicores", "cpuLimitMillicores",
 	"memoryBytes", "memoryLimitBytes",
-	"diskUsedBytes", "diskTotalBytes",
 	"networkRxBytes", "networkTxBytes", "networkRxBytesPerSec", "networkTxBytesPerSec",
 }
+
+var diskKeys = []string{"diskUsedBytes", "diskTotalBytes"}
 
 func gsWithHeartbeat(age time.Duration, players int64) *unstructured.Unstructured {
 	agent := map[string]any{
 		"lastHeartbeat": time.Now().Add(-age).UTC().Format(time.RFC3339),
 		"playersOnline": players,
 	}
-	for _, k := range usageKeys {
+	for _, k := range append(usageKeys, diskKeys...) {
 		agent[k] = int64(42)
 	}
 	return &unstructured.Unstructured{Object: map[string]any{
@@ -39,6 +40,11 @@ func TestGateStaleAgent_BlanksStale(t *testing.T) {
 	for _, k := range usageKeys {
 		if _, ok := agent[k]; ok {
 			t.Fatalf("stale %s should be dropped, got %v", k, agent[k])
+		}
+	}
+	for _, k := range diskKeys {
+		if _, ok := agent[k]; !ok {
+			t.Fatalf("stale %s should be kept", k)
 		}
 	}
 	if agent["stale"] != true {

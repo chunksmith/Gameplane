@@ -11,7 +11,7 @@ import (
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
 )
 
-func TestReconcileNodePlacement_SetsAndClears(t *testing.T) {
+func TestReconcileNodePlacement_SetsAndKeeps(t *testing.T) {
 	s := wipeScheme(t) // gameplane + batch + core
 
 	gs := &gameplanev1alpha1.GameServer{}
@@ -47,18 +47,18 @@ func TestReconcileNodePlacement_SetsAndClears(t *testing.T) {
 		t.Fatalf("reconcileNodePlacement (noop): %v", err)
 	}
 
-	// Pod gone (server stopped) → annotation cleared, not left stale.
+	// Pod gone (server stopped) → last known node kept.
 	if err := cl.Delete(ctx, pod); err != nil {
 		t.Fatalf("delete pod: %v", err)
 	}
 	if err := r.reconcileNodePlacement(ctx, &got); err != nil {
-		t.Fatalf("reconcileNodePlacement (clear): %v", err)
+		t.Fatalf("reconcileNodePlacement (stopped): %v", err)
 	}
-	var cleared gameplanev1alpha1.GameServer
-	if err := cl.Get(ctx, key, &cleared); err != nil {
+	var stopped gameplanev1alpha1.GameServer
+	if err := cl.Get(ctx, key, &stopped); err != nil {
 		t.Fatalf("get gs: %v", err)
 	}
-	if v, ok := cleared.Annotations[nodeAnnotation]; ok {
-		t.Fatalf("node annotation still present after pod removed: %q", v)
+	if stopped.Annotations[nodeAnnotation] != "node-7" {
+		t.Fatalf("node annotation = %q after pod removed, want node-7", stopped.Annotations[nodeAnnotation])
 	}
 }

@@ -478,9 +478,10 @@ func cluster(gvr schema.GroupVersionResource) bool {
 // gateStaleAgent blanks the agent-reported values on a GameServer whose
 // heartbeat has gone stale (or never arrived), so the dashboard renders
 // "unknown" instead of a frozen-forever value from a dead agent. It
-// mutates obj's status.agent in place: drops playersOnline and the
-// resource-usage readings, and sets stale=true. Fresh heartbeats are
-// left untouched.
+// mutates obj's status.agent in place: drops playersOnline and the live
+// resource-usage readings, and sets stale=true. Disk usage is kept because
+// the data volume outlives the pod, so a stopped server still shows it.
+// Fresh heartbeats are left untouched.
 func gateStaleAgent(obj *unstructured.Unstructured) {
 	agent, found, err := unstructured.NestedMap(obj.Object, "status", "agent")
 	if !found || err != nil || agent == nil {
@@ -500,7 +501,6 @@ func gateStaleAgent(obj *unstructured.Unstructured) {
 		"playersOnline",
 		"cpuMillicores", "cpuLimitMillicores",
 		"memoryBytes", "memoryLimitBytes",
-		"diskUsedBytes", "diskTotalBytes",
 		"networkRxBytes", "networkTxBytes", "networkRxBytesPerSec", "networkTxBytesPerSec",
 	} {
 		delete(agent, k)
