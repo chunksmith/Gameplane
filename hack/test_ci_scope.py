@@ -159,6 +159,11 @@ class ScopeTests(unittest.TestCase):
         with patch("ci_scope.subprocess.run", return_value=CompletedProcess([], 0, '{"workflow_runs":[]}')):
             self.assertIsNone(publish_paths(self.root, "owner/repo", "master", "push", "a" * 40))
 
+    def test_publish_baseline_reads_the_named_workflow(self):
+        with patch("ci_scope.subprocess.run", return_value=CompletedProcess([], 0, '{"workflow_runs":[]}')) as run:
+            publish_paths(self.root, "owner/repo", "master", "push", "a" * 40, "harbor.yaml")
+        self.assertIn("repos/owner/repo/actions/workflows/harbor.yaml/runs", run.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()

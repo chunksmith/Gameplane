@@ -148,14 +148,14 @@ def select_images(root, images, paths):
     return selected
 
 
-def publish_paths(root, repository, branch, event, head):
+def publish_paths(root, repository, branch, event, head, workflow="publish-edge.yaml"):
     """Include unfinished earlier pushes; never advance past a failed publish."""
     if event != "push":
         return None
     try:
         result = subprocess.run([
             "gh", "api", "--method", "GET",
-            f"repos/{repository}/actions/workflows/publish-edge.yaml/runs",
+            f"repos/{repository}/actions/workflows/{workflow}/runs",
             "-f", f"branch={branch}", "-f", "status=success", "-f", "per_page=20",
         ], cwd=root, check=True, capture_output=True, text=True)
         runs = json.loads(result.stdout)["workflow_runs"]
@@ -194,6 +194,7 @@ def main():
     parser.add_argument("mode", choices=("modules", "images", "dockerfiles", "bots"))
     parser.add_argument("--base", default="")
     parser.add_argument("--head", default="HEAD")
+    parser.add_argument("--workflow", default="publish-edge.yaml")
     args = parser.parse_args()
     if args.mode == "bots":
         result = subprocess.run(["bash", "test/e2e/buckets.sh", "list", "bot-fast"],
@@ -206,7 +207,8 @@ def main():
         return
     if args.mode == "images":
         paths = publish_paths(ROOT, os.environ["GITHUB_REPOSITORY"],
-                              os.environ["GITHUB_REF_NAME"], os.environ["GITHUB_EVENT_NAME"], args.head)
+                              os.environ["GITHUB_REF_NAME"], os.environ["GITHUB_EVENT_NAME"], args.head,
+                              args.workflow)
         images = select_images(ROOT, EDGE_IMAGES, paths)
         emit({"matrix": {"include": images}, "images": bool(images)})
         return

@@ -41,23 +41,18 @@ gh pr view <pr-number>
   - Runs golangci-lint (with `envtest` tag for operator/api, `e2e` tag for test/e2e), checks specs compliance (once per run on netguard matrix entry)
   - Coverage thresholds per module (from CLAUDE.md rule 11):
     - netguard: 91%, gameaction: 91%, gameproto: 90%, operator: 72%, api: 80%, agent: 90%, audit-syslog-bridge: 70%, telemetry-receiver: 70%, sentinel: 70%, capture-sidecar: 70%, mcp-server: 70%, svcutil: 90%, tunnel: 70%
-- `go` (matrix: 13 modules × 2 archs [amd64, arm64])
-  - Unit tests + envtest (operator/api only) + coverage profile merge + threshold gate
-  - Arm64 runs on `ubuntu-24.04-arm`; amd64 on `ubuntu-latest`
+  - Same job (shown as `go (<module>)`) also runs unit tests + envtest (operator/api only) + coverage profile merge + threshold gate; for test/e2e it runs the untagged probe protocol unit tests
 - `web` → eslint, build, vitest + coverage (lines 92%, functions 76%, branches 82%, statements 92%), reports to commit status
 - `web-e2e-mock` → Playwright mock tests (msw-mocked API)
 
 **Chart stage**:
-- `helm` → helm lint
-- `chart-template` → helm template, sanity-check rendered manifests, verify CRD sync (crds/ ↔ crd-manifests/), verify cosign key in chart matches root
+- `chart` (`chart and codegen`) → codegen drift, helm lint, helm template, sanity-check rendered manifests, verify chart CRD bundle stamp, verify cosign key in chart matches root
 
 **Workflow metadata**:
-- `workflow-lint` → actionlint + zizmor (SHA-pin gate, deferred rules in `.github/zizmor.yml`)
-- `go-e2e-unit` → probe protocol unit tests in test/e2e (untagged, no coverage gate)
+- `checks` (`repo checks`) → portable paths, docs/specs gates, submodule freshness, e2e bucket coverage, actionlint + hadolint + zizmor (SHA-pin gate, deferred rules in `.github/zizmor.yml`)
 - `api-postgres` (`api (postgres)`) → builds/vets api with `-tags postgres` and runs api/internal/db tests against a PostgreSQL service container (no coverage gate)
 
 **E2E integration** (all boot kind cluster, load e2e-images artifact, install chart):
-- `e2e-buckets` → verifies test/e2e/buckets.sh is disjoint + exhaustive (fails if any test is unbucketed)
 - `e2e-go` (matrix: 6 buckets × 2 archs)
   - Buckets: `operator`, `api-auth`, `api-roles`, `api-rbac`, `api-agent`, `api-mods` (each has parallel budget and per-login budget)
   - `api-auth` tails `ratelimit` bucket (deliberately last to drain login limiter)
@@ -119,11 +114,10 @@ gh api repos/chunksmith/Gameplane/issues/<n>/labels -q '[.[].name]|join(", ")'
 1. **Identify the failing job:** `gh run view <run-id>` lists job names and statuses. Run `gh run view <run-id> --log-failed` to stream logs of failed jobs.
 
 2. **Map to owning module/file:**
-   - `lint: <module>` → `<module>/` directory (Go) or `web/` (JS). Check `.golangci.yml` or `web/eslint.config.js`.
-   - `go: <module> / <arch>` → `<module>/` (Go). Coverage threshold in `<module>/.testcoverage.yml` (or from list above for quick lookup).
+   - `go (<module>)` → `<module>/` (Go). Lint config in `.golangci.yml`; coverage threshold in `<module>/.testcoverage.yml` (or from list above for quick lookup).
    - `web` → `web/` (JS/TS). Coverage thresholds in `web/vitest.config.ts`.
    - `e2e-go: <bucket>` → `test/e2e/` (Go). Mapping: `test/e2e/buckets.sh regex '<bucket>'` lists test names.
-   - `chart-template` → `charts/gameplane/` or `signing/cosign.pub` (if key mismatch).
+   - `chart and codegen` → `charts/gameplane/` or `signing/cosign.pub` (if key mismatch).
    - `capture-sidecar-setcap-proof` → `capture-sidecar/Dockerfile`.
 
 3. **Extract root cause from logs:**

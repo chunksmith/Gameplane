@@ -75,7 +75,6 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      go: ${{ steps.combine.outputs.go }}
       web: ${{ steps.combine.outputs.web }}
       charts: ${{ steps.combine.outputs.charts }}
       e2e: ${{ steps.combine.outputs.e2e }}
@@ -85,8 +84,6 @@ jobs:
       lint: ${{ steps.scope.outputs.lint }}
       modules: ${{ steps.scope.outputs.modules }}
       lint-exclude: ${{ steps.scope.outputs.lint-exclude }}
-      go-exclude: ${{ steps.scope.outputs.go-exclude }}
-      e2e-unit: ${{ steps.scope.outputs.e2e-unit }}
       submodules: ${{ steps.combine.outputs.submodules }}
       codegen: ${{ steps.combine.outputs.codegen }}
     steps:
@@ -282,7 +279,6 @@ jobs:
           SPECS: ${{ steps.filter.outputs.specs }}
           DOCS: ${{ steps.filter.outputs.docs }}
         run: |
-          gov=false;  { [ "$GO" = true ]     || [ "$CI" = true ]; } && gov=true
           webv=false; { [ "$WEB" = true ]    || [ "$CI" = true ]; } && webv=true
           chv=false;  { [ "$CHARTS" = true ] || [ "$CI" = true ]; } && chv=true
           e2ev=false; { [ "$GO" = true ] || [ "$CHARTS" = true ] || [ "$E2ETREE" = true ] || [ "$GAMECOVERAGE" = true ] || [ "$CI" = true ]; } && e2ev=true
@@ -292,7 +288,6 @@ jobs:
           subv=false; { [ "$SUBMODULES" = true ] || [ "$CI" = true ]; } && subv=true
           cgv=false; { [ "$CODEGEN" = true ] || [ "$CI" = true ]; } && cgv=true
           {
-            echo "go=$gov"
             echo "web=$webv"
             echo "charts=$chv"
             echo "e2e=$e2ev"
@@ -303,96 +298,544 @@ jobs:
             echo "codegen=$cgv"
           } >> "$GITHUB_OUTPUT"
 
-  # Repository-wide gates run once, including on documentation-only changes.
-  docs:
-    name: docs and repository checks
+  checks:
+    name: repo checks
     needs: [changes]
-    if: needs.changes.outputs.lint == 'true' || needs.changes.outputs.specs == 'true' || needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: init website submodule
-        run: git submodule update --init website
-      - name: verify lint gate configuration
-        run: ./test/e2e/lint-gate-verify.sh verify
-      - name: check documentation links
-        run: make check-links
-      - name: check documentation versions
-        run: make check-doc-versions
-      - name: test documentation version checker
-        run: make test-doc-versions
-      - name: check features sync
-        run: make check-features-sync
-      - name: test features sync checker
-        run: make test-features-sync
-      - name: check specs compliance
-        run: make check-specs
-      - name: check coverage gap record
-        run: make check-coverage-gaps
-      - name: check telemetry catalog
-        run: make check-telemetry-catalog
-      - name: check dev-load image coverage
-        run: make check-dev-load-images
-      - name: test up.sh registry/context bootstrap
-        run: make test-up-registry
-
-  # Spec 013 G5: regenerated files (deepcopy, operator/config/{crd,rbac}, chart
-  # CRDs, go.mod/go.sum) must be committed with the change that needs them. The
-  # proof step shows the gate goes red on a types edit committed without regenerating.
-  codegen-drift:
-    name: codegen drift
-    needs: [changes]
-    if: needs.changes.outputs.codegen == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: codegen-drift
-      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
-      - name: regenerate deepcopy, CRDs, RBAC and chart CRD copies
-        run: make generate manifests
-      - name: go mod tidy across modules
-        run: make tidy
-      - name: fail on drift
-        run: git diff --exit-code
-      - name: prove the gate fails on a stale types edit
-        run: ./hack/check-codegen-drift_test.sh
-
-  # Spec 013 G6 (OD-1): the modules/ and website/ gitlinks must point at
-  # commits already on each submodule's main branch, so a pointer bump never
-  # lands before its submodule PR merges.
-  submodule-freshness:
-    name: submodule freshness
-    needs: [changes]
-    if: needs.changes.outputs.submodules == 'true' || github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
+    env:
+      DOCS: ${{ needs.changes.outputs.lint == 'true' || needs.changes.outputs.specs == 'true' || needs.changes.outputs.docs == 'true' }}
+      SUBMODULES: ${{ needs.changes.outputs.submodules == 'true' || github.event_name == 'push' }}
+      WORKFLOWS: ${{ needs.changes.outputs.github }}
+      E2E: ${{ needs.changes.outputs.e2e }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-          submodules: false
+          submodules: true
           persist-credentials: false
+      - name: check filename fixtures
+        run: python3 hack/test-check-portable-paths.py
+      - name: check all tracked filenames
+        run: python3 hack/check-portable-paths.py
+      - name: verify lint gate configuration
+        if: env.DOCS == 'true' || env.E2E == 'true'
+        run: ./test/e2e/lint-gate-verify.sh verify
+      - name: check documentation links
+        if: env.DOCS == 'true'
+        run: make check-links
+      - name: check documentation versions
+        if: env.DOCS == 'true'
+        run: make check-doc-versions
+      - name: test documentation version checker
+        if: env.DOCS == 'true'
+        run: make test-doc-versions
+      - name: check features sync
+        if: env.DOCS == 'true'
+        run: make check-features-sync
+      - name: test features sync checker
+        if: env.DOCS == 'true'
+        run: make test-features-sync
+      - name: check specs compliance
+        if: env.DOCS == 'true'
+        run: make check-specs
+      - name: check coverage gap record
+        if: env.DOCS == 'true'
+        run: make check-coverage-gaps
+      - name: check telemetry catalog
+        if: env.DOCS == 'true'
+        run: make check-telemetry-catalog
+      - name: check dev-load image coverage
+        if: env.DOCS == 'true'
+        run: make check-dev-load-images
+      - name: test up.sh registry/context bootstrap
+        if: env.DOCS == 'true'
+        run: make test-up-registry
       - name: prove the freshness check can fail
+        if: env.SUBMODULES == 'true'
         run: ./hack/check-submodule-freshness_test.sh
       - name: submodule pointers are on upstream main
+        if: env.SUBMODULES == 'true'
         run: ./hack/check-submodule-freshness.sh
+      - name: verify buckets are disjoint + exhaustive
+        if: env.E2E == 'true'
+        run: ./test/e2e/buckets.sh verify
+      - name: verify game protocol coverage
+        if: env.E2E == 'true'
+        run: ./test/e2e/joincoverage.sh verify
+      # The fixtures are what prove the gate above can actually fail. Without
+      # running them, a verifier that silently passed everything would look
+      # identical to a working one.
+      - name: verify the coverage gate can fail
+        if: env.E2E == 'true'
+        run: ./test/e2e/joincoverage_test.sh
+      - name: verify the lint gate can fail
+        if: env.E2E == 'true'
+        run: ./test/e2e/lint-gate-verify_test.sh
+      - name: actionlint (download and verify)
+        if: env.WORKFLOWS == 'true'
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          curl -fsSL -o actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.10/actionlint_1.7.10_linux_amd64.tar.gz
+          # sha256sum -c exits non-zero on mismatch, and set -e aborts the step:
+          # the binary never executes unless it matches the pinned digest.
+          echo "f4c76b71db5755a713e6055cbb0857ed07e103e028bda117817660ebadb4386f  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz
+          # actionlint takes workflow FILE paths, not a directory. With no
+          # arguments it discovers every workflow in the repository itself,
+          # so run it from the checkout root.
+          cd "$GITHUB_WORKSPACE"
+          "$tmp/actionlint"
+      # Spec 013 G3: hadolint over every tracked Dockerfile, at warning and
+      # above (.hadolint.yaml). Same pinned-download pattern as actionlint.
+      - name: hadolint (download and verify)
+        if: env.WORKFLOWS == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hadolint"
+          cd "$RUNNER_TEMP/hadolint"
+          curl -fsSL -o hadolint \
+            https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-linux-x86_64
+          echo "6bf226944684f56c84dd014e8b979d27425c0148f61b3bd99bcc6f39e9dc5a47  hadolint" | sha256sum -c -
+          chmod +x hadolint
+          echo "$RUNNER_TEMP/hadolint" >> "$GITHUB_PATH"
+      - name: prove the Dockerfile lint gate can fail
+        if: env.WORKFLOWS == 'true'
+        run: ./hack/check-hadolint_test.sh
+      - name: hadolint
+        if: env.WORKFLOWS == 'true'
+        run: |
+          mapfile -t files < <(git ls-files '*Dockerfile*' ':!:hack/testdata/**' ':!:*.dockerignore')
+          hadolint --config .hadolint.yaml "${files[@]}"
+      - name: ci report job coverage (F-238)
+        if: env.WORKFLOWS == 'true'
+        run: ./hack/check-ci-report-coverage.sh
+      - name: test ci report job coverage checker
+        if: env.WORKFLOWS == 'true'
+        run: ./hack/test-check-ci-report-coverage.sh
+      - name: publish-edge.yaml path coverage (F-239)
+        if: env.WORKFLOWS == 'true'
+        run: ./hack/check-publish-edge-paths.sh
+      - name: test publish-edge.yaml path coverage checker
+        if: env.WORKFLOWS == 'true'
+        run: ./hack/test-check-publish-edge-paths.sh
+      # This gate makes SC-001 ("100% SHA-pinned") mechanically true by failing on
+      # unpinned uses and ref-version mismatches. The four deferred rules and their
+      # tracking are defined in .github/zizmor.yml.
+      - name: CI scope regression tests
+        if: env.WORKFLOWS == 'true'
+        run: make test-ci-scope
+      - name: zizmor
+        if: env.WORKFLOWS == 'true'
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          inputs: .github
+          advanced-security: false
+          persona: regular
+
+  chart:
+    name: chart and codegen
+    needs: [changes]
+    if: needs.changes.outputs.charts == 'true' || needs.changes.outputs.codegen == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      CODEGEN: ${{ needs.changes.outputs.codegen == 'true' || github.event_name == 'push' }}
+      CHARTS: ${{ needs.changes.outputs.charts }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+      - uses: ./.github/actions/go-cache
+        if: env.CODEGEN == 'true'
+        with:
+          key-suffix: codegen-drift
+      - name: regenerate deepcopy, CRDs, RBAC and chart CRD copies
+        if: env.CODEGEN == 'true'
+        run: make generate manifests
+      - name: go mod tidy across modules
+        if: env.CODEGEN == 'true'
+        run: make tidy
+      - name: fail on drift
+        if: env.CODEGEN == 'true'
+        run: git diff --exit-code
+      - name: prove the gate fails on a stale types edit
+        if: env.CODEGEN == 'true'
+        run: ./hack/check-codegen-drift_test.sh
+      - run: helm lint charts/gameplane
+        if: env.CHARTS == 'true'
+      - run: helm template gameplane charts/gameplane > /tmp/rendered.yaml
+        if: env.CHARTS == 'true'
+      - name: gateway isolation and API-disabled chart renders
+        if: env.CHARTS == 'true'
+        run: python3 charts/tests/check_gateway.py
+      - name: standalone panel isolation and persistence chart renders
+        if: env.CHARTS == 'true'
+        run: python3 charts/tests/check_standalone.py
+      - name: sanity-check rendered manifests
+        if: env.CHARTS == 'true'
+        run: |
+          grep -q 'kind: Deployment' /tmp/rendered.yaml
+          grep -q 'kind: ClusterRole' /tmp/rendered.yaml
+          grep -q 'kind: NetworkPolicy' /tmp/rendered.yaml
+      - name: backup/restore Job egress policy renders (F-215)
+        if: env.CHARTS == 'true'
+        run: |
+          helm template gameplane charts/gameplane \
+            --show-only templates/networkpolicies.yaml > /tmp/netpol.yaml
+          grep -q 'name: allow-backup-restore-egress' /tmp/netpol.yaml
+          awk '/name: allow-backup-restore-egress/,/^---$/' /tmp/netpol.yaml \
+            | grep -q 'app.kubernetes.io/name: gameplane-backup-restore'
+      - name: observability scrape TLS/reachability render correctly (F-216, F-217)
+        if: env.CHARTS == 'true'
+        # F-216 rationale: agent/specs.md's /metrics section. F-217: the
+        # telemetry-receiver needs its own ServiceMonitor, and both it and
+        # the agent PodMonitor need a NetworkPolicy exception for the
+        # configured Prometheus namespace once one is set via
+        # serviceMonitors.scrapeNamespaceSelector. Spec 022: the receiver
+        # serves /metrics only on its dashboard port 8081 behind a Bearer
+        # token, so its ServiceMonitor and NetworkPolicy rule need
+        # api.telemetry.receiver.dashboard.tokenSecretRef.name.
+        run: |
+          scrape_ns='serviceMonitors.scrapeNamespaceSelector={"matchLabels":{"kubernetes.io/metadata.name":"monitoring"}}'
+          helm template gameplane charts/gameplane \
+            --set serviceMonitors.enabled=true \
+            --set api.telemetry.receiver.enabled=true \
+            --set api.telemetry.receiver.dashboard.tokenSecretRef.name=receiver-dashboard \
+            --set-json "$scrape_ns" \
+            --show-only templates/servicemonitors.yaml > /tmp/servicemonitors.yaml
+          awk '/kind: PodMonitor/,0' /tmp/servicemonitors.yaml | grep -q 'port: metrics'
+          if awk '/kind: PodMonitor/,0' /tmp/servicemonitors.yaml | grep -q 'scheme: https'; then
+            echo "::error::agent PodMonitor must not scrape over https"
+            exit 1
+          fi
+          if awk '/kind: PodMonitor/,0' /tmp/servicemonitors.yaml | grep -q 'tlsConfig'; then
+            echo "::error::agent PodMonitor must not carry a client-cert tlsConfig"
+            exit 1
+          fi
+          grep -q 'name: gameplane-telemetry-receiver' /tmp/servicemonitors.yaml
+          # The receiver serves /metrics only on its dashboard listener (8081)
+          # behind the dashboard token, so the ServiceMonitor scrapes that
+          # port with the token Secret as bearerTokenSecret.
+          awk '/name: gameplane-telemetry-receiver/,/^---$/' /tmp/servicemonitors.yaml > /tmp/receiver-servicemonitor.yaml
+          grep -q 'port: dashboard' /tmp/receiver-servicemonitor.yaml
+          grep -q 'bearerTokenSecret:' /tmp/receiver-servicemonitor.yaml
+          grep -q 'name: receiver-dashboard' /tmp/receiver-servicemonitor.yaml
+          # No dashboard token: no receiver ServiceMonitor (it could only scrape
+          # a permanently-down target); NOTES.txt carries the warning.
+          helm template gameplane charts/gameplane \
+            --set serviceMonitors.enabled=true \
+            --set api.telemetry.receiver.enabled=true \
+            --set-json "$scrape_ns" \
+            --show-only templates/servicemonitors.yaml > /tmp/servicemonitors-notoken.yaml
+          if grep -q 'name: gameplane-telemetry-receiver' /tmp/servicemonitors-notoken.yaml; then
+            echo "::error::receiver ServiceMonitor rendered without api.telemetry.receiver.dashboard.tokenSecretRef.name"
+            exit 1
+          fi
+          helm template gameplane charts/gameplane \
+            --set serviceMonitors.enabled=true \
+            --set-json "$scrape_ns" \
+            --show-only templates/networkpolicies.yaml > /tmp/netpol-scrape.yaml
+          awk '/name: allow-prometheus-to-agent/,/^---$/' /tmp/netpol-scrape.yaml \
+            | grep -q 'port: 9090'
+          helm template gameplane charts/gameplane \
+            --set serviceMonitors.enabled=true \
+            --set api.telemetry.receiver.enabled=true \
+            --set api.telemetry.receiver.dashboard.tokenSecretRef.name=receiver-dashboard \
+            --set-json "$scrape_ns" \
+            --show-only templates/telemetry-receiver.yaml > /tmp/telemetry-receiver-scrape.yaml
+          awk '/kind: NetworkPolicy/,/^---$/' /tmp/telemetry-receiver-scrape.yaml > /tmp/telemetry-receiver-netpol.yaml
+          # The Prometheus namespace is admitted on the dashboard port 8081,
+          # not on the public ingest port 8080 (which admits only the API).
+          awk '/namespaceSelector:/,0' /tmp/telemetry-receiver-netpol.yaml \
+            | grep -q 'kubernetes.io/metadata.name: monitoring'
+          awk '/namespaceSelector:/,0' /tmp/telemetry-receiver-netpol.yaml \
+            | grep -q 'port: 8081'
+          if awk '/namespaceSelector:/,0' /tmp/telemetry-receiver-netpol.yaml | grep -q 'port: 8080'; then
+            echo "::error::the Prometheus namespace must not be admitted on the receiver ingest port 8080"
+            exit 1
+          fi
+          awk '/kind: Service/,/^---$/' /tmp/telemetry-receiver-scrape.yaml \
+            | grep -q 'app.kubernetes.io/name: gameplane-telemetry-receiver'
+          awk '/kind: Service/,/^---$/' /tmp/telemetry-receiver-scrape.yaml \
+            | grep -q 'name: dashboard'
+          # scrapeNamespaceSelector unset (the chart default): neither
+          # exception renders, matching the pre-fix behavior.
+          helm template gameplane charts/gameplane \
+            --set serviceMonitors.enabled=true \
+            --show-only templates/networkpolicies.yaml > /tmp/netpol-default.yaml
+          if grep -q 'allow-prometheus-to-agent' /tmp/netpol-default.yaml; then
+            echo "::error::allow-prometheus-to-agent rendered without serviceMonitors.scrapeNamespaceSelector set"
+            exit 1
+          fi
+      - name: telemetry install values render (spec 022 FR-005, FR-006)
+        if: env.CHARTS == 'true'
+        # api.telemetry.enabled=false renders --telemetry-disabled; the bundled
+        # receiver auto-wires the API and marks it bundled; a custom endpoint
+        # is used as-is without the bundled marker; defaults render no endpoint.
+        run: |
+          # api.telemetry.enabled=false is the hard off switch.
+          helm template gameplane charts/gameplane \
+            --set api.telemetry.enabled=false \
+            --show-only templates/api.yaml > /tmp/api-telemetry-off.yaml
+          grep -q -- '--telemetry-disabled' /tmp/api-telemetry-off.yaml
+          # The bundled receiver auto-wires the API and marks it bundled.
+          helm template gameplane charts/gameplane \
+            --set api.telemetry.receiver.enabled=true \
+            --show-only templates/api.yaml > /tmp/api-telemetry-bundled.yaml
+          grep -q -- '--telemetry-endpoint=http://gameplane-telemetry-receiver' /tmp/api-telemetry-bundled.yaml
+          grep -q 'GAMEPLANE_TELEMETRY_BUNDLED' /tmp/api-telemetry-bundled.yaml
+          if grep -q -- '--telemetry-disabled' /tmp/api-telemetry-bundled.yaml; then
+            echo "::error::--telemetry-disabled rendered with api.telemetry.enabled left at its default"
+            exit 1
+          fi
+          # A custom endpoint is used as-is and is never marked bundled.
+          helm template gameplane charts/gameplane \
+            --set api.telemetry.endpoint=https://telemetry.example.com/ingest \
+            --set api.telemetry.receiver.enabled=true \
+            --show-only templates/api.yaml > /tmp/api-telemetry-custom.yaml
+          grep -q -- '--telemetry-endpoint=https://telemetry.example.com/ingest' /tmp/api-telemetry-custom.yaml
+          if grep -q 'GAMEPLANE_TELEMETRY_BUNDLED' /tmp/api-telemetry-custom.yaml; then
+            echo "::error::GAMEPLANE_TELEMETRY_BUNDLED rendered for a custom telemetry endpoint"
+            exit 1
+          fi
+          # Defaults render no endpoint (the API falls back to its compiled-in default).
+          helm template gameplane charts/gameplane \
+            --show-only templates/api.yaml > /tmp/api-telemetry-default.yaml
+          if grep -q -- '--telemetry-endpoint' /tmp/api-telemetry-default.yaml; then
+            echo "::error::default values rendered a --telemetry-endpoint"
+            exit 1
+          fi
+          grep -q -- '--official-module-source=default' /tmp/api-telemetry-default.yaml
+      - name: telemetry receiver proof-of-work render (spec 022 FR-039, OD-5)
+        if: env.CHARTS == 'true'
+        # api.telemetry.receiver.ingestPow renders INGEST_POW*: off with the
+        # OD-5 defaults, the configured values when enabled, and a failed
+        # render for a value the receiver would refuse to start with (the
+        # difficulty cap is the hardest challenge an install solves).
+        run: |
+          pow_env() {
+            # pow_env FILE WANT...: INGEST_POW, _TARGET_PER_MIN, _MIN_BITS and
+            # _MAX_BITS of the rendered receiver Deployment must equal WANT.
+            python3 - "$@" <<'PY'
+          import sys, yaml
+          path, *want = sys.argv[1:]
+          docs = [d for d in yaml.safe_load_all(open(path)) if d]
+          env = {e['name']: e['value'] for d in docs if d['kind'] == 'Deployment'
+                 for e in d['spec']['template']['spec']['containers'][0]['env'] if 'value' in e}
+          got = [env[k] for k in ('INGEST_POW', 'INGEST_POW_TARGET_PER_MIN', 'INGEST_POW_MIN_BITS', 'INGEST_POW_MAX_BITS')]
+          assert got == want, f"INGEST_POW env = {got}, want {want}"
+          PY
+          }
+          pow_fails() {
+            # pow_fails MESSAGE --set ...: the render must fail with MESSAGE.
+            message="$1"; shift
+            if helm template gameplane charts/gameplane --set api.telemetry.receiver.enabled=true "$@" \
+                 --show-only templates/telemetry-receiver.yaml > /dev/null 2> /tmp/pow-fail.err; then
+              echo "::error::receiver rendered for $*"
+              exit 1
+            fi
+            if ! grep -q -- "$message" /tmp/pow-fail.err; then
+              echo "::error::render for $* failed without '$message'"
+              cat /tmp/pow-fail.err
+              exit 1
+            fi
+          }
+          pow=api.telemetry.receiver.ingestPow
+          # Defaults: proof-of-work off, with the OD-5 values.
+          helm template gameplane charts/gameplane \
+            --set api.telemetry.receiver.enabled=true \
+            --show-only templates/telemetry-receiver.yaml > /tmp/pow-default.yaml
+          pow_env /tmp/pow-default.yaml false 60 0 22
+          # Enabled with its own values.
+          helm template gameplane charts/gameplane \
+            --set api.telemetry.receiver.enabled=true \
+            --set $pow.enabled=true --set $pow.targetPerMinute=30 \
+            --set $pow.minBits=8 --set $pow.maxBits=26 \
+            --show-only templates/telemetry-receiver.yaml > /tmp/pow-enabled.yaml
+          pow_env /tmp/pow-enabled.yaml true 30 8 26
+          # Values the receiver would refuse to start with fail the render.
+          pow_fails 'ingestPow.targetPerMinute must be at least 1' --set $pow.targetPerMinute=0
+          pow_fails 'ingestPow.maxBits must be at most 26' --set $pow.maxBits=27
+          pow_fails 'ingestPow.maxBits must be at least minBits' --set $pow.minBits=10 --set $pow.maxBits=9
+      - name: games Namespace carries the keep policy
+        if: env.CHARTS == 'true'
+        # F-212: `helm uninstall` used to delete the games Namespace and
+        # every GameServer/StatefulSet/PVC in it. Assert the Namespace is
+        # excluded from Helm's ownership via the keep resource-policy,
+        # scoped to the Namespace document specifically (a plain grep over
+        # the whole render would also match the unrelated API PVC's own
+        # keep annotation and pass even if the Namespace fix regressed).
+        run: |
+          python3 - <<'PY'
+          import sys, yaml
+          docs = list(yaml.safe_load_all(open('/tmp/rendered.yaml')))
+          ns = [d for d in docs if d and d.get('kind') == 'Namespace'
+                and d.get('metadata', {}).get('name') == 'gameplane-games']
+          if not ns:
+              sys.exit("::error::no games Namespace rendered")
+          policy = (ns[0].get('metadata', {}).get('annotations') or {}).get(
+              'helm.sh/resource-policy')
+          if policy != 'keep':
+              sys.exit(
+                  "::error::games Namespace missing "
+                  "helm.sh/resource-policy: keep (F-212)")
+          print("games Namespace carries helm.sh/resource-policy: keep")
+          PY
+      - name: pre-upgrade hook targets the rendered API Deployment name (F-213)
+        if: env.CHARTS == 'true'
+        # A release installed under a non-default name used to render a hook
+        # Role whose resourceNames named a Deployment
+        # ({{ .Release.Name }}-api) the chart never actually creates — the
+        # API Deployment is always named "gameplane-api" literally
+        # (api.yaml), unlike the surrounding Role/RoleBinding names. Any such
+        # release could install but never upgrade.
+        run: |
+          helm template gp charts/gameplane --namespace gpns --is-upgrade > /tmp/rendered-gp.yaml
+          python3 - <<'PY'
+          import sys, yaml
+          docs = list(yaml.safe_load_all(open('/tmp/rendered-gp.yaml')))
+          deploy_names = {d['metadata']['name'] for d in docs
+                           if d and d.get('kind') == 'Deployment'}
+          roles = [d for d in docs if d and d.get('kind') == 'Role'
+                   and d.get('metadata', {}).get('name', '').endswith('-strategy-migrate')]
+          if not roles:
+              sys.exit("::error::no strategy-migrate Role rendered with --is-upgrade "
+                        "(api.db.driver=sqlite is the chart default)")
+          resource_names = {n for rule in roles[0].get('rules', [])
+                             for n in rule.get('resourceNames', [])}
+          if not resource_names & deploy_names:
+              sys.exit(f"::error::pre-upgrade hook Role resourceNames {resource_names} "
+                        f"does not match any rendered Deployment name {deploy_names} (F-213)")
+          print(f"hook Role resourceNames {resource_names} matches a rendered Deployment")
+          PY
+      - name: chart renders after helm upgrade --reuse-values from v0.2.0-beta.8 (F-214)
+        if: env.CHARTS == 'true'
+        # `helm upgrade --reuse-values` swaps the new chart's own default
+        # values.yaml for the old release's fully-resolved values before
+        # rendering (helm pkg/action/upgrade.go reuseValues: chart.Values =
+        # oldVals), so any value key introduced since the user's last upgrade
+        # is completely absent, not just unset. Simulate that exactly: stand
+        # beta.8's values.yaml in for the chart's OWN values.yaml (a plain -f
+        # merge would NOT reproduce this, since -f still merges onto the new
+        # chart's own defaults).
+        run: |
+          trap 'cp /tmp/values.yaml.orig charts/gameplane/values.yaml' EXIT
+          cp charts/gameplane/values.yaml /tmp/values.yaml.orig
+          cp charts/gameplane/testdata/upgrade-from-v0.2.0-beta.8-values.yaml charts/gameplane/values.yaml
+          helm template gameplane charts/gameplane --include-crds > /tmp/rendered-reuse-values.yaml
+          python3 - <<'PY'
+          import yaml
+          docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values.yaml')) if d]
+          resources = {(d['kind'], d['metadata']['name']) for d in docs}
+          required = {('Deployment', 'gameplane-api'), ('Deployment', 'gameplane-web'),
+                      ('PersistentVolumeClaim', 'gameplane-api-data')}
+          assert required <= resources, f"reuse-values removed existing resources: {required - resources}"
+          crds = {name for kind, name in resources if kind == 'CustomResourceDefinition'}
+          assert len(crds) == 11, f"reuse-values disabled the bundled CRDs: {crds}"
+          assert ('Deployment', 'gameplane-gateway') not in resources
+          assert ('NetworkPolicy', 'allow-api-to-agent') in resources
+          assert ('NetworkPolicy', 'allow-api-to-capture') not in resources, "legacy values without capture enabled its ingress"
+          PY
+          # Spec 022: with the bundled receiver and ServiceMonitors switched on
+          # over beta.8's values (no persistence, dashboard, interval or enabled
+          # keys), the chart still renders: no receiver PVC is added, no
+          # receiver ServiceMonitor renders without a token, and the API
+          # keeps working without api.telemetry.enabled.
+          helm template gameplane charts/gameplane \
+            --set api.telemetry.receiver.enabled=true \
+            --set serviceMonitors.enabled=true > /tmp/rendered-reuse-values-receiver.yaml
+          python3 - <<'PY'
+          import yaml
+          docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values-receiver.yaml')) if d]
+          resources = {(d['kind'], d['metadata']['name']) for d in docs}
+          assert ('Deployment', 'gameplane-telemetry-receiver') in resources
+          assert ('PersistentVolumeClaim', 'gameplane-telemetry-receiver-data') not in resources, "--reuse-values added receiver storage"
+          assert ('ServiceMonitor', 'gameplane-telemetry-receiver') not in resources, "receiver ServiceMonitor rendered without a dashboard token"
+          PY
+          # Spec 022 FR-039: beta.8's values have no ingestPow block, so the
+          # receiver renders the OD-5 defaults, with proof-of-work off.
+          python3 - <<'PY'
+          import yaml
+          docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values-receiver.yaml')) if d]
+          env = {e['name']: e['value'] for d in docs
+                 if d['kind'] == 'Deployment' and d['metadata']['name'] == 'gameplane-telemetry-receiver'
+                 for e in d['spec']['template']['spec']['containers'][0]['env'] if 'value' in e}
+          got = [env[k] for k in ('INGEST_POW', 'INGEST_POW_TARGET_PER_MIN', 'INGEST_POW_MIN_BITS', 'INGEST_POW_MAX_BITS')]
+          assert got == ['false', '60', '0', '22'], f"--reuse-values changed the INGEST_POW defaults: {got}"
+          PY
+      - name: chart CRDs carry the current bundle-hash stamp (F-218)
+        if: env.CHARTS == 'true'
+        # crd-apply-hook.yaml fires on pre-install only when the live CRDs'
+        # gameplane.local/crd-bundle-sha256 differs from the chart's. A stale
+        # stamp (CRDs hand-copied without `make manifests`) would make a fresh
+        # install skip the hook over CRDs that are actually out of date, so
+        # regenerate the chart copies from operator/config/crd and fail on any
+        # difference.
+        run: |
+          hack/sync-chart-crds.sh
+          git diff --exit-code -- charts/gameplane/charts/gameplane-crds/crds charts/gameplane/crd-manifests
+      - name: chart cosign key matches signing/cosign.pub
+        if: env.CHARTS == 'true'
+        # values.yaml embeds a copy of the signing public key so the operator
+        # can verify official module bundles. Nothing regenerates it, so a key
+        # rotation that updates only the root file leaves the chart verifying
+        # against the retired key — every official bundle then fails to install.
+        # The release workflows check the root key against the signing secret;
+        # this checks the chart's copy against the root key.
+        run: |
+          helm template gameplane charts/gameplane \
+            --set defaultModuleSource.oci.verify.enabled=true \
+            --show-only templates/module-cosign-key.yaml > /tmp/keysecret.yaml
+          # The rendered Secret carries the key under stringData/data; pull the
+          # PEM back out and compare it to the committed root key.
+          python3 - <<'PY' > /tmp/chart-cosign.pub
+          import base64, sys, yaml
+          d = yaml.safe_load(open('/tmp/keysecret.yaml'))
+          data = (d.get('stringData') or {}).get('cosign.pub')
+          if data is None:
+              data = base64.b64decode((d.get('data') or {})['cosign.pub']).decode()
+          sys.stdout.write(data if data.endswith('\n') else data + '\n')
+          PY
+          if ! diff -u signing/cosign.pub /tmp/chart-cosign.pub; then
+            echo "::error::charts/gameplane/values.yaml cosignPublicKey does not match signing/cosign.pub — update both when rotating the signing key"
+            exit 1
+          fi
+          echo "chart cosign key matches signing/cosign.pub"
+      - name: docs/oidc.md example values render (F-252)
+        if: env.CHARTS == 'true'
+        # docs/oidc.md's Keycloak "Or in values.yaml" example is meant to be
+        # copy-pasteable. Render it as a real -f values file (with
+        # api.oidc.enabled: true, since the doc's own example turns it on)
+        # and fail if the object-shaped clientSecretRef the chart schema
+        # expects ever regresses to the bare string the doc used to show.
+        run: |
+          python3 - <<'PY' > /tmp/oidc-example-values.yaml
+          import re
+          text = open('docs/oidc.md').read()
+          m = re.search(r"Or in `values\.yaml`:\n```yaml\n(.*?)\n```", text, re.S)
+          if not m:
+              raise SystemExit("could not find the Keycloak 'Or in values.yaml' example in docs/oidc.md")
+          print(m.group(1))
+          PY
+          helm template gameplane charts/gameplane \
+            -f /tmp/oidc-example-values.yaml \
+            --show-only templates/api.yaml > /tmp/rendered-oidc.yaml
+          grep -q 'GAMEPLANE_OIDC_CLIENT_SECRET' /tmp/rendered-oidc.yaml
+          grep -q 'name: keycloak-oidc-secret' /tmp/rendered-oidc.yaml
+          grep -qE 'key: +clientSecret' /tmp/rendered-oidc.yaml
 
   lint:
-    name: lint (${{ matrix.module }})
+    name: go (${{ matrix.module }})
     needs: [changes]
     if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
     strategy:
@@ -402,9 +845,13 @@ jobs:
         exclude: ${{ fromJSON(needs.changes.outputs.lint-exclude) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: initialize validator module fixtures
+        if: matrix.module == 'gp-module'
+        # The real-module test reads modules/cs2 from disk.
+        run: git submodule update --init modules
       - uses: ./.github/actions/go-cache
         with:
-          key-suffix: lint-${{ matrix.module }}
+          key-suffix: ${{ matrix.module }}
       - name: go mod download
         working-directory: ${{ matrix.module }}
         # proxy.golang.org and sum.golang.org intermittently drop HTTP/2 streams
@@ -447,81 +894,15 @@ jobs:
         with:
           version: v2.12.2
           working-directory: ${{ matrix.module }}
-
-  # Merge gate for spec 022: the project default telemetry destination
-  # (DefaultEndpoint in api/internal/telemetry/destination.go) must be an https
-  # URL. OPEN-DECISIONS OD-1 is ruled, so it passes; it keeps FR-002 enforced. Deliberately
-  # separate: not part of `make lint`, and not in the `report` job's needs.
-  telemetry-default-gate:
-    name: telemetry default gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: check the default telemetry destination
-        run: sh hack/check-telemetry-default.sh
-
-  go:
-    name: go (${{ matrix.module }} / ${{ matrix.arch }})
-    needs: [changes]
-    if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        module: [netguard, gameaction, gameproto, telemetryschema, i18n, operator, api, agent, audit-syslog-bridge, telemetry-receiver, sentinel, mcp-server, capture-sidecar, svcutil, tunnel, gp-module]
-        exclude: ${{ fromJSON(needs.changes.outputs.go-exclude) }}
-        arch: [amd64]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: initialize validator module fixtures
-        if: matrix.module == 'gp-module'
-        # The real-module test reads modules/cs2 from disk.
-        run: git submodule update --init modules
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: ${{ matrix.module }}
-      - name: go mod download
-        working-directory: ${{ matrix.module }}
-        # proxy.golang.org and sum.golang.org intermittently drop HTTP/2 streams
-        # mid-download ("stream error: stream ID N; INTERNAL_ERROR; received
-        # from peer"), which fails the whole job on a transient upstream fault
-        # that has nothing to do with the change under test. Retry with backoff;
-        # a genuinely broken dependency still fails on the final attempt, whose
-        # output is the one that reaches the log.
-        #
-        # GOSUMDB is off for this step only: every module here is pinned in the
-        # committed go.sum and its hash is still checked on download, so the
-        # sum.golang.org tile fetch adds nothing but a failure mode. It stays on
-        # everywhere else, including every go install.
-        env:
-          GOSUMDB: "off"
-        run: |
-          for attempt in 1 2 3 4; do
-            if go mod download; then exit 0; fi
-            echo "go mod download failed (attempt ${attempt}/5) — retrying in $((attempt * 30))s"
-            sleep $((attempt * 30))
-          done
-          go mod download
-      - name: go vet
-        working-directory: ${{ matrix.module }}
-        run: go vet ./...
-      # NOTE: -race is omitted on purpose to keep this job fast; coverage
-      # uses -covermode=atomic, which is valid without -race. `make cover`
-      # still runs -race for local/manual use.
       - name: unit test + coverage
+        if: matrix.module != 'test/e2e'
         working-directory: ${{ matrix.module }}
         run: |
           mkdir -p coverage
           go test -covermode=atomic -coverpkg=./... \
             -coverprofile=coverage/unit.out ./...
       - name: agent file access across real UIDs
-        if: matrix.module == 'agent' && matrix.arch == 'amd64'
+        if: matrix.module == 'agent'
         working-directory: agent
         # Root only launches the test's unprivileged game/agent subprocesses.
         # Keep sudo scoped to this compiled regression, never the general suite.
@@ -551,6 +932,7 @@ jobs:
             -covermode=atomic -coverpkg=./... \
             -coverprofile=coverage/envtest.out ./...
       - name: warm coverage tool cache
+        if: matrix.module != 'test/e2e'
         # cover-go-merge and cover-go-check `go run` pinned tools, so they hit
         # the module mirror as well and fail the same transient way. Fetch them
         # here, with retries, so the gate itself runs from the module cache and
@@ -567,7 +949,27 @@ jobs:
           done
           fetch
       - name: merge profiles + threshold gate
+        if: matrix.module != 'test/e2e'
         run: make cover-go-merge && make cover-go-check
+      - name: unit test (probe protocols)
+        if: matrix.module == 'test/e2e'
+        working-directory: test/e2e
+        run: go test ./...
+
+  # Merge gate for spec 022: the project default telemetry destination
+  # (DefaultEndpoint in api/internal/telemetry/destination.go) must be an https
+  # URL. OPEN-DECISIONS OD-1 is ruled, so it passes; it keeps FR-002 enforced. Deliberately
+  # separate: not part of `make lint`, and not in the `report` job's needs.
+  telemetry-default-gate:
+    name: telemetry default gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: check the default telemetry destination
+        run: sh hack/check-telemetry-default.sh
 
   web:
     name: web
@@ -652,7 +1054,7 @@ jobs:
       - run: npm run build
 
   web-test:
-    name: web test (${{ matrix.shard }}/4)
+    name: web test (${{ matrix.shard }}/2)
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
@@ -662,7 +1064,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
     defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -673,7 +1075,7 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
         run: >-
-          npx vitest run --shard="$SHARD/4"
+          npx vitest run --shard="$SHARD/2"
           --reporter=default --reporter=github-actions --reporter=blob
           --coverage.enabled
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
@@ -744,498 +1146,6 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  helm:
-    name: helm lint
-    needs: [changes]
-    if: needs.changes.outputs.charts == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
-      - run: helm lint charts/gameplane
-
-  chart-template:
-    name: chart render
-    needs: [changes]
-    if: needs.changes.outputs.charts == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
-      - run: helm template gameplane charts/gameplane > /tmp/rendered.yaml
-      - name: gateway isolation and API-disabled chart renders
-        run: python3 charts/tests/check_gateway.py
-      - name: standalone panel isolation and persistence chart renders
-        run: python3 charts/tests/check_standalone.py
-      - name: sanity-check rendered manifests
-        run: |
-          grep -q 'kind: Deployment' /tmp/rendered.yaml
-          grep -q 'kind: ClusterRole' /tmp/rendered.yaml
-          grep -q 'kind: NetworkPolicy' /tmp/rendered.yaml
-      - name: backup/restore Job egress policy renders (F-215)
-        run: |
-          helm template gameplane charts/gameplane \
-            --show-only templates/networkpolicies.yaml > /tmp/netpol.yaml
-          grep -q 'name: allow-backup-restore-egress' /tmp/netpol.yaml
-          awk '/name: allow-backup-restore-egress/,/^---$/' /tmp/netpol.yaml \
-            | grep -q 'app.kubernetes.io/name: gameplane-backup-restore'
-      - name: observability scrape TLS/reachability render correctly (F-216, F-217)
-        # F-216 rationale: agent/specs.md's /metrics section. F-217: the
-        # telemetry-receiver needs its own ServiceMonitor, and both it and
-        # the agent PodMonitor need a NetworkPolicy exception for the
-        # configured Prometheus namespace once one is set via
-        # serviceMonitors.scrapeNamespaceSelector. Spec 022: the receiver
-        # serves /metrics only on its dashboard port 8081 behind a Bearer
-        # token, so its ServiceMonitor and NetworkPolicy rule need
-        # api.telemetry.receiver.dashboard.tokenSecretRef.name.
-        run: |
-          scrape_ns='serviceMonitors.scrapeNamespaceSelector={"matchLabels":{"kubernetes.io/metadata.name":"monitoring"}}'
-          helm template gameplane charts/gameplane \
-            --set serviceMonitors.enabled=true \
-            --set api.telemetry.receiver.enabled=true \
-            --set api.telemetry.receiver.dashboard.tokenSecretRef.name=receiver-dashboard \
-            --set-json "$scrape_ns" \
-            --show-only templates/servicemonitors.yaml > /tmp/servicemonitors.yaml
-          awk '/kind: PodMonitor/,0' /tmp/servicemonitors.yaml | grep -q 'port: metrics'
-          if awk '/kind: PodMonitor/,0' /tmp/servicemonitors.yaml | grep -q 'scheme: https'; then
-            echo "::error::agent PodMonitor must not scrape over https"
-            exit 1
-          fi
-          if awk '/kind: PodMonitor/,0' /tmp/servicemonitors.yaml | grep -q 'tlsConfig'; then
-            echo "::error::agent PodMonitor must not carry a client-cert tlsConfig"
-            exit 1
-          fi
-          grep -q 'name: gameplane-telemetry-receiver' /tmp/servicemonitors.yaml
-          # The receiver serves /metrics only on its dashboard listener (8081)
-          # behind the dashboard token, so the ServiceMonitor scrapes that
-          # port with the token Secret as bearerTokenSecret.
-          awk '/name: gameplane-telemetry-receiver/,/^---$/' /tmp/servicemonitors.yaml > /tmp/receiver-servicemonitor.yaml
-          grep -q 'port: dashboard' /tmp/receiver-servicemonitor.yaml
-          grep -q 'bearerTokenSecret:' /tmp/receiver-servicemonitor.yaml
-          grep -q 'name: receiver-dashboard' /tmp/receiver-servicemonitor.yaml
-          # No dashboard token: no receiver ServiceMonitor (it could only scrape
-          # a permanently-down target); NOTES.txt carries the warning.
-          helm template gameplane charts/gameplane \
-            --set serviceMonitors.enabled=true \
-            --set api.telemetry.receiver.enabled=true \
-            --set-json "$scrape_ns" \
-            --show-only templates/servicemonitors.yaml > /tmp/servicemonitors-notoken.yaml
-          if grep -q 'name: gameplane-telemetry-receiver' /tmp/servicemonitors-notoken.yaml; then
-            echo "::error::receiver ServiceMonitor rendered without api.telemetry.receiver.dashboard.tokenSecretRef.name"
-            exit 1
-          fi
-          helm template gameplane charts/gameplane \
-            --set serviceMonitors.enabled=true \
-            --set-json "$scrape_ns" \
-            --show-only templates/networkpolicies.yaml > /tmp/netpol-scrape.yaml
-          awk '/name: allow-prometheus-to-agent/,/^---$/' /tmp/netpol-scrape.yaml \
-            | grep -q 'port: 9090'
-          helm template gameplane charts/gameplane \
-            --set serviceMonitors.enabled=true \
-            --set api.telemetry.receiver.enabled=true \
-            --set api.telemetry.receiver.dashboard.tokenSecretRef.name=receiver-dashboard \
-            --set-json "$scrape_ns" \
-            --show-only templates/telemetry-receiver.yaml > /tmp/telemetry-receiver-scrape.yaml
-          awk '/kind: NetworkPolicy/,/^---$/' /tmp/telemetry-receiver-scrape.yaml > /tmp/telemetry-receiver-netpol.yaml
-          # The Prometheus namespace is admitted on the dashboard port 8081,
-          # not on the public ingest port 8080 (which admits only the API).
-          awk '/namespaceSelector:/,0' /tmp/telemetry-receiver-netpol.yaml \
-            | grep -q 'kubernetes.io/metadata.name: monitoring'
-          awk '/namespaceSelector:/,0' /tmp/telemetry-receiver-netpol.yaml \
-            | grep -q 'port: 8081'
-          if awk '/namespaceSelector:/,0' /tmp/telemetry-receiver-netpol.yaml | grep -q 'port: 8080'; then
-            echo "::error::the Prometheus namespace must not be admitted on the receiver ingest port 8080"
-            exit 1
-          fi
-          awk '/kind: Service/,/^---$/' /tmp/telemetry-receiver-scrape.yaml \
-            | grep -q 'app.kubernetes.io/name: gameplane-telemetry-receiver'
-          awk '/kind: Service/,/^---$/' /tmp/telemetry-receiver-scrape.yaml \
-            | grep -q 'name: dashboard'
-          # scrapeNamespaceSelector unset (the chart default): neither
-          # exception renders, matching the pre-fix behavior.
-          helm template gameplane charts/gameplane \
-            --set serviceMonitors.enabled=true \
-            --show-only templates/networkpolicies.yaml > /tmp/netpol-default.yaml
-          if grep -q 'allow-prometheus-to-agent' /tmp/netpol-default.yaml; then
-            echo "::error::allow-prometheus-to-agent rendered without serviceMonitors.scrapeNamespaceSelector set"
-            exit 1
-          fi
-      - name: telemetry install values render (spec 022 FR-005, FR-006)
-        # api.telemetry.enabled=false renders --telemetry-disabled; the bundled
-        # receiver auto-wires the API and marks it bundled; a custom endpoint
-        # is used as-is without the bundled marker; defaults render no endpoint.
-        run: |
-          # api.telemetry.enabled=false is the hard off switch.
-          helm template gameplane charts/gameplane \
-            --set api.telemetry.enabled=false \
-            --show-only templates/api.yaml > /tmp/api-telemetry-off.yaml
-          grep -q -- '--telemetry-disabled' /tmp/api-telemetry-off.yaml
-          # The bundled receiver auto-wires the API and marks it bundled.
-          helm template gameplane charts/gameplane \
-            --set api.telemetry.receiver.enabled=true \
-            --show-only templates/api.yaml > /tmp/api-telemetry-bundled.yaml
-          grep -q -- '--telemetry-endpoint=http://gameplane-telemetry-receiver' /tmp/api-telemetry-bundled.yaml
-          grep -q 'GAMEPLANE_TELEMETRY_BUNDLED' /tmp/api-telemetry-bundled.yaml
-          if grep -q -- '--telemetry-disabled' /tmp/api-telemetry-bundled.yaml; then
-            echo "::error::--telemetry-disabled rendered with api.telemetry.enabled left at its default"
-            exit 1
-          fi
-          # A custom endpoint is used as-is and is never marked bundled.
-          helm template gameplane charts/gameplane \
-            --set api.telemetry.endpoint=https://telemetry.example.com/ingest \
-            --set api.telemetry.receiver.enabled=true \
-            --show-only templates/api.yaml > /tmp/api-telemetry-custom.yaml
-          grep -q -- '--telemetry-endpoint=https://telemetry.example.com/ingest' /tmp/api-telemetry-custom.yaml
-          if grep -q 'GAMEPLANE_TELEMETRY_BUNDLED' /tmp/api-telemetry-custom.yaml; then
-            echo "::error::GAMEPLANE_TELEMETRY_BUNDLED rendered for a custom telemetry endpoint"
-            exit 1
-          fi
-          # Defaults render no endpoint (the API falls back to its compiled-in default).
-          helm template gameplane charts/gameplane \
-            --show-only templates/api.yaml > /tmp/api-telemetry-default.yaml
-          if grep -q -- '--telemetry-endpoint' /tmp/api-telemetry-default.yaml; then
-            echo "::error::default values rendered a --telemetry-endpoint"
-            exit 1
-          fi
-          grep -q -- '--official-module-source=default' /tmp/api-telemetry-default.yaml
-      - name: telemetry receiver proof-of-work render (spec 022 FR-039, OD-5)
-        # api.telemetry.receiver.ingestPow renders INGEST_POW*: off with the
-        # OD-5 defaults, the configured values when enabled, and a failed
-        # render for a value the receiver would refuse to start with (the
-        # difficulty cap is the hardest challenge an install solves).
-        run: |
-          pow_env() {
-            # pow_env FILE WANT...: INGEST_POW, _TARGET_PER_MIN, _MIN_BITS and
-            # _MAX_BITS of the rendered receiver Deployment must equal WANT.
-            python3 - "$@" <<'PY'
-          import sys, yaml
-          path, *want = sys.argv[1:]
-          docs = [d for d in yaml.safe_load_all(open(path)) if d]
-          env = {e['name']: e['value'] for d in docs if d['kind'] == 'Deployment'
-                 for e in d['spec']['template']['spec']['containers'][0]['env'] if 'value' in e}
-          got = [env[k] for k in ('INGEST_POW', 'INGEST_POW_TARGET_PER_MIN', 'INGEST_POW_MIN_BITS', 'INGEST_POW_MAX_BITS')]
-          assert got == want, f"INGEST_POW env = {got}, want {want}"
-          PY
-          }
-          pow_fails() {
-            # pow_fails MESSAGE --set ...: the render must fail with MESSAGE.
-            message="$1"; shift
-            if helm template gameplane charts/gameplane --set api.telemetry.receiver.enabled=true "$@" \
-                 --show-only templates/telemetry-receiver.yaml > /dev/null 2> /tmp/pow-fail.err; then
-              echo "::error::receiver rendered for $*"
-              exit 1
-            fi
-            if ! grep -q -- "$message" /tmp/pow-fail.err; then
-              echo "::error::render for $* failed without '$message'"
-              cat /tmp/pow-fail.err
-              exit 1
-            fi
-          }
-          pow=api.telemetry.receiver.ingestPow
-          # Defaults: proof-of-work off, with the OD-5 values.
-          helm template gameplane charts/gameplane \
-            --set api.telemetry.receiver.enabled=true \
-            --show-only templates/telemetry-receiver.yaml > /tmp/pow-default.yaml
-          pow_env /tmp/pow-default.yaml false 60 0 22
-          # Enabled with its own values.
-          helm template gameplane charts/gameplane \
-            --set api.telemetry.receiver.enabled=true \
-            --set $pow.enabled=true --set $pow.targetPerMinute=30 \
-            --set $pow.minBits=8 --set $pow.maxBits=26 \
-            --show-only templates/telemetry-receiver.yaml > /tmp/pow-enabled.yaml
-          pow_env /tmp/pow-enabled.yaml true 30 8 26
-          # Values the receiver would refuse to start with fail the render.
-          pow_fails 'ingestPow.targetPerMinute must be at least 1' --set $pow.targetPerMinute=0
-          pow_fails 'ingestPow.maxBits must be at most 26' --set $pow.maxBits=27
-          pow_fails 'ingestPow.maxBits must be at least minBits' --set $pow.minBits=10 --set $pow.maxBits=9
-      - name: games Namespace carries the keep policy
-        # F-212: `helm uninstall` used to delete the games Namespace and
-        # every GameServer/StatefulSet/PVC in it. Assert the Namespace is
-        # excluded from Helm's ownership via the keep resource-policy,
-        # scoped to the Namespace document specifically (a plain grep over
-        # the whole render would also match the unrelated API PVC's own
-        # keep annotation and pass even if the Namespace fix regressed).
-        run: |
-          python3 - <<'PY'
-          import sys, yaml
-          docs = list(yaml.safe_load_all(open('/tmp/rendered.yaml')))
-          ns = [d for d in docs if d and d.get('kind') == 'Namespace'
-                and d.get('metadata', {}).get('name') == 'gameplane-games']
-          if not ns:
-              sys.exit("::error::no games Namespace rendered")
-          policy = (ns[0].get('metadata', {}).get('annotations') or {}).get(
-              'helm.sh/resource-policy')
-          if policy != 'keep':
-              sys.exit(
-                  "::error::games Namespace missing "
-                  "helm.sh/resource-policy: keep (F-212)")
-          print("games Namespace carries helm.sh/resource-policy: keep")
-          PY
-      - name: pre-upgrade hook targets the rendered API Deployment name (F-213)
-        # A release installed under a non-default name used to render a hook
-        # Role whose resourceNames named a Deployment
-        # ({{ .Release.Name }}-api) the chart never actually creates — the
-        # API Deployment is always named "gameplane-api" literally
-        # (api.yaml), unlike the surrounding Role/RoleBinding names. Any such
-        # release could install but never upgrade.
-        run: |
-          helm template gp charts/gameplane --namespace gpns --is-upgrade > /tmp/rendered-gp.yaml
-          python3 - <<'PY'
-          import sys, yaml
-          docs = list(yaml.safe_load_all(open('/tmp/rendered-gp.yaml')))
-          deploy_names = {d['metadata']['name'] for d in docs
-                           if d and d.get('kind') == 'Deployment'}
-          roles = [d for d in docs if d and d.get('kind') == 'Role'
-                   and d.get('metadata', {}).get('name', '').endswith('-strategy-migrate')]
-          if not roles:
-              sys.exit("::error::no strategy-migrate Role rendered with --is-upgrade "
-                        "(api.db.driver=sqlite is the chart default)")
-          resource_names = {n for rule in roles[0].get('rules', [])
-                             for n in rule.get('resourceNames', [])}
-          if not resource_names & deploy_names:
-              sys.exit(f"::error::pre-upgrade hook Role resourceNames {resource_names} "
-                        f"does not match any rendered Deployment name {deploy_names} (F-213)")
-          print(f"hook Role resourceNames {resource_names} matches a rendered Deployment")
-          PY
-      - name: chart renders after helm upgrade --reuse-values from v0.2.0-beta.8 (F-214)
-        # `helm upgrade --reuse-values` swaps the new chart's own default
-        # values.yaml for the old release's fully-resolved values before
-        # rendering (helm pkg/action/upgrade.go reuseValues: chart.Values =
-        # oldVals), so any value key introduced since the user's last upgrade
-        # is completely absent, not just unset. Simulate that exactly: stand
-        # beta.8's values.yaml in for the chart's OWN values.yaml (a plain -f
-        # merge would NOT reproduce this, since -f still merges onto the new
-        # chart's own defaults).
-        run: |
-          trap 'cp /tmp/values.yaml.orig charts/gameplane/values.yaml' EXIT
-          cp charts/gameplane/values.yaml /tmp/values.yaml.orig
-          cp charts/gameplane/testdata/upgrade-from-v0.2.0-beta.8-values.yaml charts/gameplane/values.yaml
-          helm template gameplane charts/gameplane --include-crds > /tmp/rendered-reuse-values.yaml
-          python3 - <<'PY'
-          import yaml
-          docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values.yaml')) if d]
-          resources = {(d['kind'], d['metadata']['name']) for d in docs}
-          required = {('Deployment', 'gameplane-api'), ('Deployment', 'gameplane-web'),
-                      ('PersistentVolumeClaim', 'gameplane-api-data')}
-          assert required <= resources, f"reuse-values removed existing resources: {required - resources}"
-          crds = {name for kind, name in resources if kind == 'CustomResourceDefinition'}
-          assert len(crds) == 11, f"reuse-values disabled the bundled CRDs: {crds}"
-          assert ('Deployment', 'gameplane-gateway') not in resources
-          assert ('NetworkPolicy', 'allow-api-to-agent') in resources
-          assert ('NetworkPolicy', 'allow-api-to-capture') not in resources, "legacy values without capture enabled its ingress"
-          PY
-          # Spec 022: with the bundled receiver and ServiceMonitors switched on
-          # over beta.8's values (no persistence, dashboard, interval or enabled
-          # keys), the chart still renders: no receiver PVC is added, no
-          # receiver ServiceMonitor renders without a token, and the API
-          # keeps working without api.telemetry.enabled.
-          helm template gameplane charts/gameplane \
-            --set api.telemetry.receiver.enabled=true \
-            --set serviceMonitors.enabled=true > /tmp/rendered-reuse-values-receiver.yaml
-          python3 - <<'PY'
-          import yaml
-          docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values-receiver.yaml')) if d]
-          resources = {(d['kind'], d['metadata']['name']) for d in docs}
-          assert ('Deployment', 'gameplane-telemetry-receiver') in resources
-          assert ('PersistentVolumeClaim', 'gameplane-telemetry-receiver-data') not in resources, "--reuse-values added receiver storage"
-          assert ('ServiceMonitor', 'gameplane-telemetry-receiver') not in resources, "receiver ServiceMonitor rendered without a dashboard token"
-          PY
-          # Spec 022 FR-039: beta.8's values have no ingestPow block, so the
-          # receiver renders the OD-5 defaults, with proof-of-work off.
-          python3 - <<'PY'
-          import yaml
-          docs = [d for d in yaml.safe_load_all(open('/tmp/rendered-reuse-values-receiver.yaml')) if d]
-          env = {e['name']: e['value'] for d in docs
-                 if d['kind'] == 'Deployment' and d['metadata']['name'] == 'gameplane-telemetry-receiver'
-                 for e in d['spec']['template']['spec']['containers'][0]['env'] if 'value' in e}
-          got = [env[k] for k in ('INGEST_POW', 'INGEST_POW_TARGET_PER_MIN', 'INGEST_POW_MIN_BITS', 'INGEST_POW_MAX_BITS')]
-          assert got == ['false', '60', '0', '22'], f"--reuse-values changed the INGEST_POW defaults: {got}"
-          PY
-      - name: crd-manifests in sync with crds
-        # The CRD-apply hook serves CRDs from crd-manifests/ (crds/ isn't
-        # readable by Helm .Files). make manifests keeps both in sync; guard
-        # against a drift that would apply stale CRDs on upgrade.
-        run: diff -r charts/gameplane/charts/gameplane-crds/crds charts/gameplane/crd-manifests
-      - name: chart CRDs carry the current bundle-hash stamp (F-218)
-        # crd-apply-hook.yaml fires on pre-install only when the live CRDs'
-        # gameplane.local/crd-bundle-sha256 differs from the chart's. A stale
-        # stamp (CRDs hand-copied without `make manifests`) would make a fresh
-        # install skip the hook over CRDs that are actually out of date, so
-        # regenerate the chart copies from operator/config/crd and fail on any
-        # difference.
-        run: |
-          hack/sync-chart-crds.sh
-          git diff --exit-code -- charts/gameplane/charts/gameplane-crds/crds charts/gameplane/crd-manifests
-      - name: chart cosign key matches signing/cosign.pub
-        # values.yaml embeds a copy of the signing public key so the operator
-        # can verify official module bundles. Nothing regenerates it, so a key
-        # rotation that updates only the root file leaves the chart verifying
-        # against the retired key — every official bundle then fails to install.
-        # The release workflows check the root key against the signing secret;
-        # this checks the chart's copy against the root key.
-        run: |
-          helm template gameplane charts/gameplane \
-            --set defaultModuleSource.oci.verify.enabled=true \
-            --show-only templates/module-cosign-key.yaml > /tmp/keysecret.yaml
-          # The rendered Secret carries the key under stringData/data; pull the
-          # PEM back out and compare it to the committed root key.
-          python3 - <<'PY' > /tmp/chart-cosign.pub
-          import base64, sys, yaml
-          d = yaml.safe_load(open('/tmp/keysecret.yaml'))
-          data = (d.get('stringData') or {}).get('cosign.pub')
-          if data is None:
-              data = base64.b64decode((d.get('data') or {})['cosign.pub']).decode()
-          sys.stdout.write(data if data.endswith('\n') else data + '\n')
-          PY
-          if ! diff -u signing/cosign.pub /tmp/chart-cosign.pub; then
-            echo "::error::charts/gameplane/values.yaml cosignPublicKey does not match signing/cosign.pub — update both when rotating the signing key"
-            exit 1
-          fi
-          echo "chart cosign key matches signing/cosign.pub"
-      - name: docs/oidc.md example values render (F-252)
-        # docs/oidc.md's Keycloak "Or in values.yaml" example is meant to be
-        # copy-pasteable. Render it as a real -f values file (with
-        # api.oidc.enabled: true, since the doc's own example turns it on)
-        # and fail if the object-shaped clientSecretRef the chart schema
-        # expects ever regresses to the bare string the doc used to show.
-        run: |
-          python3 - <<'PY' > /tmp/oidc-example-values.yaml
-          import re
-          text = open('docs/oidc.md').read()
-          m = re.search(r"Or in `values\.yaml`:\n```yaml\n(.*?)\n```", text, re.S)
-          if not m:
-              raise SystemExit("could not find the Keycloak 'Or in values.yaml' example in docs/oidc.md")
-          print(m.group(1))
-          PY
-          helm template gameplane charts/gameplane \
-            -f /tmp/oidc-example-values.yaml \
-            --show-only templates/api.yaml > /tmp/rendered-oidc.yaml
-          grep -q 'GAMEPLANE_OIDC_CLIENT_SECRET' /tmp/rendered-oidc.yaml
-          grep -q 'name: keycloak-oidc-secret' /tmp/rendered-oidc.yaml
-          grep -qE 'key: +clientSecret' /tmp/rendered-oidc.yaml
-
-  workflow-lint:
-    name: workflow lint
-    needs: [changes]
-    if: needs.changes.outputs.github == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: actionlint (download and verify)
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp -d)"
-          cd "$tmp"
-          curl -fsSL -o actionlint.tar.gz \
-            https://github.com/rhysd/actionlint/releases/download/v1.7.10/actionlint_1.7.10_linux_amd64.tar.gz
-          # sha256sum -c exits non-zero on mismatch, and set -e aborts the step:
-          # the binary never executes unless it matches the pinned digest.
-          echo "f4c76b71db5755a713e6055cbb0857ed07e103e028bda117817660ebadb4386f  actionlint.tar.gz" | sha256sum -c -
-          tar -xzf actionlint.tar.gz
-          # actionlint takes workflow FILE paths, not a directory. With no
-          # arguments it discovers every workflow in the repository itself,
-          # so run it from the checkout root.
-          cd "$GITHUB_WORKSPACE"
-          "$tmp/actionlint"
-      # Spec 013 G3: hadolint over every tracked Dockerfile, at warning and
-      # above (.hadolint.yaml). Same pinned-download pattern as actionlint.
-      - name: hadolint (download and verify)
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/hadolint"
-          cd "$RUNNER_TEMP/hadolint"
-          curl -fsSL -o hadolint \
-            https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-linux-x86_64
-          echo "6bf226944684f56c84dd014e8b979d27425c0148f61b3bd99bcc6f39e9dc5a47  hadolint" | sha256sum -c -
-          chmod +x hadolint
-          echo "$RUNNER_TEMP/hadolint" >> "$GITHUB_PATH"
-      - name: prove the Dockerfile lint gate can fail
-        run: ./hack/check-hadolint_test.sh
-      - name: hadolint
-        run: |
-          mapfile -t files < <(git ls-files '*Dockerfile*' ':!:hack/testdata/**' ':!:*.dockerignore')
-          hadolint --config .hadolint.yaml "${files[@]}"
-      - name: ci report job coverage (F-238)
-        run: ./hack/check-ci-report-coverage.sh
-      - name: test ci report job coverage checker
-        run: ./hack/test-check-ci-report-coverage.sh
-      - name: publish-edge.yaml path coverage (F-239)
-        run: ./hack/check-publish-edge-paths.sh
-      - name: test publish-edge.yaml path coverage checker
-        run: ./hack/test-check-publish-edge-paths.sh
-      # This gate makes SC-001 ("100% SHA-pinned") mechanically true by failing on
-      # unpinned uses and ref-version mismatches. The four deferred rules and their
-      # tracking are defined in .github/zizmor.yml.
-      - name: CI scope regression tests
-        run: make test-ci-scope
-      - name: zizmor
-        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
-        with:
-          inputs: .github
-          advanced-security: false
-          persona: regular
-
-  # Unit tests for probe protocol packages (minecraft, terraria, etc).
-  # These are in test/e2e but are untagged Go unit tests, not integration
-  # tests, so they run without a cluster or build tags. Gated on e2e
-  # changes since the tests live in the e2e directory (covered by e2etree
-  # filter). This job intentionally runs no coverage — test/e2e has no
-  # .testcoverage.yml and is excluded from the coverage gates.
-  go-e2e-unit:
-    name: go (test/e2e)
-    needs: [changes]
-    if: needs.changes.outputs.e2e-unit == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/go-cache
-        with:
-          key-suffix: e2e-unit
-      - name: go vet
-        working-directory: test/e2e
-        run: go vet ./...
-      - name: unit test (probe protocols)
-        working-directory: test/e2e
-        run: go test ./...
-
-  e2e-buckets:
-    name: e2e bucket coverage
-    needs: [changes]
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-      - name: verify buckets are disjoint + exhaustive
-        run: ./test/e2e/buckets.sh verify
-      - name: verify game protocol coverage
-        run: ./test/e2e/joincoverage.sh verify
-      # The fixtures are what prove the gate above can actually fail. Without
-      # running them, a verifier that silently passed everything would look
-      # identical to a working one.
-      - name: verify the coverage gate can fail
-        run: ./test/e2e/joincoverage_test.sh
-      - name: verify lint gate configuration
-        run: ./test/e2e/lint-gate-verify.sh verify
-      - name: verify the lint gate can fail
-        run: ./test/e2e/lint-gate-verify_test.sh
-
   # Runs after every other job and publishes one build report: which jobs
   # failed and where, measured coverage against each gate, changed files by
   # area (PRs only) and the slowest job legs.
@@ -1253,19 +1163,12 @@ jobs:
     needs:
       [
         changes,
-        docs,
-        codegen-drift,
-        submodule-freshness,
+        checks,
+        chart,
         lint,
-        go,
         web,
         web-test,
         web-coverage,
-        helm,
-        chart-template,
-        workflow-lint,
-        go-e2e-unit,
-        e2e-buckets,
       ]
     if: always()
     runs-on: ubuntu-latest
@@ -1355,9 +1258,7 @@ jobs:
             const files = readJSON('/tmp/files.json', []);
 
             const NEEDS_ORDER = [
-              'changes', 'docs', 'codegen-drift', 'submodule-freshness', 'lint', 'go',
-              'web', 'web-test', 'web-coverage', 'helm', 'chart-template', 'workflow-lint',
-              'go-e2e-unit', 'e2e-buckets',
+              'changes', 'checks', 'chart', 'lint', 'web', 'web-test', 'web-coverage',
             ];
 
             // Maps each workflow job id to how its `name:` field (as reported by
@@ -1365,19 +1266,12 @@ jobs:
             // Kept in sync by hand with the `name:` fields above.
             const JOB_MATCHERS = {
               changes: (n) => n === 'detect changes',
-              docs: (n) => n === 'docs and repository checks',
-              'codegen-drift': (n) => n === 'codegen drift',
-              lint: (n) => n.startsWith('lint ('),
-              go: (n) => n.startsWith('go (') && n !== 'go (test/e2e)',
+              checks: (n) => n === 'repo checks',
+              chart: (n) => n === 'chart and codegen',
+              lint: (n) => n.startsWith('go ('),
               web: (n) => n === 'web',
               'web-test': (n) => n.startsWith('web test ('),
               'web-coverage': (n) => n === 'web coverage',
-              helm: (n) => n === 'helm lint',
-              'chart-template': (n) => n === 'chart render',
-              'workflow-lint': (n) => n === 'workflow lint',
-              'go-e2e-unit': (n) => n === 'go (test/e2e)',
-              'e2e-buckets': (n) => n === 'e2e bucket coverage',
-              'submodule-freshness': (n) => n === 'submodule freshness',
             };
 
             let passed = 0, failed = 0, skipped = 0, cancelled = 0;

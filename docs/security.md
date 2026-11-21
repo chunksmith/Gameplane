@@ -714,7 +714,7 @@ inside CI with that workflow's `GITHUB_TOKEN` privileges — a supply-chain atta
 on the entire user base.
 
 Pinning to an immutable commit SHA is enforced mechanically by the `zizmor` linter
-in the `workflow-lint` job (`.github/zizmor.yml` config). Dependabot's
+in the `repo checks` CI job (`.github/zizmor.yml` config). Dependabot's
 `github-actions` ecosystem entry maintains pins through reviewable pull requests,
 so the operational trade-off — pins grow stale and miss security updates — is
 managed rather than ignored: every update lands as a visible, auditable PR before
@@ -757,7 +757,7 @@ env:
 run: echo "Title is: \"$PR_TITLE\""
 ```
 
-The `actionlint` linter (run in the `workflow-lint` job) detects the unsafe form
+The `actionlint` linter (run in the `repo checks` CI job) detects the unsafe form
 — direct interpolation of `github.event.*` or `github.head_ref` into `run:` —
 and rejects it. This repo does not use `pull_request_target` (the trigger that
 runs workflows on untrusted fork code with the base repo's `GITHUB_TOKEN`),
