@@ -827,8 +827,7 @@ describe("ServersPage mobile layout", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText("3/10")).toBeInTheDocument();
     expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
-    // CPU chip removed from mobile card
-    expect(screen.queryByText("25%")).not.toBeInTheDocument();
+    expect(screen.getByText("25%")).toBeInTheDocument();
     // Lifecycle action buttons removed from mobile card
     expect(screen.queryByTitle("Start")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Stop")).not.toBeInTheDocument();
