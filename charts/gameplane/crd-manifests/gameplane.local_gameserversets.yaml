@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: e95861afc04439afd2b8c5cf1ae7fb191699d11dc48986f3baf36651283313b4
+    gameplane.local/crd-bundle-sha256: ce77b5264849534e9549a73ec05a8b9f21059b0dc668b07d463d71ccb62f833d
     controller-gen.kubebuilder.io/version: v0.20.1
   name: gameserversets.gameplane.local
 spec:
@@ -3385,7 +3385,10 @@ spec:
                           ingress / external-dns annotations on the Service. Must be an
                           RFC 1123 hostname: dotted labels of 1-63 alphanumeric characters
                           or hyphens, no leading/trailing hyphen, at most 253 characters
-                          total. The operator does not create the DNS record itself.
+                          total. The operator does not create the DNS record itself. On a
+                          LoadBalancer server, once the load balancer has an address, the
+                          hostname is also the address status.endpoints and the dashboard
+                          report, since it is the name players use.
                         maxLength: 253
                         pattern: ^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)(\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$
                         type: string
