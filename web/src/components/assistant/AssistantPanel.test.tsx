@@ -123,18 +123,23 @@ describe("AssistantPanel", () => {
 
   it("asks for approval before destructive actions", async () => {
     const decisions: unknown[] = [];
-    mockAssistant({
-      list: [conv({ status: "awaiting_approval", title: "Delete old backup" })],
-      detail: {
-        conversation: conv({ status: "awaiting_approval" }),
-        pending: [{ id: "t1", method: "DELETE", path: "/backups/b1" }],
-        messages: [{ role: "user", content: "delete b1" }, toolUse("t1", "DELETE", "/backups/b1")],
-      },
-    });
-    server.use(http.post("/ai/conversations/c1/approval", async ({ request }) => {
-      decisions.push(await request.json());
-      return HttpResponse.json(conv({ status: "running" }));
-    }));
+    let detailReads = 0;
+    const detail: AssistantDetail = {
+      conversation: conv({ status: "awaiting_approval" }),
+      pending: [{ id: "t1", method: "DELETE", path: "/backups/b1" }],
+      messages: [{ role: "user", content: "delete b1" }, toolUse("t1", "DELETE", "/backups/b1")],
+    };
+    mockAssistant({ list: [conv({ status: "awaiting_approval", title: "Delete old backup" })], detail });
+    server.use(
+      http.get("/ai/conversations/:id", () => {
+        detailReads++;
+        return HttpResponse.json(detail);
+      }),
+      http.post("/ai/conversations/c1/approval", async ({ request }) => {
+        decisions.push(await request.json());
+        return HttpResponse.json(conv({ status: "running" }));
+      }),
+    );
     renderWithQuery(<AssistantPanel />);
     await userEvent.click(await screen.findByRole("button", { name: /Delete old backup/ }));
     const card = await screen.findByRole("alert");
@@ -142,11 +147,14 @@ describe("AssistantPanel", () => {
     expect(within(card).getByText("DELETE /backups/b1")).toBeInTheDocument();
     expect(screen.getByText("needs approval")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    const readsBeforeDecline = detailReads;
     await userEvent.click(within(card).getByRole("button", { name: "Decline" }));
     await waitFor(() => expect(decisions).toEqual([{ approve: false }]));
-    await userEvent.click(within(card).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(detailReads).toBeGreaterThan(readsBeforeDecline));
+    const refreshedCard = await screen.findByRole("alert");
+    await userEvent.click(within(refreshedCard).getByRole("button", { name: "Approve" }));
     await waitFor(() => expect(decisions).toEqual([{ approve: false }, { approve: true }]));
-  });
+  }, 15000);
 
   it("stops a running conversation", async () => {
     let cancelled = false;
