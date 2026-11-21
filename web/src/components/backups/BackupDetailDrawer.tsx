@@ -11,6 +11,7 @@ import { ErrorBanner } from "./ErrorBanner";
 import { BackupProgressBar, isActiveBackup } from "./ActiveBackups";
 import { SCHEDULE_LABEL } from "@/lib/backupGroups";
 import { useOptionalIntl } from "@/lib/i18n/format";
+import { backupReadOptions, isAuthorizationError, useBackupAccessKey } from "@/lib/backupReadOptions";
 
 interface Props {
   target?: ResourceTarget;
@@ -28,13 +29,14 @@ export function BackupDetailDrawer({ name, ns, onClose, onRestore, target: expli
   const { Backups } = resourceClient;
   const permissions = useResourcePermissions(explicitPermissions);
   const qc = useQueryClient();
-  const open = name !== null;
-  const { data: backup, error } = useQuery({
-    queryKey: resourceKey(resourceTarget, "backup", name, ns),
+  const accessKey = useBackupAccessKey(resourceTarget, permissions, "backup");
+  const open = name !== null && resourceCan(permissions, "backups:read");
+  const { data: backupData, error } = useQuery({
+    queryKey: [...resourceKey(resourceTarget, "backup", name, ns), "access", accessKey],
     queryFn: ({ signal }) => resourceClient.withSignal(signal).Backups.get(name!, ns),
-    enabled: open,
-    refetchInterval: 5000,
+    ...backupReadOptions(open && resourceCan(permissions, "backups:read"), 5000),
   });
+  const backup = open && !isAuthorizationError(error) ? backupData : undefined;
   const remove = useMutation({
     mutationFn: () => Backups.remove(name!, ns),
     onSuccess: () => {
