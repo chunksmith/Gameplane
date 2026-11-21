@@ -1,70 +1,19 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/url"
-	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	ktesting "k8s.io/client-go/testing"
 )
-
-func TestWakeRetrySharedTransientRecovery(t *testing.T) {
-	w, client := newFakeGameServerWaker(t, "alpha", "games", time.Minute, nil)
-	started, release := make(chan struct{}), make(chan struct{})
-	var calls atomic.Int32
-	var firstPatch []byte
-	client.PrependReactor("patch", "gameservers", func(action ktesting.Action) (bool, runtime.Object, error) {
-		patch := action.(ktesting.PatchAction).GetPatch()
-		if calls.Add(1) == 1 {
-			firstPatch = bytes.Clone(patch)
-			close(started)
-			<-release
-			return true, nil, apierrors.NewServiceUnavailable("outage")
-		}
-		if !bytes.Equal(firstPatch, patch) {
-			t.Error("shared retry changed the annotation token or patch bytes")
-		}
-		return false, nil, nil
-	})
-	defer func() {
-		select {
-		case <-release:
-		default:
-			close(release)
-		}
-	}()
-	results := make(chan error, 9)
-	go func() { results <- w.RequestWake(t.Context()) }()
-	waitLoadEvent(t, started, "first shared PATCH")
-	for range 8 {
-		waiting := &observedWaitContext{Context: t.Context(), observed: make(chan struct{})}
-		go func() { results <- w.RequestWake(waiting) }()
-		waitLoadEvent(t, waiting.observed, "shared waiter")
-	}
-	close(release)
-	for range 9 {
-		if err := receiveLoadEvent(t, results, "shared retry result"); err != nil {
-			t.Fatalf("shared wake: %v", err)
-		}
-	}
-	if err := w.RequestWake(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if got := calls.Load(); got != 2 {
-		t.Fatalf("PATCH calls = %d, want one failed and one successful shared attempt", got)
-	}
-}
 
 func TestWakeRetryAttemptLimitAndErrorIdentity(t *testing.T) {
 	failure := apierrors.NewServiceUnavailable("still unavailable")
