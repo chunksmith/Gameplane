@@ -33,9 +33,9 @@ The agent is a per-pod HTTP/HTTPS sidecar that runs inside every game pod to exp
 
 - The agent does **not** expose a PTY or attach the game container directly. Games with consoleMode "pty" (e.g., Unity servers) are handled by the Gameplane API bridging the browser WebSocket to Kubernetes pod-attach; the agent is uninvolved.
 - The agent does **not** manage game processes or containers — all process/container control is the operator's job (scaling, restarts, resource limits).
-- The agent does **not** validate RCON responses for correctness. It forwards raw game output to the UI, so game-specific parsing happens on the dashboard (e.g., player-list regex rendering).
+- The agent parses supported player-list responses and configured metric formats; it does not otherwise validate arbitrary RCON output for correctness.
 - The agent does **not** require a cluster metrics pipeline for its own resource-usage reporting (no metrics-server dependency); usage is sourced in-pod from `/proc` or cgroups. A Prometheus scrape of `/metrics` (via the chart's optional `serviceMonitors.enabled` PodMonitor) is supported but not required.
-- The agent does **not** implement game-specific business logic. All protocol handlers are per-game and declared in the module's template (`spec.capabilities`); new games require no agent code change.
+- The agent does **not** implement game-specific business logic. Commands are declared in the module's template (`spec.capabilities`); built-in protocol adapters include player-list parsers and the read-only Minecraft Java operator-file reader. New games using supported command protocols require no agent code change.
 
 ## Directory & package layout
 
@@ -189,6 +189,7 @@ Resource usage env vars (set by the operator):
 | `/players/ban` | POST | Ban a player; request: `{ name, reason? }`; response: `{ ok, raw? }`; 501 if unsupported; reason is validated with the gameaction input policy (no control characters, no ``; & \| $ ` \ " '``), max 256 bytes (excess truncated); 400 on violation |
 | `/players/unban` | POST | Lift a ban; request: `{ name }`; response: `{ ok, raw? }`; 501 if unsupported |
 | `/players/banned` | GET | Currently banned players; response: `[ { name, reason?, source? } ]`; 502 if RCON unavailable |
+| `/players/operators` | GET | Configured Minecraft Java operators as `[ { name, uuid? } ]`, alphabetically by name; fixed `ops.json` under the data root, independent of RCON. Missing file gives `[]`; malformed, oversized or unsafe files give generic 502. Other games return 501. No caller-supplied path or operator writes. |
 | `/quiesce` | POST | Pause auto-saves before snapshot; response: `{ quiesced, reason? }` (boolean, reason optional); unsupported games return `quiesced: false` with a reason |
 | `/unquiesce` | POST | Resume auto-saves after snapshot; response: `{ quiesced, reason? }` |
 | `/lifecycle/stop` | POST | Run stop sequence before scale-to-zero; RCON connection drop is the expected outcome |
@@ -230,6 +231,7 @@ The repo agent runs from the `repo-agent` image (`agent/Dockerfile.repo`: the ag
 - **Extracted mod files stay world-readable**: `mods.moduleFileMode` is `0o644`, not a tighter `0o600`, because the mods volume is shared with the game container, which runs as whatever uid its image needs — a different uid than the agent's own. At `0o600` the game process couldn't read its own mods. This is the rationale behind the `.golangci.yml` gosec G302 exclusion scoped to `agent/internal/mods/mods.go`.
 - **Resource usage is in-pod**: The `usage` package reads from `/proc` or cgroups; no external metrics pipeline required. Cgroup mode is a fallback for older clusters; proc mode (default in production) requires the operator to set `ShareProcessNamespace: true`.
 - **Module capabilities drive behavior**: Every game-specific handler (players, quiesce, lifecycle, status, actions) reads its config from `--capabilities` (JSON unmarshaled into `caps.Spec`). New games require no agent code change.
+- **Minecraft Java operator identities:** the built-in `ops.json` protocol reader is enabled only for the trusted game identifier `minecraft-java` and an agent data root. Player snapshots advertise `capabilities.operators` even when RCON is disabled; other moderation remains template-driven. Reads reuse the file browser's descriptor-relative confinement, reject symlinks and non-regular files, and are capped at 1 MiB. Only names and UUIDs leave the agent, not permission levels or player-limit overrides.
 - **RCON connection errors are graceful**: A lost RCON connection does not crash the agent. `console`, `players`, `quiesce`, and `lifecycle` handlers catch connection errors and return appropriate HTTP status (e.g., `502 Bad Gateway`).
 - **Source RCON sends complete frames**: Each AUTH or command frame is submitted in one socket write, with its existing byte-size limit, request ID, type, body, and two NUL terminators preserved. This avoids separate header-only writes rejected by vanilla Minecraft's RCON reader. A short write is an error and drops the connection without replaying the command; response grace and healthy connection reuse remain unchanged.
 - **Log streams are tail-only**: The `logs` package does not support random-access reads. It streams from the current end (live mode) or from file start (backlog mode); clients must handle partial output and reconnection.
