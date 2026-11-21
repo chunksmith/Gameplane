@@ -12,7 +12,7 @@ RUN dpkg --add-architecture i386 && \
     apt-get install -y --no-install-recommends \
         bash=5.2.15-2+b13 \
         curl=7.88.1-10+deb12u15 \
-        ca-certificates=20250419~deb12u1 \
+        ca-certificates=20250419~deb12u2 \
         tini=0.19.0-1+b3 \
         procps=2:4.0.2-3 \
         lib32gcc-s1=12.2.0-14+deb12u1 \
