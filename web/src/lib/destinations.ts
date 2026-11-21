@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useResourceClient, useResourceTarget, resourceKey, useResourcePermissions, resourceCan, type ResourceScope } from "./resourceTarget";
+import { useResourceClient, useResourceTarget, resourceKey, useResourcePermissions, useResourceAccess, resourceCan, type ResourceScope } from "./resourceTarget";
 import { APIError } from "./api";
 import { backupReadOptions, isAuthorizationError, useBackupAccessKey } from "./backupReadOptions";
 import { useOptionalIntl } from "./i18n/format";
@@ -10,8 +10,10 @@ export function useBackupDestinations(scope?: ResourceScope, explicitPermissions
   const target = useResourceTarget({ name: "" }, scope ? { ...scope, name: "" } : undefined);
   const client = useResourceClient(target);
   const permissions = useResourcePermissions(explicitPermissions);
+  const contextAccess = useResourceAccess();
+  const knownAccess = explicitPermissions !== undefined || contextAccess !== undefined;
   const accessKey = useBackupAccessKey(target, permissions, "backup-destinations");
-  const allowed = resourceCan(permissions, "destinations:read");
+  const allowed = !knownAccess || resourceCan(permissions, "destinations:read");
   const query = useQuery({
     queryKey: [...resourceKey(target, "backup-destinations"), "access", accessKey],
     queryFn: ({ signal }) => client.withSignal(signal).BackupDestinations.list(),

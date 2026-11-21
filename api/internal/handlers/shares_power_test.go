@@ -23,7 +23,6 @@ func TestSharePowerPolicy(t *testing.T) {
 		{name: "view-only", canStart: false, wantStart: http.StatusNotFound},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			store := newTestStore(t)
 			ownerID := insertShareTestUser(t, store, "owner-power-"+tc.name)
 			server := newShareTestServer("srv-power", ownerID)

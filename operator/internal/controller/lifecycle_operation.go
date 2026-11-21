@@ -344,7 +344,7 @@ func backupLifecycleTransitionPending(ctx context.Context, reader client.Reader,
 		return true, err
 	}
 	for i := range pods.Items {
-		if liveRestorePod(&pods.Items[i]) && (pods.Items[i].Name == gs.Name+"-0" || podMountsRestoreTarget(&pods.Items[i], gs.Name)) {
+		if liveRestorePod(&pods.Items[i]) && (pods.Items[i].Name == gs.Name+"-0" || podMountsRestoreTarget(&pods.Items[i], dataClaimName(gs))) {
 			return true, nil
 		}
 	}
