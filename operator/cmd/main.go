@@ -413,6 +413,7 @@ func main() {
 		AgentCASecretName:      agentCASecretName,
 		AgentCASecretNamespace: agentCASecretNamespace,
 		AgentClient:            agentClient,
+		OperationQuiescer:      agentClient,
 		PodAttacher: &controller.StopAttachClient{
 			Config:    mgr.GetConfig(),
 			Clientset: kubernetes.NewForConfigOrDie(mgr.GetConfig()),
@@ -482,6 +483,7 @@ func main() {
 		Client:                   mgr.GetClient(),
 		APIReader:                mgr.GetAPIReader(),
 		Scheme:                   mgr.GetScheme(),
+		OperationQuiescer:        agentClient,
 		ResticImage:              resticImage,
 		JobBackoffLimit:          &backupJobBackoff32,
 		JobActiveDeadlineSeconds: backupJobActiveDeadlineSeconds,
