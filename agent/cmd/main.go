@@ -269,6 +269,13 @@ func main() {
 				}
 				return nil
 			}(),
+			PlayerQuery: func() *caps.PlayerQuery {
+				if playerActions != nil {
+					return playerActions.Query
+				}
+				return nil
+			}(),
+			QueryHost: rconHost,
 			Usage: usage.New(usage.Config{
 				DataDir:            dataRoot,
 				ProcMode:           envOr("GAMEPLANE_USAGE_PROC", "") == "1",
