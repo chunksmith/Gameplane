@@ -37,17 +37,19 @@ const destinationLabel = "gameplane.local/backup-destination"
 // Reads return a redacted projection (no secret values); writes accept
 // {url, password} and persist them as Secret stringData.
 func MountDestinations(r chi.Router, reg *kube.Registry) {
-	h := destinationHandler{reg: reg}
+	h := destinationHandler{reg: reg, usageCache: &usageCache{entries: map[usageKey]destinationUsage{}}}
 	r.Route("/backup-destinations", func(r chi.Router) {
 		r.Get("/", h.list)
 		r.Post("/", h.create)
 		r.Get("/{name}", h.get)
+		r.Get("/{name}/usage", h.usage)
 		r.Delete("/{name}", h.del)
 	})
 }
 
 type destinationHandler struct {
-	reg *kube.Registry
+	reg        *kube.Registry
+	usageCache *usageCache
 }
 
 // destinationView is the public projection. Note password is absent;

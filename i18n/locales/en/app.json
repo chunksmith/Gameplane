@@ -679,6 +679,14 @@
     "defaultMessage": "clientSecret is required",
     "description": "API error from the auth provider credentials API (auth_provider_secret.go:put)."
   },
+  "server.backup_destinations.usage_unavailable": {
+    "defaultMessage": "The backup storage could not be read.",
+    "description": "Backups error when listing the objects of an S3 backup destination fails (bad credentials, unreachable endpoint or missing bucket)."
+  },
+  "server.backup_destinations.usage_unsupported": {
+    "defaultMessage": "Storage usage is only available for S3 backup destinations.",
+    "description": "Backups error when the total stored size is requested for a backup destination whose restic repository is not an s3: URL."
+  },
   "server.bad_request": {
     "defaultMessage": "bad request",
     "description": "API error for a malformed request that does not fit a more specific message."
@@ -7506,6 +7514,26 @@
   "web.routes.backups.stat_running": {
     "defaultMessage": "Running",
     "description": "Backups: stat card label for how many backups are running right now; keep it short"
+  },
+  "web.routes.backups.stat_storage": {
+    "defaultMessage": "Storage",
+    "description": "Backups: stat card label for the total size of all backups stored in S3; keep it short"
+  },
+  "web.routes.backups.stat_storage_checked": {
+    "defaultMessage": "Updated {time}",
+    "description": "Backups: stat card detail under Storage saying when the stored size was last measured; {time} is a relative time such as 5 minutes ago"
+  },
+  "web.routes.backups.stat_storage_refresh": {
+    "defaultMessage": "Refresh storage size",
+    "description": "Backups: accessible label of the icon button on the Storage stat card that measures the stored size again right now"
+  },
+  "web.routes.backups.stat_storage_tb": {
+    "defaultMessage": "{size} TB",
+    "description": "Backups: total size of all backups stored in S3 in terabytes; {size} is a number such as 1.42"
+  },
+  "web.routes.backups.stat_storage_unavailable": {
+    "defaultMessage": "{count, plural, one {{count} destination unavailable} other {{count} destinations unavailable}}",
+    "description": "Backups: stat card detail under Storage when the size of some backup destinations could not be read; {count} is a number"
   },
   "web.routes.backups.status": {
     "defaultMessage": "Status",

@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Archive, CalendarClock, CalendarPlus, CheckCircle2, History, Layers, Loader2, Plus, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { Archive, CalendarClock, CalendarPlus, CheckCircle2, HardDrive, History, Layers, Loader2, Plus, RefreshCw, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { createResourceClient } from "@/lib/endpoints";
-import { useFleetLocation, Fleet, located, targetKey, targetLabel, type Located } from "@/lib/fleet";
+import { useFleetLocation, Fleet, located, targetKey, targetLabel, type FleetTarget, type Located } from "@/lib/fleet";
+import { resourceCan } from "@/lib/resourceTarget";
 import { FleetCoverage } from "@/components/FleetScope";
 import {
   Button,
@@ -41,7 +42,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { ActiveBackups, isActiveBackup, newestBackupFirst } from "@/components/backups/ActiveBackups";
 import { BackupGroupsPanel, groupMembers } from "@/components/backups/BackupGroupsPanel";
 import type { Backup, BackupSchedule } from "@/types";
-import { useOptionalIntl } from "@/lib/i18n/format";
+import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
 import { serverSetOwner } from "@/lib/serverSets";
 import { defineMessages, type MessageDescriptor } from "react-intl";
 
@@ -76,6 +77,8 @@ const TABLE_FRAME = "overflow-hidden rounded-lg border border-border bg-card";
 
 export function BackupsPage() {
   const intl = useOptionalIntl();
+  const format = useFormat();
+  const queryClient = useQueryClient();
   const search = useLocation().search;
   const navigate = useNavigate();
   const tab: TabKey = search.tab === "groups" || search.tab === "schedules" || search.tab === "restores" ? search.tab : "backups";
@@ -104,6 +107,35 @@ export function BackupsPage() {
   });
   const allSchedules = useMemo(() => (liveSchedules?.items ?? []).map(located), [liveSchedules]);
   const allServers = useMemo(() => (serverScopes?.items ?? []).map(located), [serverScopes]);
+  const destinations = useMemo(() => {
+    const unique = new Map<string, FleetTarget>();
+    for (const item of [...allBackups, ...allSchedules]) {
+      if (item.spec.strategy === "volume-snapshot" || !item.spec.repoRef?.name || !resourceCan(item.fleetPermissions, "destinations:read")) continue;
+      const target = { cluster: item.fleetTarget.cluster, namespace: item.fleetTarget.namespace, name: item.spec.repoRef.name, uid: "" };
+      unique.set(targetKey(target), target);
+    }
+    return [...unique.values()];
+  }, [allBackups, allSchedules]);
+  const usageKey = (target: FleetTarget) => ["backup-destination-usage", target.cluster, target.namespace, target.name];
+  const usage = useQueries({ queries: destinations.map((target) => ({
+    queryKey: usageKey(target),
+    queryFn: ({ signal }: { signal: AbortSignal }) => createResourceClient(target, signal).BackupDestinations.usage(target.name),
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+  })) });
+  const usageFetching = usage.some((query) => query.isFetching);
+  const refreshUsage = () => {
+    void Promise.allSettled(destinations.map((target) => queryClient.fetchQuery({
+      queryKey: usageKey(target),
+      queryFn: ({ signal }) => createResourceClient(target, signal).BackupDestinations.usage(target.name, true),
+      staleTime: 0,
+      retry: false,
+    })));
+  };
+  const usageReady = usage.length > 0 && usage.every((query) => !query.isPending);
+  const usageFailed = usage.filter((query) => query.isError).length;
+  const storedBytes = usage.reduce((sum, query) => sum + (query.data?.bytes ?? 0), 0);
+  const usageCheckedAt = usage.map((query) => query.data?.checkedAt).filter((checkedAt) => checkedAt !== undefined).sort()[0];
   const active = allBackups.filter(isActiveBackup);
   const recent = allBackups.filter((b) => b.status?.completionTime && dataUpdatedAt - Date.parse(b.status.completionTime) < DAY);
   const groupSchedules = allSchedules.filter((s) => (s.spec.groups?.length ?? 0) > 0);
@@ -133,7 +165,32 @@ export function BackupsPage() {
         }
       />
       {backupNow && <BackupNowDialog onClose={() => setBackupNow(false)} />}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <StatCard
+          label={intl.formatMessage({ id: "web.routes.backups.stat_storage", defaultMessage: "Storage", description: "Backups: stat card label for the total size of all backups stored in S3; keep it short" })}
+          value={usageReady && usageFailed < usage.length ? intl.formatMessage({ id: "web.routes.backups.stat_storage_tb", defaultMessage: "{size} TB", description: "Backups: total size of all backups stored in S3 in terabytes; {size} is a number such as 1.42" }, { size: format.number(storedBytes / 1024 ** 4, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }) : intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" })}
+          sub={
+            <span className="flex items-center justify-between gap-2">
+              <span className="truncate">
+                {usageFailed > 0
+                  ? intl.formatMessage({ id: "web.routes.backups.stat_storage_unavailable", defaultMessage: "{count, plural, one {{count} destination unavailable} other {{count} destinations unavailable}}", description: "Backups: stat card detail under Storage when the size of some backup destinations could not be read; {count} is a number" }, { count: usageFailed })
+                  : intl.formatMessage({ id: "web.routes.backups.stat_storage_checked", defaultMessage: "Updated {time}", description: "Backups: stat card detail under Storage saying when the stored size was last measured; {time} is a relative time such as 5 minutes ago" }, { time: formatRelative(usageCheckedAt, intl) })}
+              </span>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={intl.formatMessage({ id: "web.routes.backups.stat_storage_refresh", defaultMessage: "Refresh storage size", description: "Backups: accessible label of the icon button on the Storage stat card that measures the stored size again right now" })}
+                onPress={refreshUsage}
+                isDisabled={destinations.length === 0 || usageFetching}
+              >
+                <RefreshCw className={usageFetching ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+              </Button>
+            </span>
+          }
+          icon={<HardDrive />}
+          accent={usageFailed > 0 ? "warning" : "violet"}
+        />
         <StatCard
           label={intl.formatMessage({ id: "web.routes.backups.stat_running", defaultMessage: "Running", description: "Backups: stat card label for how many backups are running right now; keep it short" })}
           value={active.filter((b) => b.status?.phase === "Running").length}

@@ -707,7 +707,7 @@ export interface Backup {
   metadata: ObjectMeta;
   // strategy: restic-snapshot writes to a restic repo; volume-snapshot takes a
   // CSI snapshot and is restored by provisioning a NEW server from it.
-  spec: { serverRef: { name: string }; strategy?: "restic-snapshot" | "volume-snapshot" };
+  spec: { serverRef: { name: string }; strategy?: "restic-snapshot" | "volume-snapshot"; repoRef?: { name: string; key?: string } };
   status?: {
     phase?: BackupPhase;
     startTime?: string;
@@ -773,6 +773,12 @@ export interface BackupDestination {
   url: string;
   hasPassword: boolean;
   createdAt?: string;
+}
+
+export interface BackupDestinationUsage {
+  bytes: number;
+  objects: number;
+  checkedAt: string;
 }
 
 // Role names are open-ended now that custom roles exist. BuiltinRole is

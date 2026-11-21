@@ -204,6 +204,18 @@ var entries = []Entry{
 		Description: "Shown when an admin picks an instance default language that is not offered (missing or below the completeness threshold). language = the tag.",
 		Status:      http.StatusBadRequest,
 	},
+	{
+		ID:          "server.backup_destinations.usage_unsupported",
+		English:     "Storage usage is only available for S3 backup destinations.",
+		Description: "Backups error when the total stored size is requested for a backup destination whose restic repository is not an s3: URL.",
+		Status:      http.StatusUnprocessableEntity,
+	},
+	{
+		ID:          "server.backup_destinations.usage_unavailable",
+		English:     "The backup storage could not be read.",
+		Description: "Backups error when listing the objects of an S3 backup destination fails (bad credentials, unreachable endpoint or missing bucket).",
+		Status:      http.StatusBadGateway,
+	},
 }
 
 // parsedEntry is a registry entry with its English text parsed once.

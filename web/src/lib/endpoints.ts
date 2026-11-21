@@ -6,6 +6,7 @@ import type {
   AppearanceMode,
   Backup,
   BackupDestination,
+  BackupDestinationUsage,
   BackupSchedule,
   BannedPlayer,
   ServerOperator,
@@ -976,6 +977,7 @@ function makeResourceEndpoints(request: RequestClient, resource: "servers" | "re
 
   const BackupDestinations = {
     list: () => api<List<BackupDestination>>("/backup-destinations"),
+    usage: (name: string, refresh = false) => api<BackupDestinationUsage>(`/backup-destinations/${name}/usage${refresh ? "?refresh=true" : ""}`),
     // POST is also used to rotate the password of an existing destination —
     // the server treats {name} as the upsert key.
     upsert: (body: BackupDestinationCreate) =>
