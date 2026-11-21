@@ -29,7 +29,7 @@ const (
 	// must be a directory.
 	dirFlags = unix.O_RDONLY | unix.O_DIRECTORY | unix.O_NOFOLLOW | unix.O_CLOEXEC
 	// fileFlags opens a final component for reading: no symlink.
-	fileFlags = unix.O_RDONLY | unix.O_NOFOLLOW | unix.O_CLOEXEC
+	fileFlags = unix.O_RDONLY | unix.O_NOFOLLOW | unix.O_NONBLOCK | unix.O_CLOEXEC
 )
 
 // errLinkTraversal is returned when a path component is a symlink. It wraps

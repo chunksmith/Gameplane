@@ -227,6 +227,10 @@ func (h *handler) read(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "is a directory", http.StatusBadRequest)
 		return
 	}
+	if !fi.Mode().IsRegular() {
+		http.Error(w, "not a regular file", http.StatusBadRequest)
+		return
+	}
 	maxRead := int64(defaultMaxRead)
 	if limit, err := strconv.ParseInt(req.URL.Query().Get("limit"), 10, 64); err == nil && limit > 0 {
 		maxRead = limit
@@ -257,6 +261,10 @@ func (h *handler) download(w http.ResponseWriter, req *http.Request) {
 	}
 	if fi.IsDir() {
 		http.Error(w, "download of directories not supported", http.StatusBadRequest)
+		return
+	}
+	if !fi.Mode().IsRegular() {
+		http.Error(w, "not a regular file", http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Disposition",
