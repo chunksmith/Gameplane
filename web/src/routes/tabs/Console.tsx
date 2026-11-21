@@ -70,12 +70,15 @@ function RconConsole({ name, ns, aside }: { name: string; ns?: string; aside?: R
         onMessage: (data) => {
           try {
             const env = JSON.parse(data) as { kind: string; body: string };
+            // RCON replies are text lines, not PTY output. Embedded LF must
+            // also return the terminal cursor to column zero.
+            const body = env.body.replace(/\r?\n/g, "\r\n");
             if (env.kind === "err") {
               // Render real RCON errors in red so they read as failures,
               // not as ordinary command output (matches PtyConsole below).
-              term.writeln(`\x1b[31m${env.body}\x1b[0m`);
+              term.writeln(`\x1b[31m${body}\x1b[0m`);
             } else if (env.kind === "out") {
-              term.writeln(env.body);
+              term.writeln(body);
             }
           } catch {
             // Non-JSON frame — e.g. an HTML/redirect body from a WS upgrade
