@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
+	"github.com/GameplanePanel/gameplane/operator/internal/edge"
 )
 
 const (
@@ -34,10 +35,12 @@ type GameServerSetReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme
 	Servers *GameServerReconciler
+	Edges   *edge.Registry
 }
 
 // +kubebuilder:rbac:groups=gameplane.local,resources=gameserversets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=gameplane.local,resources=gameservers,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods/status,verbs=patch
 
 func (r *GameServerSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var set gameplanev1alpha1.GameServerSet

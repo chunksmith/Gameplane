@@ -48,6 +48,7 @@ type ReplicaPort struct {
 
 // GameServerSetSpec is the desired state of a group of identical game servers.
 // +kubebuilder:validation:XValidation:rule="self.mode == 'StatefulSet' || (!has(self.placement) && !has(self.replicaPorts) && !has(self.minReadySeconds))",message="placement, replicaPorts and minReadySeconds need mode StatefulSet"
+// +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.mode == 'StatefulSet'",message="rollout needs mode StatefulSet"
 // +kubebuilder:validation:XValidation:rule="!has(self.placement) || !has(self.template.storage) || !has(self.template.storage.ephemeral) || !self.template.storage.ephemeral",message="placement needs persistent storage"
 // +kubebuilder:validation:XValidation:rule="!has(self.replicaPorts) || self.replicaPorts.all(p, p.basePort + self.replicas <= 65536)",message="replicaPorts basePort plus replicas must stay within 65535"
 type GameServerSetSpec struct {
@@ -84,7 +85,51 @@ type GameServerSetSpec struct {
 	// +optional
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
 
+	// +optional
+	Rollout *SetRollout `json:"rollout,omitempty"`
+
 	Template GameServerSpec `json:"template"`
+}
+
+type SetRollout struct {
+	// +optional
+	ServingGate bool `json:"servingGate,omitempty"`
+
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=8
+	// +optional
+	Edges []SetEdge `json:"edges,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=Unserve;Stop
+type EdgeDisableOn string
+
+const (
+	EdgeDisableOnUnserve EdgeDisableOn = "Unserve"
+	EdgeDisableOnStop    EdgeDisableOn = "Stop"
+)
+
+type SetEdge struct {
+	// +kubebuilder:validation:Pattern=`^[a-z]([-a-z0-9]{0,30}[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// +kubebuilder:validation:Enum=infinity-filter
+	Provider string `json:"provider"`
+
+	SecretRef corev1.LocalObjectReference `json:"secretRef"`
+
+	// +kubebuilder:validation:MaxProperties=16
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=100
+	Backends map[string]string `json:"backends"`
+
+	// +kubebuilder:default=Unserve
+	// +optional
+	DisableOn EdgeDisableOn `json:"disableOn,omitempty"`
 }
 
 // GameServerSetStatus is the observed state of a GameServerSet.

@@ -142,6 +142,65 @@ spec:
                 maximum: 100
                 minimum: 0
                 type: integer
+              rollout:
+                properties:
+                  edges:
+                    items:
+                      properties:
+                        backends:
+                          additionalProperties:
+                            type: string
+                          maxProperties: 100
+                          minProperties: 1
+                          type: object
+                        config:
+                          additionalProperties:
+                            type: string
+                          maxProperties: 16
+                          type: object
+                        disableOn:
+                          default: Unserve
+                          enum:
+                          - Unserve
+                          - Stop
+                          type: string
+                        name:
+                          pattern: ^[a-z]([-a-z0-9]{0,30}[a-z0-9])?$
+                          type: string
+                        provider:
+                          enum:
+                          - infinity-filter
+                          type: string
+                        secretRef:
+                          description: |-
+                            LocalObjectReference contains enough information to let you locate the
+                            referenced object inside the same namespace.
+                          properties:
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - backends
+                      - name
+                      - provider
+                      - secretRef
+                      type: object
+                    maxItems: 8
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  servingGate:
+                    type: boolean
+                type: object
               template:
                 description: GameServerSpec is the desired state of a single game
                   server instance.
@@ -4428,6 +4487,8 @@ spec:
             - message: placement, replicaPorts and minReadySeconds need mode StatefulSet
               rule: self.mode == 'StatefulSet' || (!has(self.placement) && !has(self.replicaPorts)
                 && !has(self.minReadySeconds))
+            - message: rollout needs mode StatefulSet
+              rule: '!has(self.rollout) || self.mode == ''StatefulSet'''
             - message: placement needs persistent storage
               rule: '!has(self.placement) || !has(self.template.storage) || !has(self.template.storage.ephemeral)
                 || !self.template.storage.ephemeral'

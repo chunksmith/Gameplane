@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: 5541b59803c60381d4e8b4eb5936e719a0b7eddbef19df67a309c1a60d2b5898
+    gameplane.local/crd-bundle-sha256: 2271dd3aedae21937ddaaaee733c0e2b60ab705520f7f2714a2ba93e5f38278e
     controller-gen.kubebuilder.io/version: v0.20.1
   name: gameserversets.gameplane.local
 spec:
@@ -143,6 +143,65 @@ spec:
                 maximum: 100
                 minimum: 0
                 type: integer
+              rollout:
+                properties:
+                  edges:
+                    items:
+                      properties:
+                        backends:
+                          additionalProperties:
+                            type: string
+                          maxProperties: 100
+                          minProperties: 1
+                          type: object
+                        config:
+                          additionalProperties:
+                            type: string
+                          maxProperties: 16
+                          type: object
+                        disableOn:
+                          default: Unserve
+                          enum:
+                          - Unserve
+                          - Stop
+                          type: string
+                        name:
+                          pattern: ^[a-z]([-a-z0-9]{0,30}[a-z0-9])?$
+                          type: string
+                        provider:
+                          enum:
+                          - infinity-filter
+                          type: string
+                        secretRef:
+                          description: |-
+                            LocalObjectReference contains enough information to let you locate the
+                            referenced object inside the same namespace.
+                          properties:
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - backends
+                      - name
+                      - provider
+                      - secretRef
+                      type: object
+                    maxItems: 8
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  servingGate:
+                    type: boolean
+                type: object
               template:
                 description: GameServerSpec is the desired state of a single game
                   server instance.
@@ -4429,6 +4488,8 @@ spec:
             - message: placement, replicaPorts and minReadySeconds need mode StatefulSet
               rule: self.mode == 'StatefulSet' || (!has(self.placement) && !has(self.replicaPorts)
                 && !has(self.minReadySeconds))
+            - message: rollout needs mode StatefulSet
+              rule: '!has(self.rollout) || self.mode == ''StatefulSet'''
             - message: placement needs persistent storage
               rule: '!has(self.placement) || !has(self.template.storage) || !has(self.template.storage.ephemeral)
                 || !self.template.storage.ephemeral'

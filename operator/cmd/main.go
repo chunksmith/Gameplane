@@ -29,6 +29,7 @@ import (
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
 	"github.com/GameplanePanel/gameplane/operator/internal/agent"
 	"github.com/GameplanePanel/gameplane/operator/internal/controller"
+	"github.com/GameplanePanel/gameplane/operator/internal/edge"
 	"github.com/GameplanePanel/gameplane/operator/internal/modsrc"
 )
 
@@ -447,6 +448,7 @@ func main() {
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),
 		Servers: servers,
+		Edges:   edge.NewRegistry(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "GameServerSet")
 		os.Exit(1)

@@ -539,6 +539,10 @@ func (r *GameServerSetReconciler) reconcileSetStatefulSet(
 		sts.Spec.Template.Labels = labels
 		r.Servers.applyGamePodTemplate(&sts.Spec.Template, carrier, tmpl, ver, mc, resolveImage(carrier, tmpl, ver))
 		applyReplicaPodOverrides(&sts.Spec.Template.Spec, carrier)
+		sts.Spec.Template.Spec.ReadinessGates = nil
+		if set.Spec.Rollout != nil && set.Spec.Rollout.ServingGate {
+			sts.Spec.Template.Spec.ReadinessGates = []corev1.PodReadinessGate{{ConditionType: servingCondition}}
+		}
 		return controllerutil.SetControllerReference(set, sts, r.Scheme)
 	})
 	if err != nil {
@@ -593,16 +597,7 @@ func replicaReleased(pod *corev1.Pod) bool {
 }
 
 func podAvailable(pod *corev1.Pod, minReady time.Duration) (bool, time.Duration) {
-	for _, condition := range pod.Status.Conditions {
-		if condition.Type != corev1.PodReady || condition.Status != corev1.ConditionTrue {
-			continue
-		}
-		if remaining := minReady - time.Since(condition.LastTransitionTime.Time); remaining > 0 {
-			return false, remaining
-		}
-		return true, 0
-	}
-	return false, 0
+	return conditionAvailable(pod, corev1.PodReady, minReady)
 }
 
 func (r *GameServerSetReconciler) rolloutStatefulSet(
@@ -629,39 +624,59 @@ func (r *GameServerSetReconciler) rolloutStatefulSet(
 	}
 
 	var updated int32
+	updatedAvailable := false
 	for ordinal := range *sts.Spec.Replicas {
 		name := fmt.Sprintf("%s-%d", set.Name, ordinal)
 		pod := pods[name]
 		if pod == nil || pod.DeletionTimestamp != nil || !current(pod) {
 			continue
 		}
-		if available, _ := podAvailable(pod, minReady); available || held[name] {
+		available, _ := podAvailable(pod, minReady)
+		if available || held[name] {
 			updated++
 		}
+		updatedAvailable = updatedAvailable || available
 	}
 
-	for ordinal := *sts.Spec.Replicas - 1; ordinal >= 0; ordinal-- {
-		name := fmt.Sprintf("%s-%d", set.Name, ordinal)
-		pod := pods[name]
+	doomed, requeue := rolloutPlan(set.Name, *sts.Spec.Replicas, pods, current, held, minReady)
+	if err := r.reconcileServing(ctx, set, pods, servingInputs{
+		current: current, held: held, doomed: doomed, updatedAvailable: updatedAvailable, minReady: minReady,
+	}); err != nil {
+		return updated, 0, err
+	}
+	for _, pod := range doomed {
+		uid := pod.UID
+		if err := r.Delete(ctx, pod, client.Preconditions{UID: &uid}); client.IgnoreNotFound(err) != nil {
+			return updated, 0, fmt.Errorf("roll set pod %s: %w", pod.Name, err)
+		}
+	}
+	return updated, requeue, nil
+}
+
+func rolloutPlan(
+	name string, replicas int32, pods map[string]*corev1.Pod, current func(*corev1.Pod) bool,
+	held map[string]bool, minReady time.Duration,
+) ([]*corev1.Pod, time.Duration) {
+	var doomed []*corev1.Pod
+	for ordinal := replicas - 1; ordinal >= 0; ordinal-- {
+		podName := fmt.Sprintf("%s-%d", name, ordinal)
+		pod := pods[podName]
 		if pod == nil || pod.DeletionTimestamp != nil {
-			return updated, rolloutRequeue, nil
+			return doomed, rolloutRequeue
 		}
 		if !current(pod) {
-			uid := pod.UID
-			if err := r.Delete(ctx, pod, client.Preconditions{UID: &uid}); client.IgnoreNotFound(err) != nil {
-				return updated, 0, fmt.Errorf("roll set pod %s: %w", name, err)
-			}
-			if held[name] {
+			doomed = append(doomed, pod)
+			if held[podName] {
 				continue
 			}
-			return updated, rolloutRequeue, nil
+			return doomed, rolloutRequeue
 		}
-		if held[name] {
+		if held[podName] {
 			continue
 		}
 		if available, remaining := podAvailable(pod, minReady); !available {
-			return updated, max(remaining, time.Second), nil
+			return doomed, max(remaining, time.Second)
 		}
 	}
-	return updated, 0, nil
+	return doomed, 0
 }

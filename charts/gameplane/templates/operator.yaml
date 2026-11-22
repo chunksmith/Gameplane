@@ -161,6 +161,9 @@ rules:
   - apiGroups: [""]
     resources: [pods]
     verbs: [create, delete]
+  - apiGroups: [""]
+    resources: [pods/status]
+    verbs: [patch]
   # Respect disruption budgets when replacing an obsolete failed game pod.
   - apiGroups: [""]
     resources: ["pods/eviction"]

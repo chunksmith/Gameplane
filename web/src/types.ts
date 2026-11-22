@@ -673,6 +673,17 @@ export interface GameServerSet {
     placement?: { ordinal: number; node: string }[];
     replicaPorts?: { name: string; protocol?: "TCP" | "UDP"; basePort: number; externalIPs?: string[] }[];
     minReadySeconds?: number;
+    rollout?: {
+      servingGate?: boolean;
+      edges?: {
+        name: string;
+        provider: "infinity-filter";
+        secretRef: { name: string };
+        config?: Record<string, string>;
+        backends: Record<string, string>;
+        disableOn?: "Unserve" | "Stop";
+      }[];
+    };
     template: GameServer["spec"];
   };
   status?: { replicas?: number; readyReplicas?: number; updatedReplicas?: number; observedGeneration?: number };
