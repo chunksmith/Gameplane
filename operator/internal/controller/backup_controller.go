@@ -745,11 +745,21 @@ func (r *BackupReconciler) runUnquiesce(ctx context.Context, b *gameplanev1alpha
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if err := r.maybeUnquiesce(ctx, b); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "unquiesce failed; will retry", "backup", b.Name)
-		if cerr := r.setUnquiescedCondition(ctx, b, false, err.Error()); cerr != nil {
-			return ctrl.Result{}, cerr
+		gone, gerr := r.quiescedPodGone(ctx, b)
+		if gerr != nil {
+			return ctrl.Result{}, gerr
 		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		if !gone {
+			ctrl.LoggerFrom(ctx).Error(err, "unquiesce failed; will retry", "backup", b.Name)
+			if cerr := r.setUnquiescedCondition(ctx, b, false, err.Error()); cerr != nil {
+				return ctrl.Result{}, cerr
+			}
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		patchBackupAnnotations(b, map[string]string{annoUnquiescedAt: time.Now().UTC().Format(time.RFC3339)})
+		if err := r.Update(ctx, b); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	// When an unquiesce was actually performed, record success so the
 	// "world might be frozen" signal clears.
@@ -759,6 +769,19 @@ func (r *BackupReconciler) runUnquiesce(ctx context.Context, b *gameplanev1alpha
 		}
 	}
 	return ctrl.Result{}, r.releaseBackupTarget(ctx, b)
+}
+
+func (r *BackupReconciler) quiescedPodGone(ctx context.Context, b *gameplanev1alpha1.Backup) (bool, error) {
+	gs, err := r.ownedBackupTarget(ctx, b)
+	if err != nil || gs == nil {
+		return false, err
+	}
+	var pod corev1.Pod
+	err = r.backupAPIReader().Get(ctx, types.NamespacedName{Namespace: b.Namespace, Name: gamePodName(gs)}, &pod)
+	if apierrors.IsNotFound(err) {
+		return true, nil
+	}
+	return false, err
 }
 
 // setUnquiescedCondition upserts the Unquiesced condition on the Backup.

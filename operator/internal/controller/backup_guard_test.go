@@ -624,3 +624,42 @@ func TestBackupSnapshotAbortSurvivesInterruptedStatusWrite(t *testing.T) {
 		t.Fatalf("created a snapshot after durable abort: %v", err)
 	}
 }
+
+func TestTerminalBackupReleasesGuardWhenGamePodGone(t *testing.T) {
+	for _, podLive := range []bool{false, true} {
+		t.Run(fmt.Sprintf("podLive=%t", podLive), func(t *testing.T) {
+			b := guardBackup("old")
+			b.Annotations = map[string]string{
+				backupTargetAnnotation: backupIdentityJSON("server", "server-uid"),
+				annoQuiesceAttempted:   "pending",
+			}
+			b.Status.Phase = gameplanev1alpha1.BackupPhaseFailed
+			r, _ := guardFixture(t, b)
+			r.AgentClient = &scrapeQuiescer{unquiesceErr: errors.New("agent: /unquiesce: status 502")}
+			key := client.ObjectKey{Namespace: "ns", Name: "server"}
+			var gs gameplanev1alpha1.GameServer
+			if err := r.Get(t.Context(), key, &gs); err != nil {
+				t.Fatal(err)
+			}
+			gs.Annotations = map[string]string{backupGuardAnnotation: backupIdentityJSON(b.Name, b.UID)}
+			if err := r.Update(t.Context(), &gs); err != nil {
+				t.Fatal(err)
+			}
+			if podLive {
+				if err := r.Create(t.Context(), &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "server-0", Namespace: "ns"}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			guardPass(t, r, b.Name)
+			if err := r.Get(t.Context(), key, &gs); err != nil {
+				t.Fatal(err)
+			}
+			if held := gs.Annotations[backupGuardAnnotation] != ""; held != podLive {
+				t.Fatalf("guard held=%t with podLive=%t", held, podLive)
+			}
+			if _, done := guardGetBackup(t, r, b.Name).Annotations[annoUnquiescedAt]; done == podLive {
+				t.Fatalf("unquiesced-at set=%t with podLive=%t", done, podLive)
+			}
+		})
+	}
+}
