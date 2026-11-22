@@ -15,10 +15,9 @@ import (
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
 )
 
-const (
-	servingCondition  corev1.PodConditionType = "gameplane.local/serving"
-	edgeDisableOnStop                         = "Stop"
-)
+const servingCondition corev1.PodConditionType = "gameplane.local/serving"
+
+const edgeDisableOnStop = "Stop"
 
 type servingInputs struct {
 	current          func(*corev1.Pod) bool
