@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
-	"github.com/GameplanePanel/gameplane/operator/internal/edge"
 )
 
 const (
@@ -35,7 +34,7 @@ type GameServerSetReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme
 	Servers *GameServerReconciler
-	Edges   *edge.Registry
+	edges   *edgeRegistry
 }
 
 // +kubebuilder:rbac:groups=gameplane.local,resources=gameserversets,verbs=get;list;watch
@@ -217,6 +216,7 @@ func serverSetSpecHash(spec *gameplanev1alpha1.GameServerSpec) (string, error) {
 }
 
 func (r *GameServerSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.edges = newEdgeRegistry()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gameplanev1alpha1.GameServerSet{}).
 		Owns(&gameplanev1alpha1.GameServer{}).

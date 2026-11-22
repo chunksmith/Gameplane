@@ -6,8 +6,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
 )
 
 func readyPod(name, revision string, since time.Duration) *corev1.Pod {
@@ -55,18 +53,18 @@ func TestServingDuringRollout(t *testing.T) {
 	if inputs.serving(oldPod) || !inputs.serving(newPod) {
 		t.Fatal("once an updated replica is available every old pod stops serving")
 	}
-	if enabled, decided := inputs.edgeEnabled(oldPod, gameplanev1alpha1.EdgeDisableOnUnserve); !decided || enabled {
+	if enabled, decided := inputs.edgeEnabled(oldPod, false); !decided || enabled {
 		t.Fatal("unserve edge follows serving")
 	}
-	if enabled, decided := inputs.edgeEnabled(oldPod, gameplanev1alpha1.EdgeDisableOnStop); !decided || !enabled {
+	if enabled, decided := inputs.edgeEnabled(oldPod, true); !decided || !enabled {
 		t.Fatal("stop edge stays enabled while the pod runs")
 	}
 	terminating := oldPod.DeepCopy()
 	terminating.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-	if _, decided := inputs.edgeEnabled(terminating, gameplanev1alpha1.EdgeDisableOnStop); decided {
+	if _, decided := inputs.edgeEnabled(terminating, true); decided {
 		t.Fatal("stop edge is left alone while the pod drains")
 	}
-	if enabled, decided := inputs.edgeEnabled(nil, gameplanev1alpha1.EdgeDisableOnStop); !decided || enabled {
+	if enabled, decided := inputs.edgeEnabled(nil, true); !decided || enabled {
 		t.Fatal("stop edge is disabled once the pod is gone")
 	}
 }

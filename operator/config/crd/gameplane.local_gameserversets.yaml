@@ -143,9 +143,13 @@ spec:
                 minimum: 0
                 type: integer
               rollout:
+                description: SetRollout controls how replicas leave and rejoin traffic
+                  during a rollout.
                 properties:
                   edges:
                     items:
+                      description: SetEdge maps replicas to backends of an external
+                        traffic provider.
                       properties:
                         backends:
                           additionalProperties:

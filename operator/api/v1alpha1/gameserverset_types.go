@@ -91,6 +91,7 @@ type GameServerSetSpec struct {
 	Template GameServerSpec `json:"template"`
 }
 
+// SetRollout controls how replicas leave and rejoin traffic during a rollout.
 type SetRollout struct {
 	// +optional
 	ServingGate bool `json:"servingGate,omitempty"`
@@ -102,14 +103,7 @@ type SetRollout struct {
 	Edges []SetEdge `json:"edges,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=Unserve;Stop
-type EdgeDisableOn string
-
-const (
-	EdgeDisableOnUnserve EdgeDisableOn = "Unserve"
-	EdgeDisableOnStop    EdgeDisableOn = "Stop"
-)
-
+// SetEdge maps replicas to backends of an external traffic provider.
 type SetEdge struct {
 	// +kubebuilder:validation:Pattern=`^[a-z]([-a-z0-9]{0,30}[a-z0-9])?$`
 	Name string `json:"name"`
@@ -127,9 +121,10 @@ type SetEdge struct {
 	// +kubebuilder:validation:MaxProperties=100
 	Backends map[string]string `json:"backends"`
 
+	// +kubebuilder:validation:Enum=Unserve;Stop
 	// +kubebuilder:default=Unserve
 	// +optional
-	DisableOn EdgeDisableOn `json:"disableOn,omitempty"`
+	DisableOn string `json:"disableOn,omitempty"`
 }
 
 // GameServerSetStatus is the observed state of a GameServerSet.

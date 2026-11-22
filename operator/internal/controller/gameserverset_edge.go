@@ -1,21 +1,74 @@
-package edge
+package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	infinityBaseURL  = "https://api.infinity-filter.com"
-	infinityCacheTTL = 30 * time.Second
+	infinityFilterBaseURL  = "https://api.infinity-filter.com"
+	infinityFilterCacheTTL = 30 * time.Second
 )
+
+type edgeProvider interface {
+	SetEnabled(ctx context.Context, backend string, enabled bool) error
+}
+
+type edgeRegistry struct {
+	mutex     sync.Mutex
+	http      *http.Client
+	providers map[string]edgeProvider
+}
+
+func newEdgeRegistry() *edgeRegistry {
+	return &edgeRegistry{http: &http.Client{Timeout: 10 * time.Second}, providers: map[string]edgeProvider{}}
+}
+
+func (registry *edgeRegistry) get(provider, token string, config map[string]string) (edgeProvider, error) {
+	key := edgeCacheKey(provider, token, config)
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if existing, ok := registry.providers[key]; ok {
+		return existing, nil
+	}
+	var created edgeProvider
+	switch provider {
+	case "infinity-filter":
+		network := config["networkId"]
+		if network == "" {
+			return nil, fmt.Errorf("edge %s: config.networkId is required", provider)
+		}
+		created = &infinityFilter{http: registry.http, base: infinityFilterBaseURL, token: token, network: network}
+	default:
+		return nil, fmt.Errorf("edge: unknown provider %q", provider)
+	}
+	registry.providers[key] = created
+	return created, nil
+}
+
+func edgeCacheKey(provider, token string, config map[string]string) string {
+	hash := sha256.New()
+	hash.Write([]byte(provider + "\x00" + token))
+	keys := make([]string, 0, len(config))
+	for key := range config {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	for _, key := range keys {
+		hash.Write([]byte("\x00" + key + "=" + config[key]))
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
 
 type infinityFilter struct {
 	http    *http.Client
@@ -27,14 +80,10 @@ type infinityFilter struct {
 	fetched time.Time
 }
 
-func newInfinityFilter(client *http.Client, token, network string) *infinityFilter {
-	return &infinityFilter{http: client, base: infinityBaseURL, token: token, network: network}
-}
-
 func (filter *infinityFilter) SetEnabled(ctx context.Context, backend string, enabled bool) error {
 	filter.mutex.Lock()
 	defer filter.mutex.Unlock()
-	if time.Since(filter.fetched) > infinityCacheTTL {
+	if time.Since(filter.fetched) > infinityFilterCacheTTL {
 		if err := filter.refresh(ctx); err != nil {
 			return err
 		}

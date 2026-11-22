@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: 2271dd3aedae21937ddaaaee733c0e2b60ab705520f7f2714a2ba93e5f38278e
+    gameplane.local/crd-bundle-sha256: 710161c7621a786f890d432bc299e7056a169c27c52caca4b5efa77a4ce9b018
     controller-gen.kubebuilder.io/version: v0.20.1
   name: gameserversets.gameplane.local
 spec:
@@ -144,9 +144,13 @@ spec:
                 minimum: 0
                 type: integer
               rollout:
+                description: SetRollout controls how replicas leave and rejoin traffic
+                  during a rollout.
                 properties:
                   edges:
                     items:
+                      description: SetEdge maps replicas to backends of an external
+                        traffic provider.
                       properties:
                         backends:
                           additionalProperties:

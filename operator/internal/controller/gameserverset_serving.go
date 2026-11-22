@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -14,10 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
-	"github.com/GameplanePanel/gameplane/operator/internal/edge"
 )
 
-const servingCondition corev1.PodConditionType = "gameplane.local/serving"
+const (
+	servingCondition  corev1.PodConditionType = "gameplane.local/serving"
+	edgeDisableOnStop                         = "Stop"
+)
 
 type servingInputs struct {
 	current          func(*corev1.Pod) bool
@@ -38,8 +39,7 @@ func (inputs servingInputs) serving(pod *corev1.Pod) bool {
 	}
 }
 
-func (inputs servingInputs) edgeEnabled(pod *corev1.Pod, disableOn gameplanev1alpha1.EdgeDisableOn) (enabled, decided bool) {
-	stop := disableOn == gameplanev1alpha1.EdgeDisableOnStop
+func (inputs servingInputs) edgeEnabled(pod *corev1.Pod, stop bool) (enabled, decided bool) {
 	switch {
 	case pod == nil:
 		return false, true
@@ -71,7 +71,7 @@ func (r *GameServerSetReconciler) reconcileServing(
 		}
 	}
 	for _, spec := range rollout.Edges {
-		provider, err := r.edgeProvider(ctx, set.Namespace, spec)
+		provider, err := r.edgeFor(ctx, set.Namespace, spec)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (r *GameServerSetReconciler) reconcileServing(
 			if err != nil {
 				return fmt.Errorf("edge %s: backend key %q is not an ordinal", spec.Name, key)
 			}
-			enabled, decided := inputs.edgeEnabled(pods[fmt.Sprintf("%s-%d", set.Name, ordinal)], spec.DisableOn)
+			enabled, decided := inputs.edgeEnabled(pods[fmt.Sprintf("%s-%d", set.Name, ordinal)], spec.DisableOn == edgeDisableOnStop)
 			if !decided {
 				continue
 			}
@@ -104,7 +104,7 @@ func (r *GameServerSetReconciler) setServingCondition(ctx context.Context, pod *
 		return nil
 	}
 	patched := pod.DeepCopy()
-	condition := corev1.PodCondition{Type: servingCondition, Status: status, LastTransitionTime: metav1.Now(), Reason: "Rollout"}
+	condition := corev1.PodCondition{Type: servingCondition, Status: status, LastTransitionTime: metav1.Now()}
 	if index >= 0 {
 		patched.Status.Conditions[index] = condition
 	} else {
@@ -116,12 +116,9 @@ func (r *GameServerSetReconciler) setServingCondition(ctx context.Context, pod *
 	return nil
 }
 
-func (r *GameServerSetReconciler) edgeProvider(
+func (r *GameServerSetReconciler) edgeFor(
 	ctx context.Context, namespace string, spec gameplanev1alpha1.SetEdge,
-) (edge.Provider, error) {
-	if r.Edges == nil {
-		return nil, errors.New("rollout edges need an edge registry")
-	}
+) (edgeProvider, error) {
 	var secret corev1.Secret
 	if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: spec.SecretRef.Name}, &secret); err != nil {
 		return nil, fmt.Errorf("edge %s secret: %w", spec.Name, err)
@@ -130,7 +127,7 @@ func (r *GameServerSetReconciler) edgeProvider(
 	if token == "" {
 		return nil, fmt.Errorf("edge %s: secret %s has no token", spec.Name, spec.SecretRef.Name)
 	}
-	provider, err := r.Edges.Get(spec.Provider, token, spec.Config)
+	provider, err := r.edges.get(spec.Provider, token, spec.Config)
 	if err != nil {
 		return nil, fmt.Errorf("edge %s: %w", spec.Name, err)
 	}
