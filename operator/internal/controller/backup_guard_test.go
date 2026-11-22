@@ -342,6 +342,9 @@ func TestBackupGuardReleasesUnsupportedAndRawBackups(t *testing.T) {
 
 func TestBackupGuardRetainsCleanupWhenAgentClientRemoved(t *testing.T) {
 	r, q := guardFixture(t, guardBackup("first"), guardBackup("second"))
+	if err := r.Create(t.Context(), &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "server-0", Namespace: "ns"}}); err != nil {
+		t.Fatal(err)
+	}
 	guardPass(t, r, "first")
 	var job batchv1.Job
 	if err := r.Get(context.Background(), types.NamespacedName{Namespace: "ns", Name: "first"}, &job); err != nil {
