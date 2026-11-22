@@ -385,3 +385,43 @@ func TestLifecycleBackupDefersRestartAndStopRPC(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupTransitionPendingIgnoresFilesPod(t *testing.T) {
+	r, _ := guardFixture(t)
+	key := client.ObjectKey{Namespace: "ns", Name: "server"}
+	var gs gameplanev1alpha1.GameServer
+	if err := r.Get(t.Context(), key, &gs); err != nil {
+		t.Fatal(err)
+	}
+	gs.Annotations = map[string]string{stopRequestedAtAnnotation: "2026-01-01T00:00:00Z"}
+	var ss appsv1.StatefulSet
+	if err := r.Get(t.Context(), key, &ss); err != nil {
+		t.Fatal(err)
+	}
+	zero := int32(0)
+	ss.Spec.Replicas = &zero
+	if err := r.Update(t.Context(), &ss); err != nil {
+		t.Fatal(err)
+	}
+	claimPod := func(name string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
+			Spec: corev1.PodSpec{Volumes: []corev1.Volume{{Name: "data", VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: dataClaimName(&gs)},
+			}}}},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		}
+	}
+	if err := r.Create(t.Context(), claimPod(filesPodName(&gs))); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := backupLifecycleTransitionPending(t.Context(), r.Client, &gs); err != nil || pending {
+		t.Fatalf("files pod blocked backup: pending=%t err=%v", pending, err)
+	}
+	if err := r.Create(t.Context(), claimPod("other")); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := backupLifecycleTransitionPending(t.Context(), r.Client, &gs); err != nil || !pending {
+		t.Fatalf("live claim user ignored: pending=%t err=%v", pending, err)
+	}
+}
