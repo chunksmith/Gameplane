@@ -9551,6 +9551,130 @@
     "defaultMessage": "Wake",
     "description": "Server detail: header button that wakes a sleeping server; disabled without control access; keep it short"
   },
+  "web.routes.server_group_edit.any_node": {
+    "defaultMessage": "Any node",
+    "description": "Server group edit: replica node choice that lets the scheduler pick the node"
+  },
+  "web.routes.server_group_edit.back_to_servers": {
+    "defaultMessage": "Back to servers",
+    "description": "Server group edit: link that returns to the servers list; keep it short"
+  },
+  "web.routes.server_group_edit.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "Server group edit: button that leaves the page without saving; keep it short"
+  },
+  "web.routes.server_group_edit.container_image": {
+    "defaultMessage": "Container image (optional)",
+    "description": "Server group edit: field label for an optional container image that overrides the template image"
+  },
+  "web.routes.server_group_edit.description": {
+    "defaultMessage": "Description",
+    "description": "Server group edit: field label for the optional free-text description of the group"
+  },
+  "web.routes.server_group_edit.general": {
+    "defaultMessage": "General",
+    "description": "Server group edit: heading of the card with the group description"
+  },
+  "web.routes.server_group_edit.group_unavailable": {
+    "defaultMessage": "Group unavailable",
+    "description": "Server group edit: title of the error card when the server group or its template cannot be loaded"
+  },
+  "web.routes.server_group_edit.group_unavailable_message": {
+    "defaultMessage": "The server group could not be loaded.",
+    "description": "Server group edit: message of the error card when the server group or its template cannot be loaded"
+  },
+  "web.routes.server_group_edit.image_hint": {
+    "defaultMessage": "Overrides the template image. Requires admin.",
+    "description": "Server group edit: hint under the image field explaining it overrides the template image and needs the admin role"
+  },
+  "web.routes.server_group_edit.min_ready_seconds": {
+    "defaultMessage": "Minimum ready seconds",
+    "description": "Server group edit: field label for how many seconds a replica must stay ready before the rollout moves on"
+  },
+  "web.routes.server_group_edit.node_for_replica": {
+    "defaultMessage": "Node for {name}-{ordinal}",
+    "description": "Server group edit: screen-reader label of one replica's node dropdown; {name} is the group name and {ordinal} the replica number"
+  },
+  "web.routes.server_group_edit.node_list_unavailable": {
+    "defaultMessage": "Node list unavailable. The scheduler places the replicas.",
+    "description": "Server group edit: hint shown instead of the node list when the nodes cannot be listed"
+  },
+  "web.routes.server_group_edit.nodes": {
+    "defaultMessage": "Nodes",
+    "description": "Server group edit: label of the list of nodes the group's replicas may run on"
+  },
+  "web.routes.server_group_edit.nodes_hint": {
+    "defaultMessage": "Replicas run only on the selected nodes and spread across them. None selected: any node.",
+    "description": "Server group edit: hint under the node list explaining replicas run only on the selected nodes, or on any node when none is selected"
+  },
+  "web.routes.server_group_edit.replica_name": {
+    "defaultMessage": "{name}-{ordinal}",
+    "description": "Server group edit: label of one replica's node choice; {name} is the group name and {ordinal} the replica number"
+  },
+  "web.routes.server_group_edit.replica_nodes": {
+    "defaultMessage": "Replica nodes",
+    "description": "Server group edit: label of the per-replica node choices of a group with persistent storage"
+  },
+  "web.routes.server_group_edit.replica_nodes_hint": {
+    "defaultMessage": "A pin applies when the replica's volume is first created. Replicas that already have a volume stay on their node.",
+    "description": "Server group edit: hint under the per-replica node choices explaining a pin only affects replicas whose volume does not exist yet"
+  },
+  "web.routes.server_group_edit.replicas": {
+    "defaultMessage": "Replicas",
+    "description": "Server group edit: field label for how many replicas the group runs"
+  },
+  "web.routes.server_group_edit.replicas_and_placement": {
+    "defaultMessage": "Replicas and placement",
+    "description": "Server group edit: heading of the card with the replica count and node choices"
+  },
+  "web.routes.server_group_edit.runtime": {
+    "defaultMessage": "Runtime",
+    "description": "Server group edit: heading of the card with version, image and CPU/memory settings"
+  },
+  "web.routes.server_group_edit.save": {
+    "defaultMessage": "Save changes",
+    "description": "Server group edit: button that saves the group changes; keep it short"
+  },
+  "web.routes.server_group_edit.storage_ephemeral": {
+    "defaultMessage": "Storage: ephemeral (fixed after creation)",
+    "description": "Server group edit: read-only note that the group uses ephemeral storage, which cannot change after creation"
+  },
+  "web.routes.server_group_edit.storage_persistent": {
+    "defaultMessage": "Storage: persistent volume {size} (fixed after creation)",
+    "description": "Server group edit: read-only note with the persistent volume size, which cannot change after creation; {size} is a quantity like 20Gi"
+  },
+  "web.routes.server_group_edit.subtitle": {
+    "defaultMessage": "{location} · {game} · {mode}",
+    "description": "Server group edit: line under the title; {location} is cluster / namespace, {game} the game template, {mode} the deployment mode"
+  },
+  "web.routes.server_group_edit.template_configuration": {
+    "defaultMessage": "Template configuration",
+    "description": "Server group edit: heading of the card with the template-specific settings"
+  },
+  "web.routes.server_group_edit.template_default_version": {
+    "defaultMessage": "Template default",
+    "description": "Server group edit: version choice that uses the template's default version"
+  },
+  "web.routes.server_group_edit.title": {
+    "defaultMessage": "Edit group {name}",
+    "description": "Server group edit: page title; {name} is the server group name"
+  },
+  "web.routes.server_group_edit.validation_limit_below_request": {
+    "defaultMessage": "A limit can't be lower than its request",
+    "description": "Server group edit: validation message when a CPU or memory limit is lower than its request"
+  },
+  "web.routes.server_group_edit.validation_min_ready_range": {
+    "defaultMessage": "Minimum ready time must be a whole number from 0 to 3600",
+    "description": "Server group edit: validation message when the minimum ready seconds is not a whole number from 0 to 3600"
+  },
+  "web.routes.server_group_edit.validation_replicas_range": {
+    "defaultMessage": "Replicas must be a whole number from 0 to 100",
+    "description": "Server group edit: validation message when the replica count is not a whole number from 0 to 100"
+  },
+  "web.routes.server_group_edit.version": {
+    "defaultMessage": "Version",
+    "description": "Server group edit: label of the game version dropdown"
+  },
   "web.routes.servers.actions": {
     "defaultMessage": "Actions",
     "description": "Servers: column heading for the row buttons such as start, stop and restart; keep it short"
@@ -9610,6 +9734,10 @@
   "web.routes.servers.disk_used": {
     "defaultMessage": "Disk used",
     "description": "Servers: label of the summary card with the disk space used on the cluster nodes; the line under it shows the total disk"
+  },
+  "web.routes.servers.edit_group": {
+    "defaultMessage": "Edit group",
+    "description": "Servers: tooltip and accessible name of the pencil icon button on a server group card that opens the group edit page; keep it short"
   },
   "web.routes.servers.expand_group": {
     "defaultMessage": "Expand group {name}",

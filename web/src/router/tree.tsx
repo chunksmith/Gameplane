@@ -24,6 +24,7 @@ import { AdminSettingsPage } from "@/routes/AdminSettings";
 import { ThemeSettingsPage } from "@/routes/ThemeSettings";
 import { IntegrationsSettingsPage } from "@/routes/IntegrationsSettings";
 import { CreateServerWizard } from "@/routes/CreateServer";
+import { ServerGroupEditPage } from "@/routes/ServerGroupEdit";
 import { BackupsPage } from "@/routes/Backups";
 import { AssistantPage } from "@/routes/Assistant";
 import { NotificationsPage } from "@/routes/Notifications";
@@ -117,6 +118,18 @@ const createServerRoute = new Route({
       if (search[key] !== undefined && (typeof search[key] !== "string" || !search[key])) throw new Error(`Invalid location ${key}`);
     }
     return { template: typeof search.template === "string" ? search.template : undefined, cluster: search.cluster as string | undefined, ns: search.ns as string | undefined };
+  },
+});
+
+const serverGroupEditRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/servers/groups/$name",
+  component: ServerGroupEditPage,
+  validateSearch: (search: Record<string, unknown>): { cluster?: string; ns?: string } => {
+    for (const key of ["cluster", "ns"] as const) {
+      if (search[key] !== undefined && (typeof search[key] !== "string" || !search[key])) throw new Error(`Invalid location ${key}`);
+    }
+    return { cluster: search.cluster as string | undefined, ns: search.ns as string | undefined };
   },
 });
 
@@ -293,6 +306,7 @@ export const routeTree = rootRoute.addChildren([
     statisticsRoute,
     statisticsNodeRoute,
     createServerRoute,
+    serverGroupEditRoute,
     serversRoute,
     serverDetailRoute.addChildren([serverFilesRoute]),
     repositoriesRoute,

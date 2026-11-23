@@ -896,6 +896,9 @@ function makeResourceEndpoints(request: RequestClient, resource: "servers" | "re
   const ServerSets = {
     create: (body: ServerSetCreate) =>
       api<GameServerSet>("/serversets", { method: "POST", body: serverSetEnvelope(body) }),
+    get: (name: string) => api<GameServerSet>(`/serversets/${encodeURIComponent(name)}`),
+    update: (set: GameServerSet) =>
+      api<GameServerSet>(`/serversets/${encodeURIComponent(set.metadata.name)}`, { method: "PUT", body: set }),
     scale: async (name: string, replicas: number) => {
       const path = `/serversets/${encodeURIComponent(name)}`;
       const current = await api<GameServerSet>(path);

@@ -14,6 +14,7 @@ import {
   Layers,
   MemoryStick,
   Minus,
+  Pencil,
   Play,
   Plus,
   RotateCw,
@@ -807,6 +808,18 @@ function ServerGroupCard({
                 <Plus className="h-4 w-4" />
               </ActionButton>
             </div>
+          )}
+          {canWrite && (
+            <Link
+              to="/servers/groups/$name"
+              params={{ name: group.name }}
+              search={targetSearch(group)}
+              aria-label={intl.formatMessage({ id: "web.routes.servers.edit_group", defaultMessage: "Edit group", description: "Servers: tooltip and accessible name of the pencil icon button on a server group card that opens the group edit page; keep it short" })}
+              title={intl.formatMessage({ id: "web.routes.servers.edit_group", defaultMessage: "Edit group", description: "Servers: tooltip and accessible name of the pencil icon button on a server group card that opens the group edit page; keep it short" })}
+              className={cn(buttonVariants({ isIconOnly: true, variant: "ghost", size: "sm" }), "text-foreground/60 hover:text-foreground")}
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
           )}
           {canWrite && (
             <ActionButton title={intl.formatMessage({ id: "web.routes.servers.delete_group", defaultMessage: "Delete group", description: "Servers: tooltip of the trash icon button on a server group card that deletes the group, and the confirm button label in its delete dialog; keep it short" })} disabled={busy} onClick={() => setConfirmDelete(true)}>

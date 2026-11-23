@@ -105,14 +105,14 @@ const initial: WizardState = {
   mode: "single", replicas: "3", nodes: [], pins: [], ephemeral: false, image: "",
 };
 
-const ANY_NODE = "__any__";
+export const ANY_NODE = "__any__";
 
-function replicaOrdinals(replicas: string): number[] {
+export function replicaOrdinals(replicas: string): number[] {
   const count = Number(replicas);
   return Number.isInteger(count) && count >= 1 && count <= 100 ? Array.from({ length: count }, (_, ordinal) => ordinal) : [];
 }
 
-function pinReplica(pins: string[], ordinal: number, node: string): string[] {
+export function pinReplica(pins: string[], ordinal: number, node: string): string[] {
   const next = [...pins];
   next[ordinal] = node === ANY_NODE ? "" : node;
   return next;
