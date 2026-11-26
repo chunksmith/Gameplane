@@ -144,6 +144,16 @@ true
 {{- end -}}
 {{- end -}}
 
+{{- define "gameplane.gamesNamespaces" -}}
+{{- $namespaces := prepend (.Values.extraGamesNamespaces | default list) .Values.gamesNamespace | uniq }}
+{{- range $namespaces }}
+{{- if or (not (kindIs "string" .)) (gt (len .) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .)) }}
+{{- fail "extraGamesNamespaces must contain explicit DNS-label namespace names" }}
+{{- end }}
+{{- end }}
+{{- toJson $namespaces }}
+{{- end -}}
+
 {{- /*
 gameplane.apiServerEgressPeers renders the NetworkPolicy `to:` peers of the
 agent and sentinel apiserver egress rules. An explicit

@@ -72,7 +72,7 @@ gateway:
 ```
 
 `clusterID` must equal the registered cluster name in the central installation.
-An empty namespace list selects only `gamesNamespace`; additional namespaces must
+An empty namespace list selects `gamesNamespace` and `extraGamesNamespaces`; additional namespaces must
 already exist. The chart creates a Role/RoleBinding in each configured namespace. When
 `networkPolicies.enabled` is true, it also creates matching agent ingress rules.
 When game network policies are disabled, no new game Pod ingress isolation is

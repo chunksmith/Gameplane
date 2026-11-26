@@ -179,6 +179,7 @@ Top-level knobs (see `values.yaml` for the full list):
   with `512m` to permit those uploads. Other ingress controllers need
   their equivalent body-size setting.
 - `gamesNamespace` — namespace where GameServers are created (default `gameplane-games`)
+- `extraGamesNamespaces` — existing namespaces Gameplane also manages; the chart creates API and operator Roles, network policies and the agent PodMonitor in each, and the dashboard's create form offers them as locations (default `[]`)
 - `networkPolicies.enabled` — default-deny in games namespace (recommended on)
   - `networkPolicies.kubeletCIDRs` — CIDRs for kubelet liveness/readiness probes (defaults to RFC1918 + link-local)
   - `networkPolicies.probePorts` — specific ports to allow on game pods for kubelet probes (empty = any port)

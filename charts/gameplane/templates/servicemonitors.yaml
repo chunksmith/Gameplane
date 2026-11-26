@@ -90,11 +90,14 @@ spec:
   agent/specs.md's /metrics section — this is a pointer, not a copy.
 */}}
 {{- if (eq (include "gameplane.operatorEnabled" .) "true") }}
+{{- range $gamesNamespace := include "gameplane.gamesNamespaces" . | fromJsonArray }}
+{{- with $ }}
+---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: gameplane-agent
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels:
     {{- include "gameplane.labels" . | nindent 4 }}
     {{- with .Values.serviceMonitors.labels }}
@@ -107,6 +110,8 @@ spec:
     - port: metrics
       interval: 30s
       path: /metrics
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{- end }}

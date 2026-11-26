@@ -483,6 +483,33 @@ jobs:
           grep -q 'kind: Deployment' /tmp/rendered.yaml
           grep -q 'kind: ClusterRole' /tmp/rendered.yaml
           grep -q 'kind: NetworkPolicy' /tmp/rendered.yaml
+      - name: extra games namespaces render
+        if: env.CHARTS == 'true'
+        run: |
+          helm template gameplane charts/gameplane \
+            --set-json 'extraGamesNamespaces=["survival","gameplane-games"]' \
+            --set-json 'deployers=[{"name":"ci","namespace":"survival","serverSets":["survival"]}]' > /tmp/extra-ns.yaml
+          python3 - <<'PY'
+          import yaml
+          docs = [d for d in yaml.safe_load_all(open('/tmp/extra-ns.yaml')) if d]
+          scoped = {(d['kind'], d['metadata']['name']) for d in docs if d['metadata'].get('namespace') == 'survival'}
+          for want in [('Role', 'gameplane-api-games'), ('RoleBinding', 'gameplane-api-games'),
+                       ('Role', 'gameplane-operator-manage'), ('RoleBinding', 'gameplane-operator-manage'),
+                       ('NetworkPolicy', 'default-deny-ingress'), ('Role', 'ci')]:
+              assert want in scoped, want
+          assert not any(d['kind'] == 'Namespace' and d['metadata']['name'] == 'survival' for d in docs)
+          api = next(d for d in docs if d['kind'] == 'Deployment' and d['metadata']['name'] == 'gameplane-api')
+          env = {e['name']: e.get('value') for e in api['spec']['template']['spec']['containers'][0]['env']}
+          assert env.get('GAMEPLANE_EXTRA_NAMESPACES') == 'survival', env.get('GAMEPLANE_EXTRA_NAMESPACES')
+          PY
+          if helm template gameplane charts/gameplane --set-json 'extraGamesNamespaces=["Bad_NS"]' > /dev/null 2>&1; then
+            echo "::error::invalid extraGamesNamespaces entry rendered"
+            exit 1
+          fi
+          if helm template gameplane charts/gameplane --set-json 'deployers=[{"name":"ci","namespace":"other","serverSets":["a"]}]' > /dev/null 2>&1; then
+            echo "::error::deployer outside the games namespaces rendered"
+            exit 1
+          fi
       - name: backup/restore Job egress policy renders (F-215)
         if: env.CHARTS == 'true'
         run: |

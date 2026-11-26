@@ -2,12 +2,16 @@
 {{- if not .serverSets }}
 {{- fail (printf "deployers[%s].serverSets must list at least one GameServerSet" .name) }}
 {{- end }}
+{{- $namespace := .namespace | default $.Values.gamesNamespace }}
+{{- if not (has $namespace (include "gameplane.gamesNamespaces" $ | fromJsonArray)) }}
+{{- fail (printf "deployers[%s].namespace must be gamesNamespace or listed in extraGamesNamespaces" .name) }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .name }}
-  namespace: {{ $.Values.gamesNamespace }}
+  namespace: {{ $namespace }}
   labels: {{- include "gameplane.labels" $ | nindent 4 }}
 ---
 apiVersion: v1
@@ -15,7 +19,7 @@ kind: Secret
 type: kubernetes.io/service-account-token
 metadata:
   name: {{ .name }}-token
-  namespace: {{ $.Values.gamesNamespace }}
+  namespace: {{ $namespace }}
   labels: {{- include "gameplane.labels" $ | nindent 4 }}
   annotations:
     kubernetes.io/service-account.name: {{ .name }}
@@ -24,7 +28,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ .name }}
-  namespace: {{ $.Values.gamesNamespace }}
+  namespace: {{ $namespace }}
   labels: {{- include "gameplane.labels" $ | nindent 4 }}
 rules:
   - apiGroups: ["gameplane.local"]
@@ -36,11 +40,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ .name }}
-  namespace: {{ $.Values.gamesNamespace }}
+  namespace: {{ $namespace }}
   labels: {{- include "gameplane.labels" $ | nindent 4 }}
 roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ .name }} }
 subjects:
   - kind: ServiceAccount
     name: {{ .name }}
-    namespace: {{ $.Values.gamesNamespace }}
+    namespace: {{ $namespace }}
 {{- end }}

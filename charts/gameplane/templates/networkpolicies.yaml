@@ -1,5 +1,8 @@
 {{- if (eq (include "gameplane.operatorEnabled" .) "true") }}
 {{- if .Values.networkPolicies.enabled }}
+{{- range $gamesNamespace := include "gameplane.gamesNamespaces" . | fromJsonArray }}
+{{- with $ }}
+---
 # Default-deny ingress in the games namespace. Individual GameServers
 # open only the ports declared in their template (and whatever the
 # operator surfaces via the backing Service / Ingress).
@@ -7,7 +10,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-ingress
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector: {}
@@ -23,7 +26,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-egress
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector: {}
@@ -48,7 +51,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-agent-to-apiserver
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -69,7 +72,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-api-to-agent
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -101,7 +104,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-api-to-capture
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -141,7 +144,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-prometheus-to-agent
-  namespace: {{ $.Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" $ | nindent 4 }}
 spec:
   podSelector:
@@ -165,7 +168,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-prometheus-to-game-metrics
-  namespace: {{ $.Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" $ | nindent 4 }}
 spec:
   podSelector:
@@ -189,7 +192,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-kubelet-probes
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -226,7 +229,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-game-public-egress
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -268,7 +271,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-backup-restore-egress
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -295,7 +298,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-sentinel-ingress
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -321,7 +324,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-sentinel-to-apiserver
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -347,7 +350,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-sentinel-to-game
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -372,7 +375,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-sentinel-to-game-egress
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 spec:
   podSelector:
@@ -387,6 +390,8 @@ spec:
       # All ports; allow-sentinel-to-game above (the matching ingress half)
       # and the per-server ingress policy cover which ports are actually
       # advertised for each server.
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{- end }}

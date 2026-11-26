@@ -7,6 +7,7 @@
 ##   gateway.*      — optional private multicluster agent gateway
 ##   ingress.*      — dashboard ingress
 ##   gamesNamespace — namespace Gameplane creates GameServers in
+##   extraGamesNamespaces — existing namespaces Gameplane also manages
 ##   networkPolicies — default-deny policies in gamesNamespace
 ##   serviceMonitors — Prometheus Operator integration
 ##   podSecurity     — cluster-wide hardening knobs
@@ -443,7 +444,7 @@ gateway:
   clusterID: ""
   # Exact URI SAN trusted in the central API client certificate.
   peerURI: ""
-  # Empty selects only gamesNamespace. Additional namespaces must exist already.
+  # Empty selects gamesNamespace and extraGamesNamespaces. Additional namespaces must exist already.
   namespaces: []
   serverTLSSecret: ""        # tls.crt, tls.key: gateway server identity
   centralClientCASecret: ""  # ca.crt: CA issuing central API client certificates
@@ -507,6 +508,8 @@ ingress:
     nginx.ingress.kubernetes.io/limit-connections: "50"
 
 gamesNamespace: gameplane-games
+
+extraGamesNamespaces: []
 
 deployers: []
 

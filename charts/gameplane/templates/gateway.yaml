@@ -4,7 +4,7 @@
 {{- $peer := required "gateway.peerURI is required when gateway.enabled=true" $gateway.peerURI }}
 {{- $serverSecret := required "gateway.serverTLSSecret is required when gateway.enabled=true" $gateway.serverTLSSecret }}
 {{- $clientCA := required "gateway.centralClientCASecret is required when gateway.enabled=true" $gateway.centralClientCASecret }}
-{{- $namespaces := $gateway.namespaces | default (list .Values.gamesNamespace) | uniq }}
+{{- $namespaces := $gateway.namespaces | default (include "gameplane.gamesNamespaces" . | fromJsonArray) | uniq }}
 {{- if not (or $gateway.networkPolicy.peerCIDRs $gateway.networkPolicy.peerSelectors) }}
 {{- fail "gateway.networkPolicy requires peerCIDRs or peerSelectors; no peer is trusted by default" }}
 {{- end }}

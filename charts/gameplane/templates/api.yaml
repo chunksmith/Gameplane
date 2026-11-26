@@ -88,16 +88,14 @@ subjects:
     name: gameplane-api
     namespace: {{ $.Release.Namespace }}
 {{- end }}
+{{- range $gamesNamespace := include "gameplane.gamesNamespaces" . | fromJsonArray }}
+{{- with $ }}
 ---
-# Namespace-scoped WRITE access: limited to the games namespace(s) the
-# API is allowed to mutate. Expanding this to additional namespaces
-# requires a new RoleBinding here AND adding them to
-# GAMEPLANE_EXTRA_NAMESPACES on the API Deployment.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ .Release.Name }}-api-games
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["gameplane.local"]
@@ -142,13 +140,15 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ .Release.Name }}-api-games
-  namespace: {{ .Values.gamesNamespace }}
+  namespace: {{ $gamesNamespace }}
   labels: {{- include "gameplane.labels" . | nindent 4 }}
 roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ .Release.Name }}-api-games }
 subjects:
   - kind: ServiceAccount
     name: gameplane-api
     namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}
 ---
 # Module upload bundles are ConfigMaps in the control-plane namespace
 # (api/internal/handlers/module_upload.go); the operator indexes them
@@ -410,6 +410,10 @@ spec:
             - name: GAMEPLANE_NAMESPACE
               valueFrom:
                 fieldRef: { fieldPath: metadata.namespace }
+            {{- with without (include "gameplane.gamesNamespaces" . | fromJsonArray) .Values.gamesNamespace }}
+            - name: GAMEPLANE_EXTRA_NAMESPACES
+              value: {{ join "," . | quote }}
+            {{- end }}
             # Mirror --db-driver/--db-dsn for subcommands run with
             # `kubectl exec deploy/gameplane-api -- /api bootstrap-admin`:
             # they don't see the container args, so without these they fall

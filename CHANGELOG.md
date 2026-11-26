@@ -9,6 +9,12 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Added
 
+- **Extra games namespaces:** the chart value `extraGamesNamespaces` lists
+  existing namespaces Gameplane manages next to `gamesNamespace`. Each gets
+  the API and operator Roles, the network policies and the agent PodMonitor,
+  the API receives them through `GAMEPLANE_EXTRA_NAMESPACES`, and the create
+  wizard offers them as locations. `deployers[].namespace` places a deployer
+  in one of them, and the gateway defaults to all of them.
 - **StatefulSet server groups:** `GameServerSet.spec.mode: StatefulSet` runs
   the group as one StatefulSet `<set>` with pods `<set>-0…`, a headless
   Service for per-replica DNS, one `data-<set>-<i>` volume per replica and a
