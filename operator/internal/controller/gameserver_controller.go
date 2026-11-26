@@ -56,6 +56,8 @@ type GameServerReconciler struct {
 	// deployer can pin the agent version independently of the game.
 	AgentImage string
 
+	GitAgentImage string
+
 	// AgentImagePullPolicy, when non-empty, is set on the agent sidecar
 	// container. Set from the --agent-image-pull-policy operator flag.
 	// Empty leaves ImagePullPolicy unset, so Kubernetes applies its usual
@@ -1761,7 +1763,7 @@ func (r *GameServerReconciler) applyGamePodTemplate(
 	}
 	tpl.Spec.Containers = []corev1.Container{
 		buildGameContainer(gs, tmpl, image, ver, mc),
-		buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy),
+		buildAgentContainer(gs, tmpl, ver, r.agentImage(gs), r.AgentLogLevel, r.AgentImagePullPolicy),
 	}
 	tpl.Spec.ImagePullSecrets = r.ImagePullSecrets
 	dataVolume := corev1.VolumeSource{

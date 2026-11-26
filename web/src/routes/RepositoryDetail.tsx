@@ -110,9 +110,9 @@ function RepositoryView({ repository, access }: { repository: Repository; access
 
   const action = useMutation({
     mutationFn: (verb: "pull" | "push" | "fetch" | "reclone"): Promise<unknown> => {
-      if (verb === "pull") return Git.pull(name, namespace);
-      if (verb === "push") return Git.push(name, !status.data?.upstream, namespace);
-      if (verb === "fetch") return Git.fetch(name, namespace);
+      if (verb === "pull") return Git.pull(target);
+      if (verb === "push") return Git.push(target, !status.data?.upstream);
+      if (verb === "fetch") return Git.fetch(target);
       return Repositories.reclone(name, namespace);
     },
     onSettled: refresh,
@@ -197,7 +197,7 @@ function RepositoryView({ repository, access }: { repository: Repository; access
           ) : (
             <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" /></div>}>
               {activeTab === "files" && <FilesTab name={name} ns={namespace} path={filesPath ?? "/"} onNavigate={openFiles} />}
-              {activeTab === "git" && <GitTab repository={repository} target={target} permissions={permissions} />}
+              {activeTab === "git" && <GitTab target={target} canWrite={canWrite} canPush={canPush} branch={repository.branch} />}
               {activeTab === "assistant" && <div className="p-4 sm:p-6"><AssistantPanel scope={assistantScope(target)} /></div>}
             </Suspense>
           )}

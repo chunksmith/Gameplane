@@ -33,6 +33,7 @@ const (
 	collaboratorsAnnotation     = "gameplane.local/collaborators"
 	collaboratorNamesAnnotation = "gameplane.local/collaborator-names"
 	networkAnnotation           = "gameplane.local/network"
+	gitAnnotation               = "gameplane.local/git"
 )
 
 // stampOwner records the authenticated caller as the owner of obj. Called
@@ -139,6 +140,7 @@ func MountOwnership(r chi.Router, reg *kube.Registry, store *db.Store) {
 	r.Post("/servers/{name}:transfer", h.transfer)
 	r.Put("/servers/{name}:collaborators", h.setCollaborators)
 	r.Put("/servers/{name}:network", h.setNetwork)
+	r.Put("/servers/{name}:git", h.setGit)
 	r.Get("/users/me/servers", h.getOwnedServers)
 }
 
@@ -351,6 +353,42 @@ func (h *ownershipHandler) setNetwork(w http.ResponseWriter, req *http.Request) 
 	}
 	if !patchServerAsOwner(w, req, h.reg, k, ns, name, obj, func(*unstructured.Unstructured) map[string]any {
 		return map[string]any{"metadata": map[string]any{"annotations": map[string]any{networkAnnotation: value}}}
+	}) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *ownershipHandler) setGit(w http.ResponseWriter, req *http.Request) {
+	if rejectRemoteCluster(w, req) {
+		return
+	}
+	k, ok := resolveCluster(w, req, h.reg)
+	if !ok {
+		return
+	}
+	name := chi.URLParam(req, "name")
+	ns, ok := resolveNS(w, req)
+	if !ok {
+		return
+	}
+	obj, ok := requireOwnerOrAdmin(w, req, h.reg, k, ns, name)
+	if !ok {
+		return
+	}
+	var body struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(io.LimitReader(req.Body, 1<<10)).Decode(&body); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	var value any
+	if body.Enabled {
+		value = "true"
+	}
+	if !patchServerAsOwner(w, req, h.reg, k, ns, name, obj, func(*unstructured.Unstructured) map[string]any {
+		return map[string]any{"metadata": map[string]any{"annotations": map[string]any{gitAnnotation: value}}}
 	}) {
 		return
 	}

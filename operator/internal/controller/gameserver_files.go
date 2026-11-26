@@ -72,7 +72,7 @@ func (r *GameServerReconciler) reconcileFilesPod(
 func (r *GameServerReconciler) buildFilesPod(
 	gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate, ver *gameplanev1alpha1.GameVersion,
 ) (*corev1.Pod, error) {
-	agent := buildAgentContainer(gs, tmpl, ver, r.AgentImage, r.AgentLogLevel, r.AgentImagePullPolicy)
+	agent := buildAgentContainer(gs, tmpl, ver, r.agentImage(gs), r.AgentLogLevel, r.AgentImagePullPolicy)
 	agent.Env = append(agent.Env, corev1.EnvVar{Name: "GAMEPLANE_HEARTBEAT", Value: "false"})
 	volumes := []corev1.Volume{
 		{

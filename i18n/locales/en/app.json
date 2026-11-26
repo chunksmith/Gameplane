@@ -875,6 +875,10 @@
     "defaultMessage": "Git could not complete the operation.",
     "description": "Git error when the git command fails; the response output has Git's message."
   },
+  "server.repositories.git_unavailable": {
+    "defaultMessage": "Git is not enabled for this server yet.",
+    "description": "Server Git error when the server's data directory is a Git repository but its agent runs without Git; the owner enables Git on the server's Git tab."
+  },
   "server.repositories.github_token_required": {
     "defaultMessage": "Connect your GitHub token in Settings, Integrations first.",
     "description": "Repository error when a Git operation that talks to GitHub, or a commit that needs the user's GitHub identity, runs without a saved GitHub token."
@@ -5543,6 +5547,14 @@
     "defaultMessage": "Not pushed · {count}",
     "description": "Git tab History: heading of the local commits that are not pushed; {count} is the number"
   },
+  "web.repositories.git.pull": {
+    "defaultMessage": "Pull",
+    "description": "Git tab: toolbar button that pulls with rebase, shown on a server's Git tab; keep it short"
+  },
+  "web.repositories.git.push": {
+    "defaultMessage": "Push",
+    "description": "Git tab: toolbar button that pushes the branch, shown on a server's Git tab; keep it short"
+  },
   "web.repositories.git.refresh": {
     "defaultMessage": "Refresh",
     "description": "Git tab: accessible name of the icon-only refresh button; not shown as text"
@@ -9570,6 +9582,10 @@
   "web.routes.server_detail.tab_files": {
     "defaultMessage": "Files",
     "description": "Server detail: label of the Files tab"
+  },
+  "web.routes.server_detail.tab_git": {
+    "defaultMessage": "Git",
+    "description": "Server detail: label of the Git tab, shown when the server's data folder is a Git repository"
   },
   "web.routes.server_detail.tab_logs": {
     "defaultMessage": "Logs",
@@ -14790,6 +14806,34 @@
   "web.routes.users_networks.search_networks_placeholder": {
     "defaultMessage": "Search networks…",
     "description": "Users networks: placeholder of the search input that filters the network cards by name"
+  },
+  "web.servers.git.enable": {
+    "defaultMessage": "Enable Git",
+    "description": "Server Git tab: button and confirm action that enable Git for the server; keep it short"
+  },
+  "web.servers.git.enable_body": {
+    "defaultMessage": "Enable Git to commit, pull and push from here. The server restarts once to load the Git-capable agent.",
+    "description": "Server Git tab: text of the panel that offers to enable Git for the server"
+  },
+  "web.servers.git.enable_confirm_body": {
+    "defaultMessage": "The server restarts to load the Git-capable agent. Players on it are disconnected.",
+    "description": "Server Git tab: body of the confirm dialog before enabling Git"
+  },
+  "web.servers.git.enable_confirm_title": {
+    "defaultMessage": "Enable Git for {name}?",
+    "description": "Server Git tab: title of the confirm dialog before enabling Git; {name} is the server name"
+  },
+  "web.servers.git.enable_title": {
+    "defaultMessage": "This server's files are a Git repository",
+    "description": "Server Git tab: title of the panel shown when the server's data folder has a .git folder but Git is not enabled for the server yet"
+  },
+  "web.servers.git.owner_only": {
+    "defaultMessage": "Only the server's owner or an admin can enable Git.",
+    "description": "Server Git tab: note shown instead of the enable button to users who cannot enable Git"
+  },
+  "web.servers.git.starting": {
+    "defaultMessage": "Waiting for the Git-capable agent to start…",
+    "description": "Server Git tab: text while the server restarts after Git was enabled"
   },
   "web.settings.compact_language_menu": {
     "defaultMessage": "Language options",

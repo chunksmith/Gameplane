@@ -41,6 +41,13 @@ description: "Task list for Feature 029: Repositories"
 - [X] T020 Integrations GitHub card
 - [X] T021 `npm run i18n:extract`; compile checks (`go build ./...`, `npx tsc --noEmit`)
 
+## Phase 4b: Server Git (2026-11-26)
+
+- [X] T024 Agent: `/git/*` in server mode without clone, `.git` and Git binary checks, SSH remote rewrite; tests
+- [X] T025 Operator: repo-agent image for the sidecar and files pod of GameServers annotated `gameplane.local/git: "true"`; test
+- [X] T026 API: `/servers/{name}/git/*` through the shared proxy, `servers:push`, `PUT /servers/{name}:git`; tests
+- [X] T027 Web: shared `GitTab` on a `ResourceTarget`, server Git tab and Enable Git panel; tests
+
 ## Phase 5: Docs and E2E
 
 - [X] T022 [P] `operator/specs.md`, `api/specs.md`, `agent/specs.md`, `web/specs.md`, `docs/security.md` (token flow), `docs/agent-architecture.md`

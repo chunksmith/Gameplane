@@ -68,27 +68,31 @@ export const Repositories = {
     api<void>(withNS(base(name, `/collaborators/${userId}`), ns), { method: "DELETE" }),
 };
 
+const gitPath = (target: ResourceTarget, path: string) =>
+  withNS(`/${target.resource ?? "servers"}/${encodeURIComponent(target.name)}/git${path}`, target.namespace);
+
 export const Git = {
-  status: (name: string, ns?: string, signal?: AbortSignal) => api<GitStatus>(withNS(base(name, "/git/status"), ns), { signal }),
-  diff: (name: string, path: string, staged: boolean, ns?: string) =>
-    text(withNS(base(name, `/git/diff?path=${encodeURIComponent(path)}&staged=${staged}`), ns)),
-  stage: (name: string, paths: GitPaths, ns?: string) => api<GitStatus>(withNS(base(name, "/git/stage"), ns), { method: "POST", body: { paths } }),
-  unstage: (name: string, paths: GitPaths, ns?: string) => api<GitStatus>(withNS(base(name, "/git/unstage"), ns), { method: "POST", body: { paths } }),
-  discard: (name: string, paths: GitPaths, ns?: string) => api<GitStatus>(withNS(base(name, "/git/discard"), ns), { method: "POST", body: { paths } }),
-  commit: (name: string, body: { summary: string; description?: string; push?: boolean }, ns?: string) =>
-    api<{ commit: GitCommit; pushed: boolean }>(withNS(base(name, "/git/commit"), ns), { method: "POST", body }),
-  log: (name: string, ref: string, ns?: string, signal?: AbortSignal) =>
-    api<{ commits: GitCommit[]; next: string | null }>(withNS(base(name, `/git/log?ref=${encodeURIComponent(ref)}`), ns), { signal }),
-  show: (name: string, sha: string, ns?: string, signal?: AbortSignal) =>
-    api<{ commit: GitCommit; diff: string }>(withNS(base(name, `/git/commits/${encodeURIComponent(sha)}`), ns), { signal }),
-  revert: (name: string, sha: string, ns?: string) => api<{ commit: GitCommit }>(withNS(base(name, "/git/revert"), ns), { method: "POST", body: { sha } }),
-  undo: (name: string, ns?: string) => api<GitStatus>(withNS(base(name, "/git/undo"), ns), { method: "POST" }),
-  branches: (name: string, ns?: string, signal?: AbortSignal) => api<GitBranch[]>(withNS(base(name, "/git/branches"), ns), { signal }),
-  createBranch: (name: string, body: { name: string; checkout?: boolean }, ns?: string) => api<GitBranch>(withNS(base(name, "/git/branches"), ns), { method: "POST", body }),
-  checkout: (name: string, branch: string, ns?: string) => api<GitStatus>(withNS(base(name, "/git/checkout"), ns), { method: "POST", body: { branch } }),
-  fetch: (name: string, ns?: string) => api<GitStatus>(withNS(base(name, "/git/fetch"), ns), { method: "POST" }),
-  pull: (name: string, ns?: string) => api<GitStatus>(withNS(base(name, "/git/pull"), ns), { method: "POST" }),
-  push: (name: string, setUpstream: boolean, ns?: string) => api<GitStatus>(withNS(base(name, "/git/push"), ns), { method: "POST", body: { setUpstream } }),
+  status: (target: ResourceTarget, signal?: AbortSignal) => api<GitStatus>(gitPath(target, "/status"), { signal }),
+  diff: (target: ResourceTarget, path: string, staged: boolean) => text(gitPath(target, `/diff?path=${encodeURIComponent(path)}&staged=${staged}`)),
+  stage: (target: ResourceTarget, paths: GitPaths) => api<GitStatus>(gitPath(target, "/stage"), { method: "POST", body: { paths } }),
+  unstage: (target: ResourceTarget, paths: GitPaths) => api<GitStatus>(gitPath(target, "/unstage"), { method: "POST", body: { paths } }),
+  discard: (target: ResourceTarget, paths: GitPaths) => api<GitStatus>(gitPath(target, "/discard"), { method: "POST", body: { paths } }),
+  commit: (target: ResourceTarget, body: { summary: string; description?: string; push?: boolean }) =>
+    api<{ commit: GitCommit; pushed: boolean }>(gitPath(target, "/commit"), { method: "POST", body }),
+  log: (target: ResourceTarget, ref: string, signal?: AbortSignal) =>
+    api<{ commits: GitCommit[]; next: string | null }>(gitPath(target, `/log?ref=${encodeURIComponent(ref)}`), { signal }),
+  show: (target: ResourceTarget, sha: string, signal?: AbortSignal) =>
+    api<{ commit: GitCommit; diff: string }>(gitPath(target, `/commits/${encodeURIComponent(sha)}`), { signal }),
+  revert: (target: ResourceTarget, sha: string) => api<{ commit: GitCommit }>(gitPath(target, "/revert"), { method: "POST", body: { sha } }),
+  undo: (target: ResourceTarget) => api<GitStatus>(gitPath(target, "/undo"), { method: "POST" }),
+  branches: (target: ResourceTarget, signal?: AbortSignal) => api<GitBranch[]>(gitPath(target, "/branches"), { signal }),
+  createBranch: (target: ResourceTarget, body: { name: string; checkout?: boolean }) => api<GitBranch>(gitPath(target, "/branches"), { method: "POST", body }),
+  checkout: (target: ResourceTarget, branch: string) => api<GitStatus>(gitPath(target, "/checkout"), { method: "POST", body: { branch } }),
+  fetch: (target: ResourceTarget) => api<GitStatus>(gitPath(target, "/fetch"), { method: "POST" }),
+  pull: (target: ResourceTarget) => api<GitStatus>(gitPath(target, "/pull"), { method: "POST" }),
+  push: (target: ResourceTarget, setUpstream: boolean) => api<GitStatus>(gitPath(target, "/push"), { method: "POST", body: { setUpstream } }),
+  enableServer: (target: ResourceTarget) =>
+    api<void>(withNS(`/servers/${encodeURIComponent(target.name)}:git`, target.namespace), { method: "PUT", body: { enabled: true } }),
 };
 
 export const GitHub = {
@@ -105,11 +109,11 @@ export function gitStatusKey(target: ResourceTarget) {
   return resourceKey(target, "git-status");
 }
 
-export function useGitStatus(target: ResourceTarget) {
+export function useGitStatus(target: ResourceTarget, enabled = target.resource === "repositories") {
   return useQuery({
     queryKey: gitStatusKey(target),
-    queryFn: ({ signal }) => Git.status(target.name, target.namespace, signal),
-    enabled: target.resource === "repositories",
+    queryFn: ({ signal }) => Git.status(target, signal),
+    enabled,
     refetchInterval: 10_000,
   });
 }

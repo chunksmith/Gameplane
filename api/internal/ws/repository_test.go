@@ -121,3 +121,76 @@ func TestRepoAgentProxy(t *testing.T) {
 		t.Fatalf("bad sha = %d", rr.Code)
 	}
 }
+
+type serverFetcher struct{ server *unstructured.Unstructured }
+
+func (f serverFetcher) GetServer(context.Context, string, string, string) (*unstructured.Unstructured, error) {
+	return f.server, nil
+}
+
+func (serverFetcher) IDs() []string { return []string{scope.DefaultCluster} }
+
+func TestServerGitProxy(t *testing.T) {
+	var mu sync.Mutex
+	var seen agentSeen
+	agent := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		mu.Lock()
+		seen = agentSeen{path: req.URL.Path, token: req.Header.Get(gitAuthHeader)}
+		mu.Unlock()
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	t.Cleanup(agent.Close)
+	last := func() agentSeen {
+		mu.Lock()
+		defer mu.Unlock()
+		return seen
+	}
+	server := &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "lobby", "namespace": scope.DefaultNamespace, "uid": "s-1"}}}
+	server.SetAnnotations(map[string]string{"gameplane.local/owner-id": "1"})
+	writer := map[string]struct{}{"servers:read": {}, "servers:write": {}}
+	users := map[string]*auth.User{
+		"owner":    {ID: 1},
+		"operator": {ID: 2, Perms: map[string]map[string]map[string]struct{}{scope.DefaultCluster: {"*": writer}}},
+		"stranger": {ID: 3},
+	}
+	creds := func(context.Context, int64) (GitCredentials, bool) {
+		return GitCredentials{Token: "ghp_secret", Name: "Alice", Email: "7+alice@users.noreply.github.com"}, true
+	}
+	fetch := serverFetcher{server}
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			next.ServeHTTP(w, req.WithContext(auth.WithUser(req.Context(), users[req.Header.Get("X-User")])))
+		})
+	})
+	r.Use(rbac.Middleware(fetch))
+	(&RepoAgent{transport: testDirectTransport(agent), creds: creds}).MountServers(r, fetch)
+	do := func(user, path, body string) int {
+		mu.Lock()
+		seen = agentSeen{}
+		mu.Unlock()
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, strings.NewReader(body))
+		req.Header.Set("X-User", user)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		return rr.Code
+	}
+
+	if code := do("owner", "/servers/lobby/git/commit", `{"summary":"x","push":true}`); code != http.StatusOK || last().path != "/v1/targets/s-1/git/commit" || last().token != "ghp_secret" {
+		t.Fatalf("owner commit and push = %d %+v", code, last())
+	}
+	if code := do("operator", "/servers/lobby/git/commit", `{"summary":"x"}`); code != http.StatusOK || last().token != "" {
+		t.Fatalf("operator commit = %d %+v", code, last())
+	}
+	for _, path := range []string{"/servers/lobby/git/push", "/servers/lobby/git/commit"} {
+		if code := do("operator", path, `{"summary":"x","push":true}`); code != http.StatusForbidden || last().path != "" {
+			t.Fatalf("operator %s with push = %d %+v", path, code, last())
+		}
+	}
+	if code := do("stranger", "/servers/lobby/git/stage", `{"paths":"all"}`); code != http.StatusForbidden {
+		t.Fatalf("stranger stage = %d", code)
+	}
+	if code := do("owner", "/servers/lobby/git/clone", `{}`); code == http.StatusOK {
+		t.Fatalf("clone proxied")
+	}
+}

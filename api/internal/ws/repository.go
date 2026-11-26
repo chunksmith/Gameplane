@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/messages"
 	"github.com/GameplanePanel/gameplane/api/internal/rbac"
+	"github.com/GameplanePanel/gameplane/api/internal/scope"
 )
 
 // GitCredentials is the acting user's GitHub token and commit identity.
@@ -74,56 +76,106 @@ func NewRepoAgent(caBundle, clientCert, clientKey string, creds GitCredentialSou
 func (a *RepoAgent) Mount(r chi.Router) {
 	r.Route("/repositories/{name}/files", func(r chi.Router) {
 		for _, op := range []string{"list", "size", "read", "download", "archive"} {
-			r.Get("/"+op, a.proxy("/files/"+op, gitNone, 0))
+			r.Get("/"+op, a.proxy(repoSubject, "/files/"+op, gitNone, 0))
 		}
 		for _, op := range []string{"write", "create", "upload", "mkdir", "zip"} {
-			r.Post("/"+op, a.proxy("/files/"+op, gitNone, 64<<20))
+			r.Post("/"+op, a.proxy(repoSubject, "/files/"+op, gitNone, 64<<20))
 		}
-		r.Delete("/delete", a.proxy("/files/delete", gitNone, 0))
+		r.Delete("/delete", a.proxy(repoSubject, "/files/delete", gitNone, 0))
 	})
 	r.Route("/repositories/{name}/git", func(r chi.Router) {
-		for _, op := range []string{"status", "diff", "log", "branches"} {
-			r.Get("/"+op, a.proxy("/git/"+op, gitNone, 0))
-		}
-		r.Get("/commits/{sha}", a.commitProxy())
-		for _, op := range []string{"stage", "unstage", "discard", "undo", "branches", "checkout"} {
-			r.Post("/"+op, a.proxy("/git/"+op, gitNone, repoAgentBody))
-		}
-		r.Post("/commit", a.proxy("/git/commit", gitTokenAuthor, repoAgentBody))
-		r.Post("/revert", a.proxy("/git/revert", gitAuthor, repoAgentBody))
-		r.Post("/fetch", a.proxy("/git/fetch", gitToken, repoAgentBody))
-		r.Post("/pull", a.proxy("/git/pull", gitTokenOptionalAuthor, repoAgentBody))
-		r.Post("/push", a.proxy("/git/push", gitToken, repoAgentBody))
+		a.mountGit(r, repoSubject)
 	})
 }
 
-func (a *RepoAgent) commitProxy() http.HandlerFunc {
+// MountServers wires /servers/{name}/git/* to the game server's agent, which
+// runs Git in the server's data directory. Home cluster only.
+func (a *RepoAgent) MountServers(r chi.Router, fetch rbac.ServerFetcher) {
+	r.Route("/servers/{name}/git", func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler { return rejectRemoteCluster(next.ServeHTTP) })
+		a.mountGit(r, serverSubject(fetch))
+	})
+}
+
+func (a *RepoAgent) mountGit(r chi.Router, resolve gitResolver) {
+	for _, op := range []string{"status", "diff", "log", "branches"} {
+		r.Get("/"+op, a.proxy(resolve, "/git/"+op, gitNone, 0))
+	}
+	r.Get("/commits/{sha}", a.commitProxy(resolve))
+	for _, op := range []string{"stage", "unstage", "discard", "undo", "branches", "checkout"} {
+		r.Post("/"+op, a.proxy(resolve, "/git/"+op, gitNone, repoAgentBody))
+	}
+	r.Post("/commit", a.proxy(resolve, "/git/commit", gitTokenAuthor, repoAgentBody))
+	r.Post("/revert", a.proxy(resolve, "/git/revert", gitAuthor, repoAgentBody))
+	r.Post("/fetch", a.proxy(resolve, "/git/fetch", gitToken, repoAgentBody))
+	r.Post("/pull", a.proxy(resolve, "/git/pull", gitTokenOptionalAuthor, repoAgentBody))
+	r.Post("/push", a.proxy(resolve, "/git/push", gitToken, repoAgentBody))
+}
+
+type gitSubject struct {
+	identity rbac.ServerIdentity
+	canPush  func() bool
+}
+
+type gitResolver func(*http.Request) (gitSubject, bool)
+
+func repoSubject(req *http.Request) (gitSubject, bool) {
+	grant, ok := rbac.RepositoryGrantFrom(req.Context())
+	return gitSubject{identity: grant.Identity, canPush: func() bool { return grant.Has(rbac.RepoPush) }}, ok
+}
+
+func serverSubject(fetch rbac.ServerFetcher) gitResolver {
+	authorize := rbac.Middleware(fetch)
+	return func(req *http.Request) (gitSubject, bool) {
+		ns, err := scope.Resolve(req)
+		if err != nil {
+			return gitSubject{}, false
+		}
+		name := chi.URLParam(req, "name")
+		server, err := fetch.GetServer(req.Context(), scope.DefaultCluster, ns, name)
+		if err != nil || server == nil || rbac.ValidateServerIdentity(req.Context(), scope.DefaultCluster, ns, name, string(server.GetUID())) != nil {
+			return gitSubject{}, false
+		}
+		identity := rbac.ServerIdentity{Cluster: scope.DefaultCluster, Namespace: ns, Name: name, UID: string(server.GetUID())}
+		return gitSubject{identity: identity, canPush: func() bool { return permits(authorize, req, "/servers/"+name+"/git/push") }}, true
+	}
+}
+
+func permits(authorize func(http.Handler) http.Handler, req *http.Request, path string) bool {
+	probe := req.Clone(req.Context())
+	probe.Method, probe.URL.Path, probe.Body = http.MethodPost, path, http.NoBody
+	allowed := false
+	authorize(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { allowed = true })).ServeHTTP(httptest.NewRecorder(), probe)
+	return allowed
+}
+
+func (a *RepoAgent) commitProxy(resolve gitResolver) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		sha := chi.URLParam(req, "sha")
 		if !repoSHAPattern.MatchString(sha) {
 			writeGitError(w, http.StatusBadRequest, "bad_request", nil)
 			return
 		}
-		a.proxy("/git/commits/"+sha, gitNone, 0)(w, req)
+		a.proxy(resolve, "/git/commits/"+sha, gitNone, 0)(w, req)
 	}
 }
 
-func repoTarget(grant rbac.RepositoryGrant, agentPath string) (agentTarget, string, error) {
-	target := agentTarget{name: grant.Identity.Name, namespace: grant.Identity.Namespace}
-	if err := target.validate(); err != nil || !repoUIDPattern.MatchString(grant.Identity.UID) {
+func repoTarget(identity rbac.ServerIdentity, agentPath string) (agentTarget, string, error) {
+	target := agentTarget{name: identity.Name, namespace: identity.Namespace}
+	if err := target.validate(); err != nil || !repoUIDPattern.MatchString(identity.UID) {
 		return agentTarget{}, "", errors.New("invalid repository target")
 	}
-	return target, "/v1/targets/" + grant.Identity.UID + agentPath, nil
+	return target, "/v1/targets/" + identity.UID + agentPath, nil
 }
 
-func (a *RepoAgent) proxy(agentPath string, mode gitCreds, maxBody int64) http.HandlerFunc {
+func (a *RepoAgent) proxy(resolve gitResolver, agentPath string, mode gitCreds, maxBody int64) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		grant, ok := rbac.RepositoryGrantFrom(req.Context())
+		subject, ok := resolve(req)
 		if !ok {
 			httperr.WriteMessage(w, req, messages.New(httperr.IDNotFound, nil))
 			return
 		}
-		target, path, err := repoTarget(grant, agentPath)
+		target, path, err := repoTarget(subject.identity, agentPath)
 		if err != nil {
 			httperr.WriteCode(w, req, http.StatusBadRequest, err)
 			return
@@ -143,7 +195,7 @@ func (a *RepoAgent) proxy(agentPath string, mode gitCreds, maxBody int64) http.H
 				Push bool `json:"push"`
 			}
 			_ = json.Unmarshal(raw, &commit)
-			if commit.Push && !grant.Has(rbac.RepoPush) {
+			if commit.Push && !subject.canPush() {
 				httperr.WriteMessage(w, req, messages.New(httperr.IDForbidden, nil))
 				return
 			}
@@ -303,7 +355,7 @@ func (a *RepoAgent) call(ctx context.Context, ns, name, uid, method, agentPath s
 	if a.transport == nil {
 		return 0, errors.New("agent mTLS not configured")
 	}
-	target, path, err := repoTarget(rbac.RepositoryGrant{Identity: rbac.ServerIdentity{Namespace: ns, Name: name, UID: uid}}, agentPath)
+	target, path, err := repoTarget(rbac.ServerIdentity{Namespace: ns, Name: name, UID: uid}, agentPath)
 	if err != nil {
 		return 0, err
 	}

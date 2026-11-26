@@ -26,6 +26,7 @@ var Catalog = []PermGroup{
 		{Key: "servers:read", Label: "View servers, logs, players, and files", Namespaced: true},
 		{Key: "servers:write", Label: "Create, edit, and control servers (owner-only actions need the server's owner or an admin)", Namespaced: true},
 		{Key: "servers:console", Label: "Use the live console (RCON / PTY)", Namespaced: true},
+		{Key: "servers:push", Label: "Push server Git commits to GitHub", Namespaced: true},
 	}},
 	{Resource: "repositories", Label: "Repositories", Permissions: []Permission{
 		{Key: "repositories:read", Label: "View repositories, their files and Git history", Namespaced: true},

@@ -19,14 +19,14 @@ import {
   TextField,
 } from "@heroui/react";
 import { defineMessages, type IntlShape, type MessageDescriptor } from "react-intl";
-import { ArrowLeft, Copy, FileText, GitBranch, Loader2, Plus, RefreshCw, RotateCcw, Undo2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, FileText, GitBranch, Loader2, Plus, RefreshCw, RotateCcw, Undo2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useOptionalIntl } from "@/lib/i18n/format";
-import { Git, GIT_STATE_CLASS, gitErrorText, useGitHub, useGitStatus, useRepositoryRefresh, type GitPaths, type RepositoryProps } from "@/lib/repositories";
+import { Git, GIT_STATE_CLASS, gitErrorText, useGitHub, useGitStatus, useRepositoryRefresh, type GitPaths } from "@/lib/repositories";
 import { resourceKey, useResourceClient, type ResourceTarget } from "@/lib/resourceTarget";
 import { cn, formatRelative } from "@/lib/utils";
-import type { GitChange, GitCommit, Repository } from "@/types";
+import type { GitChange, GitCommit } from "@/types";
 import { AheadBehind } from "../Repositories";
 
 const M: Record<string, MessageDescriptor> = defineMessages({
@@ -70,6 +70,8 @@ const M: Record<string, MessageDescriptor> = defineMessages({
   remote_branches: { id: "web.repositories.git.remote_branches", defaultMessage: "Remote branches", description: "Git tab: accessible name of the branch picker section that lists remote branches without a local copy" },
   refresh: { id: "web.repositories.git.refresh", defaultMessage: "Refresh", description: "Git tab: accessible name of the icon-only refresh button; not shown as text" },
   fetch: { id: "web.repositories.fetch", defaultMessage: "Fetch", description: "Repository: action that fetches from GitHub without changing files; keep it short" },
+  pull: { id: "web.repositories.git.pull", defaultMessage: "Pull", description: "Git tab: toolbar button that pulls with rebase, shown on a server's Git tab; keep it short" },
+  push: { id: "web.repositories.git.push", defaultMessage: "Push", description: "Git tab: toolbar button that pushes the branch, shown on a server's Git tab; keep it short" },
   separator: { id: "web.common.separator_dot", defaultMessage: "·", description: "Visual separator between two items" },
   login: { id: "web.repositories.git.login", defaultMessage: "@{login}", description: "Git tab: a GitHub login shown as the commit author; {login} is the login" },
   view: { id: "web.repositories.git.view", defaultMessage: "Git view", description: "Git tab: accessible name of the Changes and History toggle; not shown as text" },
@@ -77,16 +79,21 @@ const M: Record<string, MessageDescriptor> = defineMessages({
 
 type Selection = { path: string; staged: boolean; untracked: boolean } | null;
 
-export function GitTab({ repository, target, permissions }: RepositoryProps) {
+export interface GitTabProps {
+  target: ResourceTarget;
+  canWrite: boolean;
+  canPush: boolean;
+  branch?: string;
+  sync?: boolean;
+}
+
+export function GitTab({ target, canWrite, canPush, branch, sync }: GitTabProps) {
   const intl = useOptionalIntl();
-  const { name, namespace } = repository;
-  const canWrite = permissions.includes("repositories:write");
-  const canPush = permissions.includes("repositories:push");
   const [view, setView] = useState<"changes" | "history">("changes");
   const [branchPrompt, setBranchPrompt] = useState(false);
-  const status = useGitStatus(target);
+  const status = useGitStatus(target, true);
   const refresh = useRepositoryRefresh(target);
-  const branches = useQuery({ queryKey: resourceKey(target, "git-branches"), queryFn: ({ signal }) => Git.branches(name, namespace, signal) });
+  const branches = useQuery({ queryKey: resourceKey(target, "git-branches"), queryFn: ({ signal }) => Git.branches(target, signal) });
   const action = useMutation({
     mutationFn: (run: () => Promise<unknown>) => run(),
     onSettled: refresh,
@@ -101,7 +108,7 @@ export function GitTab({ repository, target, permissions }: RepositoryProps) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <GitBranch className="h-4 w-4 text-muted" />
-          <Select aria-label={intl.formatMessage(M.branch)} value={data?.branch ?? ""} isDisabled={!canWrite || action.isPending} onChange={(value) => value && value !== data?.branch && run(() => Git.checkout(name, String(value), namespace))}>
+          <Select aria-label={intl.formatMessage(M.branch)} value={data?.branch ?? ""} isDisabled={!canWrite || action.isPending} onChange={(value) => value && value !== data?.branch && run(() => Git.checkout(target, String(value)))}>
             <Select.Trigger className="items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-foreground/5">
               <Select.Value />
               <Select.Indicator className="h-3.5 w-3.5" />
@@ -138,9 +145,19 @@ export function GitTab({ repository, target, permissions }: RepositoryProps) {
           <Button variant="secondary" size="sm" isDisabled={!canWrite} onPress={() => setBranchPrompt(true)}>
             <Plus className="h-4 w-4" />{intl.formatMessage(M.new_branch)}
           </Button>
-          <Button variant="primary" size="sm" isDisabled={!canWrite || action.isPending} onPress={() => run(() => Git.fetch(name, namespace))}>
+          <Button variant="primary" size="sm" isDisabled={!canWrite || action.isPending} onPress={() => run(() => Git.fetch(target))}>
             <RefreshCw className="h-4 w-4" />{intl.formatMessage(M.fetch)}
           </Button>
+          {sync && (
+            <>
+              <Button variant="secondary" size="sm" isDisabled={!canWrite || action.isPending} onPress={() => run(() => Git.pull(target))}>
+                <ArrowDown className="h-4 w-4" />{intl.formatMessage(M.pull)}
+              </Button>
+              <Button variant="secondary" size="sm" isDisabled={!canPush || action.isPending} onPress={() => run(() => Git.push(target, !data?.upstream))}>
+                <ArrowUp className="h-4 w-4" />{intl.formatMessage(M.push)}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -150,25 +167,25 @@ export function GitTab({ repository, target, permissions }: RepositoryProps) {
       {!data ? (
         <div className="grid flex-1 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-muted" /></div>
       ) : view === "changes" ? (
-        <ChangesView repository={repository} target={target} permissions={permissions} changes={data.changes} busy={action.isPending} run={run} canWrite={canWrite} canPush={canPush} />
+        <ChangesView target={target} changes={data.changes} busy={action.isPending} run={run} canWrite={canWrite} canPush={canPush} />
       ) : (
-        <HistoryView repository={repository} target={target} permissions={permissions} upstream={data.upstream} behind={data.behind} busy={action.isPending} run={run} canWrite={canWrite} />
+        <HistoryView target={target} branch={branch} upstream={data.upstream} behind={data.behind} busy={action.isPending} run={run} canWrite={canWrite} />
       )}
 
-      <NewBranchDialog open={branchPrompt} onOpenChange={setBranchPrompt} onCreate={(branch) => run(() => Git.createBranch(name, { name: branch, checkout: true }, namespace))} />
+      <NewBranchDialog open={branchPrompt} onOpenChange={setBranchPrompt} onCreate={(name) => run(() => Git.createBranch(target, { name, checkout: true }))} />
     </div>
   );
 }
 
-interface ActionProps extends RepositoryProps {
+interface ActionProps {
+  target: ResourceTarget;
   busy: boolean;
   run: (call: () => Promise<unknown>) => void;
   canWrite: boolean;
 }
 
-function ChangesView({ repository, target, changes, busy, run, canWrite, canPush }: ActionProps & { changes: GitChange[]; canPush: boolean }) {
+function ChangesView({ target, changes, busy, run, canWrite, canPush }: ActionProps & { changes: GitChange[]; canPush: boolean }) {
   const intl = useOptionalIntl();
-  const { name, namespace } = repository;
   const github = useGitHub();
   const [selected, setSelected] = useState<Selection>(null);
   const [discard, setDiscard] = useState<GitPaths | null>(null);
@@ -178,7 +195,7 @@ function ChangesView({ repository, target, changes, busy, run, canWrite, canPush
   const unstaged = changes.filter((change) => !change.staged);
   const current = selected && changes.find((change) => change.path === selected.path && change.staged === selected.staged);
   const commit = (push: boolean) => run(async () => {
-    await Git.commit(name, { summary: summary.trim(), description: description.trim() || undefined, push }, namespace);
+    await Git.commit(target, { summary: summary.trim(), description: description.trim() || undefined, push });
     setSummary("");
     setDescription("");
   });
@@ -210,7 +227,7 @@ function ChangesView({ repository, target, changes, busy, run, canWrite, canPush
         {staged.length > 0 && (
           <section className="space-y-1">
             <ListHeader title={intl.formatMessage(M.staged, { count: staged.length })}>
-              <LinkButton isDisabled={!canWrite || busy} onPress={() => run(() => Git.unstage(name, "all", namespace))}>{intl.formatMessage(M.unstage_all)}</LinkButton>
+              <LinkButton isDisabled={!canWrite || busy} onPress={() => run(() => Git.unstage(target, "all"))}>{intl.formatMessage(M.unstage_all)}</LinkButton>
             </ListHeader>
             {list(staged)}
           </section>
@@ -219,7 +236,7 @@ function ChangesView({ repository, target, changes, busy, run, canWrite, canPush
           <section className="space-y-1">
             <ListHeader title={intl.formatMessage(M.unstaged, { count: unstaged.length })}>
               <LinkButton isDisabled={!canWrite || busy} onPress={() => setDiscard(unstaged.map((change) => change.path))}>{intl.formatMessage(M.discard_all)}</LinkButton>
-              <LinkButton isDisabled={!canWrite || busy} onPress={() => run(() => Git.stage(name, "all", namespace))}>{intl.formatMessage(M.stage_all)}</LinkButton>
+              <LinkButton isDisabled={!canWrite || busy} onPress={() => run(() => Git.stage(target, "all"))}>{intl.formatMessage(M.stage_all)}</LinkButton>
             </ListHeader>
             {list(unstaged)}
           </section>
@@ -250,7 +267,7 @@ function ChangesView({ repository, target, changes, busy, run, canWrite, canPush
               <span className="font-mono text-xs text-success">{intl.formatMessage(LINE_COUNT.added, { count: current.additions })}</span>
               <span className="font-mono text-xs text-danger">{intl.formatMessage(LINE_COUNT.removed, { count: current.deletions })}</span>
               <div className="ml-auto flex gap-2">
-                <Button variant="secondary" size="sm" isDisabled={!canWrite || busy} onPress={() => run(() => (current.staged ? Git.unstage : Git.stage)(name, [current.path], namespace))}>
+                <Button variant="secondary" size="sm" isDisabled={!canWrite || busy} onPress={() => run(() => (current.staged ? Git.unstage : Git.stage)(target, [current.path]))}>
                   {intl.formatMessage(current.staged ? M.unstage_file : M.stage_file)}
                 </Button>
                 {!current.staged && (
@@ -260,7 +277,7 @@ function ChangesView({ repository, target, changes, busy, run, canWrite, canPush
                 )}
               </div>
             </div>
-            <FileDiff repository={repository} target={target} change={current} />
+            <FileDiff target={target} change={current} />
           </>
         ) : (
           <p className="m-auto p-10 text-sm text-muted">{intl.formatMessage(M.select_file)}</p>
@@ -277,7 +294,7 @@ function ChangesView({ repository, target, changes, busy, run, canWrite, canPush
           confirmLabel={intl.formatMessage(M.discard)}
           busy={busy}
           onConfirm={() => {
-            run(() => Git.discard(name, discard, namespace));
+            run(() => Git.discard(target, discard));
             setDiscard(null);
             setSelected(null);
           }}
@@ -292,15 +309,15 @@ const LINE_COUNT: Record<"added" | "removed", MessageDescriptor> = defineMessage
   removed: { id: "web.repositories.git.lines_removed", defaultMessage: "-{count}", description: "Git tab: number of removed lines; {count} is the number" },
 });
 
-function FileDiff({ repository, target, change }: { repository: Repository; target: ResourceTarget; change: GitChange }) {
+function FileDiff({ target, change }: { target: ResourceTarget; change: GitChange }) {
   const client = useResourceClient(target);
-  const { name, namespace } = repository;
+  const { name, namespace } = target;
   const untracked = change.state === "U";
   const diff = useQuery({
     queryKey: resourceKey(target, "git-diff", change.path, change.staged, change.additions, change.deletions),
     queryFn: async () => untracked
       ? (await client.Files.read(name, `/${change.path}`, namespace)).split("\n").map((line) => `+${line}`).join("\n")
-      : Git.diff(name, change.path, change.staged, namespace),
+      : Git.diff(target, change.path, change.staged),
   });
   return <DiffBody text={diff.data} error={diff.error} />;
 }
@@ -327,13 +344,12 @@ function diffLineClass(line: string): string {
   return "px-1 text-foreground";
 }
 
-function HistoryView({ repository, target, upstream, behind, busy, run, canWrite }: ActionProps & { upstream: string | null; behind: number }) {
+function HistoryView({ target, branch, upstream, behind, busy, run, canWrite }: ActionProps & { branch?: string; upstream: string | null; behind: number }) {
   const intl = useOptionalIntl();
-  const { name, namespace } = repository;
   const [selected, setSelected] = useState<string | null>(null);
-  const local = useQuery({ queryKey: resourceKey(target, "git-log", "HEAD"), queryFn: ({ signal }) => Git.log(name, "HEAD", namespace, signal) });
-  const remote = useQuery({ queryKey: resourceKey(target, "git-log", upstream), queryFn: ({ signal }) => Git.log(name, upstream ?? "", namespace, signal), enabled: !!upstream });
-  const detail = useQuery({ queryKey: resourceKey(target, "git-commit", selected), queryFn: ({ signal }) => Git.show(name, selected ?? "", namespace, signal), enabled: !!selected });
+  const local = useQuery({ queryKey: resourceKey(target, "git-log", "HEAD"), queryFn: ({ signal }) => Git.log(target, "HEAD", signal) });
+  const remote = useQuery({ queryKey: resourceKey(target, "git-log", upstream), queryFn: ({ signal }) => Git.log(target, upstream ?? "", signal), enabled: !!upstream });
+  const detail = useQuery({ queryKey: resourceKey(target, "git-commit", selected), queryFn: ({ signal }) => Git.show(target, selected ?? "", signal), enabled: !!selected });
   const notPushed = (local.data?.commits ?? []).filter((commit) => !commit.pushed);
   const published = upstream ? remote.data?.commits ?? [] : (local.data?.commits ?? []).filter((commit) => commit.pushed);
   const shown = detail.data;
@@ -358,13 +374,13 @@ function HistoryView({ repository, target, upstream, behind, busy, run, canWrite
         {notPushed.length > 0 && (
           <section className="space-y-1">
             <ListHeader title={intl.formatMessage(M.not_pushed, { count: notPushed.length })}>
-              <LinkButton isDisabled={!canWrite || busy} onPress={() => run(() => Git.undo(name, namespace))}><Undo2 className="h-3 w-3" />{intl.formatMessage(M.undo)}</LinkButton>
+              <LinkButton isDisabled={!canWrite || busy} onPress={() => run(() => Git.undo(target))}><Undo2 className="h-3 w-3" />{intl.formatMessage(M.undo)}</LinkButton>
             </ListHeader>
             {list(notPushed)}
           </section>
         )}
         <section className="space-y-1">
-          <ListHeader title={upstream ?? repository.branch}>
+          <ListHeader title={upstream ?? branch ?? ""}>
             {behind > 0 && <span className="text-xs text-accent">{intl.formatMessage(M.to_pull, { count: behind })}</span>}
           </ListHeader>
           {list(published)}
@@ -381,7 +397,7 @@ function HistoryView({ repository, target, upstream, behind, busy, run, canWrite
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 {shown && <span className="text-xs text-muted">{intl.formatMessage(M.commit_meta, { author: author(intl, shown.commit), when: formatRelative(shown.commit.time, intl), count: files })}</span>}
                 <Button variant="secondary" size="sm" onPress={() => void navigator.clipboard.writeText(selected)}><Copy className="h-4 w-4" />{intl.formatMessage(M.copy_sha)}</Button>
-                <Button variant="danger" size="sm" isDisabled={!canWrite || busy} onPress={() => run(() => Git.revert(name, selected, namespace))}><RotateCcw className="h-4 w-4" />{intl.formatMessage(M.revert)}</Button>
+                <Button variant="danger" size="sm" isDisabled={!canWrite || busy} onPress={() => run(() => Git.revert(target, selected))}><RotateCcw className="h-4 w-4" />{intl.formatMessage(M.revert)}</Button>
               </div>
             </div>
             <DiffBody text={shown?.diff} error={detail.error} />

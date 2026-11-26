@@ -19,6 +19,7 @@
 - Q: Git engine? → A: The `git` CLI in a separate non-root `gameplane-repo-agent` image (agent binary plus Git); the distroless game agent stays unchanged. Settled.
 - Q: Pull on a diverged branch? → A: Rebase (`git pull --rebase`); a conflict aborts and reports the files. Settled.
 - Q: Who may create repositories? → A: `repositories:create` in the built-in `admin` and `operator` roles; others reach repositories only as owner, collaborator or network member. Settled.
+- Q (2026-11-26): Git on game servers whose data folder is a repository? → A: The same Git tab and API on the server page, not a second interface. The game server's agent runs Git in its data directory once the owner enables Git (`gameplane.local/git`), which switches the sidecar and files pod to the repo-agent image; the distroless agent stays the default. Push needs `servers:push`. SSH GitHub remotes are used over HTTPS with the user's token without rewriting `.git/config`. No Figma step: the tab reuses the approved Git tab frames. Settled.
 - Design: built in Figma through figma-mcp-go and approved by the maintainer on 2026-10-27 (core rule 1). File "Gameplane Dashboard", page "Page 1":
   - Repositories / List / Desktop / Dark (`83:1607`)
   - Repositories / Add repository modal / Desktop / Dark (`83:1846`)

@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Archive,
   ChartColumn,
+  FileCode2,
   FolderOpen,
   History,
   LayoutDashboard,
@@ -39,7 +40,8 @@ import { ServerStatCards } from "@/components/server/ServerStatCards";
 import { CaptureWidget } from "@/components/CaptureWidget";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ResourceTargetProvider, useResourceClient, useResourceTarget, useResourceAccess, resourceCan, resourceKey, type ResourceTarget, type ServerAccessResponse } from "@/lib/resourceTarget";
-import { createRequestClient } from "@/lib/api";
+import { APIError, createRequestClient } from "@/lib/api";
+import { Git } from "@/lib/repositories";
 import { DEFAULT_NAMESPACE } from "@/lib/cluster";
 import { ErrorCard } from "@/components/ui/ErrorCard";
 import { LoadingCard } from "@/components/ui/LoadingCard";
@@ -52,6 +54,7 @@ import { ModpacksTab } from "./tabs/Modpacks";
 import { PlayersTab } from "./tabs/Players";
 import { BackupsTab } from "./tabs/Backups";
 import { SettingsTab } from "./tabs/Settings";
+import { ServerGitTab } from "./tabs/Git";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { conditionMessageText } from "@/lib/i18n/conditionMessage";
 import { defineMessages, type MessageDescriptor } from "react-intl";
@@ -68,7 +71,7 @@ const StatisticsTab = lazy(() =>
 );
 
 type TabKey =
-  | "overview" | "statistics" | "assistant" | "events" | "console" | "logs" | "files" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
+  | "overview" | "statistics" | "assistant" | "events" | "console" | "logs" | "files" | "git" | "mods" | "modpacks" | "players" | "backups" | "capture" | "settings";
 
 const TAB_LABELS = defineMessages({
   overview: { id: "web.routes.server_detail.tab_overview", defaultMessage: "Overview", description: "Server detail: label of the Overview tab" },
@@ -78,6 +81,7 @@ const TAB_LABELS = defineMessages({
   console: { id: "web.routes.server_detail.tab_console", defaultMessage: "Console", description: "Server detail: label of the Console tab" },
   logs: { id: "web.routes.server_detail.tab_logs", defaultMessage: "Logs", description: "Server detail: label of the Logs tab" },
   files: { id: "web.routes.server_detail.tab_files", defaultMessage: "Files", description: "Server detail: label of the Files tab" },
+  git: { id: "web.routes.server_detail.tab_git", defaultMessage: "Git", description: "Server detail: label of the Git tab, shown when the server's data folder is a Git repository" },
   mods: { id: "web.routes.server_detail.tab_mods", defaultMessage: "Mods", description: "Server detail: label of the Mods tab" },
   modpacks: { id: "web.routes.server_detail.tab_modpacks", defaultMessage: "Modpacks", description: "Server detail: label of the Modpacks tab" },
   players: { id: "web.routes.server_detail.tab_players", defaultMessage: "Players", description: "Server detail: label of the Players tab" },
@@ -90,6 +94,7 @@ const tabs: Array<{ key: TabKey; label: MessageDescriptor; icon: LucideIcon }> =
   { key: "overview", label: TAB_LABELS.overview, icon: LayoutDashboard },
   { key: "console",  label: TAB_LABELS.console,  icon: Terminal },
   { key: "files",    label: TAB_LABELS.files,    icon: FolderOpen },
+  { key: "git",      label: TAB_LABELS.git,      icon: FileCode2 },
   { key: "logs",     label: TAB_LABELS.logs,     icon: ScrollText },
   { key: "backups",  label: TAB_LABELS.backups,  icon: Archive },
   { key: "statistics", label: TAB_LABELS.statistics, icon: ChartColumn },
@@ -248,6 +253,17 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
   // widget can show its checking / identity-unavailable (retry) state, with
   // the capture controls still closed.
   const captureTabVisible = !me || resourceCan(access?.permissions ?? [], "captures:manage");
+  const gitEnabling = gs?.metadata.annotations?.["gameplane.local/git"] === "true";
+  const gitProbe = useQuery({
+    queryKey: resourceKey(target, "git-probe"),
+    queryFn: ({ signal }) => Git.status(target, signal),
+    enabled: clusterId === "local",
+    retry: false,
+    refetchInterval: (query) => (gitEnabling && query.state.error ? 5_000 : false),
+  });
+  const gitError = gitProbe.error instanceof APIError ? gitProbe.error.code : undefined;
+  const gitVisible = gitProbe.isSuccess || gitError === "git_unavailable" || (gitEnabling && gitError !== "not_found");
+  const permissions = access?.permissions ?? [];
   const visibleTabs = tabs.filter((t) => {
     if (t.key === "assistant") return assistant.data?.enabled === true;
     if (t.key === "console") return consoleAvailable;
@@ -255,6 +271,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
     if (t.key === "mods") return modsAvailable;
     if (t.key === "modpacks") return modpacksAvailable;
     if (t.key === "capture") return captureTabVisible;
+    if (t.key === "git") return gitVisible;
     if (t.key === "backups") return !gs?.spec.storage?.ephemeral;
     return true;
   });
@@ -441,6 +458,16 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             )
           )}
           {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} ephemeral={gs?.spec.storage?.ephemeral} />}
+          {activeTab === "git" && (
+            <ServerGitTab
+              target={target}
+              unavailable={!gitProbe.isSuccess}
+              enabling={gitEnabling}
+              canWrite={!!access?.canWrite}
+              canPush={!!access?.isOwner || !!access?.isCollaborator || resourceCan(permissions, "servers:push")}
+              canEnable={!!access?.isOwner || resourceCan(permissions, "*")}
+            />
+          )}
           {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
           {activeTab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
           {activeTab === "players"  && <PlayersTab name={name} ns={ns} tmpl={tmpl} />}

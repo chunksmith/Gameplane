@@ -131,6 +131,12 @@ var repositoryEntries = []Entry{
 		Status:      http.StatusNotFound,
 	},
 	{
+		ID:          "server.repositories.git_unavailable",
+		English:     "Git is not enabled for this server yet.",
+		Description: "Server Git error when the server's data directory is a Git repository but its agent runs without Git; the owner enables Git on the server's Git tab.",
+		Status:      http.StatusConflict,
+	},
+	{
 		ID:          "server.repositories.internal",
 		English:     "The repository agent hit an internal error.",
 		Description: "Git error for an unexpected failure in the repository agent.",

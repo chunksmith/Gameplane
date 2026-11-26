@@ -704,6 +704,28 @@ describe("ServerDetailPage failure states", () => {
   });
 });
 
+describe("ServerDetailPage git tab", () => {
+  it("stays hidden when the data folder is not a Git repository", async () => {
+    server.use(http.get("/servers/alpha", () => HttpResponse.json(makeServer())));
+    renderWithQuery(<ServerDetailPage />);
+    await screen.findByRole("tab", { name: "Files" });
+    expect(screen.queryByRole("tab", { name: "Git" })).not.toBeInTheDocument();
+  });
+
+  it("offers enabling Git only to the owner when the agent has no Git", async () => {
+    server.use(
+      http.get("/servers/alpha", () => HttpResponse.json(makeServer())),
+      http.get("/servers/:name/git/status", () =>
+        HttpResponse.json({ status: 409, code: "git_unavailable", messageId: "server.repositories.git_unavailable" }, { status: 409, headers: { "Content-Type": "application/problem+json" } }),
+      ),
+    );
+    renderWithQuery(<ServerDetailPage />);
+    await userEvent.click(await screen.findByRole("tab", { name: "Git" }));
+    expect(await screen.findByText("Only the server's owner or an admin can enable Git.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enable Git" })).not.toBeInTheDocument();
+  });
+});
+
 describe("ServerDetailPage capture tab", () => {
   it("renders the Capture tab between Players and Settings", async () => {
     server.use(http.get("/servers/alpha", () => HttpResponse.json(makeServer())));

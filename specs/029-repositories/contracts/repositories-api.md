@@ -84,6 +84,14 @@ Agent-only (not proxied; the API calls them): `POST /git/clone {url, branch?, wi
 
 Busy repository (another Git command running): `409 repositories.busy`.
 
+## Server Git
+
+`/servers/{name}/git/*` carries the Git routes above, except clone, unchanged, for a GameServer whose data directory holds `.git` (home cluster only). Reads need `servers:read`, the rest `servers:write`; `push` and `commit` with `push: true` need `servers:push`. Token and author headers follow the same rules. A data directory without `.git` answers `404 repositories.not_found`; an agent image without Git answers `409 repositories.git_unavailable`.
+
+| Method | Path | Permission | Body |
+|---|---|---|---|
+| PUT | `/servers/{name}:git` | owner or admin | `{enabled: boolean}` → 204; sets or clears `gameplane.local/git: "true"`, which runs the server's agent sidecar and files pod from the repo-agent image (one pod restart) |
+
 ## GitHub token
 
 | Method | Path | Response |

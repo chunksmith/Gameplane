@@ -199,7 +199,7 @@ func main() {
 	// and isn't meant to be trusted with the console/files/RCON routes that
 	// cert would also unlock.
 
-	gitRoutes := git.Routes(dataRoot)
+	gitRoutes := git.Routes(dataRoot, mode == modeRepository)
 	mountProtected := func(protected chi.Router) {
 		if mode == modeRepository {
 			files.MountRepository(protected, dataRoot)
@@ -215,6 +215,7 @@ func main() {
 		// them force-closes the socket / aborts the download every time the
 		// deadline elapses, regardless of whether the stream is still healthy.
 		logs.Mount(protected, dataRoot, gameLogPath)
+		gitRoutes(protected)
 		console.Mount(protected, rconClient)
 		mods.Mount(protected, dataRoot, modsSpec)
 		files.Mount(protected, dataRoot, filesFromContainer)

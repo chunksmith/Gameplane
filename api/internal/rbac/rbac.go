@@ -138,7 +138,7 @@ func Middleware(fetch ServerFetcher) func(http.Handler) http.Handler {
 				}
 				// Try owner/collaborator fallback for namespaced server permissions.
 				if Namespaced(r.perm) && fetch != nil &&
-					(r.perm == "servers:read" || r.perm == "servers:write" || r.perm == "servers:console") {
+					(r.perm == "servers:read" || r.perm == "servers:write" || r.perm == "servers:console" || r.perm == "servers:push") {
 					name, verb, isExact, ok := parseServerPath(req.URL.Path)
 					if ok {
 						// Generic server mutations on the exact server object (e.g. PUT /servers/{name})
@@ -287,6 +287,7 @@ var rules = []rule{
 	{method: "GET", segment: "servers", suffix: ":capture-file", perm: "captures:manage"},
 	{method: "GET", segment: "servers", suffix: ":capture", perm: "captures:manage"},
 	{method: "DELETE", segment: "servers", suffix: ":capture", perm: "captures:manage"},
+	{method: "POST", segment: "servers", suffix: "/git/push", perm: "servers:push"},
 
 	// Namespaced game resources. Reads vs writes; the catch-all GET below
 	// never fires for these because the explicit read rule matches first.

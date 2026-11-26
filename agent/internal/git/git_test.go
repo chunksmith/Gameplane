@@ -623,3 +623,40 @@ func TestAskpassOverHTTP(t *testing.T) {
 		t.Fatalf("token leaked: %s", data)
 	}
 }
+
+func TestServerWorkingCopy(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	h := newHandler(dir, "", checkGitHub)
+	h.serveClone = false
+	r := chi.NewRouter()
+	h.mount(r)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+	f := &fixture{t: t, url: srv.URL, dir: dir, h: h}
+	f.expectCode(http.MethodGet, "/git/status", nil, nil, http.StatusNotFound, "not_found")
+	if code, _ := f.do(http.MethodPost, "/git/clone", map[string]any{"url": "https://github.com/octo/repo", "wipe": true}, token()); code == http.StatusAccepted {
+		t.Fatal("server working copy accepted a clone")
+	}
+	gitCmd(t, dir, "init", "-q")
+	gitCmd(t, dir, "remote", "add", "origin", "git@github.com:octo/repo.git")
+	f.status()
+	remote, err := (&call{h: h, ctx: t.Context()}).output("remote", "get-url", "origin")
+	if err != nil || strings.TrimSpace(remote) != "https://github.com/octo/repo.git" {
+		t.Fatalf("ssh remote not rewritten: %q %v", remote, err)
+	}
+	if got := strings.TrimSpace(gitCmd(t, dir, "config", "--get", "remote.origin.url")); got != "git@github.com:octo/repo.git" {
+		t.Fatalf("remote config changed: %q", got)
+	}
+	h.checkRemote = func(_ context.Context, remote string) error {
+		if remote != "https://github.com/octo/repo.git" {
+			return errRemote
+		}
+		return nil
+	}
+	gitCmd(t, dir, "remote", "set-url", "--push", "origin", "https://evil.example/octo/repo.git")
+	f.expectCode(http.MethodPost, "/git/push", map[string]any{}, token(), http.StatusBadRequest, "remote_not_allowed")
+}

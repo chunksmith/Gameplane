@@ -77,6 +77,8 @@ var (
 	errTokenRequired = fail(http.StatusPreconditionRequired, "github_token_required", "a GitHub token is required")
 	errRemote        = fail(http.StatusBadRequest, "remote_not_allowed", "remote must be an HTTPS github.com repository")
 	errGitDir        = fail(http.StatusForbidden, "git_dir", "the .git directory is not accessible")
+	errNoRepository  = fail(http.StatusNotFound, "not_found", "the working copy is not a Git repository")
+	errUnavailable   = fail(http.StatusConflict, "git_unavailable", "git is not installed in this agent")
 )
 
 func badRequest(message string) *gitError {
@@ -87,6 +89,7 @@ type handler struct {
 	dir         string
 	askpass     string
 	checkRemote func(context.Context, string) error
+	serveClone  bool
 	mu          sync.Mutex
 	cloneMu     sync.Mutex
 	clone       cloneState
@@ -104,16 +107,18 @@ func checkGitHub(ctx context.Context, remote string) error {
 
 // Routes returns a mounter for the /git routes of the working copy at dir; every
 // router it is applied to shares one repository lock.
-func Routes(dir string) func(chi.Router) {
+func Routes(dir string, clone bool) func(chi.Router) {
 	self, err := os.Executable()
 	if err != nil {
 		slog.Warn("git askpass unavailable", "err", err)
 	}
-	return newHandler(dir, self, checkGitHub).mount
+	h := newHandler(dir, self, checkGitHub)
+	h.serveClone = clone
+	return h.mount
 }
 
 func newHandler(dir, askpass string, checkRemote func(context.Context, string) error) *handler {
-	return &handler{dir: filepath.Clean(dir), askpass: askpass, checkRemote: checkRemote, clone: cloneState{State: "idle"}}
+	return &handler{dir: filepath.Clean(dir), askpass: askpass, checkRemote: checkRemote, serveClone: true, clone: cloneState{State: "idle"}}
 }
 
 func (h *handler) mount(r chi.Router) {
@@ -123,7 +128,6 @@ func (h *handler) mount(r chi.Router) {
 		r.Get("/log", h.reader(h.log))
 		r.Get("/commits/{sha}", h.reader(h.show))
 		r.Get("/branches", h.reader(h.branches))
-		r.Get("/clone", h.cloneStatus)
 		r.Post("/stage", h.writer(h.stage))
 		r.Post("/unstage", h.writer(h.unstage))
 		r.Post("/discard", h.writer(h.discard))
@@ -135,8 +139,21 @@ func (h *handler) mount(r chi.Router) {
 		r.Post("/fetch", h.writer(h.fetch))
 		r.Post("/pull", h.writer(h.pull))
 		r.Post("/push", h.writer(h.push))
-		r.Post("/clone", h.startClone)
+		if h.serveClone {
+			r.Get("/clone", h.cloneStatus)
+			r.Post("/clone", h.startClone)
+		}
 	})
+}
+
+func (h *handler) available() *gitError {
+	if _, err := os.Lstat(filepath.Join(h.dir, ".git")); err != nil {
+		return errNoRepository
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		return errUnavailable
+	}
+	return nil
 }
 
 type call struct {
@@ -158,6 +175,10 @@ func (h *handler) newCall(req *http.Request, readOnly bool) (*call, context.Canc
 
 func (h *handler) reader(op func(*call) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		if err := h.available(); err != nil {
+			writeError(w, err)
+			return
+		}
 		c, cancel := h.newCall(req, true)
 		defer cancel()
 		c.respond(w, op)
@@ -166,6 +187,10 @@ func (h *handler) reader(op func(*call) (any, error)) http.HandlerFunc {
 
 func (h *handler) writer(op func(*call) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		if err := h.available(); err != nil {
+			writeError(w, err)
+			return
+		}
 		if !h.mu.TryLock() {
 			writeError(w, errBusy)
 			return
@@ -231,15 +256,29 @@ func (c *call) requireNetwork() error {
 	if c.token == "" {
 		return errTokenRequired
 	}
-	remote, err := c.output("remote", "get-url", "origin")
-	if err != nil {
-		return err
+	for _, push := range []bool{false, true} {
+		args := []string{"remote", "get-url", "--all", "origin"}
+		if push {
+			args = append(args, "--push")
+		}
+		remotes, err := c.output(args...)
+		if err != nil {
+			return err
+		}
+		for _, remote := range strings.Fields(remotes) {
+			if err := c.h.checkRemote(c.ctx, remote); err != nil {
+				return err
+			}
+		}
 	}
-	return c.h.checkRemote(c.ctx, strings.TrimSpace(remote))
+	return nil
 }
 
 func (c *call) run(network bool, stdin io.Reader, stdout io.Writer, args ...string) error {
-	full := append([]string{"-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null", "-c", "credential.helper="}, args...)
+	full := append([]string{
+		"-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null", "-c", "credential.helper=", "-c", "core.fsmonitor=false",
+		"-c", "url.https://github.com/.insteadOf=git@github.com:", "-c", "url.https://github.com/.insteadOf=ssh://git@github.com/",
+	}, args...)
 	cmd := exec.CommandContext(c.ctx, "git", full...)
 	cmd.Dir = c.h.dir
 	cmd.Env = []string{

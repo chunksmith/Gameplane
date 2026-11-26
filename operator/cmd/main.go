@@ -405,6 +405,7 @@ func main() {
 		APIReader:              mgr.GetAPIReader(),
 		Scheme:                 mgr.GetScheme(),
 		AgentImage:             agentImage,
+		GitAgentImage:          repoAgentImage,
 		AgentImagePullPolicy:   agentImagePullPolicy,
 		ImagePullSecrets:       pullSecretRefs(imagePullSecrets),
 		ConfigInitImage:        configInitImage,

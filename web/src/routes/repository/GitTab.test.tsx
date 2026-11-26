@@ -13,7 +13,7 @@ const target: ResourceTarget = { cluster: "local", namespace: repository.namespa
 const full = ["repositories:read", "repositories:write", "repositories:push", "repositories:manage"];
 
 function renderTab(permissions: string[] = full) {
-  return renderWithQuery(<GitTab repository={repository} target={target} permissions={permissions} />);
+  return renderWithQuery(<GitTab target={target} canWrite={permissions.includes("repositories:write")} canPush={permissions.includes("repositories:push")} branch={repository.branch} />);
 }
 
 function problem(status: number, body: Record<string, unknown>) {

@@ -417,7 +417,9 @@ func main() {
 		handlers.MountAISecret(p, k8s, cfg.namespace)
 		githubTokens := handlers.NewGitHubTokens(k8s, cfg.namespace)
 		handlers.MountGitHubIntegration(p, githubTokens)
-		handlers.MountRepositories(p, reg, store, ws.NewRepoAgent(cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, githubTokens.Credentials), githubTokens)
+		repoAgent := ws.NewRepoAgent(cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, githubTokens.Credentials)
+		handlers.MountRepositories(p, reg, store, repoAgent, githubTokens)
+		repoAgent.MountServers(p, reg)
 		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.NewAILinearKeys(k8s, cfg.namespace))
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over
