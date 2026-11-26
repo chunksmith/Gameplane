@@ -632,7 +632,7 @@ function serverRowData(intl: ReturnType<typeof useOptionalIntl>, gs: GameServer)
     : emptyValue;
 
   const memLabel = usageLabel(agent?.memoryBytes, agent?.memoryLimitBytes);
-  const diskLabel = usageLabel(agent?.diskUsedBytes, agent?.diskTotalBytes);
+  const diskLabel = usageLabel(agent?.diskUsedBytes);
   const uptimeLabel = phase === "Running" ? formatUptime(gs.status?.startedAt, intl) : emptyValue;
 
   const playersLabel =

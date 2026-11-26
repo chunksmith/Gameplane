@@ -11,7 +11,7 @@ import { LoadingCard } from "@/components/ui/LoadingCard";
 import { Statistics } from "@/lib/endpoints";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
 import { STATISTICS_SETUP_URL } from "@/lib/links";
-import { DEFAULT_RANGE, formatByteSize, formatRate, formatTick, percent, seriesPeak } from "@/lib/statistics";
+import { DEFAULT_RANGE, formatByteSize, formatRate, formatTick, seriesPeak } from "@/lib/statistics";
 import { cn, formatBytes } from "@/lib/utils";
 import { mbps, messages as overview } from "@/routes/Statistics";
 import type { ServerStatistics, StatisticsRange, StatisticsWarning } from "@/types";
@@ -392,15 +392,11 @@ function StorageCard({ disk, health, node, range }: { disk: ServerStatistics["di
   const intl = useOptionalIntl();
   const format = useFormat();
   const empty = intl.formatMessage(TEXT.empty_value);
-  const diskPercent = disk.total === null ? null : percent(disk.used, disk.total);
   const megabytesPerSecond = (value: number | null) => (value === null ? empty : format.number(value / MEGABYTE, { maximumFractionDigits: 1 }));
   const count = (value: number | null) => (value === null ? empty : format.number(value));
   const growthMessage: MessageDescriptor = disk.growth !== null && disk.growth < 0 ? TEXT.growth_loss : TEXT.growth_gain;
   const growth = disk.growth === null ? empty : intl.formatMessage(growthMessage, { size: formatByteSize(Math.abs(disk.growth)) });
-  const usage = diskPercent === null || disk.used === null || disk.total === null
-    ? empty
-    : intl.formatMessage({ id: "web.routes.tabs.statistics.disk_usage", defaultMessage: "{percent}% · {used} of {total}", description: "Server statistics tab: data volume usage as a percentage and in bytes; {percent} is a whole number, {used} and {total} are formatted sizes" }, { percent: format.number(Math.round(diskPercent)), used: formatBytes(disk.used), total: formatBytes(disk.total) });
-  const fillWidth = diskPercent === null ? 0 : Math.min(100, diskPercent);
+  const usage = disk.used === null ? empty : formatBytes(disk.used);
   const throttled = health.throttledPercent === null
     ? empty
     : intl.formatMessage({ id: "web.routes.tabs.statistics.percent_value", defaultMessage: "{value}%", description: "Server statistics tab: a percentage value in a storage and health box; {value} is the number" }, { value: format.number(health.throttledPercent, { maximumFractionDigits: 1 }) });
@@ -409,9 +405,6 @@ function StorageCard({ disk, health, node, range }: { disk: ServerStatistics["di
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-mono text-sm font-semibold text-foreground">{DATA_MOUNT}</span>
         <span className="font-mono text-xs text-muted">{usage}</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-border/40">
-        <div className={cn("h-full rounded-full", diskPercent !== null && diskPercent >= 80 ? "bg-warning" : "bg-success")} style={{ width: `${fillWidth}%` }} />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <MiniStat

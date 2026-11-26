@@ -439,7 +439,9 @@ func (r *Reader) readDisk(s *Sample) {
 	}
 	s.DiskUsedBytes = int64(used)
 	s.DiskKnown = true
-	if r.cfg.DiskLimitBytes > 0 && s.DiskTotalBytes > r.cfg.DiskLimitBytes {
+	if r.cfg.DiskLimitBytes == 0 {
+		s.DiskUsedBytes, s.DiskKnown = r.dataDirSize()
+	} else if s.DiskTotalBytes > r.cfg.DiskLimitBytes {
 		size, ok := r.dataDirSize()
 		s.DiskTotalBytes, s.DiskUsedBytes, s.DiskKnown = r.cfg.DiskLimitBytes, size, ok
 	}

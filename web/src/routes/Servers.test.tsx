@@ -139,7 +139,7 @@ describe("ServersPage", () => {
         HttpResponse.json({
           items: [
             // Telemetry lives under status.agent (cgroup + statfs); CPU is a
-            // percent of the limit, memory and disk are used / max.
+            // percent of the limit, memory is used / max, disk is used only.
             makeServer({
               metadata: { name: "metrics-on", namespace: "gameplane-games" },
               status: {
@@ -162,7 +162,8 @@ describe("ServersPage", () => {
     await screen.findByText("metrics-on");
     expect(screen.getByText("25%")).toBeInTheDocument();
     expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
-    expect(screen.getByText("1.0 GB / 10 GB")).toBeInTheDocument();
+    expect(screen.getByText("1.0 GB")).toBeInTheDocument();
+    expect(screen.queryByText("1.0 GB / 10 GB")).not.toBeInTheDocument();
   });
 
   it("shows CPU as percent of one core when there is no limit", async () => {

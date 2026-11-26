@@ -13683,10 +13683,6 @@
     "defaultMessage": "{read} / {write} MB/s",
     "description": "Server statistics tab: data volume read and write rates in megabytes per second; {read} and {write} are numbers"
   },
-  "web.routes.tabs.statistics.disk_usage": {
-    "defaultMessage": "{percent}% · {used} of {total}",
-    "description": "Server statistics tab: data volume usage as a percentage and in bytes; {percent} is a whole number, {used} and {total} are formatted sizes"
-  },
   "web.routes.tabs.statistics.gigabytes": {
     "defaultMessage": "{value} GB",
     "description": "Server statistics tab: memory chart axis label; {value} is a number of gigabytes"

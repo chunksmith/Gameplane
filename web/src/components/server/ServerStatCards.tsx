@@ -33,11 +33,7 @@ export function ServerStatCards({ gs, vertical = false }: { gs?: GameServer; ver
     typeof agent?.memoryLimitBytes === "number" ? (agent?.memoryLimitBytes as number) : 0;
   const memPct = memKnown && memLimit ? (memUsed / memLimit) * 100 : 0;
 
-  const diskKnown =
-    typeof agent?.diskUsedBytes === "number" && typeof agent?.diskTotalBytes === "number";
-  const diskUsed = diskKnown ? (agent?.diskUsedBytes as number) : 0;
-  const diskTotal = diskKnown ? (agent?.diskTotalBytes as number) : 0;
-  const diskPct = diskKnown && diskTotal ? (diskUsed / diskTotal) * 100 : 0;
+  const diskUsed = typeof agent?.diskUsedBytes === "number" ? agent.diskUsedBytes : undefined;
 
   const netRateKnown =
     typeof agent?.networkRxBytesPerSec === "number" && typeof agent?.networkTxBytesPerSec === "number";
@@ -81,12 +77,8 @@ export function ServerStatCards({ gs, vertical = false }: { gs?: GameServer; ver
       <ResourceCard
         label={intl.formatMessage(TEXT.disk)}
         icon={<HardDrive className="h-3.5 w-3.5" />}
-        value={diskKnown ? (diskTotal ? `${diskPct.toFixed(0)}%` : formatBytes(diskUsed)) : empty}
-        sub={
-          diskKnown ? intl.formatMessage({ id: "web.components.server.server_stat_cards.used_of_total", defaultMessage: "{used} / {total}", description: "Server stat cards: memory or disk usage against its limit; {used} is the amount in use, {total} the limit" }, { used: formatBytes(diskUsed), total: diskTotal ? formatBytes(diskTotal) : empty }) : undefined
-        }
-        progress={diskKnown && diskTotal ? diskPct : undefined}
-        trend={diskKnown && diskTotal ? diskPct : undefined}
+        value={diskUsed === undefined ? empty : formatBytes(diskUsed)}
+        trend={diskUsed}
         accent="success"
       />
       <ResourceCard

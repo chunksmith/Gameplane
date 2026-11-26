@@ -63,6 +63,12 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Changed
 
+- **Server disk shows usage only:** the server list, server stat cards and the
+  server Statistics tab show the data volume's used bytes without the volume
+  size, percentage or fill bar. `status.agent.diskTotalBytes` stays in the API.
+  Node disks (used and capacity) stay on the Dashboard and Statistics pages.
+  Ephemeral data volumes report the data directory's size instead of the
+  node filesystem's usage.
 - **Backups no longer pause world saves by default:** `quiesce` now defaults
   to `false` on Backups and BackupSchedules, schedules materialized from a
   GameServer backup policy and the group schedule dialog always send `false`,

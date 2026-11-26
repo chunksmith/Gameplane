@@ -123,8 +123,9 @@ func TestRead_MemoryMaxUnlimited(t *testing.T) {
 
 func TestRead_Disk(t *testing.T) {
 	r := New(Config{
-		Root:    t.TempDir(),
-		DataDir: "/data",
+		Root:           t.TempDir(),
+		DataDir:        "/data",
+		DiskLimitBytes: 4096 * 1000,
 		statfs: func(path string, st *unix.Statfs_t) error {
 			if path != "/data" {
 				t.Fatalf("statfs path = %q", path)
@@ -446,6 +447,15 @@ func TestRead_DiskLimitWalksSharedFilesystem(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "region"), "r.0.0.mca", "123")
 	s := New(Config{Root: t.TempDir(), DataDir: dir, DiskLimitBytes: 1 << 20, statfs: sharedStatfs}).Read()
 	if !s.DiskKnown || s.DiskTotalBytes != 1<<20 || s.DiskUsedBytes != 8 {
+		t.Fatalf("disk = %+v", s)
+	}
+}
+
+func TestRead_NoDiskLimitWalksEphemeralVolume(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "latest.log", "1234567")
+	s := New(Config{Root: t.TempDir(), DataDir: dir, statfs: sharedStatfs}).Read()
+	if !s.DiskKnown || s.DiskTotalBytes != 4096<<20 || s.DiskUsedBytes != 7 {
 		t.Fatalf("disk = %+v", s)
 	}
 }

@@ -29,8 +29,9 @@ describe("ServerStatCards", () => {
     expect(screen.getByText("50% / 200%")).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.getByText("512 MB / 1.0 GB")).toBeInTheDocument();
-    expect(screen.getByText("20%")).toBeInTheDocument();
-    expect(screen.getByText("2.0 GB / 10 GB")).toBeInTheDocument();
+    expect(screen.getByText("2.0 GB")).toBeInTheDocument();
+    expect(screen.queryByText("20%")).not.toBeInTheDocument();
+    expect(screen.queryByText("2.0 GB / 10 GB")).not.toBeInTheDocument();
     expect(screen.getByText("Network")).toBeInTheDocument();
     expect(screen.getByText("3.0 KB/s")).toBeInTheDocument();
     expect(screen.getByText("In 1.0 KB/s · Out 2.0 KB/s")).toBeInTheDocument();
@@ -59,6 +60,6 @@ describe("ServerStatCards", () => {
     expect(screen.getByText("512 MB")).toBeInTheDocument();
     expect(screen.getByText("512 MB / —")).toBeInTheDocument();
     expect(screen.getByText("1.0 GB")).toBeInTheDocument();
-    expect(screen.getByText("1.0 GB / —")).toBeInTheDocument();
+    expect(screen.queryByText("1.0 GB / —")).not.toBeInTheDocument();
   });
 });

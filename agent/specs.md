@@ -99,7 +99,7 @@ Per-package roles:
 - **`quiesce`**: Runs module-declared sequences (e.g., Minecraft's `save-off` + `save-all flush`) over RCON; responds `quiesced: false` + reason when unsupported (not an error).
 - **`rcon`**: Factory pattern for wire-protocol clients (`Valve/Source`, `Telnet`, `WebSocket`, `BattlEye`, `Satisfactory`, `Palworld`, `NuclearOption`, `REST`, `CLI`, `Disabled`); `Exec(cmd) (string, error)` interface. RCON reply packets are accepted up to 16394 bytes (a 4096-character Minecraft chunk at its worst-case UTF-8 byte length, plus the 10-byte packet header) and rejected as malformed outside `[10, 16394]` (F-104).
 - **`status`**: Runs module-declared metrics queries over RCON; each metric specifies a command and a regex with named group `"value"` for extraction.
-- **`usage`**: Reads CPU/memory from `/proc` (proc mode, default) or cgroup v2; disk via `statfs`, or a data-directory walk (cached for a minute) capped at `GAMEPLANE_DISK_LIMIT_BYTES` when the filesystem is larger than the PVC; exposes `Sample` with `Known` flags so callers distinguish "unknown" from "zero".
+- **`usage`**: Reads CPU/memory from `/proc` (proc mode, default) or cgroup v2; disk via `statfs`, or a data-directory walk (cached for a minute) capped at `GAMEPLANE_DISK_LIMIT_BYTES` when the filesystem is larger than the PVC, and used without a cap when no limit is set (ephemeral data volume on the node disk, where statfs would report the whole node); exposes `Sample` with `Known` flags so callers distinguish "unknown" from "zero".
 
 ## External interface / contracts
 
