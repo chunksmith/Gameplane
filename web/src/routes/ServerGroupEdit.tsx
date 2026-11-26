@@ -9,10 +9,12 @@ import { ErrorCard } from "@/components/ui/ErrorCard";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { RequestLimitCard, resourcesValid } from "@/components/ui/RequestLimitCard";
 import { ConfigFields } from "@/components/server/ConfigFields";
+import { GitSourceFields } from "@/components/server/GitSourceFields";
 import { createResourceClient, type ResourceClient } from "@/lib/endpoints";
 import { DEFAULT_NAMESPACE } from "@/lib/cluster";
 import { targetLabel } from "@/lib/fleet";
 import { validateConfig } from "@/lib/validation";
+import { emptyGitSource, gitSourceOf, validGitUrl, withGitSource, type GitSource } from "@/lib/gitSource";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { moduleIds, useModuleText } from "@/lib/i18n/moduleText";
 import { ANY_NODE, nodeCaps, pinReplica, replicaOrdinals, replicaPlacement } from "@/routes/CreateServer";
@@ -31,9 +33,12 @@ interface Draft {
   image: string;
   resources: ResourceRequirements;
   config: Record<string, string>;
+  gitEnabled: boolean;
+  git: GitSource;
 }
 
 function draftFrom(set: GameServerSet): Draft {
+  const git = gitSourceOf(set.spec.template.initContainers);
   const pins: string[] = [];
   for (const { ordinal, node } of set.spec.placement ?? []) pins[ordinal] = node;
   return {
@@ -46,6 +51,8 @@ function draftFrom(set: GameServerSet): Draft {
     image: set.spec.template.image ?? "",
     resources: set.spec.template.resources ?? {},
     config: set.spec.template.config ?? {},
+    gitEnabled: !!git,
+    git: git ?? emptyGitSource,
   };
 }
 
@@ -71,6 +78,7 @@ function applyDraft(set: GameServerSet, draft: Draft): GameServerSet {
         image: draft.image.trim() || undefined,
         resources: draft.resources,
         config: draft.config,
+        initContainers: withGitSource(set.spec.template.initContainers, draft.gitEnabled ? draft.git : undefined),
       },
     },
   };
@@ -152,6 +160,8 @@ function GroupForm({ set, template, client, cluster, namespace, back }: {
     invalid = intl.formatMessage({ id: "web.routes.server_group_edit.validation_limit_below_request", defaultMessage: "A limit can't be lower than its request", description: "Server group edit: validation message when a CPU or memory limit is lower than its request" });
   else if (configErrors.length > 0)
     invalid = configErrors[0].message;
+  else if (draft.gitEnabled && !validGitUrl(draft.git.url))
+    invalid = intl.formatMessage({ id: "web.routes.server_group_edit.validation_git_url", defaultMessage: "Enter a Git repository URL (https:// or SSH)", description: "Server group edit: validation message when the Git repository option is on but its URL is not an https or SSH Git URL" });
 
   const anyNode = intl.formatMessage({ id: "web.routes.server_group_edit.any_node", defaultMessage: "Any node", description: "Server group edit: replica node choice that lets the scheduler pick the node" });
   const nodesUnavailable = intl.formatMessage({ id: "web.routes.server_group_edit.node_list_unavailable", defaultMessage: "Node list unavailable. The scheduler places the replicas.", description: "Server group edit: hint shown instead of the node list when the nodes cannot be listed" });
@@ -260,6 +270,7 @@ function GroupForm({ set, template, client, cluster, namespace, back }: {
           <Input id="image" value={draft.image} onChange={(event) => patch({ image: event.target.value })} placeholder={template.spec.image} />
           <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.server_group_edit.image_hint", defaultMessage: "Overrides the template image. Requires admin.", description: "Server group edit: hint under the image field explaining it overrides the template image and needs the admin role" })}</span>
         </div>
+        <GitSourceFields enabled={draft.gitEnabled} source={draft.git} onToggle={(gitEnabled) => patch({ gitEnabled })} onChange={(git) => patch({ git })} />
         <RequestLimitCard kind="cpu" resources={draft.resources} onChange={(resources) => patch({ resources })} max={maxCpu > 0 ? maxCpu : undefined} />
         <RequestLimitCard kind="memory" resources={draft.resources} onChange={(resources) => patch({ resources })} max={maxMemGi > 0 ? maxMemGi : undefined} />
         <span className="block text-[11px] text-muted">

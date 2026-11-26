@@ -2703,6 +2703,46 @@
     "defaultMessage": "Unavailable.",
     "description": "Fleet scope: warning shown when a cluster cannot be queried"
   },
+  "web.components.git_source.enable": {
+    "defaultMessage": "Clone server files from a Git repository",
+    "description": "Git source fields: checkbox label that clones the server files from a Git repository into the data volume before every start"
+  },
+  "web.components.git_source.hint": {
+    "defaultMessage": "Checked out onto the data volume before every start; an unchanged commit is not downloaded again. The Secret holds a token for HTTPS or a deploy key for SSH. Requires admin.",
+    "description": "Git source fields: hint under the Git fields explaining when the repository is cloned, that an unchanged commit is reused, what the Secret holds and that admin is required"
+  },
+  "web.components.git_source.ref": {
+    "defaultMessage": "Branch or tag (optional)",
+    "description": "Git source fields: field label for the branch, tag or commit to clone; empty uses the default branch"
+  },
+  "web.components.git_source.ref_placeholder": {
+    "defaultMessage": "main",
+    "description": "Git source fields: example branch name shown inside the empty branch field; a sample value, keep it as written"
+  },
+  "web.components.git_source.secret": {
+    "defaultMessage": "Credentials Secret (optional)",
+    "description": "Git source fields: field label for the name of a Kubernetes Secret in the server's namespace holding a token or deploy key"
+  },
+  "web.components.git_source.secret_key": {
+    "defaultMessage": "Secret key",
+    "description": "Git source fields: field label for the key inside the credentials Secret; empty means token"
+  },
+  "web.components.git_source.secret_key_placeholder": {
+    "defaultMessage": "token",
+    "description": "Git source fields: default Secret key shown inside the empty key field; keep it as written"
+  },
+  "web.components.git_source.secret_placeholder": {
+    "defaultMessage": "repo-credentials",
+    "description": "Git source fields: example Secret name shown inside the empty Secret field; a sample value, keep it as written"
+  },
+  "web.components.git_source.url": {
+    "defaultMessage": "Repository URL",
+    "description": "Git source fields: field label for the Git repository URL"
+  },
+  "web.components.git_source.url_placeholder": {
+    "defaultMessage": "https://github.com/org/server.git",
+    "description": "Git source fields: example repository URL shown inside the empty URL field; a sample value, keep it as written"
+  },
   "web.components.module_target.couldn_t_load_installation_capabilities": {
     "defaultMessage": "Couldn't load installation capabilities.",
     "description": "Module target: error card message shown when the installation's capabilities cannot be loaded; the card has a retry button"
@@ -8379,6 +8419,14 @@
     "defaultMessage": "frp server",
     "description": "Create server: review row label for the frp server address"
   },
+  "web.routes.create_server.review_git": {
+    "defaultMessage": "Git repository",
+    "description": "Create server: review row label for the Git repository the server files are cloned from"
+  },
+  "web.routes.create_server.review_git_at_ref": {
+    "defaultMessage": "{url} at {ref}",
+    "description": "Create server: review value for the Git repository; {url} is the repository URL and {ref} the branch or tag"
+  },
   "web.routes.create_server.review_group_of_replicas": {
     "defaultMessage": "Group of {count}",
     "description": "Create server: review value for a server group; {count} is the number of replicas"
@@ -8602,6 +8650,10 @@
   "web.routes.create_server.validation_frp_server_address": {
     "defaultMessage": "frp requires a server address",
     "description": "Create server: validation message shown when frp is selected without a server address"
+  },
+  "web.routes.create_server.validation_git_url": {
+    "defaultMessage": "Enter a Git repository URL (https:// or SSH)",
+    "description": "Create server: validation message shown when the Git repository option is on but its URL is not an https or SSH Git URL"
   },
   "web.routes.create_server.validation_group_name_length": {
     "defaultMessage": "Group name must be at most 40 characters",
@@ -9678,6 +9730,10 @@
   "web.routes.server_group_edit.title": {
     "defaultMessage": "Edit group {name}",
     "description": "Server group edit: page title; {name} is the server group name"
+  },
+  "web.routes.server_group_edit.validation_git_url": {
+    "defaultMessage": "Enter a Git repository URL (https:// or SSH)",
+    "description": "Server group edit: validation message when the Git repository option is on but its URL is not an https or SSH Git URL"
   },
   "web.routes.server_group_edit.validation_limit_below_request": {
     "defaultMessage": "A limit can't be lower than its request",

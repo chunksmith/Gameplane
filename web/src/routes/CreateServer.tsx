@@ -7,6 +7,7 @@ import { GameIcon } from "@/components/ui/GameIcon";
 import { RequestLimitCard, quantityAmount, resourcesValid } from "@/components/ui/RequestLimitCard";
 import { PortOverridesEditor } from "@/components/server/PortOverridesEditor";
 import { ConfigFields } from "@/components/server/ConfigFields";
+import { GitSourceFields } from "@/components/server/GitSourceFields";
 import { assignGameCodesForTemplates } from "@/lib/gameIcon";
 import { useFleetPlacements, type FleetPlacement } from "@/lib/fleet";
 import { serverLink } from "@/lib/resourceTarget";
@@ -15,6 +16,7 @@ import { ErrorCard } from "@/components/ui/ErrorCard";
 import { APIError } from "@/lib/api";
 import { errorTextIntl } from "@/lib/errors";
 import { createResourceClient, type ServerCreate } from "@/lib/endpoints";
+import { emptyGitSource, validGitUrl, withGitSource, type GitSource } from "@/lib/gitSource";
 import {
   defaultVersionId,
   isValidK8sName,
@@ -83,6 +85,8 @@ interface WizardState {
   ephemeral: boolean;
   image: string;
   ordinalStart: string;
+  gitEnabled: boolean;
+  git: GitSource;
 }
 
 const initial: WizardState = {
@@ -104,7 +108,7 @@ const initial: WizardState = {
   addressPool: "",
   requestedAddress: "",
   mode: "single", replicas: "3", nodes: [], pins: [], ephemeral: false, image: "",
-  ordinalStart: "0",
+  ordinalStart: "0", gitEnabled: false, git: emptyGitSource,
 };
 
 export const ANY_NODE = "__any__";
@@ -242,6 +246,7 @@ function buildCreateBody(state: WizardState): ServerCreate {
     },
     resources: state.resources,
     ...(nodeSelector && state.mode === "single" ? { nodeSelector } : {}),
+    ...(state.gitEnabled ? { initContainers: withGitSource(undefined, state.git) } : {}),
   };
 }
 
@@ -286,6 +291,9 @@ function validateStep(
       if (!Number.isInteger(start) || start < 0 || start > 9999) {
         return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_ordinal_start_range", defaultMessage: "First replica number must be a whole number from 0 to 9999", description: "Create server: validation message shown when the first replica number of a server group is not a whole number from 0 to 9999" }) };
       }
+    }
+    if (state.gitEnabled && !validGitUrl(state.git.url)) {
+      return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_git_url", defaultMessage: "Enter a Git repository URL (https:// or SSH)", description: "Create server: validation message shown when the Git repository option is on but its URL is not an https or SSH Git URL" }) };
     }
     if (!state.ephemeral && !isValidQuantity(state.storageSize)) {
       return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_storage_quantity", defaultMessage: "Storage must be a Kubernetes quantity (e.g. 50Gi)", description: "Create server: validation message shown when the storage size is not a valid Kubernetes quantity" }) };
@@ -933,6 +941,13 @@ function Configure({ state, setState, caps, nodeNames, cluster }: { state: Wizar
         <span className="text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.overrides_the_template_image_requires", defaultMessage: "Overrides the template image. Requires admin.", description: "Create server: hint under the image field explaining it overrides the template image and needs the admin role" })}</span>
       </div>
 
+      <GitSourceFields
+        enabled={state.gitEnabled}
+        source={state.git}
+        onToggle={(gitEnabled) => setState({ ...state, gitEnabled })}
+        onChange={(git) => setState({ ...state, git })}
+      />
+
       <div className="space-y-1.5">
         <RequestLimitCard kind="cpu" resources={state.resources} onChange={(resources) => setState({ ...state, resources })} max={maxCpu > 0 ? maxCpu : undefined} />
         {maxCpu > 0 && (
@@ -1368,6 +1383,7 @@ const REVIEW_LABELS: Record<string, MessageDescriptor> = defineMessages({
   nodes: { id: "web.routes.create_server.review_nodes", defaultMessage: "Nodes", description: "Create server: review row label for the nodes a server group runs on" },
   any: { id: "web.routes.create_server.review_any_node", defaultMessage: "Any", description: "Create server: review value for a server group that may run on any node" },
   image: { id: "web.routes.create_server.review_image", defaultMessage: "Image", description: "Create server: review row label for the container image override" },
+  git: { id: "web.routes.create_server.review_git", defaultMessage: "Git repository", description: "Create server: review row label for the Git repository the server files are cloned from" },
   template_default: { id: "web.routes.create_server.review_template_default", defaultMessage: "Template default", description: "Create server: review value for the image when the template image is used" },
   ephemeral: { id: "web.routes.create_server.review_ephemeral", defaultMessage: "Ephemeral", description: "Create server: review value for storage when the server uses ephemeral storage" },
   port_overrides: { id: "web.routes.create_server.review_port_overrides", defaultMessage: "Port overrides", description: "Create server: review row label for the port override names" },
@@ -1406,6 +1422,7 @@ function Review({ state, onEdit, location, cluster }: { state: WizardState; onEd
         [intl.formatMessage(REVIEW_LABELS.deployment), state.mode === "group" ? intl.formatMessage({ id: "web.routes.create_server.review_group_of_replicas", defaultMessage: "Group of {count}", description: "Create server: review value for a server group; {count} is the number of replicas" }, { count: state.replicas }) : intl.formatMessage(DEPLOYMENT_MODE.single)],
         ...(state.mode === "group" ? [[intl.formatMessage(REVIEW_LABELS.nodes), reviewNodes(state, intl)] as [string, string]] : []),
         [intl.formatMessage(REVIEW_LABELS.image), state.image.trim() || intl.formatMessage(REVIEW_LABELS.template_default)],
+        ...(state.gitEnabled ? [[intl.formatMessage(REVIEW_LABELS.git), state.git.ref.trim() ? intl.formatMessage({ id: "web.routes.create_server.review_git_at_ref", defaultMessage: "{url} at {ref}", description: "Create server: review value for the Git repository; {url} is the repository URL and {ref} the branch or tag" }, { url: state.git.url.trim(), ref: state.git.ref.trim() }) : state.git.url.trim()] as [string, string]] : []),
         [intl.formatMessage(REVIEW_LABELS.storage), state.ephemeral ? intl.formatMessage(REVIEW_LABELS.ephemeral) : state.storageSize],
         ...(state.mode === "single" ? [[intl.formatMessage(REVIEW_LABELS.placement), state.nodePlacement] as [string, string]] : []),
       ] as Array<[string, string]>,

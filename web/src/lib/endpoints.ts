@@ -97,6 +97,7 @@ export interface ServerCreate {
   };
   resources?: unknown;
   nodeSelector?: Record<string, string>;
+  initContainers?: Record<string, unknown>[];
 }
 
 function gameServerEnvelope(input: ServerCreate) {

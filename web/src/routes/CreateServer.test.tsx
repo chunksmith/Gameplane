@@ -795,6 +795,32 @@ describe("CreateServerWizard server groups", () => {
     expect(body.spec.placement).toEqual([{ ordinal: 2, node: "node-b" }]);
   });
 
+  it("adds a git source init container when cloning from a repository", async () => {
+    routeFetch();
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByRole("button", { name: "Server group" }));
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "afk" } });
+    fireEvent.click(screen.getByLabelText("Clone server files from a Git repository"));
+    expect(screen.getByRole("button", { name: /Continue to Network/i })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Repository URL"), { target: { value: "https://github.com/org/afk.git" } });
+    fireEvent.change(screen.getByLabelText("Credentials Secret (optional)"), { target: { value: "afk-git" } });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Review/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Create group/i }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/servers" }));
+    const postCall = fetchMock.mock.calls.find((call) => (call[1] as FetchInit).method === "POST")!;
+    const body = JSON.parse((postCall[1] as FetchInit).body as string);
+    const [container] = body.spec.template.initContainers;
+    expect(container.name).toBe("git-source");
+    expect(container.env).toEqual([
+      { name: "GIT_URL", value: "https://github.com/org/afk.git" },
+      { name: "GIT_CREDENTIAL", valueFrom: { secretKeyRef: { name: "afk-git", key: "token" } } },
+    ]);
+    expect(body.spec.ordinals).toBeUndefined();
+  });
+
   it("validates group replicas and name length on the Configure step", async () => {
     routeFetch();
     renderWithQuery(<CreateServerWizard />);

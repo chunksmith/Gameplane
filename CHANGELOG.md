@@ -9,6 +9,12 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Added
 
+- **Git repository source:** the create wizard and the server group edit page
+  can clone server files from a Git repository (URL, optional branch or tag,
+  optional Secret with an HTTPS token or SSH deploy key). It adds an admin-only
+  `git-source` init container that checks the commit out onto the data volume
+  before every start, keeps files the repository does not track, and skips the
+  download when the remote commit equals the one on the volume.
 - **Server group start ordinal:** `GameServerSet.spec.ordinals.start` numbers
   replicas from `start` (`<set>-1…` for `start: 1`), like a StatefulSet's
   `spec.ordinals`. Child servers, pods, volumes, per-replica Services and
