@@ -303,7 +303,7 @@ describe("DashboardPage", () => {
     server.use(http.get("/fleet/servers", () => HttpResponse.error()));
     renderWithQuery(<DashboardPage />);
     expect(await screen.findByText("The Kubernetes API is unreachable.")).toBeInTheDocument();
-    expect(screen.getByText(/Couldn't load servers/)).toBeInTheDocument();
+    expect(await screen.findByText(/Couldn't load servers/)).toBeInTheDocument();
   });
 
   it("hides recent activity from users without audit:read", async () => {
