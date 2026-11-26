@@ -24,7 +24,7 @@ descriptions contain Go-template syntax like `{{"{{"}}.Params.message{{"}}"}}`
 that Helm would try to evaluate), and the large gametemplates CRD needs
 server-side apply to avoid the client-side last-applied-annotation size
 limit. So the CRDs are shipped in crd-manifests/ (readable by .Files, unlike
-the special crds/ dir), mounted into the Job via a ConfigMap.
+the special crds/ dir), mounted into the Job via one ConfigMap per CRD.
 
 All resources are hook-scoped and cleaned up after a successful run; only
 the CRDs they apply persist (CRDs are never owned or deleted by Helm here,
@@ -162,20 +162,22 @@ subjects:
     name: {{ .Release.Name }}-crd-apply
     namespace: {{ .Release.Namespace }}
 {{- end }}
+{{- range $path, $_ := .Files.Glob "crd-manifests/*.yaml" }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-crd-manifests
-  namespace: {{ .Release.Namespace }}
-  labels: {{- include "gameplane.labels" . | nindent 4 }}
+  name: {{ include "gameplane.crdManifestConfigMap" (list $ $path) }}
+  namespace: {{ $.Release.Namespace }}
+  labels: {{- include "gameplane.labels" $ | nindent 4 }}
   annotations:
     {{- toYaml (merge (dict "helm.sh/hook-weight" "-5") $hookAnnotations) | nindent 4 }}
 data:
   # .AsConfig embeds each CRD file verbatim (filename: content). .Files.Get
   # does not re-template the content, so the {{"{{"}} … {{"}}"}} in CRD
   # descriptions is preserved literally.
-{{ (.Files.Glob "crd-manifests/*.yaml").AsConfig | indent 2 }}
+{{ ($.Files.Glob $path).AsConfig | indent 2 }}
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -271,8 +273,12 @@ spec:
             - { name: tmp, mountPath: /tmp }
       volumes:
         - name: crds
-          configMap:
-            name: {{ .Release.Name }}-crd-manifests
+          projected:
+            sources:
+            {{- range $path, $_ := .Files.Glob "crd-manifests/*.yaml" }}
+              - configMap:
+                  name: {{ include "gameplane.crdManifestConfigMap" (list $ $path) }}
+            {{- end }}
         - name: tmp
           emptyDir: {}
       {{- with .Values.image.pullSecrets }}

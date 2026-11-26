@@ -197,3 +197,7 @@ install/upgrade time, so re-run helm upgrade if the API endpoint moves.
 - ipBlock: { cidr: {{ . | quote }} }
 {{- end -}}
 {{- end -}}
+
+{{- define "gameplane.crdManifestConfigMap" -}}
+{{- printf "%s-crd-%s" (index . 0).Release.Name (base (index . 1) | trimSuffix ".yaml" | replace "." "-" | replace "_" "-") -}}
+{{- end -}}

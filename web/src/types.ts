@@ -388,6 +388,15 @@ export interface Toleration {
   tolerationSeconds?: number;
 }
 
+export type PodVolume = { name: string } & Record<string, unknown>;
+
+export interface VolumeMount {
+  name: string;
+  mountPath: string;
+  subPath?: string;
+  readOnly?: boolean;
+}
+
 export interface PortOverride {
   name: string;
   servicePort?: number;
@@ -599,6 +608,9 @@ export interface GameServer {
     // for the enable/disable asymmetry (disable does not remove a running
     // ephemeral container).
     capture?: CaptureConfiguration;
+    initContainers?: Record<string, unknown>[];
+    volumes?: PodVolume[];
+    volumeMounts?: VolumeMount[];
   };
   status?: {
     phase?: GameServerPhase;

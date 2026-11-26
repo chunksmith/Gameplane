@@ -1224,6 +1224,20 @@ func (in *GameServerSpec) DeepCopyInto(out *GameServerSpec) {
 		*out = make([]ScratchVolume, len(*in))
 		copy(*out, *in)
 	}
+	if in.Volumes != nil {
+		in, out := &in.Volumes, &out.Volumes
+		*out = make([]corev1.Volume, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.VolumeMounts != nil {
+		in, out := &in.VolumeMounts, &out.VolumeMounts
+		*out = make([]corev1.VolumeMount, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.PodLabels != nil {
 		in, out := &in.PodLabels, &out.PodLabels
 		*out = make(map[string]string, len(*in))

@@ -110,6 +110,18 @@ func TestAdminSpecFieldsKeepLiveForNonAdmins(t *testing.T) {
 	if err := validateAndProtectGameServer(viewer, nil, "default", "games", "smp", changed, live); err == nil {
 		t.Error("viewer changed podLabels")
 	}
+	for field, value := range map[string]any{
+		"volumes":        []any{map[string]any{"name": "host", "hostPath": map[string]any{"path": "/"}}},
+		"volumeMounts":   []any{map[string]any{"name": "host", "mountPath": "/host"}},
+		"initContainers": []any{map[string]any{"name": "sidecar", "image": "nginx", "restartPolicy": "Always"}},
+	} {
+		if err := validateAndProtectGameServer(viewer, nil, "default", "games", "smp", spec(map[string]any{field: value}), nil); err == nil {
+			t.Errorf("viewer created a server with %s", field)
+		}
+		if err := validateAndProtectGameServer(admin, nil, "default", "games", "smp", spec(map[string]any{field: value}), nil); err != nil {
+			t.Errorf("admin %s rejected: %v", field, err)
+		}
+	}
 }
 
 func TestStatisticsRowsMapReplicaPods(t *testing.T) {

@@ -1827,7 +1827,7 @@ func (r *GameServerReconciler) applyGamePodTemplate(
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		})
 	}
-	tpl.Spec.Volumes = volumes
+	tpl.Spec.Volumes = append(volumes, gs.Spec.Volumes...)
 	// Assign unconditionally so clearing spec.nodeSelector also clears the
 	// pod template's selector (nil resets it); the previous nil-guard left
 	// a removed scheduling pin active on the StatefulSet.
@@ -2324,6 +2324,7 @@ func buildGameContainer(
 	for _, scratch := range gs.Spec.ScratchVolumes {
 		mounts = append(mounts, corev1.VolumeMount{Name: scratchVolumeName(scratch.Name), MountPath: scratch.MountPath})
 	}
+	mounts = append(mounts, gs.Spec.VolumeMounts...)
 
 	c := corev1.Container{
 		Name:         gameContainerName,

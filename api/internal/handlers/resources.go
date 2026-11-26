@@ -655,7 +655,7 @@ func validateAndProtectGameServer(
 	}
 
 	if !isAdmin {
-		for _, field := range []string{"envFrom", "lifecycle", "scratchVolumes", "podLabels"} {
+		for _, field := range []string{"envFrom", "lifecycle", "scratchVolumes", "podLabels", "initContainers", "volumes", "volumeMounts"} {
 			if err := protectAdminSpecField(desired, live, field); err != nil {
 				return err
 			}

@@ -26,6 +26,15 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
   groups and, with persistent storage, picks a node per replica.
 - **Admin-only pod fields:** `GameServer.spec.envFrom`, `spec.lifecycle`,
   `spec.scratchVolumes` (emptyDir) and `spec.podLabels`.
+- **Pod volumes:** `GameServer.spec.volumes` takes any Kubernetes volume
+  (configMap, secret, emptyDir, projected, PVC, hostPath…) and
+  `spec.volumeMounts` mounts them on the game container; init containers and
+  `restartPolicy: Always` sidecars mount them with their own `volumeMounts`.
+  Names reserved by the operator (`data`, `agent-tls`, `captures`,
+  `config-files`, `rcon-password`, `scratch-*`, `extra-*`, `mods-*`,
+  `mod-creds-*`) are rejected. `volumes`, `volumeMounts` and
+  `initContainers` are admin only. The CRD apply hook ships one ConfigMap per
+  CRD to stay under the 1 MiB ConfigMap limit.
 - **Game metric ports:** `networkPolicies.gameMetricsPorts` lets the
   Prometheus namespace in `serviceMonitors.scrapeNamespaceSelector` scrape
   game containers.

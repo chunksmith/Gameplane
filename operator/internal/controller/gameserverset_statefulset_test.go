@@ -232,6 +232,8 @@ func TestReconcileSetStatefulSetHoldsReplicasUntilPlaced(t *testing.T) {
 	set.Spec.Template.ScratchVolumes = []gameplanev1alpha1.ScratchVolume{{Name: "tools", MountPath: "/opt/tools"}}
 	set.Spec.Template.EnvFrom = []corev1.EnvFromSource{{ConfigMapRef: &corev1.ConfigMapEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: "global-env"}}}}
 	set.Spec.Template.Lifecycle = &corev1.Lifecycle{PreStop: &corev1.LifecycleHandler{Exec: &corev1.ExecAction{Command: []string{"stop"}}}}
+	set.Spec.Template.Volumes = []corev1.Volume{{Name: "tls", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "geyser-tls"}}}}
+	set.Spec.Template.VolumeMounts = []corev1.VolumeMount{{Name: "tls", MountPath: "/certs", ReadOnly: true}}
 	carrier := serverSetCarrier(set, serverSetChildSpec(set))
 	tmpl := &gameplanev1alpha1.GameTemplate{ObjectMeta: metav1.ObjectMeta{Name: "paper"}, Spec: gameplanev1alpha1.GameTemplateSpec{Image: "paper:1"}}
 	c := fake.NewClientBuilder().WithScheme(statefulSetTestScheme(t)).WithObjects(set).Build()
@@ -266,6 +268,10 @@ func TestReconcileSetStatefulSetHoldsReplicasUntilPlaced(t *testing.T) {
 	if !slices.ContainsFunc(game.VolumeMounts, func(m corev1.VolumeMount) bool { return m.Name == "scratch-tools" && m.MountPath == "/opt/tools" }) ||
 		!slices.ContainsFunc(sts.Spec.Template.Spec.Volumes, func(v corev1.Volume) bool { return v.Name == "scratch-tools" && v.EmptyDir != nil }) {
 		t.Errorf("scratch volume missing: mounts %+v", game.VolumeMounts)
+	}
+	if !slices.ContainsFunc(game.VolumeMounts, func(m corev1.VolumeMount) bool { return m.Name == "tls" && m.MountPath == "/certs" }) ||
+		!slices.ContainsFunc(sts.Spec.Template.Spec.Volumes, func(v corev1.Volume) bool { return v.Name == "tls" && v.Secret != nil }) {
+		t.Errorf("pod volume missing: mounts %+v", game.VolumeMounts)
 	}
 
 	if err := r.reconcileSetStatefulSet(ctx, set, carrier, tmpl, nil, mc, true); err != nil {

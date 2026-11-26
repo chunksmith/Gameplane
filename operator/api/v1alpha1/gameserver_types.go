@@ -173,6 +173,17 @@ type GameServerSpec struct {
 	// +optional
 	ScratchVolumes []ScratchVolume `json:"scratchVolumes,omitempty"`
 
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:XValidation:rule="self.all(v, !(v.name in ['data', 'agent-tls', 'captures', 'config-files', 'rcon-password']) && !v.name.startsWith('scratch-') && !v.name.startsWith('extra-') && !v.name.startsWith('mods-') && !v.name.startsWith('mod-creds-'))",message="volumes must not use the reserved names data, agent-tls, captures, config-files, rcon-password or the prefixes scratch-, extra-, mods-, mod-creds-"
+	// +optional
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// +kubebuilder:validation:MaxItems=32
+	// +optional
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
 	// +kubebuilder:validation:MaxProperties=16
 	// +kubebuilder:validation:XValidation:rule="self.all(k, !k.startsWith('app.kubernetes.io/') && !k.startsWith('gameplane.local/') && !k.startsWith('statefulset.kubernetes.io/') && !k.startsWith('apps.kubernetes.io/') && k != 'controller-revision-hash')",message="podLabels must not use reserved prefixes"
 	// +optional
