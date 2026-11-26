@@ -131,6 +131,9 @@ func main() {
 		metricsAddr                      string
 		probeAddr                        string
 		enableLeaderElection             bool
+		leaseDuration                    time.Duration
+		renewDeadline                    time.Duration
+		retryPeriod                      time.Duration
 		agentImage                       string
 		agentImagePullPolicy             string
 		repoAgentImage                   string
@@ -168,6 +171,9 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address the metrics endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election.")
+	flag.DurationVar(&leaseDuration, "leader-elect-lease-duration", 30*time.Second, "Duration non-leaders wait before forcing leadership.")
+	flag.DurationVar(&renewDeadline, "leader-elect-renew-deadline", 20*time.Second, "Duration the leader retries renewing before giving up.")
+	flag.DurationVar(&retryPeriod, "leader-elect-retry-period", 5*time.Second, "Interval between leader election attempts.")
 	flag.StringVar(&agentImage, "agent-image", "ghcr.io/gameplanepanel/gameplane/agent:dev",
 		"Image to use for the Gameplane agent sidecar injected into game pods.")
 	flag.StringVar(&agentImagePullPolicy, "agent-image-pull-policy", "",
@@ -371,11 +377,15 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "gameplane-operator.gameplane.local",
+		Scheme:                        scheme,
+		Metrics:                       metricsserver.Options{BindAddress: metricsAddr},
+		HealthProbeBindAddress:        probeAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              "gameplane-operator.gameplane.local",
+		LeaseDuration:                 &leaseDuration,
+		RenewDeadline:                 &renewDeadline,
+		RetryPeriod:                   &retryPeriod,
+		LeaderElectionReleaseOnCancel: true,
 		// On a resource-constrained node (the homelab target, and the CI
 		// runner) a hammered apiserver can push an informer's initial sync —
 		// e.g. the backup controller's VolumeSnapshot watch — past the default

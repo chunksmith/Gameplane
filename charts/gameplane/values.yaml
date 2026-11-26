@@ -62,6 +62,10 @@ operator:
   # and stops reconciling). Leave on for HA installs; turn off for single-replica
   # or constrained clusters (the e2e install sets it false).
   leaderElect: true
+  leaderElection:
+    leaseDuration: 30s
+    renewDeadline: 20s
+    retryPeriod: 5s
   resources:
     requests: { cpu: 100m, memory: 64Mi }
     limits:   { cpu: 500m, memory: 256Mi }
