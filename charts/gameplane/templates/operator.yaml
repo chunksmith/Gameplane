@@ -276,9 +276,17 @@ spec:
           args:
             {{- if .Values.operator.leaderElect }}
             - --leader-elect
-            - --leader-elect-lease-duration={{ .Values.operator.leaderElection.leaseDuration }}
-            - --leader-elect-renew-deadline={{ .Values.operator.leaderElection.renewDeadline }}
-            - --leader-elect-retry-period={{ .Values.operator.leaderElection.retryPeriod }}
+            {{- with .Values.operator.leaderElection }}
+            {{- with .leaseDuration }}
+            - --leader-elect-lease-duration={{ . }}
+            {{- end }}
+            {{- with .renewDeadline }}
+            - --leader-elect-renew-deadline={{ . }}
+            {{- end }}
+            {{- with .retryPeriod }}
+            - --leader-elect-retry-period={{ . }}
+            {{- end }}
+            {{- end }}
             {{- end }}
             - --agent-image={{ include "gameplane.agentImage" . }}
             # A floating tag (e.g. :edge) defaults to ImagePullPolicy
