@@ -369,21 +369,7 @@ func (r *RestoreReconciler) buildRestorePodSpec(
 			// to the same subtree the companion backup captures, so the
 			// restore both lands and prunes only inside /data.
 			Args: []string{"restore", rs.Status.SnapshotID, "--target", "/", "--delete", "--include", "/data", "--retry-lock", "10m"},
-			Env: []corev1.EnvVar{
-				{Name: "RESTIC_REPOSITORY", ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: src.Spec.RepoRef.Name},
-						Key:                  "repo",
-					},
-				}},
-				{Name: "RESTIC_PASSWORD", ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: src.Spec.RepoRef.Name},
-						Key:                  "password",
-					},
-				}},
-				{Name: "XDG_CACHE_HOME", Value: "/tmp/restic-cache"},
-			},
+			Env:  resticEnv(src.Spec.RepoRef.Name),
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "data", MountPath: "/data"},
 				{Name: "cache", MountPath: "/tmp"},

@@ -300,6 +300,9 @@ spec:
             {{- if .Values.operator.resticImage }}
             - --restic-image={{ .Values.operator.resticImage }}
             {{- end }}
+            {{- with .Values.operator.resticLimitUpload }}
+            - --restic-limit-upload={{ . | int64 }}
+            {{- end }}
             {{- /* Omit the flags when the keys are absent/null (e.g. --reuse-values
                    from a release predating them) so the operator's defaults
                    (2 / 86400) apply. Not `| default`: an explicit 0 backoff is

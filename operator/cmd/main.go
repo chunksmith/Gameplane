@@ -137,6 +137,7 @@ func main() {
 		imagePullSecrets                 string
 		configInitImage                  string
 		resticImage                      string
+		resticLimitUpload                int64
 		sentinelImage                    string
 		tunnelFrpImage                   string
 		tunnelTailscaleImage             string
@@ -191,6 +192,8 @@ func main() {
 	flag.StringVar(&resticImage, "restic-image", controller.DefaultResticImage,
 		"Image for the restic backup/restore Jobs. "+
 			"Point at a private registry mirror for air-gapped installs.")
+	flag.Int64Var(&resticLimitUpload, "restic-limit-upload", 0,
+		"Upload limit in KiB/s for restic backup Jobs (restic --limit-upload). 0 means unlimited.")
 	flag.Int64Var(&backupJobBackoffLimit, "backup-job-backoff-limit", int64(controller.DefaultBackupJobBackoffLimit),
 		"BackoffLimit for the restic backup and restore Jobs (retries before the Job is marked Failed). Must be >= 0. Defaults to 2.")
 	flag.Int64Var(&backupJobActiveDeadlineSeconds, "backup-job-active-deadline-seconds", controller.DefaultBackupJobActiveDeadlineSeconds,
@@ -465,6 +468,7 @@ func main() {
 		Clientset:                kubernetes.NewForConfigOrDie(mgr.GetConfig()),
 		AgentClient:              agentClient,
 		ResticImage:              resticImage,
+		ResticLimitUpload:        resticLimitUpload,
 		JobBackoffLimit:          &backupJobBackoff32,
 		JobActiveDeadlineSeconds: backupJobActiveDeadlineSeconds,
 		EventRecorder:            mgr.GetEventRecorder("backup-controller"),

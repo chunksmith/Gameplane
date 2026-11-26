@@ -9,6 +9,10 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Added
 
+- **Restic S3 credentials:** backup, restore and forget Jobs read
+  `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_DEFAULT_REGION` from
+  the repository Secret when present. Backups exclude `/data/lost+found` and
+  honour `operator.resticLimitUpload` (KiB/s, default `40960`).
 - **Extra games namespaces:** the chart value `extraGamesNamespaces` lists
   existing namespaces Gameplane manages next to `gamesNamespace`. Each gets
   the API and operator Roles, the network policies and the agent PodMonitor,

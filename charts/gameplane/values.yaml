@@ -100,6 +100,8 @@ operator:
   # private registry mirror for air-gapped installs (Docker Hub blocked).
   configInitImage: busybox:1.38.0
   resticImage: restic/restic:0.19.1
+  # restic --limit-upload for backup Jobs, in KiB/s. 0 or unset = unlimited.
+  resticLimitUpload: 40960
   # Bounds for the restic backup and restore Jobs the operator creates.
   # backupJobBackoffLimit: retries before a Job is marked Failed (>= 0).
   # backupJobActiveDeadlineSeconds: wall-clock cap per Job (> 0), so a stuck

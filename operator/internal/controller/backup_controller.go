@@ -119,7 +119,8 @@ type BackupReconciler struct {
 	// ResticImage is the image for the restic backup Job. Set from an
 	// operator flag so air-gapped installs can point it at a private
 	// registry mirror. Empty falls back to DefaultResticImage.
-	ResticImage string
+	ResticImage       string
+	ResticLimitUpload int64
 	// JobBackoffLimit / JobActiveDeadlineSeconds bound the restic backup Job.
 	// Set from operator flags; nil / zero fall back to
 	// DefaultBackupJobBackoffLimit / DefaultBackupJobActiveDeadlineSeconds.
@@ -1126,6 +1127,10 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 	for _, t := range b.Spec.Tags {
 		args = append(args, "--tag", t)
 	}
+	args = append(args, "--exclude=/data/lost+found")
+	if r.ResticLimitUpload > 0 {
+		args = append(args, fmt.Sprintf("--limit-upload=%d", r.ResticLimitUpload))
+	}
 
 	return corev1.PodSpec{
 		SecurityContext: buildBackupPodSecurityContext(tmpl),
@@ -1179,7 +1184,7 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 // a cache directory under the writable /tmp mount so the root filesystem can
 // stay read-only.
 func resticEnv(repoSecretName string) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	env := []corev1.EnvVar{
 		{Name: "RESTIC_REPOSITORY", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: repoSecretName},
@@ -1194,6 +1199,17 @@ func resticEnv(repoSecretName string) []corev1.EnvVar {
 		}},
 		{Name: "XDG_CACHE_HOME", Value: "/tmp/restic-cache"},
 	}
+	optional := true
+	for _, key := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_DEFAULT_REGION"} {
+		env = append(env, corev1.EnvVar{Name: key, ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: repoSecretName},
+				Key:                  key,
+				Optional:             &optional,
+			},
+		}})
+	}
+	return env
 }
 
 // resticContainerSecurityContext is the locked-down container security context
