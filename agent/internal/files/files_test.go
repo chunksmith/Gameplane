@@ -30,7 +30,7 @@ func newServer(t *testing.T) (string, string) {
 		t.Fatalf("eval root: %v", err)
 	}
 	r := chi.NewRouter()
-	Mount(r, resolved)
+	Mount(r, resolved, false)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv.URL, resolved
@@ -652,7 +652,7 @@ func TestUpload_SymlinkedRootRejectsInRootSymlinkDestination(t *testing.T) {
 		t.Fatalf("symlink: %v", err)
 	}
 	r := chi.NewRouter()
-	Mount(r, linkRoot)
+	Mount(r, linkRoot, false)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 

@@ -10,6 +10,7 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Alert,
   Button,
   Checkbox,
   Input,
@@ -137,7 +138,7 @@ interface AssistantToggle {
   onAssistantOpen: (open: boolean) => void;
 }
 
-export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: string; path: string; onNavigate: (path: string) => void }) {
+export function FilesTab({ name, ns, path, onNavigate, ephemeral }: { name: string; ns?: string; path: string; onNavigate: (path: string) => void; ephemeral?: boolean }) {
   const resourceTarget = useResourceTarget({ name, namespace: ns });
   const [view, setView] = useState<FilesView>(readView);
   const normalized = normalize(path);
@@ -154,6 +155,7 @@ export function FilesTab({ name, ns, path, onNavigate }: { name: string; ns?: st
       path={normalized}
       onNavigate={onNavigate}
       tabbed={view === "tree"}
+      ephemeral={ephemeral}
       viewToggle={<ViewToggle view={view} onChange={changeView} />}
       aside={view === "tree" && <FileTree resourceTarget={resourceTarget} path={normalized} onNavigate={onNavigate} />}
     />
@@ -236,7 +238,7 @@ function useStoredWidth(bounds: WidthBounds) {
   return [width, setWidth] as const;
 }
 
-function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tabbed }: ViewProps & { tabbed: boolean }) {
+function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tabbed, ephemeral }: ViewProps & { tabbed: boolean; ephemeral?: boolean }) {
   const intl = useOptionalIntl();
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
@@ -268,6 +270,14 @@ function FilesBrowser({ resourceTarget, path, onNavigate, viewToggle, aside, tab
 
   return (
     <div className={cn("flex min-h-full flex-col gap-3 px-6 pb-6 pt-4", tabbed && "md:h-full")}>
+      {ephemeral && (
+        <Alert status="warning">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Description className="text-xs">{intl.formatMessage({ id: "web.routes.tabs.files.ephemeral_warning", defaultMessage: "This server has no persistent storage. Changes made here are lost when the server restarts and the files return to their image version.", description: "Files tab: warning banner above the file browser of a server with ephemeral storage, saying edits do not survive a restart" })}</Alert.Description>
+          </Alert.Content>
+        </Alert>
+      )}
       {entry?.dir ? (
         <DirectoryView key={path} resourceTarget={resourceTarget} path={path} onNavigate={onNavigate} viewToggle={viewToggle} aside={aside} assistantOpen={assistantOpen} onAssistantOpen={setAssistantOpen} />
       ) : entry ? (

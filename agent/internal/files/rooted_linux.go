@@ -87,6 +87,17 @@ func openRoot(root string) (int, error) {
 	return fd, nil
 }
 
+func (h *handler) openRoot() (int, error) {
+	if h.containerRoot == nil {
+		return openRoot(h.root)
+	}
+	dir, err := h.containerRoot()
+	if err != nil {
+		return -1, err
+	}
+	return openRoot(dir)
+}
+
 // relComponents returns the components of abs below root (nil for the root
 // itself) or errPathOutOfRoot if abs is not below root.
 func relComponents(root, abs string) ([]string, error) {
@@ -257,7 +268,7 @@ func dirNames(fd int) ([]string, error) {
 // listDir returns visible (non-dot) entries, directories first and then files,
 // with each group sorted by name.
 func (h *handler) listDir(comps []string) ([]Entry, error) {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +325,7 @@ func (h *handler) listDir(comps []string) ([]Entry, error) {
 // openFile opens the file (or directory) comps for reading without following
 // a symlink at any component. The caller closes the returned file.
 func (h *handler) openFile(comps []string) (*os.File, error) {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +348,7 @@ func (h *handler) openFile(comps []string) (*os.File, error) {
 // makeDirs creates the directory comps (and any missing ancestors), the
 // descriptor-relative equivalent of os.MkdirAll.
 func (h *handler) makeDirs(comps []string) error {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return err
 	}
@@ -450,7 +461,7 @@ func (h *handler) storeFile(dirFD int, parents []string, name, prefix string, mo
 // storeIn opens the directory comps (creating missing ancestors when create is
 // set) and stores name in it atomically via storeFile.
 func (h *handler) storeIn(comps []string, name, prefix string, create bool, mode storeMode, fill func(io.Writer) error) error {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return err
 	}
@@ -500,7 +511,7 @@ func removeEntry(dirFD int, name string) error {
 // entry. Recursive: removes the tree, dot-prefixed entries included, through
 // descriptors without following symlinks (they are unlinked as links).
 func (h *handler) removePath(comps []string, recursive bool) error {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return err
 	}
@@ -611,7 +622,7 @@ func (h *handler) removeChildren(fd int, path []string) error {
 var storedExtensions = []string{".7z", ".gz", ".jar", ".mca", ".png", ".rar", ".tgz", ".xz", ".zip", ".zst"}
 
 func (h *handler) treeSize(ctx context.Context, comps []string) (int64, error) {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return 0, err
 	}
@@ -661,7 +672,7 @@ func (h *handler) dirSize(ctx context.Context, fd int, path []string) (int64, er
 }
 
 func (h *handler) writeArchive(ctx context.Context, dst io.Writer, targets [][]string) error {
-	rootFD, err := openRoot(h.root)
+	rootFD, err := h.openRoot()
 	if err != nil {
 		return err
 	}

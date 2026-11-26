@@ -2,6 +2,8 @@ package controller
 
 import (
 	"encoding/json"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -444,4 +446,50 @@ func TestBuildAgentContainer_DiskLimitEnv(t *testing.T) {
 	if _, ok := diskEnv(gs, tmpl); ok {
 		t.Fatalf("ephemeral storage should not set a disk limit")
 	}
+}
+
+func TestBuildAgentContainer_FilesFromContainer(t *testing.T) {
+	hasFlag := func(c corev1.Container) bool {
+		return slices.Contains(c.Args, "--files-from-container")
+	}
+	ephemeral := func(files bool) *gameplanev1alpha1.GameServer {
+		return &gameplanev1alpha1.GameServer{Spec: gameplanev1alpha1.GameServerSpec{Storage: &gameplanev1alpha1.GameStorageSpec{Ephemeral: true, FilesFromContainer: files}}}
+	}
+
+	t.Run("persistent storage keeps the default sidecar", func(t *testing.T) {
+		tmpl := &gameplanev1alpha1.GameTemplate{}
+		tmpl.Spec.Storage.FilesFromContainer = true
+		c := buildAgentContainer(&gameplanev1alpha1.GameServer{}, tmpl, nil, "fb", "", "")
+		if hasFlag(c) || !reflect.DeepEqual(c.SecurityContext, agentSecurityContext()) {
+			t.Fatalf("args=%v sc=%+v", c.Args, c.SecurityContext)
+		}
+	})
+
+	t.Run("ephemeral without opt-in keeps the default sidecar", func(t *testing.T) {
+		c := buildAgentContainer(ephemeral(false), &gameplanev1alpha1.GameTemplate{}, nil, "fb", "", "")
+		if hasFlag(c) || !reflect.DeepEqual(c.SecurityContext, agentSecurityContext()) {
+			t.Fatalf("args=%v sc=%+v", c.Args, c.SecurityContext)
+		}
+	})
+
+	t.Run("opt-in runs the agent as the root game user", func(t *testing.T) {
+		tmpl := &gameplanev1alpha1.GameTemplate{}
+		tmpl.Spec.Storage.FilesFromContainer = true
+		c := buildAgentContainer(ephemeral(false), tmpl, nil, "fb", "", "")
+		sc := c.SecurityContext
+		if !hasFlag(c) || *sc.RunAsUser != 0 || *sc.RunAsNonRoot || sc.Capabilities != nil || !*sc.ReadOnlyRootFilesystem || *sc.AllowPrivilegeEscalation {
+			t.Fatalf("args=%v sc=%+v", c.Args, sc)
+		}
+	})
+
+	t.Run("opt-in follows a non-root game user", func(t *testing.T) {
+		uid, gid := int64(1000), int64(1000)
+		tmpl := &gameplanev1alpha1.GameTemplate{}
+		tmpl.Spec.Security = &gameplanev1alpha1.GameSecuritySpec{RunAsUser: &uid, RunAsGroup: &gid}
+		c := buildAgentContainer(ephemeral(true), tmpl, nil, "fb", "", "")
+		sc := c.SecurityContext
+		if !hasFlag(c) || *sc.RunAsUser != uid || *sc.RunAsGroup != gid || !*sc.RunAsNonRoot || sc.Capabilities.Drop[0] != "ALL" {
+			t.Fatalf("args=%v sc=%+v", c.Args, sc)
+		}
+	})
 }

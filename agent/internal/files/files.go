@@ -63,6 +63,7 @@ func (h *handler) blockedErr() error {
 type handler struct {
 	root          string
 	allowDotfiles bool
+	containerRoot func() (string, error)
 
 	// beforeOpen is a test seam. When non-nil it is called synchronously
 	// immediately before a path component is opened ("open"), before the
@@ -76,8 +77,12 @@ type handler struct {
 }
 
 // Mount registers the file-browser HTTP handlers on the supplied router.
-func Mount(r chi.Router, root string) {
-	mount(r, &handler{root: filepath.Clean(root)})
+func Mount(r chi.Router, root string, fromContainer bool) {
+	h := &handler{root: filepath.Clean(root)}
+	if fromContainer {
+		h.containerRoot = func() (string, error) { return gameDir("/proc", h.root) }
+	}
+	mount(r, h)
 }
 
 // MountRepository registers the file routes for a Git working copy: dotfiles are

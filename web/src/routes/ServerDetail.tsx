@@ -440,7 +440,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
               />
             )
           )}
-          {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} />}
+          {activeTab === "files"    && <FilesTab   name={name} ns={ns} path={filesPath ?? "/"} onNavigate={openFiles} ephemeral={gs?.spec.storage?.ephemeral} />}
           {activeTab === "mods"     && <ModsTab    name={name} ns={ns} tmpl={tmpl} gs={gs} />}
           {activeTab === "modpacks" && <ModpacksTab name={name} ns={ns} tmpl={tmpl} />}
           {activeTab === "players"  && <PlayersTab name={name} ns={ns} tmpl={tmpl} />}

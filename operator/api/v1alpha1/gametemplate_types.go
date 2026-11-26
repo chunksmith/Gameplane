@@ -961,6 +961,9 @@ type GameStorageSpec struct {
 
 	// +optional
 	Ephemeral bool `json:"ephemeral,omitempty"`
+
+	// +optional
+	FilesFromContainer bool `json:"filesFromContainer,omitempty"`
 }
 
 // ExtraVolumeSpec declares one additional persistent volume beyond a

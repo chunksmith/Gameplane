@@ -608,6 +608,10 @@ func isEphemeral(gs *gameplanev1alpha1.GameServer) bool {
 	return gs.Spec.Storage != nil && gs.Spec.Storage.Ephemeral
 }
 
+func filesFromContainer(gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate) bool {
+	return isEphemeral(gs) && (gs.Spec.Storage.FilesFromContainer || tmpl.Spec.Storage.FilesFromContainer)
+}
+
 func storageSize(gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate) resource.Quantity {
 	if gs.Spec.Storage != nil && !gs.Spec.Storage.Size.IsZero() {
 		return gs.Spec.Storage.Size
@@ -2534,6 +2538,11 @@ func buildAgentContainer(
 	if tmpl.Spec.LogPath != "" {
 		args = append(args, "--game-log-path="+tmpl.Spec.LogPath)
 	}
+	securityContext := agentSecurityContext()
+	if filesFromContainer(gs, tmpl) {
+		args = append(args, "--files-from-container")
+		securityContext = gameAgentSecurityContext(tmpl)
+	}
 	rc := resolveRCON(gs, tmpl)
 	if rc.enabled {
 		if rc.passwordFile != "" {
@@ -2614,7 +2623,7 @@ func buildAgentContainer(
 			{Name: "metrics", ContainerPort: 9090},
 		},
 		Resources:       res,
-		SecurityContext: agentSecurityContext(),
+		SecurityContext: securityContext,
 	}
 	// Only when explicitly configured — an empty value leaves
 	// ImagePullPolicy unset so Kubernetes applies its own default, matching
@@ -2647,6 +2656,22 @@ func agentSecurityContext() *corev1.SecurityContext {
 		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 		SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
+}
+
+func gameAgentSecurityContext(tmpl *gameplanev1alpha1.GameTemplate) *corev1.SecurityContext {
+	securityContext := agentSecurityContext()
+	uid := int64(0)
+	securityContext.RunAsUser = &uid
+	if sec := tmpl.Spec.Security; sec != nil && sec.RunAsUser != nil {
+		securityContext.RunAsUser = sec.RunAsUser
+		securityContext.RunAsGroup = sec.RunAsGroup
+	}
+	nonRoot := *securityContext.RunAsUser != 0
+	securityContext.RunAsNonRoot = &nonRoot
+	if !nonRoot {
+		securityContext.Capabilities = nil
+	}
+	return securityContext
 }
 
 // reconcileBackupSchedule synchronizes automated backup schedules with the server backup policy.

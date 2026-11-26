@@ -11007,6 +11007,10 @@
     "defaultMessage": "Drop files to upload",
     "description": "Files tab: text shown over the file list while files are dragged onto it"
   },
+  "web.routes.tabs.files.ephemeral_warning": {
+    "defaultMessage": "This server has no persistent storage. Changes made here are lost when the server restarts and the files return to their image version.",
+    "description": "Files tab: warning banner above the file browser of a server with ephemeral storage, saying edits do not survive a restart"
+  },
   "web.routes.tabs.files.file_name": {
     "defaultMessage": "File name",
     "description": "Files tab: field label for the name of a new file in the new file prompt"

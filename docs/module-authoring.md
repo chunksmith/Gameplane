@@ -1717,6 +1717,16 @@ useful, so readiness falls back to TCP on the game port.
 container. Pick the path the game writes its world/config files to —
 backups snapshot this whole directory.
 
+A server with `spec.storage.ephemeral: true` gets an emptyDir instead of
+a PVC, for images that ship their server files. Setting
+`storage.filesFromContainer: true` as well (on the GameTemplate or the
+GameServer) points the Files tab at the game container's working
+directory, so it shows and edits the image's files. The agent reaches
+them through `/proc/<pid>/cwd` of the game process, so it then runs as
+the game's user: `security.runAsUser` when set, otherwise root with the
+runtime's default capabilities. Edits are lost when the pod restarts.
+Changing the field rolls the server's pods.
+
 ## Testing a new module locally
 
 ```sh

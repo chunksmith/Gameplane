@@ -11,7 +11,7 @@ import (
 
 func TestFileRouteTimeouts(t *testing.T) {
 	router := chi.NewRouter()
-	Mount(router, t.TempDir())
+	Mount(router, t.TempDir(), false)
 	// Exercise the middleware registered on each real route, substituting only
 	// the final filesystem operation to observe its context before any I/O.
 	err := chi.Walk(router, func(method, route string, _ http.Handler, middlewares ...func(http.Handler) http.Handler) error {

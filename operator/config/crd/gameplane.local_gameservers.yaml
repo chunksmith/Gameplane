@@ -4192,6 +4192,8 @@ spec:
                       type: object
                     maxItems: 4
                     type: array
+                  filesFromContainer:
+                    type: boolean
                   mountPath:
                     default: /data
                     description: |-

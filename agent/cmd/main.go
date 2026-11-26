@@ -66,6 +66,8 @@ func main() {
 		capsJSON     string
 		cliPipe      string
 		logLevel     string
+
+		filesFromContainer bool
 	)
 	flag.StringVar(&mode, "mode", "server", "agent mode: server (game server sidecar), repository (Git working copy) or hold (init gate that waits while the GameServer is suspended)")
 	flag.StringVar(&addr, "addr", ":8090", "HTTP listen address")
@@ -74,6 +76,7 @@ func main() {
 			"without TLS or auth (empty = metrics not served); --addr's mTLS control mux never "+
 			"carries /metrics, so this port is what a PodMonitor scrapes")
 	flag.StringVar(&dataRoot, "data-root", "/data", "path under which file ops are rooted")
+	flag.BoolVar(&filesFromContainer, "files-from-container", false, "serve the file browser from the game container's working directory instead of --data-root")
 	flag.StringVar(&rconHost, "rcon-host", "127.0.0.1", "RCON host (loopback in the pod)")
 	flag.IntVar(&rconPort, "rcon-port", 25575, "RCON port")
 	flag.StringVar(&rconPassFile, "rcon-password-file", "", "path to file holding the RCON password")
@@ -210,7 +213,7 @@ func main() {
 		logs.Mount(protected, dataRoot, gameLogPath)
 		console.Mount(protected, rconClient)
 		mods.Mount(protected, dataRoot, modsSpec)
-		files.Mount(protected, dataRoot)
+		files.Mount(protected, dataRoot, filesFromContainer)
 
 		protected.Group(func(bounded chi.Router) {
 			bounded.Use(middleware.Timeout(30 * time.Second))
