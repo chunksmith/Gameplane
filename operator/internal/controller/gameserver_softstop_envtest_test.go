@@ -9,8 +9,11 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
@@ -421,5 +424,78 @@ func TestGameServer_SoftStop_DisabledAgentClientScalesDownImmediately(t *testing
 	g := getGameServer(t, ns, "disabledclient")
 	if _, ok := g.Annotations[stopRequestedAtAnnotation]; ok {
 		t.Fatalf("stop-requested annotation was set; softStop took the wait-out-grace path for a disabled agent client instead of scaling down immediately")
+	}
+}
+
+func TestGameServer_SoftStop_SignalModeDeletesPodWithStopGrace(t *testing.T) {
+	ns := newNamespace(t)
+	attacher := &fakePodAttacher{}
+	startMgr(t, ns, withGameServerReconcilerAttacher(t, ns, attacher))
+
+	tmpl := buildGameTemplate(uniqueName("minecraft"))
+	tmpl.Spec.ConsoleMode = "pty"
+	if tmpl.Spec.Capabilities == nil {
+		tmpl.Spec.Capabilities = &gameplanev1alpha1.CapabilitiesSpec{}
+	}
+	tmpl.Spec.Capabilities.Lifecycle = &gameplanev1alpha1.LifecycleSpec{Stop: []string{"stop"}}
+	if err := k8sClient.Create(context.Background(), tmpl); err != nil {
+		t.Fatalf("create template: %v", err)
+	}
+	deleteCleanup(t, tmpl)
+
+	gs := buildGameServer(ns, "signal", tmpl.Name)
+	gs.Annotations = map[string]string{StopModeAnnotation: stopModeSignal}
+	grace := int32(120)
+	gs.Spec.StopGracePeriodSeconds = &grace
+	if err := k8sClient.Create(context.Background(), gs); err != nil {
+		t.Fatalf("create gameserver: %v", err)
+	}
+
+	eventually(t, func() (bool, string) {
+		return ssReplicas(t, ns, "signal") == 1, "replicas not yet 1"
+	})
+	setSSReady(t, ns, "signal", 1)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "signal-0"},
+		Spec: corev1.PodSpec{
+			NodeName:   "node-a",
+			Containers: []corev1.Container{{Name: gameContainerName, Image: "game:test"}},
+		},
+	}
+	if err := k8sClient.Create(context.Background(), pod); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = k8sClient.Delete(context.Background(), pod, client.GracePeriodSeconds(0))
+	})
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		gs = getGameServer(t, ns, "signal")
+		gs.Spec.Suspend = true
+		return k8sClient.Update(context.Background(), gs)
+	}); err != nil {
+		t.Fatalf("suspend: %v", err)
+	}
+
+	eventually(t, func() (bool, string) {
+		var live corev1.Pod
+		if err := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: ns, Name: "signal-0"}, &live); err != nil {
+			return false, err.Error()
+		}
+		if live.DeletionTimestamp == nil {
+			return false, "pod not deleted yet"
+		}
+		if live.DeletionGracePeriodSeconds == nil || *live.DeletionGracePeriodSeconds != 120 {
+			return false, "pod deleted without the stop grace period"
+		}
+		return ssReplicas(t, ns, "signal") == 0, "replicas not scaled to zero"
+	})
+
+	if attacher.count() != 0 {
+		t.Fatalf("attach stop sequence issued %d times; signal mode must leave the stop to SIGTERM", attacher.count())
+	}
+	if _, ok := getGameServer(t, ns, "signal").Annotations[stopRequestedAtAnnotation]; ok {
+		t.Fatalf("stop-requested annotation was set in signal mode")
 	}
 }

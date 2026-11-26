@@ -1490,6 +1490,9 @@ func selectStopTransport(tmpl *gameplanev1alpha1.GameTemplate) stopTransport {
 func (r *GameServerReconciler) softStop(
 	ctx context.Context, gs *gameplanev1alpha1.GameServer, tmpl *gameplanev1alpha1.GameTemplate,
 ) (int32, time.Duration, error) {
+	if signalStopMode(gs, tmpl) {
+		return 0, 0, r.signalStop(ctx, gs)
+	}
 	declared := tmpl.Spec.Capabilities != nil &&
 		tmpl.Spec.Capabilities.Lifecycle != nil &&
 		len(tmpl.Spec.Capabilities.Lifecycle.Stop) > 0

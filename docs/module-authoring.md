@@ -1112,6 +1112,14 @@ applies — no graceful stop at all, so the server scales down immediately
 on suspend/restart/stop instead of waiting out
 `spec.stopGracePeriodSeconds` for a sequence it has no way to run.
 
+A game whose entrypoint already saves and exits on SIGTERM (for example
+one wrapped in `mc-server-runner`) can skip the sequence with the
+annotation `gameplane.local/stop-mode: signal` on the GameTemplate or the
+GameServer. Suspend, restart and idle sleep then delete the pod with
+`spec.stopGracePeriodSeconds` as its grace period, so the game stops once
+and its container is never restarted mid-stop. The annotation lives in
+metadata only, so adding it does not roll the server's pods.
+
 `logPath` is an absolute in-container path pointing the agent at the
 game's own logfile. Omit it for games that log only to stdout; the Logs
 tab's "Container output" source covers those.
