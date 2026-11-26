@@ -109,6 +109,12 @@ var entries = []Entry{
 		Status:      http.StatusNotImplemented,
 	},
 	{
+		ID:          httperr.IDKubernetesUnavailable,
+		English:     "The Kubernetes API is unreachable.",
+		Description: "API error when the API cannot reach the Kubernetes API (timeout, connection failure or an overloaded control plane), so it cannot list or read servers. The dashboard keeps showing the last loaded data.",
+		Status:      http.StatusServiceUnavailable,
+	},
+	{
 		ID:          "server.auth.invalid_credentials",
 		English:     "invalid credentials",
 		Description: "Login error. It is generic on purpose, so it never reveals whether an account exists.",

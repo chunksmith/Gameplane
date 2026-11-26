@@ -297,7 +297,7 @@ export function ServersPage() {
 
       {act.error && <ErrorBanner err={act.error} onDismiss={() => act.reset()} />}
       {reorder.error && <ErrorBanner err={reorder.error} onDismiss={() => reorder.reset()} />}
-      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={error} label={intl.formatMessage({ id: "web.routes.servers.server_results", defaultMessage: "Server results", description: "Servers: label of the coverage status for the server data behind the list; it warns when the data is partial or failed" })} />
+      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={error} stale={servers.length > 0} label={intl.formatMessage({ id: "web.routes.servers.server_results", defaultMessage: "Server results", description: "Servers: label of the coverage status for the server data behind the list; it warns when the data is partial or failed" })} />
       <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={inventoryError} label={intl.formatMessage({ id: "web.routes.servers.inventory", defaultMessage: "Inventory", description: "Servers: label of the coverage status for the cluster inventory data; it warns when the inventory is partial or failed" })} />
 
       {!isMobile && (
@@ -305,17 +305,17 @@ export function ServersPage() {
           <StatCard
             label={intl.formatMessage({ id: "web.routes.servers.running", defaultMessage: "Running", description: "Servers: 'Running' is both a summary card label counting running servers and a status filter tab that lists them with their count; keep it short" })}
             icon={<Activity className="h-4 w-4" />}
-            value={error || (fleet?.partial && servers.length === 0) ? emptyValue : counts.running}
-            sub={error || (fleet?.partial && servers.length === 0)
+            value={fleet?.partial && servers.length === 0 ? emptyValue : counts.running}
+            sub={fleet?.partial && servers.length === 0
               ? intl.formatMessage({ id: "web.routes.servers.server_status_unavailable", defaultMessage: "server status unavailable", description: "Servers: sub-label on the Running card when server data cannot be read" })
               : intl.formatMessage(runningSubLabel, { count: servers.length })}
-            accent={error || (fleet?.partial && servers.length === 0) ? "warning" : "success"}
+            accent={fleet?.partial && servers.length === 0 ? "warning" : "success"}
           />
           <StatCard
             label={intl.formatMessage({ id: "web.routes.servers.players_online", defaultMessage: "Players online", description: "Servers: label of the summary card for players online; the line under the number shows the peak or a note when counts are unavailable" })}
             icon={<UsersIcon className="h-4 w-4" />}
-            value={error || !players.known || (fleet?.partial && servers.length === 0) ? emptyValue : counts.players}
-            sub={error || !players.known || (fleet?.partial && servers.length === 0)
+            value={!players.known || (fleet?.partial && servers.length === 0) ? emptyValue : counts.players}
+            sub={!players.known || (fleet?.partial && servers.length === 0)
               ? intl.formatMessage({ id: "web.routes.servers.player_status_unavailable", defaultMessage: "player status unavailable", description: "Servers: sub-label on the Players online card when player counts cannot be read" })
               : players.unknown
                 ? intl.formatMessage({ id: "web.routes.servers.player_counts_unavailable", defaultMessage: "{count} server player counts unavailable", description: "Servers: sub-label on the Players online card when some servers report no player count; {count} is how many" }, { count: players.unknown })

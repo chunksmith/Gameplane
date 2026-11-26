@@ -279,9 +279,10 @@ type fleetScope struct {
 }
 
 type fleetScopeResult struct {
-	items   []fleetResource
-	issue   *fleetIssue
-	partial bool
+	items       []fleetResource
+	issue       *fleetIssue
+	partial     bool
+	unreachable bool
 }
 
 func (h fleetHandler) resources(kind string) http.HandlerFunc {
@@ -327,7 +328,9 @@ func (h fleetHandler) resources(kind string) http.HandlerFunc {
 		fleetParallel(len(scopes), func(i int) {
 			results[i] = h.readScope(ctx, u, kind, scopes[i], &scanBudget)
 		})
+		unreachable := len(results) > 0
 		for _, result := range results {
+			unreachable = unreachable && result.unreachable
 			out.Items = append(out.Items, result.items...)
 			for _, item := range result.items {
 				out.Scopes = append(out.Scopes, fleetScopeView{Cluster: item.Target.Cluster, Namespace: item.Target.Namespace})
@@ -343,6 +346,10 @@ func (h fleetHandler) resources(kind string) http.HandlerFunc {
 		if f.cluster != "" && len(out.Items) == 0 && len(out.Scopes) == 0 {
 			out.Partial = false
 			out.Issues = make([]fleetIssue, 0)
+		}
+		if unreachable && len(out.Items) == 0 && (f.cluster == "" || len(out.Scopes) > 0) {
+			httperr.WriteMessage(w, req, messages.New(httperr.IDKubernetesUnavailable, nil))
+			return
 		}
 		finishFleetScopes(&out)
 		sort.Slice(out.Items, func(i, j int) bool {
@@ -403,6 +410,7 @@ func (h fleetHandler) readScope(ctx context.Context, u *auth.User, kind string, 
 	seen := map[string]bool{}
 	for scanned := 0; ; {
 		if ctx.Err() != nil {
+			out.unreachable = true
 			return fail("unavailable")
 		}
 		if scanned >= fleetMaxItems || !reserveFleetPage(budget) {
@@ -411,6 +419,7 @@ func (h fleetHandler) readScope(ctx context.Context, u *auth.User, kind string, 
 		list, err := s.cluster.k.Dynamic.Resource(kube.GVRs[kind]).Namespace(s.namespace).
 			List(ctx, metav1.ListOptions{Limit: fleetPageSize, Continue: continuation})
 		if err != nil {
+			out.unreachable = kubeUnreachable(err)
 			return fail(fleetErrorCode(err))
 		}
 		if len(list.Items) < fleetPageSize {

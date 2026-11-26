@@ -78,7 +78,7 @@ export function DashboardPage() {
   });
 
   const servers = useMemo(() => serversData?.items ?? [], [serversData?.items]);
-  const countsUnavailable = !!serversError || (fleet?.partial === true && servers.length === 0);
+  const countsUnavailable = (!!serversError || fleet?.partial === true) && servers.length === 0;
   const counts = useMemo(() => countByState(servers), [servers]);
   const players = playerCoverage(servers);
   const groups = useMemo(() => phaseGroups(servers), [servers]);
@@ -134,7 +134,7 @@ export function DashboardPage() {
         }
       />
 
-      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={serversError} label={intl.formatMessage({ id: "web.routes.dashboard.server_totals", defaultMessage: "Server totals", description: "Dashboard: label naming the server data in the coverage status line; that line warns when server data is partial or failed" })} />
+      <FleetCoverage partial={fleet?.partial} issues={fleet?.issues} error={serversError} stale={servers.length > 0} label={intl.formatMessage({ id: "web.routes.dashboard.server_totals", defaultMessage: "Server totals", description: "Dashboard: label naming the server data in the coverage status line; that line warns when server data is partial or failed" })} />
       <FleetCoverage partial={inventory?.partial} issues={inventory?.issues} error={clusterError} label={intl.formatMessage({ id: "web.routes.dashboard.inventory", defaultMessage: "Inventory", description: "Dashboard: label naming the cluster inventory data in the coverage status line; that line warns when inventory is partial or failed" })} />
       <FleetCoverage partial={backupsFleet?.partial} issues={backupsFleet?.issues} error={backupsError} label={intl.formatMessage({ id: "web.routes.dashboard.backups", defaultMessage: "Backups", description: "Dashboard: label naming the backup data in the coverage status line; that line warns when backup data is partial or failed" })} />
 
@@ -152,6 +152,8 @@ export function DashboardPage() {
               sub={
                 countsUnavailable
                   ? intl.formatMessage({ id: "web.routes.dashboard.server_status_unavailable", defaultMessage: "server status unavailable", description: "Dashboard: sub-label on the Running card when server data cannot be read" })
+                  : serversError
+                    ? intl.formatMessage({ id: "web.routes.dashboard.last_known_servers", defaultMessage: "last known", description: "Dashboard: sub-label on the Servers running card when the count comes from the last loaded server list because the latest refresh failed" })
                   : fleet?.partial
                     ? intl.formatMessage({ id: "web.routes.dashboard.returned_servers_only", defaultMessage: "returned servers only", description: "Dashboard: sub-label on the Servers running card when only returned servers are counted" })
                     : groups.total === 0
@@ -202,7 +204,7 @@ export function DashboardPage() {
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             {countsUnavailable
               ? <ErrorCard message={intl.formatMessage({ id: "web.routes.dashboard.servers_load_failed", defaultMessage: "Couldn't load servers. Status and player totals are unavailable.", description: "Dashboard: error card when the server list cannot be loaded" })} />
-              : <FleetStatusCard complete={!fleet?.partial} groups={groups} busiest={busiest} scope={scopeLabel} gameCodes={gameCodes} byName={byName} />}
+              : <FleetStatusCard complete={!fleet?.partial && !serversError} groups={groups} busiest={busiest} scope={scopeLabel} gameCodes={gameCodes} byName={byName} />}
             <ClusterResourcesCard
               cpu={cpu}
               mem={mem}

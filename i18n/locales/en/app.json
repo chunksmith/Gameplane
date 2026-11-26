@@ -803,6 +803,10 @@
     "defaultMessage": "{detail}",
     "description": "API validation error. The argument detail is the validation message from Kubernetes, in English, and describes the caller's input."
   },
+  "server.kubernetes_unavailable": {
+    "defaultMessage": "The Kubernetes API is unreachable.",
+    "description": "API error when the API cannot reach the Kubernetes API (timeout, connection failure or an overloaded control plane), so it cannot list or read servers. The dashboard keeps showing the last loaded data."
+  },
   "server.lifecycle.confirmation_mismatch": {
     "defaultMessage": "confirmation does not match server name",
     "description": "API error from the server lifecycle API (lifecycle.go:wipeDataHandler)."
@@ -2675,9 +2679,17 @@
     "defaultMessage": "Filter by location",
     "description": "Fleet scope: screen-reader label for the location dropdown that narrows the view to one location; not visible on screen"
   },
+  "web.components.fleet_scope.kubernetes_unreachable": {
+    "defaultMessage": "The Kubernetes API is unreachable.",
+    "description": "Fleet scope: error shown when the panel cannot reach the Kubernetes API or the Gameplane API, for example during a control-plane outage"
+  },
   "web.components.fleet_scope.label_are_partial": {
     "defaultMessage": "{label} are partial.",
     "description": "Fleet scope: sentence with label in strong"
+  },
+  "web.components.fleet_scope.label_are_stale": {
+    "defaultMessage": "{label} below are from the last successful load and may be out of date.",
+    "description": "Fleet scope: second part of the error notice when the page keeps showing the last loaded data; label names that data, such as Server results"
   },
   "web.components.fleet_scope.label_are_unavailable_try_again": {
     "defaultMessage": "{label} are unavailable. Try again.",
@@ -8866,6 +8878,10 @@
   "web.routes.dashboard.inventory_unavailable": {
     "defaultMessage": "inventory unavailable",
     "description": "Dashboard: sub-label on the storage and nodes cards when inventory cannot be read"
+  },
+  "web.routes.dashboard.last_known_servers": {
+    "defaultMessage": "last known",
+    "description": "Dashboard: sub-label on the Servers running card when the count comes from the last loaded server list because the latest refresh failed"
   },
   "web.routes.dashboard.latest_snapshots_in_the_selected": {
     "defaultMessage": "Latest snapshots in the selected locations",

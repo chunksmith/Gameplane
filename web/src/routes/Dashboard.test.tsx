@@ -284,6 +284,28 @@ describe("DashboardPage", () => {
     expect(screen.queryByText(/Everything looks healthy/i)).not.toBeInTheDocument();
   });
 
+  it("keeps the last server totals with a stale notice when the Kubernetes API becomes unreachable", async () => {
+    server.use(http.get("/servers", () => HttpResponse.json({ items: [makeServer({ metadata: { name: "happy" }, status: { phase: "Running" } })] })));
+    const { client } = renderWithQuery(<DashboardPage />);
+    await screen.findByText("all servers running");
+    server.use(http.get("/fleet/servers", () => HttpResponse.json(
+      { type: "about:blank", status: 503, title: "Service Unavailable", detail: "The Kubernetes API is unreachable.", messageId: "server.kubernetes_unavailable", args: {} },
+      { status: 503, headers: { "Content-Type": "application/problem+json" } },
+    )));
+    await client.refetchQueries({ queryKey: ["fleet", "servers"] });
+    expect(await screen.findByText("The Kubernetes API is unreachable.")).toBeInTheDocument();
+    expect(screen.getByText(/last successful load/)).toBeInTheDocument();
+    expect(screen.getByText("last known")).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't load servers/)).not.toBeInTheDocument();
+  });
+
+  it("shows the unreachable warning on a network error without cached servers", async () => {
+    server.use(http.get("/fleet/servers", () => HttpResponse.error()));
+    renderWithQuery(<DashboardPage />);
+    expect(await screen.findByText("The Kubernetes API is unreachable.")).toBeInTheDocument();
+    expect(screen.getByText(/Couldn't load servers/)).toBeInTheDocument();
+  });
+
   it("hides recent activity from users without audit:read", async () => {
     server.use(
       http.get("/users/me", () => HttpResponse.json(makeUser({ role: "viewer" }))),

@@ -387,6 +387,19 @@ func TestWriteMessage_RemoteClusterKeepsText(t *testing.T) {
 	}
 }
 
+func TestWriteMessage_KubernetesUnavailableKeepsText(t *testing.T) {
+	m := &Message{ID: IDKubernetesUnavailable, Status: http.StatusServiceUnavailable, English: "The Kubernetes API is unreachable."}
+	rr := httptest.NewRecorder()
+	WriteMessage(rr, acceptReq("application/problem+json"), m)
+	var doc decodedProblem
+	if err := json.Unmarshal(rr.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("decode %q: %v", rr.Body.String(), err)
+	}
+	if rr.Code != http.StatusServiceUnavailable || doc.MessageID != IDKubernetesUnavailable || doc.Detail != m.English {
+		t.Fatalf("code=%d doc=%+v", rr.Code, doc)
+	}
+}
+
 func TestWriteMessage_NilAndZeroStatusAre500(t *testing.T) {
 	rr := httptest.NewRecorder()
 	WriteMessage(rr, acceptReq(""), nil)

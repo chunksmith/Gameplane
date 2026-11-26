@@ -62,6 +62,7 @@ const (
 	IDEmptyBody                   = "server.empty_body"                     // "empty body"
 	IDInternal                    = "server.internal"                       // "internal error"
 	IDRemoteClusterNotImplemented = "server.remote_cluster_not_implemented" // RemoteClusterNotImplemented
+	IDKubernetesUnavailable       = "server.kubernetes_unavailable"
 )
 
 // GenericID is the id of the generic sentence registered for an HTTP
@@ -85,7 +86,12 @@ func KnownIDs() []string {
 		IDEmptyBody,
 		IDInternal,
 		IDRemoteClusterNotImplemented,
+		IDKubernetesUnavailable,
 	}
+}
+
+func masked(status int, id string) bool {
+	return status >= 500 && id != IDRemoteClusterNotImplemented && id != IDKubernetesUnavailable
 }
 
 // WantsProblem reports whether the request's Accept header asks for an
@@ -230,7 +236,7 @@ func WriteMessage(w http.ResponseWriter, r *http.Request, m *Message) {
 		status = http.StatusInternalServerError
 	}
 	text, id, args := m.English, m.ID, m.Args
-	if status >= 500 && m.ID != IDRemoteClusterNotImplemented {
+	if masked(status, m.ID) {
 		text = http.StatusText(status)
 		id = GenericID(status)
 		args = nil
@@ -263,7 +269,7 @@ func classify(err error) (int, string, string, map[string]any) {
 		if m.Status == 0 {
 			return http.StatusInternalServerError, "internal error", IDInternal, nil
 		}
-		if m.Status >= 500 && m.ID != IDRemoteClusterNotImplemented {
+		if masked(m.Status, m.ID) {
 			// Same masking as WriteCode and WriteMessage: a 5xx never
 			// echoes the message text or its arguments.
 			return m.Status, http.StatusText(m.Status), GenericID(m.Status), nil

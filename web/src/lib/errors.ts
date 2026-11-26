@@ -33,6 +33,10 @@ export function errorText(err: unknown, fallback?: string, intl: IntlShape = eng
   return err instanceof Error ? err.message : (fallback ?? intl.formatMessage(MESSAGES.request_failed));
 }
 
+export function isUnreachable(err: unknown): boolean {
+  return err instanceof APIError ? [502, 503, 504].includes(err.status) : err instanceof TypeError;
+}
+
 // errorTextWithStatus is errorText plus an HTTP status prefix for APIError
 // (e.g. "404: no pods found") — for diagnostic surfaces (like the admin log
 // viewer) where the status code itself is useful context, not just the body.

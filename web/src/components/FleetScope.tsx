@@ -1,5 +1,6 @@
 import { ListBox, ListBoxItem, Select } from "@heroui/react";
 import type { FleetIssue } from "@/lib/fleet";
+import { isUnreachable } from "@/lib/errors";
 import { useOptionalIntl } from "@/lib/i18n/format";
 
 export function FleetScopeFilter({ value, onChange, clusters }: { value: string; onChange: (value: string) => void; clusters: string[] }) {
@@ -14,10 +15,15 @@ export function FleetScopeFilter({ value, onChange, clusters }: { value: string;
   </Select>;
 }
 
-export function FleetCoverage({ partial, issues = [], error, label: labelProp }: { partial?: boolean; issues?: FleetIssue[]; error?: unknown; label?: string }) {
+export function FleetCoverage({ partial, issues = [], error, stale, label: labelProp }: { partial?: boolean; issues?: FleetIssue[]; error?: unknown; stale?: boolean; label?: string }) {
   const intl = useOptionalIntl();
   const label = labelProp ?? intl.formatMessage({ id: "web.components.fleet_scope.results", defaultMessage: "Results", description: "Fleet scope: default noun for the returned resources in the coverage notice, used when no label is passed" });
-  if (error) return <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 p-3 text-sm">{intl.formatMessage({ id: "web.components.fleet_scope.label_are_unavailable_try_again", defaultMessage: "{label} are unavailable. Try again.", description: "Fleet scope: sentence with label in div" }, { label: label })}</div>;
+  if (error) return <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 p-3 text-sm">
+    {isUnreachable(error)
+      ? <strong>{intl.formatMessage({ id: "web.components.fleet_scope.kubernetes_unreachable", defaultMessage: "The Kubernetes API is unreachable.", description: "Fleet scope: error shown when the panel cannot reach the Kubernetes API or the Gameplane API, for example during a control-plane outage" })}</strong>
+      : intl.formatMessage({ id: "web.components.fleet_scope.label_are_unavailable_try_again", defaultMessage: "{label} are unavailable. Try again.", description: "Fleet scope: sentence with label in div" }, { label: label })}
+    {stale && <> {intl.formatMessage({ id: "web.components.fleet_scope.label_are_stale", defaultMessage: "{label} below are from the last successful load and may be out of date.", description: "Fleet scope: second part of the error notice when the page keeps showing the last loaded data; label names that data, such as Server results" }, { label: label })}</>}
+  </div>;
   if (!partial) return null;
   return <div role="status" className="rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
     <strong>{intl.formatMessage({ id: "web.components.fleet_scope.label_are_partial", defaultMessage: "{label} are partial.", description: "Fleet scope: sentence with label in strong" }, { label: label })}</strong> {intl.formatMessage({ id: "web.components.fleet_scope.counts_cover_only_returned_resources", defaultMessage: "Counts cover only returned resources.", description: "Fleet scope: second part of the partial-results warning, after the heading, saying counts include only the resources that were returned" })}{issues.length > 0 && <ul className="mt-1 list-inside list-disc">{issues.map((issue, index) => <li key={`${issue.cluster}/${issue.namespace ?? ""}/${issue.code}/${index}`}>

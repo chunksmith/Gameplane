@@ -54,6 +54,28 @@ describe("ServersPage", () => {
     expect(screen.getByText("beta")).toBeInTheDocument();
   });
 
+  it("keeps the last server list visible when the Kubernetes API becomes unreachable", async () => {
+    server.use(http.get("/servers", () => HttpResponse.json({ items: [makeServer({ metadata: { name: "alpha", namespace: "gameplane-games" }, status: { phase: "Running" } })] })));
+    const { client } = renderWithQuery(<ServersPage />);
+    await screen.findByText("alpha");
+    server.use(http.get("/fleet/servers", () => HttpResponse.json(
+      { type: "about:blank", status: 503, title: "Service Unavailable", detail: "The Kubernetes API is unreachable.", messageId: "server.kubernetes_unavailable", args: {} },
+      { status: 503, headers: { "Content-Type": "application/problem+json" } },
+    )));
+    await client.refetchQueries({ queryKey: ["fleet", "servers"] });
+    expect(await screen.findByText("The Kubernetes API is unreachable.")).toBeInTheDocument();
+    expect(screen.getByText(/last successful load/)).toBeInTheDocument();
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(screen.queryByText("No server data available for this filter.")).not.toBeInTheDocument();
+  });
+
+  it("shows the unreachable warning when the API itself cannot be reached", async () => {
+    server.use(http.get("/fleet/servers", () => new HttpResponse("Bad Gateway", { status: 502 })));
+    renderWithQuery(<ServersPage />);
+    expect(await screen.findByText("The Kubernetes API is unreachable.")).toBeInTheDocument();
+    expect(screen.queryByText(/last successful load/)).not.toBeInTheDocument();
+  });
+
   it("shows the correct count badge on each status filter tab", async () => {
     server.use(
       http.get("/servers", () =>

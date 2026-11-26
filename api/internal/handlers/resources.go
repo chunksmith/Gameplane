@@ -154,6 +154,9 @@ func listHandler(reg *kube.Registry, gvr schema.GroupVersionResource) http.Handl
 				redactServerSet(req.Context(), cache, &list.Items[i])
 			}
 		}
+		if kubeUnreachable(err) {
+			err = errors.Join(messages.New(httperr.IDKubernetesUnavailable, nil), err)
+		}
 		writeOrErr(w, req, list, err)
 	}
 }
@@ -528,6 +531,14 @@ func writeOrErr(w http.ResponseWriter, req *http.Request, v any, err error) {
 		return
 	}
 	writeJSON(w, v)
+}
+
+func kubeUnreachable(err error) bool {
+	var status apierrors.APIStatus
+	if !errors.As(err, &status) {
+		return err != nil
+	}
+	return apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) || apierrors.IsServiceUnavailable(err) || apierrors.IsInternalError(err)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
