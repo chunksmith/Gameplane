@@ -29,12 +29,10 @@ import { ErrorCard } from "@/components/ui/ErrorCard";
 import { PageHeader } from "@/components/PageHeader";
 import {
   cn,
-  describeDiskUsage,
   formatBytes,
   formatCores,
   formatRelative,
   formatSize,
-  type StorageReading,
 } from "@/lib/utils";
 import { useMe, can } from "@/lib/auth";
 import { Audit } from "@/lib/endpoints";
@@ -108,7 +106,7 @@ export function DashboardPage() {
   const diskUnknown = nodesKnown
     ? intl.formatMessage({ id: "web.routes.dashboard.disk_needs_prometheus", defaultMessage: "needs Prometheus", description: "Dashboard: sub-label on the disk card and storage meter when disk usage cannot be measured because Prometheus is not connected" })
     : inventoryUnavailable;
-  const storage = disk ? describeDiskUsage(disk.used, disk.total, intl) : { valueText: emptyValue, subText: diskUnknown };
+  const storage: StorageReading = disk ? { valueText: formatBytes(disk.used) } : { valueText: emptyValue, subText: diskUnknown };
   const storageKnown = disk !== undefined;
   const storagePct = disk ? (disk.used / disk.total) * 100 : 0;
   const isLoading = serversLoading || clusterLoading || backupsLoading || (canAudit && auditLoading);
@@ -193,7 +191,7 @@ export function DashboardPage() {
               }
             />
             <KpiCard
-              label={intl.formatMessage({ id: "web.routes.dashboard.disk_used", defaultMessage: "Disk used", description: "Dashboard: label of the summary card with the disk space used on the cluster nodes; the line under it shows the total disk" })}
+              label={intl.formatMessage({ id: "web.routes.dashboard.disk_used", defaultMessage: "Disk used", description: "Dashboard: label of the summary card with the disk space used on the cluster nodes" })}
               icon={HardDrive}
               accent="text-chart-stat"
               value={storage.valueText}
@@ -494,6 +492,11 @@ interface Usage {
   // known is false when no node reported a `used` reading (no
   // metrics-server) — the meter must show "—", not a false 0%.
   known: boolean;
+}
+
+interface StorageReading {
+  valueText: string;
+  subText?: string;
 }
 
 function ClusterResourcesCard({

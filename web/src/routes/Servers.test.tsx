@@ -92,7 +92,7 @@ describe("ServersPage", () => {
     renderWithQuery(<ServersPage />);
     await screen.findByText("Disk used");
     expect(await screen.findByText("578 GB")).toBeInTheDocument();
-    expect(screen.getByText("of 935 GB disk")).toBeInTheDocument();
+    expect(screen.queryByText(/935 GB/)).not.toBeInTheDocument();
   });
 
   it("filters by name via the search box", async () => {

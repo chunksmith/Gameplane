@@ -160,7 +160,7 @@ describe("DashboardPage", () => {
     renderWithQuery(<DashboardPage />);
     await screen.findByText("Disk used");
     expect(screen.getByText("578 GB")).toBeInTheDocument();
-    expect(screen.getAllByText("of 935 GB disk")).not.toHaveLength(0);
+    expect(screen.queryByText(/935 GB/)).not.toBeInTheDocument();
     expect(screen.queryByText(/overcommitted|provisioned/i)).not.toBeInTheDocument();
   });
 

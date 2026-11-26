@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   cn,
   capitalize,
-  describeDiskUsage,
   formatBytes,
   formatCores,
   formatRelative,
@@ -134,14 +133,6 @@ describe("formatCores", () => {
   it("trims floating-point noise from summed sub-core readings", () => {
     // 0.646 + 0.646 in IEEE754 is 1.2919999999999998, not 1.292.
     expect(formatCores(0.646 + 0.646)).toBe("1.29");
-  });
-});
-
-describe("describeDiskUsage", () => {
-  it("reports disk used out of the total disk", () => {
-    const r = describeDiskUsage(578 * 1024 ** 3, 935 * 1024 ** 3);
-    expect(r.valueText).toBe("578 GB");
-    expect(r.subText).toBe("of 935 GB disk");
   });
 });
 

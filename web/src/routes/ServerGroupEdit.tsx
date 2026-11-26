@@ -276,7 +276,7 @@ function GroupForm({ set, template, client, cluster, namespace, back }: {
         <span className="block text-[11px] text-muted">
           {ephemeral
             ? intl.formatMessage({ id: "web.routes.server_group_edit.storage_ephemeral", defaultMessage: "Storage: ephemeral (fixed after creation)", description: "Server group edit: read-only note that the group uses ephemeral storage, which cannot change after creation" })
-            : intl.formatMessage({ id: "web.routes.server_group_edit.storage_persistent", defaultMessage: "Storage: persistent volume {size} (fixed after creation)", description: "Server group edit: read-only note with the persistent volume size, which cannot change after creation; {size} is a quantity like 20Gi" }, { size: set.spec.template.storage?.size ?? intl.formatMessage({ id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" }) })}
+            : intl.formatMessage({ id: "web.routes.server_group_edit.storage_persistent", defaultMessage: "Storage: persistent volume (fixed after creation)", description: "Server group edit: read-only note that the group uses a persistent volume, which cannot change after creation" })}
         </span>
       </Card>
 

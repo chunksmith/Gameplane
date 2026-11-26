@@ -137,22 +137,6 @@ export function formatCpuPercent(cores: number): string {
   return `${Number((cores * 100).toFixed(1))}%`;
 }
 
-export interface StorageReading {
-  valueText: string;
-  subText: string;
-}
-
-export function describeDiskUsage(usedBytes: number, totalBytes: number, intl: IntlShape = englishIntl): StorageReading {
-  return {
-    valueText: formatBytes(usedBytes),
-    subText: intl.formatMessage({
-      id: "web.lib.utils.disk_of_total",
-      defaultMessage: "of {total} disk",
-      description: "Disk usage line: disk space used out of the total disk of the nodes; {total} is a formatted size such as 40 GB",
-    }, { total: formatBytes(totalBytes) }),
-  };
-}
-
 export function formatUptime(startedAt?: string, intl: IntlShape = englishIntl): string {
   if (!startedAt) return "—";
   const t = new Date(startedAt).getTime();
