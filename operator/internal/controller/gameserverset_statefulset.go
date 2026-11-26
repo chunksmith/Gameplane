@@ -66,10 +66,7 @@ func (r *GameServerSetReconciler) reconcileStatefulSetMode(
 		return ctrl.Result{}, err
 	}
 
-	names := make([]string, 0, set.Spec.Replicas)
-	for i := range set.Spec.Replicas {
-		names = append(names, fmt.Sprintf("%s-%d", set.Name, i))
-	}
+	names := setReplicaNames(set)
 	if err := r.reconcileSetSecrets(ctx, set, carrier, &tmpl, mc); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -366,7 +363,8 @@ func (r *GameServerSetReconciler) reconcileReplicaPorts(ctx context.Context, set
 		}
 		for i := range set.Spec.Replicas {
 			number := port.BasePort + i
-			svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: replicaPortServiceName(set, i, port.Name), Namespace: set.Namespace}}
+			ordinal := setOrdinalStart(set) + i
+			svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: replicaPortServiceName(set, ordinal, port.Name), Namespace: set.Namespace}}
 			want[svc.Name] = true
 			_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 				if svc.Labels == nil {
@@ -375,7 +373,7 @@ func (r *GameServerSetReconciler) reconcileReplicaPorts(ctx context.Context, set
 				svc.Labels[serverSetPortLabel] = set.Name
 				svc.Spec.Type = corev1.ServiceTypeClusterIP
 				svc.Spec.ExternalIPs = slices.Clone(port.ExternalIPs)
-				svc.Spec.Selector = replicaSelector(set, fmt.Sprintf("%s-%d", set.Name, i))
+				svc.Spec.Selector = replicaSelector(set, setReplicaName(set, ordinal))
 				svc.Spec.Ports = []corev1.ServicePort{{
 					Name:       port.Name,
 					Protocol:   protocol,
@@ -461,12 +459,13 @@ func (r *GameServerSetReconciler) reconcilePlacementClaims(
 	}
 	size, className := r.dataClaimTemplate(carrier, tmpl)
 	placed := true
+	start := setOrdinalStart(set)
 	for _, pin := range set.Spec.Placement {
-		if pin.Ordinal >= set.Spec.Replicas {
+		if pin.Ordinal < start || pin.Ordinal >= start+set.Spec.Replicas {
 			continue
 		}
 		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("data-%s-%d", set.Name, pin.Ordinal),
+			Name:      "data-" + setReplicaName(set, pin.Ordinal),
 			Namespace: set.Namespace,
 		}}
 		err := r.Get(ctx, client.ObjectKeyFromObject(pvc), pvc)
@@ -525,6 +524,7 @@ func (r *GameServerSetReconciler) reconcileSetStatefulSet(
 			}
 		}
 		sts.Spec.Replicas = &replicas
+		sts.Spec.Ordinals = set.Spec.Ordinals.DeepCopy()
 		sts.Spec.ServiceName = set.Name
 		sts.Spec.MinReadySeconds = set.Spec.MinReadySeconds
 		sts.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
@@ -625,8 +625,9 @@ func (r *GameServerSetReconciler) rolloutStatefulSet(
 
 	var updated int32
 	updatedAvailable := false
-	for ordinal := range *sts.Spec.Replicas {
-		name := fmt.Sprintf("%s-%d", set.Name, ordinal)
+	start := setOrdinalStart(set)
+	for i := range *sts.Spec.Replicas {
+		name := setReplicaName(set, start+i)
 		pod := pods[name]
 		if pod == nil || pod.DeletionTimestamp != nil || !current(pod) {
 			continue
@@ -638,7 +639,7 @@ func (r *GameServerSetReconciler) rolloutStatefulSet(
 		updatedAvailable = updatedAvailable || available
 	}
 
-	doomed, requeue := rolloutPlan(set.Name, *sts.Spec.Replicas, pods, current, held, minReady)
+	doomed, requeue := rolloutPlan(set.Name, start, *sts.Spec.Replicas, pods, current, held, minReady)
 	if err := r.reconcileServing(ctx, set, pods, servingInputs{
 		current: current, held: held, doomed: doomed, updatedAvailable: updatedAvailable, minReady: minReady,
 	}); err != nil {
@@ -654,11 +655,11 @@ func (r *GameServerSetReconciler) rolloutStatefulSet(
 }
 
 func rolloutPlan(
-	name string, replicas int32, pods map[string]*corev1.Pod, current func(*corev1.Pod) bool,
+	name string, start, replicas int32, pods map[string]*corev1.Pod, current func(*corev1.Pod) bool,
 	held map[string]bool, minReady time.Duration,
 ) ([]*corev1.Pod, time.Duration) {
 	var doomed []*corev1.Pod
-	for ordinal := replicas - 1; ordinal >= 0; ordinal-- {
+	for ordinal := start + replicas - 1; ordinal >= start; ordinal-- {
 		podName := fmt.Sprintf("%s-%d", name, ordinal)
 		pod := pods[podName]
 		if pod == nil || pod.DeletionTimestamp != nil {

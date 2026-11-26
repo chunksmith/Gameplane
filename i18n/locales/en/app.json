@@ -8084,8 +8084,8 @@
     "description": "Create server: field label for the optional hostname, shown in the Tailscale section and in the general network settings"
   },
   "web.routes.create_server.identical_replicas_named": {
-    "defaultMessage": "Identical replicas named {name}-0, {name}-1, … each with its own address.",
-    "description": "Create server: hint under the deployment choice when a server group is selected; {name} is the server name, or <name> while it is empty"
+    "defaultMessage": "Identical replicas named {name}-{first}, {name}-{second}, … each with its own address.",
+    "description": "Create server: hint under the deployment choice when a server group is selected; {name} is the server name, or <name> while it is empty; {first} and {second} are the first two replica numbers"
   },
   "web.routes.create_server.image_placeholder": {
     "defaultMessage": "registry.example.com/lobby:1.0",
@@ -8234,6 +8234,14 @@
   "web.routes.create_server.or_use_existing_secret_gitops": {
     "defaultMessage": "Or use existing Secret (GitOps)",
     "description": "Create server: field label for an option to reuse an existing Kubernetes Secret for the tunnel credentials instead of entering them"
+  },
+  "web.routes.create_server.ordinal_start": {
+    "defaultMessage": "First replica number",
+    "description": "Create server: field label for the number of a server group's first replica, so replicas can be named from 1 instead of 0"
+  },
+  "web.routes.create_server.ordinal_start_hint": {
+    "defaultMessage": "Fixed after creation.",
+    "description": "Create server: hint under the first replica number field saying it cannot change once the group exists"
   },
   "web.routes.create_server.overrides_the_template_image_requires": {
     "defaultMessage": "Overrides the template image. Requires admin.",
@@ -8614,6 +8622,10 @@
   "web.routes.create_server.validation_name_required": {
     "defaultMessage": "Server name is required",
     "description": "Create server: validation message shown when the server name is empty"
+  },
+  "web.routes.create_server.validation_ordinal_start_range": {
+    "defaultMessage": "First replica number must be a whole number from 0 to 9999",
+    "description": "Create server: validation message shown when the first replica number of a server group is not a whole number from 0 to 9999"
   },
   "web.routes.create_server.validation_pick_template": {
     "defaultMessage": "Pick a game template to continue",
@@ -9606,6 +9618,14 @@
   "web.routes.server_group_edit.nodes_hint": {
     "defaultMessage": "Replicas run only on the selected nodes and spread across them. None selected: any node.",
     "description": "Server group edit: hint under the node list explaining replicas run only on the selected nodes, or on any node when none is selected"
+  },
+  "web.routes.server_group_edit.ordinal_start": {
+    "defaultMessage": "First replica number",
+    "description": "Server group edit: label of the read-only number of the group's first replica"
+  },
+  "web.routes.server_group_edit.ordinal_start_value": {
+    "defaultMessage": "{start} (fixed after creation)",
+    "description": "Server group edit: read-only value of the first replica number, which cannot change after creation; {start} is the number"
   },
   "web.routes.server_group_edit.replica_name": {
     "defaultMessage": "{name}-{ordinal}",

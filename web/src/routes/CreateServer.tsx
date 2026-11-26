@@ -82,6 +82,7 @@ interface WizardState {
   pins: string[];
   ephemeral: boolean;
   image: string;
+  ordinalStart: string;
 }
 
 const initial: WizardState = {
@@ -103,13 +104,19 @@ const initial: WizardState = {
   addressPool: "",
   requestedAddress: "",
   mode: "single", replicas: "3", nodes: [], pins: [], ephemeral: false, image: "",
+  ordinalStart: "0",
 };
 
 export const ANY_NODE = "__any__";
 
-export function replicaOrdinals(replicas: string): number[] {
+export function replicaOrdinals(replicas: string, start = 0): number[] {
   const count = Number(replicas);
-  return Number.isInteger(count) && count >= 1 && count <= 100 ? Array.from({ length: count }, (_, ordinal) => ordinal) : [];
+  return Number.isInteger(count) && count >= 1 && count <= 100 ? Array.from({ length: count }, (_, index) => start + index) : [];
+}
+
+export function ordinalStart(value: string): number {
+  const start = Number(value);
+  return Number.isInteger(start) && start > 0 ? start : 0;
 }
 
 export function pinReplica(pins: string[], ordinal: number, node: string): string[] {
@@ -118,9 +125,9 @@ export function pinReplica(pins: string[], ordinal: number, node: string): strin
   return next;
 }
 
-export function replicaPlacement(state: Pick<WizardState, "pins" | "replicas" | "ephemeral">): { ordinal: number; node: string }[] {
+export function replicaPlacement(state: Pick<WizardState, "pins" | "replicas" | "ephemeral">, start = 0): { ordinal: number; node: string }[] {
   if (state.ephemeral) return [];
-  return replicaOrdinals(state.replicas).flatMap((ordinal) => (state.pins[ordinal] ? [{ ordinal, node: state.pins[ordinal] }] : []));
+  return replicaOrdinals(state.replicas, start).flatMap((ordinal) => (state.pins[ordinal] ? [{ ordinal, node: state.pins[ordinal] }] : []));
 }
 
 // Largest single-node capacity from the cluster view — the ceiling a pod
@@ -275,6 +282,10 @@ function validateStep(
       if (!Number.isInteger(replicas) || replicas < 1 || replicas > 100) {
         return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_replicas_range", defaultMessage: "Replicas must be a whole number from 1 to 100", description: "Create server: validation message shown when the replica count is not a whole number from 1 to 100" }) };
       }
+      const start = Number(state.ordinalStart);
+      if (!Number.isInteger(start) || start < 0 || start > 9999) {
+        return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_ordinal_start_range", defaultMessage: "First replica number must be a whole number from 0 to 9999", description: "Create server: validation message shown when the first replica number of a server group is not a whole number from 0 to 9999" }) };
+      }
     }
     if (!state.ephemeral && !isValidQuantity(state.storageSize)) {
       return { ok: false, reason: intl.formatMessage({ id: "web.routes.create_server.validation_storage_quantity", defaultMessage: "Storage must be a Kubernetes quantity (e.g. 50Gi)", description: "Create server: validation message shown when the storage size is not a valid Kubernetes quantity" }) };
@@ -422,11 +433,13 @@ function PlacedServerWizard({ placement, choices, onPlacementChange, partial }: 
   const create = useMutation({
     mutationFn: async () => {
       if (state.mode === "group") {
-        const placement = replicaPlacement(state);
+        const start = ordinalStart(state.ordinalStart);
+        const placement = replicaPlacement(state, start);
         await ServerSets.create({
           ...buildCreateBody(state),
           replicas: Number(state.replicas),
           mode: "StatefulSet",
+          ...(start ? { ordinals: { start } } : {}),
           ...(state.ephemeral && state.nodes.length ? { nodes: state.nodes } : {}),
           ...(placement.length ? { placement } : {}),
         });
@@ -807,7 +820,7 @@ function Configure({ state, setState, caps, nodeNames, cluster }: { state: Wizar
         <span className="block text-[11px] text-muted">
           {state.mode === "single"
             ? intl.formatMessage({ id: "web.routes.create_server.one_server_with_its_own_address", defaultMessage: "One server with its own address.", description: "Create server: hint under the deployment choice when a single server is selected" })
-            : intl.formatMessage({ id: "web.routes.create_server.identical_replicas_named", defaultMessage: "Identical replicas named {name}-0, {name}-1, … each with its own address.", description: "Create server: hint under the deployment choice when a server group is selected; {name} is the server name, or <name> while it is empty" }, { name: state.name || "<name>" })}
+            : intl.formatMessage({ id: "web.routes.create_server.identical_replicas_named", defaultMessage: "Identical replicas named {name}-{first}, {name}-{second}, … each with its own address.", description: "Create server: hint under the deployment choice when a server group is selected; {name} is the server name, or <name> while it is empty; {first} and {second} are the first two replica numbers" }, { name: state.name || "<name>", first: ordinalStart(state.ordinalStart), second: ordinalStart(state.ordinalStart) + 1 })}
         </span>
       </div>
       <div className="space-y-1.5">
@@ -844,6 +857,19 @@ function Configure({ state, setState, caps, nodeNames, cluster }: { state: Wizar
               className="w-32"
             />
           </div>
+          <div className="space-y-1.5">
+            <label htmlFor="ordinal-start" className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.ordinal_start", defaultMessage: "First replica number", description: "Create server: field label for the number of a server group's first replica, so replicas can be named from 1 instead of 0" })}</label>
+            <Input
+              id="ordinal-start"
+              type="number"
+              min={0}
+              max={9999}
+              value={state.ordinalStart}
+              onChange={(event) => setState({ ...state, ordinalStart: event.target.value, pins: [] })}
+              className="w-32"
+            />
+            <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.ordinal_start_hint", defaultMessage: "Fixed after creation.", description: "Create server: hint under the first replica number field saying it cannot change once the group exists" })}</span>
+          </div>
           {state.ephemeral ? (
             <div className="space-y-1.5">
               <span className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.create_server.nodes", defaultMessage: "Nodes", description: "Create server: label of the list of nodes a server group's replicas may run on" })}</span>
@@ -872,7 +898,7 @@ function Configure({ state, setState, caps, nodeNames, cluster }: { state: Wizar
                 <span className="block text-[11px] text-muted">{intl.formatMessage({ id: "web.routes.create_server.node_list_unavailable", defaultMessage: "Node list unavailable. The scheduler places the replicas.", description: "Create server: hint shown instead of the node list when the nodes cannot be listed" })}</span>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {replicaOrdinals(state.replicas).map((ordinal) => (
+                  {replicaOrdinals(state.replicas, ordinalStart(state.ordinalStart)).map((ordinal) => (
                     <Select
                       key={ordinal}
                       value={state.pins[ordinal] || ANY_NODE}
@@ -1296,7 +1322,7 @@ function TunnelPortMappingsEditor({
 function reviewNodes(state: WizardState, intl: IntlShape): string {
   const any = intl.formatMessage(REVIEW_LABELS.any);
   if (state.ephemeral) return state.nodes.length ? state.nodes.join(", ") : any;
-  const placement = replicaPlacement(state);
+  const placement = replicaPlacement(state, ordinalStart(state.ordinalStart));
   if (!placement.length) return any;
   return placement
     .map(({ ordinal, node }) => intl.formatMessage({ id: "web.routes.create_server.review_replica_on_node", defaultMessage: "{name}-{ordinal} on {node}", description: "Create server: review value for one pinned replica; {name} is the group name, {ordinal} the replica number and {node} its node" }, { name: state.name || "<name>", ordinal, node }))
@@ -1304,9 +1330,11 @@ function reviewNodes(state: WizardState, intl: IntlShape): string {
 }
 
 function yamlPlacement(state: WizardState): string {
-  const placement = replicaPlacement(state);
-  if (!placement.length) return "";
-  return `  placement:\n${placement.map(({ ordinal, node }) => `  - { ordinal: ${ordinal}, node: ${node} }\n`).join("")}`;
+  const start = ordinalStart(state.ordinalStart);
+  const placement = replicaPlacement(state, start);
+  const ordinals = start ? `  ordinals:\n    start: ${start}\n` : "";
+  if (!placement.length) return ordinals;
+  return `${ordinals}  placement:\n${placement.map(({ ordinal, node }) => `  - { ordinal: ${ordinal}, node: ${node} }\n`).join("")}`;
 }
 
 const DEPLOYMENT_MODE = defineMessages({

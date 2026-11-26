@@ -683,6 +683,7 @@ export interface GameServerSet {
     mode?: "Independent" | "StatefulSet";
     nodes?: string[];
     placement?: { ordinal: number; node: string }[];
+    ordinals?: { start?: number };
     replicaPorts?: { name: string; protocol?: "TCP" | "UDP"; basePort: number; externalIPs?: string[] }[];
     minReadySeconds?: number;
     rollout?: {

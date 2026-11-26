@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1093,6 +1094,11 @@ func (in *GameServerSetSpec) DeepCopyInto(out *GameServerSetSpec) {
 		in, out := &in.Rollout, &out.Rollout
 		*out = new(SetRollout)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Ordinals != nil {
+		in, out := &in.Ordinals, &out.Ordinals
+		*out = new(appsv1.StatefulSetOrdinals)
+		**out = **in
 	}
 	in.Template.DeepCopyInto(&out.Template)
 }

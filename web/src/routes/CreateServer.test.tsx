@@ -771,6 +771,30 @@ describe("CreateServerWizard server groups", () => {
     expect(body.spec.template.storage.ephemeral).toBeUndefined();
   });
 
+  it("numbers group replicas from the first replica number", async () => {
+    routeFetch({ cluster: { nodes: [{ name: "node-a" }, { name: "node-b" }] } });
+    renderWithQuery(<CreateServerWizard />);
+    await pickTemplate(template());
+    fireEvent.click(screen.getByRole("button", { name: "Server group" }));
+    fireEvent.change(screen.getByPlaceholderText("mc-hardcore"), { target: { value: "lobi" } });
+    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("First replica number"), { target: { value: "1" } });
+    fireEvent.click(screen.getByLabelText("Ephemeral storage"));
+    expect(screen.queryByLabelText("Node for lobi-0")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Node for lobi-2"));
+    await userEvent.click(await screen.findByRole("option", { name: "node-b" }));
+    expect(screen.getByText(/start: 1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Network/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Review/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Create group/i }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/servers" }));
+    const postCall = fetchMock.mock.calls.find((call) => (call[1] as FetchInit).method === "POST")!;
+    const body = JSON.parse((postCall[1] as FetchInit).body as string);
+    expect(body.spec.ordinals).toEqual({ start: 1 });
+    expect(body.spec.placement).toEqual([{ ordinal: 2, node: "node-b" }]);
+  });
+
   it("validates group replicas and name length on the Configure step", async () => {
     routeFetch();
     renderWithQuery(<CreateServerWizard />);

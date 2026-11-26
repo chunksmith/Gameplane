@@ -117,9 +117,10 @@ export interface ServerSetCreate extends ServerCreate {
   nodes?: string[];
   mode?: "Independent" | "StatefulSet";
   placement?: { ordinal: number; node: string }[];
+  ordinals?: { start: number };
 }
 
-function serverSetEnvelope({ name, description, replicas, nodes, mode, placement, ...template }: ServerSetCreate) {
+function serverSetEnvelope({ name, description, replicas, nodes, mode, placement, ordinals, ...template }: ServerSetCreate) {
   return {
     apiVersion: "gameplane.local/v1alpha1",
     kind: "GameServerSet",
@@ -127,7 +128,7 @@ function serverSetEnvelope({ name, description, replicas, nodes, mode, placement
       name,
       ...(description ? { annotations: { "gameplane.local/description": description } } : {}),
     },
-    spec: { replicas, ...(mode ? { mode } : {}), ...(nodes?.length ? { nodes } : {}), ...(placement?.length ? { placement } : {}), template },
+    spec: { replicas, ...(mode ? { mode } : {}), ...(nodes?.length ? { nodes } : {}), ...(placement?.length ? { placement } : {}), ...(ordinals ? { ordinals } : {}), template },
   };
 }
 

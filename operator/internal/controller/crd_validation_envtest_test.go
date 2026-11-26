@@ -7,8 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gameplanev1alpha1 "github.com/GameplanePanel/gameplane/operator/api/v1alpha1"
 )
@@ -335,4 +338,32 @@ func TestCRDValidation_ConsoleModeRconRequiresRcon(t *testing.T) {
 	t.Cleanup(func() {
 		_ = k8sClient.Delete(context.Background(), tmpl)
 	})
+}
+
+func TestCRDValidation_GameServerSetOrdinals(t *testing.T) {
+	ctx := context.Background()
+	ns := newNamespace(t)
+	bad := &gameplanev1alpha1.GameServerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "v-ordinals-bad", Namespace: ns},
+		Spec: gameplanev1alpha1.GameServerSetSpec{
+			Ordinals: &appsv1.StatefulSetOrdinals{Start: -1},
+			Template: gameplanev1alpha1.GameServerSpec{TemplateRef: gameplanev1alpha1.GameTemplateRef{Name: "some-template"}},
+		},
+	}
+	if err := k8sClient.Create(ctx, bad); !apierrors.IsInvalid(err) {
+		t.Fatalf("negative start: expected Invalid, got %v", err)
+	}
+	set := bad.DeepCopy()
+	set.Name = "v-ordinals"
+	set.Spec.Ordinals.Start = 1
+	if err := k8sClient.Create(ctx, set); err != nil {
+		t.Fatalf("start 1 rejected: %v", err)
+	}
+	patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"ordinals":{"start":2}}}`))
+	if err := k8sClient.Patch(ctx, set, patch); !apierrors.IsInvalid(err) {
+		t.Fatalf("changed start: expected Invalid, got %v", err)
+	}
+	if err := k8sClient.Patch(ctx, set, client.RawPatch(types.MergePatchType, []byte(`{"spec":{"replicas":2}}`))); err != nil {
+		t.Fatalf("unrelated update rejected: %v", err)
+	}
 }

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    gameplane.local/crd-bundle-sha256: 8e01b9f2f48f6fce4b11448e014ed7f75021792858fc51623d08682bd75bea99
+    gameplane.local/crd-bundle-sha256: 0623b7c4d977ee2355a187cf4612972e856aec016061765658b5b2c51060f731
     controller-gen.kubebuilder.io/version: v0.20.1
   name: restores.gameplane.local
 spec:

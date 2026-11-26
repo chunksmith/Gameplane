@@ -77,6 +77,24 @@ spec:
                   type: string
                 maxItems: 64
                 type: array
+              ordinals:
+                description: |-
+                  StatefulSetOrdinals describes the policy used for replica ordinal assignment
+                  in this StatefulSet.
+                properties:
+                  start:
+                    description: |-
+                      start is the number representing the first replica's index. It may be used
+                      to number replicas from an alternate index (eg: 1-indexed) over the default
+                      0-indexed names, or to orchestrate progressive movement of replicas from
+                      one StatefulSet to another.
+                      If set, replica indices will be in the range:
+                        [.spec.ordinals.start, .spec.ordinals.start + .spec.replicas).
+                      If unset, defaults to 0. Replica indices will be in the range:
+                        [0, .spec.replicas).
+                    format: int32
+                    type: integer
+                type: object
               placement:
                 items:
                   description: ReplicaPlacement pins one StatefulSet ordinal to a
@@ -88,7 +106,7 @@ spec:
                       type: string
                     ordinal:
                       format: int32
-                      maximum: 99
+                      maximum: 10098
                       minimum: 0
                       type: integer
                   required:
@@ -6612,6 +6630,13 @@ spec:
             - message: replicaPorts basePort plus replicas must stay within 65535
               rule: '!has(self.replicaPorts) || self.replicaPorts.all(p, p.basePort
                 + self.replicas <= 65536)'
+            - message: ordinals.start must be between 0 and 9999
+              rule: '!has(self.ordinals) || !has(self.ordinals.start) || (self.ordinals.start
+                >= 0 && self.ordinals.start <= 9999)'
+            - message: ordinals.start is immutable
+              rule: '(has(self.ordinals) && has(self.ordinals.start) ? self.ordinals.start
+                : 0) == (has(oldSelf.ordinals) && has(oldSelf.ordinals.start) ? oldSelf.ordinals.start
+                : 0)'
           status:
             description: GameServerSetStatus is the observed state of a GameServerSet.
             properties:

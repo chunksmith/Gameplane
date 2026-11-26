@@ -52,7 +52,7 @@ function draftFrom(set: GameServerSet): Draft {
 function applyDraft(set: GameServerSet, draft: Draft): GameServerSet {
   const ephemeral = !!set.spec.template.storage?.ephemeral;
   const statefulSet = set.spec.mode === "StatefulSet";
-  const placement = replicaPlacement({ pins: draft.pins, replicas: draft.replicas, ephemeral });
+  const placement = replicaPlacement({ pins: draft.pins, replicas: draft.replicas, ephemeral }, set.spec.ordinals?.start ?? 0);
   const annotations = { ...set.metadata.annotations };
   if (draft.description.trim()) annotations[DESCRIPTION_ANNOTATION] = draft.description.trim();
   else delete annotations[DESCRIPTION_ANNOTATION];
@@ -130,6 +130,7 @@ function GroupForm({ set, template, client, cluster, namespace, back }: {
   const statefulSet = set.spec.mode === "StatefulSet";
   const fields = template.spec.configSchema ?? [];
   const versions = template.spec.versions ?? [];
+  const start = set.spec.ordinals?.start ?? 0;
 
   const save = useMutation({
     mutationFn: () => client.ServerSets.update(applyDraft(set, draft)),
@@ -184,6 +185,12 @@ function GroupForm({ set, template, client, cluster, namespace, back }: {
             <label htmlFor="replicas" className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.server_group_edit.replicas", defaultMessage: "Replicas", description: "Server group edit: field label for how many replicas the group runs" })}</label>
             <Input id="replicas" type="number" min={0} max={100} value={draft.replicas} onChange={(event) => patch({ replicas: event.target.value })} className="w-32" />
           </div>
+          {start > 0 && (
+            <div className="space-y-1.5">
+              <span className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.server_group_edit.ordinal_start", defaultMessage: "First replica number", description: "Server group edit: label of the read-only number of the group's first replica" })}</span>
+              <span className="block py-2 text-sm">{intl.formatMessage({ id: "web.routes.server_group_edit.ordinal_start_value", defaultMessage: "{start} (fixed after creation)", description: "Server group edit: read-only value of the first replica number, which cannot change after creation; {start} is the number" }, { start })}</span>
+            </div>
+          )}
           {statefulSet && (
             <div className="space-y-1.5">
               <label htmlFor="min-ready" className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.server_group_edit.min_ready_seconds", defaultMessage: "Minimum ready seconds", description: "Server group edit: field label for how many seconds a replica must stay ready before the rollout moves on" })}</label>
@@ -215,7 +222,7 @@ function GroupForm({ set, template, client, cluster, namespace, back }: {
             <span className="block text-xs text-muted">{intl.formatMessage({ id: "web.routes.server_group_edit.replica_nodes", defaultMessage: "Replica nodes", description: "Server group edit: label of the per-replica node choices of a group with persistent storage" })}</span>
             {nodeNames.length === 0 ? <span className="block text-[11px] text-muted">{nodesUnavailable}</span> : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {replicaOrdinals(draft.replicas).map((ordinal) => (
+                {replicaOrdinals(draft.replicas, start).map((ordinal) => (
                   <Select key={ordinal} value={draft.pins[ordinal] || ANY_NODE} onChange={(value) => patch({ pins: pinReplica(draft.pins, ordinal, String(value)) })}>
                     <Label>{intl.formatMessage({ id: "web.routes.server_group_edit.replica_name", defaultMessage: "{name}-{ordinal}", description: "Server group edit: label of one replica's node choice; {name} is the group name and {ordinal} the replica number" }, { name: set.metadata.name, ordinal })}</Label>
                     <Select.Trigger aria-label={intl.formatMessage({ id: "web.routes.server_group_edit.node_for_replica", defaultMessage: "Node for {name}-{ordinal}", description: "Server group edit: screen-reader label of one replica's node dropdown; {name} is the group name and {ordinal} the replica number" }, { name: set.metadata.name, ordinal })}><Select.Value /><Select.Indicator /></Select.Trigger>

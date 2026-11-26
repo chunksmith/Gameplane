@@ -9,6 +9,11 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Added
 
+- **Server group start ordinal:** `GameServerSet.spec.ordinals.start` numbers
+  replicas from `start` (`<set>-1…` for `start: 1`), like a StatefulSet's
+  `spec.ordinals`. Child servers, pods, volumes, per-replica Services and
+  placement use the real ordinal; `replicaPorts` stay on `basePort+i`. It is
+  fixed after creation; the create wizard sets it as "First replica number".
 - **Per-component image tags:** `operator.image.tag`, `api.image.tag` and
   `web.image.tag` override `image.tag` for one component; empty falls back to
   `image.tag`.

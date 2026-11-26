@@ -68,8 +68,7 @@ func (r *GameServerSetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 	status := gameplanev1alpha1.GameServerSetStatus{ObservedGeneration: set.Generation}
-	for i := range set.Spec.Replicas {
-		name := fmt.Sprintf("%s-%d", set.Name, i)
+	for _, name := range setReplicaNames(&set) {
 		child, ok := owned[name]
 		delete(owned, name)
 		if !ok {
@@ -166,6 +165,26 @@ func (r *GameServerSetReconciler) updateChild(
 		return fmt.Errorf("update set child %s: %w", child.Name, err)
 	}
 	return nil
+}
+
+func setOrdinalStart(set *gameplanev1alpha1.GameServerSet) int32 {
+	if set.Spec.Ordinals == nil {
+		return 0
+	}
+	return set.Spec.Ordinals.Start
+}
+
+func setReplicaName(set *gameplanev1alpha1.GameServerSet, ordinal int32) string {
+	return fmt.Sprintf("%s-%d", set.Name, ordinal)
+}
+
+func setReplicaNames(set *gameplanev1alpha1.GameServerSet) []string {
+	start := setOrdinalStart(set)
+	names := make([]string, 0, set.Spec.Replicas)
+	for i := range set.Spec.Replicas {
+		names = append(names, setReplicaName(set, start+i))
+	}
+	return names
 }
 
 func serverSetChildSpec(set *gameplanev1alpha1.GameServerSet) *gameplanev1alpha1.GameServerSpec {

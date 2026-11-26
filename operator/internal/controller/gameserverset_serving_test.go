@@ -29,12 +29,12 @@ func TestRolloutPlanDeletesHighestOldPod(t *testing.T) {
 		"set-1": readyPod("set-1", "old", time.Hour),
 		"set-2": readyPod("set-2", "new", time.Hour),
 	}
-	doomed, requeue := rolloutPlan("set", 3, pods, currentIs("new"), nil, 20*time.Second)
+	doomed, requeue := rolloutPlan("set", 0, 3, pods, currentIs("new"), nil, 20*time.Second)
 	if len(doomed) != 1 || doomed[0].Name != "set-1" || requeue != rolloutRequeue {
 		t.Fatalf("doomed=%v requeue=%v", doomed, requeue)
 	}
 	pods["set-2"] = readyPod("set-2", "new", 5*time.Second)
-	doomed, requeue = rolloutPlan("set", 3, pods, currentIs("new"), nil, 20*time.Second)
+	doomed, requeue = rolloutPlan("set", 0, 3, pods, currentIs("new"), nil, 20*time.Second)
 	if len(doomed) != 0 || requeue <= 0 {
 		t.Fatalf("waits for minReady: doomed=%v requeue=%v", doomed, requeue)
 	}

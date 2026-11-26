@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -18,7 +19,7 @@ const (
 // ReplicaPlacement pins one StatefulSet ordinal to a node.
 type ReplicaPlacement struct {
 	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=99
+	// +kubebuilder:validation:Maximum=10098
 	Ordinal int32 `json:"ordinal"`
 
 	// +kubebuilder:validation:MinLength=1
@@ -51,6 +52,8 @@ type ReplicaPort struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.mode == 'StatefulSet'",message="rollout needs mode StatefulSet"
 // +kubebuilder:validation:XValidation:rule="!has(self.placement) || !has(self.template.storage) || !has(self.template.storage.ephemeral) || !self.template.storage.ephemeral",message="placement needs persistent storage"
 // +kubebuilder:validation:XValidation:rule="!has(self.replicaPorts) || self.replicaPorts.all(p, p.basePort + self.replicas <= 65536)",message="replicaPorts basePort plus replicas must stay within 65535"
+// +kubebuilder:validation:XValidation:rule="!has(self.ordinals) || !has(self.ordinals.start) || (self.ordinals.start >= 0 && self.ordinals.start <= 9999)",message="ordinals.start must be between 0 and 9999"
+// +kubebuilder:validation:XValidation:rule="(has(self.ordinals) && has(self.ordinals.start) ? self.ordinals.start : 0) == (has(oldSelf.ordinals) && has(oldSelf.ordinals.start) ? oldSelf.ordinals.start : 0)",message="ordinals.start is immutable"
 type GameServerSetSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
@@ -87,6 +90,9 @@ type GameServerSetSpec struct {
 
 	// +optional
 	Rollout *SetRollout `json:"rollout,omitempty"`
+
+	// +optional
+	Ordinals *appsv1.StatefulSetOrdinals `json:"ordinals,omitempty"`
 
 	Template GameServerSpec `json:"template"`
 }
