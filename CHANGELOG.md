@@ -9,6 +9,9 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Added
 
+- **Per-component image tags:** `operator.image.tag`, `api.image.tag` and
+  `web.image.tag` override `image.tag` for one component; empty falls back to
+  `image.tag`.
 - **Restic S3 credentials:** backup, restore and forget Jobs read
   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_DEFAULT_REGION` from
   the repository Secret when present. Backups exclude `/data/lost+found` and

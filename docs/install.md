@@ -111,6 +111,7 @@ Open `https://<ingress.host>` and log in.
 Top-level knobs (see `values.yaml` for the full list):
 
 - `image.registry` / `image.tag` — container image pinning
+- `operator.image.tag` / `api.image.tag` / `web.image.tag` — per-component tag override; empty falls back to `image.tag`
 - `operator.enabled` — enable the workload operator and bundled native CRDs (default `true`). Set to `false` for a standalone central panel; the CRD subchart is excluded before Helm installs CRDs.
 - `api.enabled` — enable the central API and dashboard (default `true`). Set to `false` on a remote operator/gateway installation.
 - `api.standalone` — store management records and encrypted credentials in SQL without a local cluster (default `false`). Requires `operator.enabled=false` and one API replica. The standalone profile omits native CRDs and the CRD apply hook/RBAC without an additional CLI flag. See the [standalone guide](standalone-panel.md).

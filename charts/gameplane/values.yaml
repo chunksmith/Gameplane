@@ -65,6 +65,8 @@ operator:
   resources:
     requests: { cpu: 100m, memory: 64Mi }
     limits:   { cpu: 500m, memory: 256Mi }
+  image:
+    tag: ""
   agentImage: ""   # defaults to {image.registry}/agent:{image.tag}
   sentinelImage: ""   # defaults to {image.registry}/sentinel:{image.tag}
   # Which load-balancer address manager runs in this cluster, so the operator
@@ -128,6 +130,8 @@ operator:
     storageClassName: ""
 
 api:
+  image:
+    tag: ""
   # Disable the central API, its database/RBAC, dashboard, ingress and API-only
   # integrations on remote operator+gateway installs. Agent mTLS is preserved.
   enabled: true
@@ -483,6 +487,8 @@ gateway:
 # Disable only for a headless/API-only install — the ingress then falls back
 # to the API directly and there is no UI at /.
 web:
+  image:
+    tag: ""
   enabled: true
   replicas: 1
   resources:

@@ -9,15 +9,15 @@ track a rolling channel.
 {{- end -}}
 
 {{- define "gameplane.operatorImage" -}}
-{{- printf "%s/operator:%s" .Values.image.registry (include "gameplane.imageTag" .) -}}
+{{- printf "%s/operator:%s" .Values.image.registry (dig "image" "tag" "" .Values.operator | default (include "gameplane.imageTag" .)) -}}
 {{- end -}}
 
 {{- define "gameplane.apiImage" -}}
-{{- printf "%s/api:%s" .Values.image.registry (include "gameplane.imageTag" .) -}}
+{{- printf "%s/api:%s" .Values.image.registry (dig "image" "tag" "" .Values.api | default (include "gameplane.imageTag" .)) -}}
 {{- end -}}
 
 {{- define "gameplane.webImage" -}}
-{{- printf "%s/web:%s" .Values.image.registry (include "gameplane.imageTag" .) -}}
+{{- printf "%s/web:%s" .Values.image.registry (dig "image" "tag" "" .Values.web | default (include "gameplane.imageTag" .)) -}}
 {{- end -}}
 
 {{- define "gameplane.agentImage" -}}
