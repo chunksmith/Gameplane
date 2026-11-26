@@ -183,6 +183,10 @@ func main() {
 		// "source", empty, or anything unrecognized: back-compat default.
 		rconClient = rcon.New(rconHost, rconPort, rcon.PasswordFromFile(rconPassFile))
 	}
+	playerRCON := rconClient
+	if gameName == "minecraft-java" && (playerActions == nil || playerActions.List == nil) {
+		playerRCON = statusFallback{rcon: rconClient, addr: statusAddr}
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.Recoverer)
@@ -217,7 +221,7 @@ func main() {
 
 		protected.Group(func(bounded chi.Router) {
 			bounded.Use(middleware.Timeout(30 * time.Second))
-			players.Mount(bounded, rconClient, gameName, playerActions, dataRoot)
+			players.Mount(bounded, playerRCON, gameName, playerActions, dataRoot)
 			quiesce.Mount(bounded, rconClient, gameName, quiesceSpec)
 			lifecycle.Mount(bounded, rconClient, gameName, lifecycleSpec)
 			actions.Mount(bounded, rconClient, gameName, actionSpecs)
@@ -264,7 +268,7 @@ func main() {
 			Template:   templateName,
 			Game:       gameName,
 			Version:    Version,
-			RCON:       rconClient,
+			RCON:       playerRCON,
 			Interval:   20 * time.Second,
 			PlayerList: func() *caps.PlayerList {
 				if playerActions != nil {

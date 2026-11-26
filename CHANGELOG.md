@@ -71,6 +71,11 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Fixed
 
+- **Minecraft player counts without RCON:** for `minecraft-java` servers and
+  proxies without a declared `players.list`, a failing console `list` falls
+  back to a Server List Ping on `127.0.0.1:25565`, so `playersOnline`,
+  `playersMax` and the Players tab names (from the ping sample) are filled on
+  pty/named-pipe consoles.
 - **Data wipe on root game images:** the wipe Job now runs as root with only
   `DAC_OVERRIDE`, so it clears root-owned `0600` files (Minecraft `level.dat`)
   and directories owned by another uid instead of failing with permission denied.
