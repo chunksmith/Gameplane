@@ -716,7 +716,7 @@ describe("ServerDetailPage git tab", () => {
     server.use(
       http.get("/servers/alpha", () => HttpResponse.json(makeServer())),
       http.get("/servers/:name/git/status", () =>
-        HttpResponse.json({ status: 409, code: "git_unavailable", messageId: "server.repositories.git_unavailable" }, { status: 409, headers: { "Content-Type": "application/problem+json" } }),
+        HttpResponse.json({ status: 409, detail: "Git is not enabled for this server yet.", code: "git_unavailable", messageId: "server.repositories.git_unavailable" }, { status: 409, headers: { "Content-Type": "application/problem+json" } }),
       ),
     );
     renderWithQuery(<ServerDetailPage />);

@@ -713,7 +713,7 @@ export const handlers = [
   ),
 
   http.get("/servers/:name/git/status", () =>
-    HttpResponse.json({ status: 404, code: "not_found", messageId: "server.repositories.not_found" }, { status: 404, headers: { "Content-Type": "application/problem+json" } }),
+    HttpResponse.json({ status: 404, detail: "The commit, branch or file was not found.", code: "not_found", messageId: "server.repositories.not_found" }, { status: 404, headers: { "Content-Type": "application/problem+json" } }),
   ),
 
   // Files (agent proxy)
