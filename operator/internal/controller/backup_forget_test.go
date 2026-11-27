@@ -324,8 +324,8 @@ func TestFinalizeSnapshot_CreatesForgetJob(t *testing.T) {
 	if job.Spec.BackoffLimit == nil || *job.Spec.BackoffLimit != 3 {
 		t.Errorf("BackoffLimit = %v, want 3", job.Spec.BackoffLimit)
 	}
-	if job.Spec.ActiveDeadlineSeconds == nil || *job.Spec.ActiveDeadlineSeconds != 1800 {
-		t.Errorf("ActiveDeadlineSeconds = %v, want 1800", job.Spec.ActiveDeadlineSeconds)
+	if job.Spec.ActiveDeadlineSeconds == nil || *job.Spec.ActiveDeadlineSeconds != 7200 {
+		t.Errorf("ActiveDeadlineSeconds = %v, want 7200", job.Spec.ActiveDeadlineSeconds)
 	}
 	if v := job.Spec.Template.Labels[backupRestoreJobLabel]; v != backupRestoreJobValue {
 		t.Errorf("pod label %s = %q, want %q", backupRestoreJobLabel, v, backupRestoreJobValue)
