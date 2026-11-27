@@ -103,6 +103,7 @@ export interface AssistantConversation {
   namespace: string;
   server: string;
   repository?: string;
+  linearIssue?: string;
   model: string;
   effort: string;
   mode: AssistantMode;
@@ -394,4 +395,28 @@ export function resultCount(block: AssistantBlock, output: string): number | nul
   if (block.name !== "grep" && block.name !== "glob") return null;
   if (output.startsWith("No ")) return 0;
   return output.split("\n").filter((line) => line.trim() !== "").length;
+}
+
+export interface LinearReply {
+  issue: string;
+  body: string;
+  state: string;
+  ids: string[];
+}
+
+const LINEAR_IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
+
+export function linearReply(pending: AssistantPending[], blocks: Map<string, AssistantBlock>): LinearReply | null {
+  const linear = pending.filter((item) => item.method === LINEAR_METHOD);
+  const comments = linear.filter((item) => item.path === "save_comment");
+  const moves = linear.filter((item) => item.path === "save_issue");
+  const comment = comments[0];
+  if (!comment) return null;
+  const input = blocks.get(comment.id)?.input ?? {};
+  const issue = stringOf(input.issueId);
+  const moveId = (item: AssistantPending) => stringOf(blocks.get(item.id)?.input?.id);
+  const sameIssue = moves.find((item) => moveId(item).toLowerCase() === issue.toLowerCase());
+  const otherForm = comments.length === 1 && moves.length === 1 && LINEAR_IDENTIFIER.test(issue) !== LINEAR_IDENTIFIER.test(moveId(moves[0]));
+  const move = sameIssue ?? (otherForm ? moves[0] : undefined);
+  return { issue, body: stringOf(input.body), state: move ? stringOf(blocks.get(move.id)?.input?.state) : "", ids: move ? [comment.id, move.id] : [comment.id] };
 }

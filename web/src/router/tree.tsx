@@ -27,6 +27,7 @@ import { CreateServerWizard } from "@/routes/CreateServer";
 import { ServerGroupEditPage } from "@/routes/ServerGroupEdit";
 import { BackupsPage } from "@/routes/Backups";
 import { AssistantPage } from "@/routes/Assistant";
+import { LinearPage } from "@/routes/Linear";
 import { NotificationsPage } from "@/routes/Notifications";
 import { AuditLogPage } from "@/routes/AuditLog";
 import { AdminLogsPage } from "@/routes/AdminLogs";
@@ -97,8 +98,10 @@ const repositoryDetailRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/repositories/$name",
   component: RepositoryDetailPage,
-  validateSearch: (search: Record<string, unknown>): { ns?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { ns?: string; tab?: string; conversation?: string } => ({
     ns: typeof search.ns === "string" && search.ns !== "" ? search.ns : undefined,
+    tab: typeof search.tab === "string" && search.tab !== "" ? search.tab : undefined,
+    conversation: typeof search.conversation === "string" && search.conversation !== "" ? search.conversation : undefined,
   }),
 });
 
@@ -282,6 +285,16 @@ const assistantRoute = new Route({
   component: AssistantPage,
 });
 
+const linearRoute = new Route({
+  getParentRoute: () => appLayoutRoute,
+  path: "/linear",
+  component: LinearPage,
+  validateSearch: (search: Record<string, unknown>): { tab?: string; issue?: string } => ({
+    tab: typeof search.tab === "string" && search.tab !== "" ? search.tab : undefined,
+    issue: typeof search.issue === "string" && search.issue !== "" ? search.issue : undefined,
+  }),
+});
+
 const notificationsRoute = new Route({
   getParentRoute: () => appLayoutRoute,
   path: "/notifications",
@@ -324,6 +337,7 @@ export const routeTree = rootRoute.addChildren([
     adminLogsRoute,
     backupsRoute,
     assistantRoute,
+    linearRoute,
     notificationsRoute,
     notFoundRoute,
   ]),

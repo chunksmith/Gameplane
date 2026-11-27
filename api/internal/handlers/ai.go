@@ -26,6 +26,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/GameplanePanel/gameplane/api/internal/audit"
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
 	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
@@ -51,7 +52,7 @@ const (
 	aiModeBypass  = "bypassPermissions"
 	aiModePlan    = "plan"
 
-	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode, c.repository`
+	aiColumns = `c.id, c.user_id, COALESCE(u.username, ''), c.title, c.cluster, c.namespace, c.server, c.model, c.effort, c.status, c.error, c.input_tokens, c.output_tokens, c.created_at, c.updated_at, c.session_id, c.permission_mode, c.repository, c.linear_issue`
 	aiFrom    = ` FROM ai_conversations c LEFT JOIN users u ON u.id = c.user_id`
 	aiListOwn = `SELECT ` + aiColumns + aiFrom + ` WHERE c.user_id = ? AND c.server = ? AND c.repository = ? AND c.namespace = ? AND c.cluster = ? ORDER BY c.updated_at DESC LIMIT 200`
 	aiListAll = `SELECT ` + aiColumns + aiFrom + ` ORDER BY c.updated_at DESC LIMIT 200`
@@ -87,6 +88,7 @@ type aiConversation struct {
 	Namespace    string `json:"namespace"`
 	Server       string `json:"server"`
 	Repository   string `json:"repository"`
+	LinearIssue  string `json:"linearIssue"`
 	Model        string `json:"model"`
 	Effort       string `json:"effort"`
 	Mode         string `json:"mode"`
@@ -113,6 +115,7 @@ type aiHandler struct {
 	key        func(context.Context) (string, bool)
 	linearKeys AILinearKeys
 	dialLinear func(context.Context, string) (*mcp.ClientSession, error)
+	auditor    *audit.Auditor
 	send       func(context.Context, string, anthropic.BetaMessageNewParams, func(string)) (*anthropic.BetaMessage, error)
 	spawn      func(context.Context, []string, ...string) (io.WriteCloser, io.ReadCloser, func() error, error)
 	idle       time.Duration
@@ -127,8 +130,8 @@ type aiHandler struct {
 }
 
 // MountAI wires the AI assistant routes; its tool calls replay through router with the caller's own session.
-func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool), linearKeys AILinearKeys) {
-	(&aiHandler{store: store, router: router, key: key, linearKeys: linearKeys, dialLinear: dialLinear, send: sendClaude, spawn: spawnClaude}).mount(r)
+func MountAI(r chi.Router, store *db.Store, router http.Handler, key func(context.Context) (string, bool), linearKeys AILinearKeys, auditor *audit.Auditor) {
+	(&aiHandler{store: store, router: router, key: key, linearKeys: linearKeys, dialLinear: dialLinear, send: sendClaude, spawn: spawnClaude, auditor: auditor}).mount(r)
 }
 
 // MountAISecret wires the admin routes that store and remove the assistant's Claude credential.
@@ -195,6 +198,12 @@ func (h *aiHandler) mount(r chi.Router) {
 	r.Put("/ai/linear/key", h.putLinearKey)
 	r.Delete("/ai/linear/key", h.deleteLinearKey)
 	r.Get("/ai/linear/issues", h.linearIssues)
+	r.Get("/ai/linear/issues/{id}", h.linearIssue)
+	r.Post("/ai/linear/issues/{id}/solve", h.solveLinear)
+	r.Get("/ai/linear/teams", h.linearTeams)
+	r.Get("/ai/linear/projects", h.linearProjects)
+	r.Get("/ai/linear/links", h.linearLinks)
+	r.Put("/ai/linear/links", h.putLinearLinks)
 	r.Get("/ai/conversations", h.list)
 	r.Post("/ai/conversations", h.create)
 	r.Post("/ai/warm", h.warm)
@@ -247,6 +256,27 @@ type aiAttachment struct {
 	Name      string `json:"name"`
 	MediaType string `json:"mediaType"`
 	Data      string `json:"data"`
+}
+
+type aiNewConversation struct {
+	Prompt      string         `json:"prompt"`
+	Server      string         `json:"server"`
+	Repository  string         `json:"repository"`
+	Namespace   string         `json:"namespace"`
+	Cluster     string         `json:"cluster"`
+	Model       string         `json:"model"`
+	Effort      string         `json:"effort"`
+	Mode        string         `json:"mode"`
+	Attachments []aiAttachment `json:"attachments"`
+	LinearIssue string         `json:"-"`
+}
+
+type aiStart struct {
+	conv    aiConversation
+	content []anthropic.BetaContentBlockParamUnion
+	creds   aiCreds
+	key     string
+	sub     bool
 }
 
 func aiDecode(w http.ResponseWriter, req *http.Request, body any) bool {
@@ -376,23 +406,21 @@ func (h *aiHandler) list(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
-	var body struct {
-		Prompt      string         `json:"prompt"`
-		Server      string         `json:"server"`
-		Repository  string         `json:"repository"`
-		Namespace   string         `json:"namespace"`
-		Cluster     string         `json:"cluster"`
-		Model       string         `json:"model"`
-		Effort      string         `json:"effort"`
-		Mode        string         `json:"mode"`
-		Attachments []aiAttachment `json:"attachments"`
-	}
+	var body aiNewConversation
 	if !aiDecode(w, req, &body) {
 		return
 	}
+	start, ok := h.prepare(w, req, body)
+	if !ok || !h.launch(w, req, start) {
+		return
+	}
+	writeJSONCreated(w, start.conv)
+}
+
+func (h *aiHandler) prepare(w http.ResponseWriter, req *http.Request, body aiNewConversation) (aiStart, bool) {
 	s, key, sub, ok := h.ready(w, req)
 	if !ok {
-		return
+		return aiStart{}, false
 	}
 	prompt := strings.TrimSpace(body.Prompt)
 	model, effort := cmp.Or(body.Model, s.DefaultModel), cmp.Or(body.Effort, s.DefaultEffort)
@@ -415,7 +443,7 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return aiStart{}, false
 	}
 	ctx := context.WithoutCancel(req.Context())
 	creds := aiCredentials(req)
@@ -423,37 +451,42 @@ func (h *aiHandler) create(w http.ResponseWriter, req *http.Request) {
 		target := aiTarget("/servers/"+server, url.Values{"namespace": {namespace}, "cluster": {cluster}})
 		if status, _ := h.call(ctx, creds, http.MethodGet, target, nil, ""); status != http.StatusOK {
 			http.Error(w, "server not found", http.StatusNotFound)
-			return
+			return aiStart{}, false
 		}
 	}
 	if repository != "" {
 		target := aiTarget("/repositories/"+repository, url.Values{"namespace": {namespace}})
 		if status, _ := h.call(ctx, creds, http.MethodGet, target, nil, ""); status != http.StatusOK {
 			http.Error(w, "repository not found", http.StatusNotFound)
-			return
+			return aiStart{}, false
 		}
 	}
 	u := auth.UserFromContext(req.Context())
 	now := aiNow()
-	runID := rand.Text()
 	conv := aiConversation{
 		ID: rand.Text(), UserID: u.ID, Username: u.Username, Title: aiTitle(prompt),
 		Cluster: cluster, Namespace: namespace, Server: server, Repository: repository, Model: model, Effort: effort, Mode: mode,
-		Status: aiRunning, CreatedAt: now, UpdatedAt: now,
+		Status: aiRunning, CreatedAt: now, UpdatedAt: now, LinearIssue: body.LinearIssue,
 	}
+	return aiStart{conv: conv, content: content, creds: creds, key: key, sub: sub}, true
+}
+
+func (h *aiHandler) launch(w http.ResponseWriter, req *http.Request, start aiStart) bool {
+	conv := start.conv
+	runID := rand.Text()
 	if _, err := h.store.DB.ExecContext(req.Context(),
-		`INSERT INTO ai_conversations(id, user_id, title, cluster, namespace, server, repository, model, effort, permission_mode, status, error, run_id, input_tokens, output_tokens, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 0, 0, ?, ?)`,
-		conv.ID, conv.UserID, conv.Title, conv.Cluster, conv.Namespace, conv.Server, conv.Repository, conv.Model, conv.Effort, conv.Mode, conv.Status, runID, now, now); err != nil {
+		`INSERT INTO ai_conversations(id, user_id, title, cluster, namespace, server, repository, model, effort, permission_mode, status, error, run_id, input_tokens, output_tokens, created_at, updated_at, linear_issue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 0, 0, ?, ?, ?)`,
+		conv.ID, conv.UserID, conv.Title, conv.Cluster, conv.Namespace, conv.Server, conv.Repository, conv.Model, conv.Effort, conv.Mode, conv.Status, runID, conv.CreatedAt, conv.UpdatedAt, conv.LinearIssue); err != nil {
 		httperr.Write(w, req, err)
-		return
+		return false
 	}
-	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(content...)); err != nil {
+	if err := h.appendMessage(req.Context(), conv.ID, runID, anthropic.NewBetaUserMessage(start.content...)); err != nil {
 		httperr.Write(w, req, err)
-		return
+		return false
 	}
-	h.adopt(aiNewChat(u.ID), conv.ID)
-	h.begin(ctx, conv, creds, key, sub, runID, content)
-	writeJSONCreated(w, conv)
+	h.adopt(aiNewChat(conv.UserID), conv.ID)
+	h.begin(context.WithoutCancel(req.Context()), conv, start.creds, start.key, start.sub, runID, start.content)
+	return true
 }
 
 func (h *aiHandler) warm(w http.ResponseWriter, req *http.Request) {
@@ -771,7 +804,7 @@ func (h *aiHandler) addUsage(ctx context.Context, id string, usage anthropic.Bet
 func scanAIConversation(row interface{ Scan(...any) error }) (aiConversation, error) {
 	var c aiConversation
 	err := row.Scan(&c.ID, &c.UserID, &c.Username, &c.Title, &c.Cluster, &c.Namespace, &c.Server,
-		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID, &c.Mode, &c.Repository)
+		&c.Model, &c.Effort, &c.Status, &c.Error, &c.InputTokens, &c.OutputTokens, &c.CreatedAt, &c.UpdatedAt, &c.SessionID, &c.Mode, &c.Repository, &c.LinearIssue)
 	return c, err
 }
 

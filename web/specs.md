@@ -993,7 +993,7 @@ Feature spec: `specs/026-server-groups/`.
 
 Feature spec: `specs/029-repositories/`; API contract `specs/029-repositories/contracts/repositories-api.md`.
 
-- **Routes:** `/repositories` (`web/src/routes/Repositories.tsx`: cards, search, GitHub chip, Add repository modal; sidebar item after Servers) and `/repositories/$name?ns=` (`web/src/routes/RepositoryDetail.tsx`: header with Pull, Push and a menu with Fetch, Re-clone and Copy URL; clone progress and failure panels). Tabs: Git (default), Files, Assistant and Settings, the last two under `web/src/routes/repository/` (`GitTab.tsx`, `SettingsTab.tsx`).
+- **Routes:** `/repositories` (`web/src/routes/Repositories.tsx`: cards, search, GitHub chip, Add repository modal; sidebar item after Servers) and `/repositories/$name?ns=&tab=&conversation=` (`tab=assistant` opens the Assistant tab with that conversation selected; used by spec 031) (`web/src/routes/RepositoryDetail.tsx`: header with Pull, Push and a menu with Fetch, Re-clone and Copy URL; clone progress and failure panels). Tabs: Git (default), Files, Assistant and Settings, the last two under `web/src/routes/repository/` (`GitTab.tsx`, `SettingsTab.tsx`).
 - **Client:** `web/src/lib/repositories.ts` holds the `Repositories`, `Git` and `GitHub` clients and hooks (`useGitHub`, `useGitStatus`, `useGitMarks`, `useRepositoryRefresh`, `gitErrorText`). `APIError` carries the problem+json `code` and `files` members so Git conflicts list their files.
 - **Shared tabs:** the Files tab and the assistant run on a target abstraction (`lib/resourceTarget.tsx`, `makeResourceEndpoints(request, resource)` in `lib/endpoints.ts`, `assistantScope(target)`), so the same components serve `/servers/{name}` and `/repositories/{name}`. Repository file rows show the Git status letter (`M`, `A`, `D`, `R`, `U`) and colour; `.git` is never listed.
 - **Git tab:** Changes (staged and unstaged lists, unified diff, stage, unstage, discard, commit and commit & push) and History (not-pushed and remote commit lists, commit detail, revert, undo last commit), a branch picker with New branch and Fetch. Push sends `setUpstream` when the branch has no upstream.
@@ -1017,6 +1017,20 @@ Feature spec `specs/030-repository-builds/`; API contract `contracts/builds-api.
 - **ServerPicker** (`web/src/components/ServerPicker.tsx`) is extracted from the `NetworkDetail.tsx` servers card. `NetworkDetail` uses it unchanged; the Deploy modal uses it for the searchable server multi-select.
 - **Client:** a `Builds` client and hooks in `lib/repositories.ts`, types in `types.ts`, MSW handlers and factories in `web/src/test/`. Assistant tool labels and the `build_deploy` approval card are in `lib/assistant.ts`.
 - **Strings:** `web.repositories.builds.*` and `web.settings.maven.*` (spec 019). Tests `BuildsTab.test.tsx` and `DeployModal.test.tsx`.
+
+## Linear issues (spec 031)
+
+Feature spec `specs/031-linear-issues/`; API contract in `api/specs.md`.
+
+- **Route and entry:** `/linear` (`web/src/routes/Linear.tsx`, test `Linear.test.tsx`), registered in `router/tree.tsx`; sidebar entry with `LinearLogo` in `AppLayout.tsx`, shown when `GET /ai/status` reports `linear`.
+- **Components:** `web/src/components/linear/` (`IssueList`, `IssueDetail`, `SolveCard`, `RepositoryLinks`). Client `web/src/lib/linear.ts` (the `Linear` client, `LINEAR_KEY`, `priorityLabel`, `statusDot`, `workspaceOf`), types in `types.ts`.
+- **Tabs and toolbar:** the views `mine`, `team`, `all`, `review` and `runs`; the toolbar has a Team select, a Status multi-select (default Todo, In Progress, In Review), Sort (Priority, Updated), refresh and search. Refresh is on demand and every 60 s while the page is visible.
+- **List and detail:** rows show the status dot (`statusDot`), identifier, title, priority (`priorityLabel`), project, assignee and, for an issue with a run, its run state. On mobile the list and the detail stack, and a tapped issue opens full width with a back button.
+- **Solve card:** repository select (pre-filled from the issue's project link, changed in Repository links), first-message textarea and **Start solving**. Hidden while Linear is unavailable (503), with a link to Settings → Integrations.
+- **Solving view:** the card becomes an embedded `AssistantPanel` (`embedded` and `conversation` props, `scope={{ repository }}`) with the linked conversation selected. **Open in Assistant tab** links to the repository's Assistant tab (`/repositories/$name?tab=assistant&conversation=`); **Stop** cancels the run.
+- **Reply-preview card:** a `linear_save_comment` approval shows the comment body as a reply preview (`REPLY ON KEY`). A `save_comment` and `save_issue` pair proposed in one turn renders as one card ("Reply and move KEY → In Review"). Tool labels live in `lib/assistant.ts`.
+- **Repository links:** `RepositoryLinks` maps each Linear project to a repository and namespace (`GET|PUT /ai/linear/links`).
+- **Strings:** `web.linear.*` (spec 019); HeroUI v3 components and `globals.css` tokens only.
 
 ## ServerDetail Tabs
 

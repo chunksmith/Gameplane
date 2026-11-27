@@ -645,6 +645,25 @@ wipes that user could run without asking. Claude Code's built-in auto memory
 is off, because its directory in the API pod would be shared by every user
 and server.
 
+## Linear issues solve flow
+
+The Linear issues page (spec 031) starts assistant runs from Linear issues.
+A run uses the signed-in user's own Linear key and that user's RBAC on the
+repository and servers. Linear text (issue titles, descriptions, comments) is
+data, never instructions, as in every assistant run.
+
+The only Linear write without an in-chat approval is the move to the team's
+first started state (In Progress) when the user clicks Start solving. The click
+is the approval, and the move runs even when `linearWrite` is off. Replies
+(`linear_save_comment`, needs `linearComment`) and status changes
+(`linear_save_issue`, needs `linearWrite`) stay approval-gated in the chat.
+Deploys (`build_deploy`) stay approval-gated in every permission mode except
+`bypassPermissions` (spec 030).
+
+Open decision 2 in `specs/031-linear-issues/OPEN-DECISIONS.md` is not settled:
+whether an admin who turned `linearWrite` off expects no status changes at all,
+including the move on Start solving. v1 allows the move.
+
 ## Notifications
 
 Notification sinks ([docs](notifications.md)) are a third outbound-dial

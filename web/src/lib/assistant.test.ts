@@ -10,6 +10,7 @@ import {
   jobIdOf,
   jobStatus,
   latestTodos,
+  linearReply,
   modelLabel,
   resultCount,
   resultStatus,
@@ -168,5 +169,44 @@ describe("Claude Code tool views", () => {
     expect(new URL(url).searchParams.get("cluster")).toBe("eu");
     expect(body).toEqual({ command: expect.stringContaining("/tmp/gameplane-jobs/0123456789ab.pid") });
     await expect(Assistant.stopJob({ server: "lobby" }, "../etc")).rejects.toThrow("invalid job id");
+  });
+});
+
+describe("linearReply", () => {
+  const block = (input: Record<string, unknown>) => ({ type: "tool_use", input });
+  const comment = { id: "c", method: "LINEAR", path: "save_comment" };
+
+  it("reads a comment alone", () => {
+    const blocks = new Map([["c", block({ issueId: "CHK-1", body: "done" })]]);
+    expect(linearReply([comment], blocks)).toEqual({ issue: "CHK-1", body: "done", state: "", ids: ["c"] });
+  });
+
+  it("pairs a state move for the same issue", () => {
+    const blocks = new Map([
+      ["c", block({ issueId: "CHK-1", body: "done" })],
+      ["s", block({ id: "chk-1", state: "Done" })],
+    ]);
+    expect(linearReply([comment, { id: "s", method: "LINEAR", path: "save_issue" }], blocks)).toEqual({ issue: "CHK-1", body: "done", state: "Done", ids: ["c", "s"] });
+  });
+
+  it("pairs a single state move whose id is a UUID", () => {
+    const uuid = "3f2b8c1e-9a4d-4e7b-8f1a-2c3d4e5f6a7b";
+    const blocks = new Map([
+      ["c", block({ issueId: "CHK-1", body: "done" })],
+      ["s", block({ id: uuid, state: "Done" })],
+    ]);
+    expect(linearReply([comment, { id: "s", method: "LINEAR", path: "save_issue" }], blocks)).toEqual({ issue: "CHK-1", body: "done", state: "Done", ids: ["c", "s"] });
+  });
+
+  it("does not pair a state move for another issue", () => {
+    const blocks = new Map([
+      ["c", block({ issueId: "CHK-1", body: "done" })],
+      ["s", block({ id: "CHK-2", state: "Done" })],
+    ]);
+    expect(linearReply([comment, { id: "s", method: "LINEAR", path: "save_issue" }], blocks)).toEqual({ issue: "CHK-1", body: "done", state: "", ids: ["c"] });
+  });
+
+  it("returns null without a comment", () => {
+    expect(linearReply([{ id: "s", method: "LINEAR", path: "save_issue" }], new Map([["s", block({ id: "CHK-1", state: "Done" })]]))).toBeNull();
   });
 });

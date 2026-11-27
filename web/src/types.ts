@@ -1589,3 +1589,73 @@ export interface GitHubIntegration {
   contents: "write" | "read" | "none" | null;
   workflows: boolean | null;
 }
+
+export type LinearView = "mine" | "team" | "all" | "review" | "runs";
+
+export interface LinearRun {
+  conversation: string;
+  status: "running" | "awaiting_approval" | "idle" | "error";
+  repository: string;
+  namespace: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LinearListIssue {
+  id: string;
+  title: string;
+  status: string;
+  statusType: string;
+  priority: { value: number; name: string };
+  project: string | null;
+  projectId: string | null;
+  assignee: string | null;
+  updatedAt: string;
+  url: string;
+  team: string | null;
+  teamId: string | null;
+  run?: LinearRun;
+}
+
+export interface LinearIssuePage {
+  issues: LinearListIssue[];
+  cursor: string | null;
+}
+
+export interface LinearIssueDetail extends LinearListIssue {
+  description: string;
+  labels: string[];
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface LinearComment {
+  id: string;
+  body: string;
+  author: string;
+  createdAt: string;
+}
+
+export interface LinearIssueView {
+  issue: LinearIssueDetail;
+  comments: LinearComment[];
+  run: LinearRun | null;
+}
+
+export interface LinearTeam {
+  id: string;
+  key: string;
+  name: string;
+}
+
+export interface LinearProject {
+  id: string;
+  name: string;
+}
+
+export interface LinearRepoLink {
+  projectId: string;
+  projectName: string;
+  repository: string;
+  namespace: string;
+}

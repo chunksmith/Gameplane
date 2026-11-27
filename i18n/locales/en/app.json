@@ -1455,6 +1455,34 @@
     "defaultMessage": "Linear issue",
     "description": "Assistant panel: second line of the card under a user message that mentioned one Linear issue; keep it short"
   },
+  "web.components.assistant.assistant_panel.linear_reply_brand": {
+    "defaultMessage": "Linear",
+    "description": "Assistant panel: name of the Linear service shown on the approval card for a reply to a Linear issue; keep it as the product name"
+  },
+  "web.components.assistant.assistant_panel.linear_reply_comment": {
+    "defaultMessage": "Reply on {issue}",
+    "description": "Assistant panel: title of the Linear reply approval card when the reply only comments on the issue; {issue} is an issue key such as CHK-142"
+  },
+  "web.components.assistant.assistant_panel.linear_reply_deny": {
+    "defaultMessage": "Deny",
+    "description": "Assistant panel: button that rejects a Linear reply awaiting approval when no other actions are pending; keep it short"
+  },
+  "web.components.assistant.assistant_panel.linear_reply_heading": {
+    "defaultMessage": "Reply on {issue} · as @{user}",
+    "description": "Assistant panel: small heading above the body of a Linear reply awaiting approval; {issue} is an issue key and {user} is the signed-in username"
+  },
+  "web.components.assistant.assistant_panel.linear_reply_move": {
+    "defaultMessage": "Reply and move {issue} → {state}",
+    "description": "Assistant panel: title of the Linear reply approval card when the reply also moves the issue to a new state; {issue} is an issue key such as CHK-142 and {state} is the state name"
+  },
+  "web.components.assistant.assistant_panel.linear_reply_post": {
+    "defaultMessage": "Post reply",
+    "description": "Assistant panel: button that approves posting a Linear reply when no other actions are pending; keep it short"
+  },
+  "web.components.assistant.assistant_panel.linear_reply_post_move": {
+    "defaultMessage": "Post reply and move",
+    "description": "Assistant panel: button that approves posting a Linear reply and moving the issue to a new state; keep it short"
+  },
   "web.components.assistant.assistant_panel.linear_workspace": {
     "defaultMessage": "Linear workspace",
     "description": "Assistant panel: card under a user message that mentioned @linear, meaning the whole Linear workspace was given as context; keep it short"
@@ -5462,6 +5490,358 @@
   "web.lib.validation.whole_number": {
     "defaultMessage": "Must be a whole number.",
     "description": "Config field validation: integer field value is not a whole number"
+  },
+  "web.linear.back": {
+    "defaultMessage": "← Issues",
+    "description": "Linear: button on small screens that returns from an issue to the issue list"
+  },
+  "web.linear.comment_author": {
+    "defaultMessage": "@{author}",
+    "description": "Linear: author of an issue comment, shown with an @ prefix"
+  },
+  "web.linear.connect_hint": {
+    "defaultMessage": "Connect your Linear API key in Settings → Integrations",
+    "description": "Linear: empty state hint explaining where to connect the Linear API key"
+  },
+  "web.linear.detail_assigned": {
+    "defaultMessage": "assigned to {assignee}",
+    "description": "Linear: meta item in the issue detail header naming the assignee"
+  },
+  "web.linear.detail_comments": {
+    "defaultMessage": "Comments · {count}",
+    "description": "Linear: heading of the comments panel; {count} is the number of comments"
+  },
+  "web.linear.detail_description": {
+    "defaultMessage": "Description",
+    "description": "Linear: heading of the issue description panel"
+  },
+  "web.linear.detail_loading": {
+    "defaultMessage": "Loading issue…",
+    "description": "Linear: text in the issue detail while the issue loads"
+  },
+  "web.linear.detail_no_description": {
+    "defaultMessage": "No description",
+    "description": "Linear: text in the description panel when the issue has no description"
+  },
+  "web.linear.detail_opened": {
+    "defaultMessage": "opened by {author} {age}",
+    "description": "Linear: meta item in the issue detail header naming the author and how long ago it was opened"
+  },
+  "web.linear.detail_project": {
+    "defaultMessage": "project {project}",
+    "description": "Linear: meta item in the issue detail header naming the project"
+  },
+  "web.linear.detail_run_awaiting": {
+    "defaultMessage": "Waiting for approval",
+    "description": "Linear: status of the Assistant run in the chat header while it waits for the user's approval"
+  },
+  "web.linear.detail_run_error": {
+    "defaultMessage": "Stopped",
+    "description": "Linear: status of the Assistant run in the chat header when it stopped with an error"
+  },
+  "web.linear.detail_run_idle": {
+    "defaultMessage": "Finished",
+    "description": "Linear: status of the Assistant run in the chat header after it finished"
+  },
+  "web.linear.detail_run_running": {
+    "defaultMessage": "Running",
+    "description": "Linear: status of the Assistant run in the chat header while it works on the issue"
+  },
+  "web.linear.issue_title": {
+    "defaultMessage": "{id} · {title}",
+    "description": "Linear: issue line in the list and detail header; {id} is the issue identifier such as CHK-142, {title} the issue title"
+  },
+  "web.linear.issues_empty": {
+    "defaultMessage": "No issues match these filters",
+    "description": "Linear: empty state of the issue list when no issue matches the filters"
+  },
+  "web.linear.issues_loading": {
+    "defaultMessage": "Loading issues…",
+    "description": "Linear: text in the issue list while the first page loads"
+  },
+  "web.linear.links_empty_hint": {
+    "defaultMessage": "Projects you can see in Linear appear here.",
+    "description": "Linear: empty state hint of the repository links table"
+  },
+  "web.linear.links_empty_title": {
+    "defaultMessage": "No Linear projects",
+    "description": "Linear: empty state title of the repository links table when Linear has no projects"
+  },
+  "web.linear.links_hint": {
+    "defaultMessage": "Each Linear project opens its issues in the repository you pick here. Solving an issue preselects it.",
+    "description": "Linear: hint under the repository links heading explaining what a link does"
+  },
+  "web.linear.links_none": {
+    "defaultMessage": "No repository",
+    "description": "Linear: option that removes the repository link of a project"
+  },
+  "web.linear.links_option": {
+    "defaultMessage": "{name} · {namespace}",
+    "description": "Linear: repository option in the repository links table; {name} is the repository name, {namespace} the Kubernetes namespace"
+  },
+  "web.linear.links_pick": {
+    "defaultMessage": "Repository for {project}",
+    "description": "Linear: accessible name of the repository select on a project row; {project} is the Linear project name"
+  },
+  "web.linear.links_project": {
+    "defaultMessage": "Linear project",
+    "description": "Linear: column heading of the Linear project names in the repository links table"
+  },
+  "web.linear.links_repository": {
+    "defaultMessage": "Repository",
+    "description": "Linear: column heading of the repository select in the repository links table"
+  },
+  "web.linear.links_save": {
+    "defaultMessage": "Save links",
+    "description": "Linear: button that saves the project to repository links"
+  },
+  "web.linear.links_saved": {
+    "defaultMessage": "Links saved.",
+    "description": "Linear: confirmation under the repository links table after a successful save"
+  },
+  "web.linear.links_title": {
+    "defaultMessage": "Repository links",
+    "description": "Linear: heading of the repository links table"
+  },
+  "web.linear.list_title": {
+    "defaultMessage": "Issues · {count}",
+    "description": "Linear: header of the issue list card; {count} is the number of loaded issues"
+  },
+  "web.linear.load_more": {
+    "defaultMessage": "Load more",
+    "description": "Linear: button under the issue list that loads the next page of issues"
+  },
+  "web.linear.loading": {
+    "defaultMessage": "Loading…",
+    "description": "Linear: loading text while the Linear status is checked"
+  },
+  "web.linear.loading_more": {
+    "defaultMessage": "Loading…",
+    "description": "Linear: label of the load more button while the next page loads"
+  },
+  "web.linear.meta": {
+    "defaultMessage": "team {team} ({key}) · synced {when}",
+    "description": "Linear: muted header text with the selected team and when the issues were last synced"
+  },
+  "web.linear.nav": {
+    "defaultMessage": "Linear",
+    "description": "Sidebar: navigation link to the Linear issues page"
+  },
+  "web.linear.no_comments": {
+    "defaultMessage": "No comments yet",
+    "description": "Linear: text in the comments panel when the issue has no comments"
+  },
+  "web.linear.not_connected": {
+    "defaultMessage": "Linear is not connected",
+    "description": "Linear: empty state title when the Assistant or Linear integration is off"
+  },
+  "web.linear.open_in_assistant": {
+    "defaultMessage": "Open in Assistant tab",
+    "description": "Linear: link in the run header that opens the conversation in the repository's Assistant tab"
+  },
+  "web.linear.open_in_linear": {
+    "defaultMessage": "Open in Linear",
+    "description": "Linear: button that opens the issue in Linear in a new tab"
+  },
+  "web.linear.open_integrations": {
+    "defaultMessage": "Open Integrations",
+    "description": "Linear: link to the Integrations settings page where the Linear API key is stored"
+  },
+  "web.linear.open_linear": {
+    "defaultMessage": "Open Linear",
+    "description": "Linear: button that opens the workspace in Linear in a new tab"
+  },
+  "web.linear.refresh": {
+    "defaultMessage": "Refresh",
+    "description": "Linear: button that reloads issues and projects from Linear"
+  },
+  "web.linear.reply_hint": {
+    "defaultMessage": "The Assistant's reply appears here after you approve it",
+    "description": "Linear: hint under the comments panel explaining that the Assistant's reply is posted after approval"
+  },
+  "web.linear.run_finished": {
+    "defaultMessage": "Assistant finished",
+    "description": "Linear: run state under an issue in the list after the Assistant finished"
+  },
+  "web.linear.run_header": {
+    "defaultMessage": "Assistant",
+    "description": "Linear: first word of the Assistant run header above the embedded chat"
+  },
+  "web.linear.run_solving": {
+    "defaultMessage": "Assistant solving",
+    "description": "Linear: run state under an issue in the list while the Assistant works on it"
+  },
+  "web.linear.run_status_time": {
+    "defaultMessage": "{status} {time}",
+    "description": "Linear: run status with the elapsed m:ss time while the Assistant is running; {status} is the status, {time} the elapsed time"
+  },
+  "web.linear.run_stop": {
+    "defaultMessage": "Stop",
+    "description": "Linear: button in the run header that stops the running Assistant conversation"
+  },
+  "web.linear.run_stopped": {
+    "defaultMessage": "Assistant stopped",
+    "description": "Linear: run state under an issue in the list when the Assistant stopped with an error"
+  },
+  "web.linear.run_waiting": {
+    "defaultMessage": "Waiting for your approval",
+    "description": "Linear: run state under an issue in the list while the Assistant waits for approval"
+  },
+  "web.linear.scope_all": {
+    "defaultMessage": "Whole workspace",
+    "description": "Linear: scope text in the issue list header on the All issues tab"
+  },
+  "web.linear.scope_mine": {
+    "defaultMessage": "Assigned to you",
+    "description": "Linear: scope text in the issue list header on the My issues tab"
+  },
+  "web.linear.scope_review": {
+    "defaultMessage": "In review",
+    "description": "Linear: scope text in the issue list header on the In review tab"
+  },
+  "web.linear.scope_runs": {
+    "defaultMessage": "Linked to Assistant conversations",
+    "description": "Linear: scope text in the issue list header on the Assistant runs tab"
+  },
+  "web.linear.scope_team": {
+    "defaultMessage": "Team {key}",
+    "description": "Linear: scope text in the issue list header on the Team tab; {key} is the team key"
+  },
+  "web.linear.search": {
+    "defaultMessage": "Search issues",
+    "description": "Linear: placeholder and accessible name of the issue search box"
+  },
+  "web.linear.select_issue": {
+    "defaultMessage": "Select an issue to see its details",
+    "description": "Linear: empty state on desktop when no issue is selected"
+  },
+  "web.linear.solve_choose": {
+    "defaultMessage": "Choose a repository",
+    "description": "Linear: placeholder of the repository select in the solve card"
+  },
+  "web.linear.solve_disabled_note": {
+    "defaultMessage": "Connect your Linear API key in Settings → Integrations to solve issues here.",
+    "description": "Linear: note in place of the solve card when Linear is not connected"
+  },
+  "web.linear.solve_linked_hint": {
+    "defaultMessage": "Linked from project {project} · change in Repository links",
+    "description": "Linear: hint under the repository select when the repository comes from the project link; {project} is the Linear project name"
+  },
+  "web.linear.solve_message": {
+    "defaultMessage": "First message",
+    "description": "Linear: label of the first message textarea in the solve card"
+  },
+  "web.linear.solve_note": {
+    "defaultMessage": "Moves {id} to In Progress. The Assistant asks before it builds, deploys, pushes, replies or changes the status.",
+    "description": "Linear: note under the solve card explaining what starting the solve changes and what the Assistant asks first; {id} is the issue identifier"
+  },
+  "web.linear.solve_opens_in": {
+    "defaultMessage": "Opens a conversation in {repository}'s Assistant tab",
+    "description": "Linear: text at the top right of the solve card naming the repository whose Assistant tab opens"
+  },
+  "web.linear.solve_opens_none": {
+    "defaultMessage": "Opens a conversation in the Assistant tab",
+    "description": "Linear: text at the top right of the solve card when no repository is chosen yet"
+  },
+  "web.linear.solve_pick_hint": {
+    "defaultMessage": "Pick the repository that holds the code",
+    "description": "Linear: hint under the repository select when no repository is linked to the project"
+  },
+  "web.linear.solve_prompt": {
+    "defaultMessage": "Solve {id}.",
+    "description": "Linear: prefilled first message of the solve card; {id} is the issue identifier"
+  },
+  "web.linear.solve_repo_option": {
+    "defaultMessage": "{name} · {branch} · {changes, plural, =0 {clean} one {# change} other {# changes}}",
+    "description": "Linear: repository option in the solve card; {changes} is the number of uncommitted changes"
+  },
+  "web.linear.solve_repository": {
+    "defaultMessage": "Repository",
+    "description": "Linear: label of the repository select in the solve card"
+  },
+  "web.linear.solve_start": {
+    "defaultMessage": "Start solving",
+    "description": "Linear: primary button in the solve card that starts the Assistant conversation"
+  },
+  "web.linear.solve_title": {
+    "defaultMessage": "Solve with Assistant",
+    "description": "Linear: title of the card that starts an Assistant conversation for an issue"
+  },
+  "web.linear.sort": {
+    "defaultMessage": "Sort",
+    "description": "Linear: label of the sort select"
+  },
+  "web.linear.sort_priority": {
+    "defaultMessage": "Priority",
+    "description": "Linear: sort option that orders issues by priority"
+  },
+  "web.linear.sort_updated": {
+    "defaultMessage": "Updated",
+    "description": "Linear: sort option that orders issues by last update"
+  },
+  "web.linear.status": {
+    "defaultMessage": "Status",
+    "description": "Linear: label in front of the status filter chips"
+  },
+  "web.linear.status_backlog": {
+    "defaultMessage": "Backlog",
+    "description": "Linear: status filter chip for issues in the Backlog state"
+  },
+  "web.linear.status_done": {
+    "defaultMessage": "Done",
+    "description": "Linear: status filter chip for completed issues"
+  },
+  "web.linear.status_in_progress": {
+    "defaultMessage": "In Progress",
+    "description": "Linear: status filter chip for issues in progress"
+  },
+  "web.linear.status_in_review": {
+    "defaultMessage": "In Review",
+    "description": "Linear: status filter chip for issues in review"
+  },
+  "web.linear.status_todo": {
+    "defaultMessage": "Todo",
+    "description": "Linear: status filter chip for issues in the Todo state"
+  },
+  "web.linear.tab_all": {
+    "defaultMessage": "All issues",
+    "description": "Linear: tab with every issue in the workspace"
+  },
+  "web.linear.tab_count": {
+    "defaultMessage": "{label} · {count}",
+    "description": "Linear: active issue tab label with the number of loaded issues; {label} is the tab name, {count} the number"
+  },
+  "web.linear.tab_links": {
+    "defaultMessage": "Repository links",
+    "description": "Linear: tab that maps Linear projects to repositories"
+  },
+  "web.linear.tab_mine": {
+    "defaultMessage": "My issues",
+    "description": "Linear: tab with the issues assigned to the signed-in user"
+  },
+  "web.linear.tab_review": {
+    "defaultMessage": "In review",
+    "description": "Linear: tab with the issues in review"
+  },
+  "web.linear.tab_runs": {
+    "defaultMessage": "Assistant runs",
+    "description": "Linear: tab with the issues the Assistant has worked on"
+  },
+  "web.linear.tab_team": {
+    "defaultMessage": "Team",
+    "description": "Linear: tab with the issues of the selected team; also the label of the team select"
+  },
+  "web.linear.tabs": {
+    "defaultMessage": "Linear views",
+    "description": "Linear: accessible name of the row of tabs; not shown as text"
+  },
+  "web.linear.team_option": {
+    "defaultMessage": "{name} ({key})",
+    "description": "Linear: team option in the team select; {name} is the team name, {key} its short key"
+  },
+  "web.linear.title": {
+    "defaultMessage": "Linear",
+    "description": "Linear: page title next to the Linear logo; product name"
   },
   "web.repositories.add": {
     "defaultMessage": "Add repository",

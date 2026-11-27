@@ -316,6 +316,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	if len(linear) > 0 {
 		system += aiLinearPrompt
 	}
+	system += aiLinearIssuePrompt(conv.LinearIssue, linear)
 	if admin && conv.Repository == "" && conv.Mode != aiModePlan {
 		tools, allowedTools, system = "Task,WebSearch,Bash,Monitor,TaskStop", append(allowedTools, "Bash", "Monitor", "TaskStop"), system+aiShellText(conv.Mode)
 	}

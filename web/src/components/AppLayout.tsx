@@ -6,6 +6,7 @@ import {
   ChartColumn,
   FolderGit2,
   LayoutDashboard,
+  type LucideIcon,
   Network,
   Package,
   ScrollText,
@@ -19,6 +20,7 @@ import { APIError } from "@/lib/api";
 import { Clusters, Auth } from "@/lib/endpoints";
 import { useMe, can } from "@/lib/auth";
 import { useAssistantStatus } from "@/lib/assistant";
+import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { useInstallation } from "@/lib/useInstallation";
 import type { User } from "@/types";
 import { useEffect, useState } from "react";
@@ -41,6 +43,10 @@ import {
 import { SafeModeBanner } from "@/components/ui/SafeModeBanner";
 import { TelemetryNotice } from "@/components/ui/TelemetryNotice";
 import { useOptionalIntl } from "@/lib/i18n/format";
+
+function LinearNavIcon({ className }: { className?: string }) {
+  return <LinearLogo className={className} />;
+}
 
 // The localStorage key the theme boot script in index.html reads before
 // React mounts — must stay in sync (see index.html and theme-tokens.md).
@@ -182,6 +188,7 @@ export function AppLayout() {
         { to: "/modules", label: intl.formatMessage({ id: "web.components.app_layout.modules", defaultMessage: "Modules", description: "Sidebar: navigation link to modules" }), icon: Package },
         { to: "/backups", label: intl.formatMessage({ id: "web.components.app_layout.backups", defaultMessage: "Backups", description: "Sidebar: navigation link to backups" }), icon: Archive },
         ...(assistant.data?.enabled ? [{ to: "/assistant", label: intl.formatMessage({ id: "web.components.app_layout.assistant", defaultMessage: "Assistant", description: "Sidebar: navigation link to the AI assistant" }), icon: Sparkles }] : []),
+        ...(assistant.data?.linear ? [{ to: "/linear", label: intl.formatMessage({ id: "web.linear.nav", defaultMessage: "Linear", description: "Sidebar: navigation link to the Linear issues page" }), icon: LinearNavIcon as unknown as LucideIcon }] : []),
         { to: "/notifications", label: intl.formatMessage({ id: "web.components.app_layout.notifications", defaultMessage: "Notifications", description: "Sidebar: navigation link to the notifications page" }), icon: Bell, badge: feed.unread },
       ],
     },

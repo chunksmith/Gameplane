@@ -47,6 +47,7 @@ import {
   latestTodos,
   linearArgument,
   linearMentions,
+  linearReply,
   linearTool,
   modelLabel,
   requestOf,
@@ -67,6 +68,7 @@ import {
   type AssistantPick,
   type AssistantScope,
   type JobStatus,
+  type LinearReply,
   type ToolView,
 } from "@/lib/assistant";
 import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
@@ -170,14 +172,14 @@ export interface AssistantSeed {
   text: string;
 }
 
-export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: AssistantScope; seed?: AssistantSeed; onSeeded?: () => void }) {
+export function AssistantPanel({ scope = {}, seed, onSeeded, conversation, embedded = false }: { scope?: AssistantScope; seed?: AssistantSeed; onSeeded?: () => void; conversation?: string; embedded?: boolean }) {
   const intl = useOptionalIntl();
   const fmt = useFormat();
   const dotSeparator = intl.formatMessage({ id: "web.common.separator_dot", defaultMessage: "·", description: "Visual separator between two items" });
   const status = useAssistantStatus();
   const { data: me } = useMe();
   const qc = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(conversation ?? null);
   const [all, setAll] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [search, setSearch] = useState("");
@@ -221,6 +223,9 @@ export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: Assista
     qc.setQueryData<AssistantDetail>(["ai", "conversation", conv.id], (old) => old && { ...old, conversation: conv, pending: [] });
     refresh();
   };
+  useEffect(() => {
+    if (conversation) setSelected(conversation);
+  }, [conversation]);
   const seeded = useRef<number | null>(null);
   useEffect(() => {
     if (!seed || !ready || seeded.current === seed.id) return;
@@ -274,6 +279,9 @@ export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: Assista
   const pending = detail.data?.pending ?? [];
   const approvals = pending.filter((p) => p.method !== "ASK" && p.method !== "PLAN");
   const toolBlocks = new Map((detail.data?.messages ?? []).flatMap(blocksOf).filter((block) => !!block.id).map((block) => [block.id ?? "", block]));
+  const reply = linearReply(approvals, toolBlocks);
+  const otherApprovals = reply ? approvals.filter((p) => !reply.ids.includes(p.id)) : approvals;
+  const replyOnly = !!reply && otherApprovals.length === 0;
   const deployBlock = (id: string) => (toolBlocks.get(id)?.name === "build_deploy" ? toolBlocks.get(id) : undefined);
   const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
   const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data.defaultModel, effort: status.data.defaultEffort });
@@ -311,8 +319,8 @@ export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: Assista
       : intl.formatMessage({ id: "web.components.assistant.assistant_panel.all_servers_you_can_access", defaultMessage: "All servers you can access", description: "Assistant panel: subtitle under the title of a new conversation that is not tied to one server" });
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <Card className={cn("border border-border bg-surface/60 lg:sticky lg:top-4 lg:self-start", !listOpen && "hidden lg:block")}>
+    <div className={embedded ? "h-full" : "grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]"}>
+      {!embedded && <Card className={cn("border border-border bg-surface/60 lg:sticky lg:top-4 lg:self-start", !listOpen && "hidden lg:block")}>
         <Card.Content className="space-y-2.5 p-3">
           <Button variant="primary" className="w-full justify-center" onPress={() => open(null)}>
             <MessageSquarePlus className="h-4 w-4" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.new_conversation", defaultMessage: "New conversation", description: "Assistant panel: label of the button that starts a new conversation, also the header title of an unsaved chat; keep it short" })}
@@ -374,10 +382,10 @@ export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: Assista
             ))}
           </ul>
         </Card.Content>
-      </Card>
+      </Card>}
 
-      <Card className="flex min-h-[32rem] flex-col overflow-hidden border border-border lg:h-[calc(100dvh-13rem)]">
-        <Card.Header className="flex flex-row items-center gap-2.5 border-b border-border bg-surface/60 px-3 py-2.5 sm:px-4">
+      <Card className={embedded ? "flex h-full min-h-[28rem] flex-col overflow-hidden border-0" :"flex min-h-[32rem] flex-col overflow-hidden border border-border lg:h-[calc(100dvh-13rem)]"}>
+        {!embedded && <Card.Header className="flex flex-row items-center gap-2.5 border-b border-border bg-surface/60 px-3 py-2.5 sm:px-4">
           <Button size="sm" variant="ghost" aria-label={intl.formatMessage({ id: "web.components.assistant.assistant_panel.conversations", defaultMessage: "Conversations", description: "Assistant panel: name of the conversation list, used as its accessible name and as the label of the mobile button that opens it; keep it short" })} className="lg:hidden" onPress={() => setListOpen(!listOpen)}>
             <PanelLeft className="h-4 w-4" />
           </Button>
@@ -398,7 +406,7 @@ export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: Assista
               <span className={cn(chipClass, "hidden xl:inline-flex")}>{intl.formatMessage({ id: "web.components.assistant.assistant_panel.token_count", defaultMessage: "{tokens} tokens", description: "Assistant panel: chip in the header with the conversation's total token count; {tokens} is the formatted number" }, { tokens: fmt.number(conv.inputTokens + conv.outputTokens) })}</span>
             </>
           )}
-        </Card.Header>
+        </Card.Header>}
 
         <div className="flex-1 overflow-y-auto px-4 py-5 scrollbar-thin sm:px-6">
           {!selected && (
@@ -441,30 +449,35 @@ export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: Assista
         {conv?.error && <p className="mx-4 mb-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{conv.error}</p>}
         {own && conv?.status === "awaiting_approval" && approvals.length > 0 && (
           <div role="alert" className="mx-4 mb-3 space-y-3 rounded-2xl border border-warning/40 bg-warning-soft p-4 text-warning-soft-foreground shadow-sm">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <ShieldAlert className="h-4 w-4" />
-              {intl.formatMessage({ id: "web.components.assistant.assistant_panel.approve_pending", defaultMessage: "Approve {count, plural, one {this action} other {these actions}}?", description: "Assistant panel: question above the list of actions waiting for approval; {count} is the number of pending actions" }, { count: approvals.length })}
-            </div>
+            {otherApprovals.length > 0 && (
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ShieldAlert className="h-4 w-4" />
+                {intl.formatMessage({ id: "web.components.assistant.assistant_panel.approve_pending", defaultMessage: "Approve {count, plural, one {this action} other {these actions}}?", description: "Assistant panel: question above the list of actions waiting for approval; {count} is the number of pending actions" }, { count: otherApprovals.length })}
+              </div>
+            )}
+            {reply && <LinearReplyApproval reply={reply} />}
             <div className="flex flex-wrap items-center gap-3">
-              <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-                {approvals.map((p) => (
-                  <li key={p.id}>
-                    {deployBlock(p.id) ? (
-                      <DeployApproval input={deployBlock(p.id)?.input ?? {}} />
-                    ) : p.method === LINEAR_METHOD ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs">
-                        <LinearLogo className="h-3.5 w-3.5" />
-                        <code className="font-mono">{p.path}</code>
-                      </span>
-                    ) : (
-                      <code className="rounded-lg bg-foreground/10 px-2 py-1 font-mono text-xs">{p.method} {p.path}</code>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" isDisabled={decide.isPending} onPress={() => decide.mutate(false)}><X className="h-4 w-4" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.decline", defaultMessage: "Decline", description: "Assistant panel: button that rejects the actions waiting for approval; keep it short" })}</Button>
-                <Button variant="primary" size="sm" isDisabled={decide.isPending} onPress={() => decide.mutate(true)}><Check className="h-4 w-4" />{intl.formatMessage({ id: "web.components.assistant.assistant_panel.approve", defaultMessage: "Approve", description: "Assistant panel: button that approves the actions waiting for approval; keep it short" })}</Button>
+              {otherApprovals.length > 0 && (
+                <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                  {otherApprovals.map((p) => (
+                    <li key={p.id}>
+                      {deployBlock(p.id) ? (
+                        <DeployApproval input={deployBlock(p.id)?.input ?? {}} />
+                      ) : p.method === LINEAR_METHOD ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs">
+                          <LinearLogo className="h-3.5 w-3.5" />
+                          <code className="font-mono">{p.path}</code>
+                        </span>
+                      ) : (
+                        <code className="rounded-lg bg-foreground/10 px-2 py-1 font-mono text-xs">{p.method} {p.path}</code>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className={cn("flex gap-2", replyOnly && "ml-auto")}>
+                <Button variant="ghost" size="sm" isDisabled={decide.isPending} onPress={() => decide.mutate(false)}><X className="h-4 w-4" />{replyOnly ? intl.formatMessage(LINEAR_REPLY_MESSAGES.deny) : intl.formatMessage({ id: "web.components.assistant.assistant_panel.decline", defaultMessage: "Decline", description: "Assistant panel: button that rejects the actions waiting for approval; keep it short" })}</Button>
+                <Button variant="primary" size="sm" isDisabled={decide.isPending} onPress={() => decide.mutate(true)}><Check className="h-4 w-4" />{replyOnly ? intl.formatMessage(reply?.state ? LINEAR_REPLY_MESSAGES.postMove : LINEAR_REPLY_MESSAGES.post) : intl.formatMessage({ id: "web.components.assistant.assistant_panel.approve", defaultMessage: "Approve", description: "Assistant panel: button that approves the actions waiting for approval; keep it short" })}</Button>
               </div>
             </div>
           </div>
@@ -738,6 +751,34 @@ function Thread({ detail, tail, scope, own, deciding, onDecide }: { detail: Assi
       )}
       <li ref={end} aria-hidden="true" />
     </ol>
+  );
+}
+
+const LINEAR_REPLY_MESSAGES = defineMessages({
+  brand: { id: "web.components.assistant.assistant_panel.linear_reply_brand", defaultMessage: "Linear", description: "Assistant panel: name of the Linear service shown on the approval card for a reply to a Linear issue; keep it as the product name" },
+  post: { id: "web.components.assistant.assistant_panel.linear_reply_post", defaultMessage: "Post reply", description: "Assistant panel: button that approves posting a Linear reply when no other actions are pending; keep it short" },
+  postMove: { id: "web.components.assistant.assistant_panel.linear_reply_post_move", defaultMessage: "Post reply and move", description: "Assistant panel: button that approves posting a Linear reply and moving the issue to a new state; keep it short" },
+  deny: { id: "web.components.assistant.assistant_panel.linear_reply_deny", defaultMessage: "Deny", description: "Assistant panel: button that rejects a Linear reply awaiting approval when no other actions are pending; keep it short" },
+});
+
+function LinearReplyApproval({ reply }: { reply: LinearReply }) {
+  const intl = useOptionalIntl();
+  const { data: me } = useMe();
+  const title = reply.state
+    ? intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_reply_move", defaultMessage: "Reply and move {issue} → {state}", description: "Assistant panel: title of the Linear reply approval card when the reply also moves the issue to a new state; {issue} is an issue key such as CHK-142 and {state} is the state name" }, { issue: reply.issue, state: reply.state })
+    : intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_reply_comment", defaultMessage: "Reply on {issue}", description: "Assistant panel: title of the Linear reply approval card when the reply only comments on the issue; {issue} is an issue key such as CHK-142" }, { issue: reply.issue });
+  return (
+    <div className="w-full space-y-2">
+      <div className="flex items-center gap-2 font-mono text-xs">
+        <LinearLogo className="h-3.5 w-3.5" />
+        <span>{intl.formatMessage(LINEAR_REPLY_MESSAGES.brand)}</span>
+        <span className="min-w-0 break-all">{title}</span>
+      </div>
+      <div className="rounded-xl border border-border bg-surface p-3">
+        <div className="text-[11px] font-medium tracking-wide text-muted">{intl.formatMessage({ id: "web.components.assistant.assistant_panel.linear_reply_heading", defaultMessage: "Reply on {issue} · as @{user}", description: "Assistant panel: small heading above the body of a Linear reply awaiting approval; {issue} is an issue key and {user} is the signed-in username" }, { issue: reply.issue, user: me?.username ?? "" })}</div>
+        <div className="mt-2 text-sm"><Markdown text={reply.body} /></div>
+      </div>
+    </div>
   );
 }
 

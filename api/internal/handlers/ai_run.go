@@ -161,7 +161,9 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 		if !h.active(ctx, conv.ID, runID) {
 			return
 		}
-		resp, err := h.send(ctx, key, linear.extend(aiParams(conv, history)), func(text string) { h.pushText(conv.ID, text) })
+		params := linear.extend(aiParams(conv, history))
+		params.System[0].Text += aiLinearIssuePrompt(conv.LinearIssue, linear.names())
+		resp, err := h.send(ctx, key, params, func(text string) { h.pushText(conv.ID, text) })
 		if err != nil {
 			h.settle(ctx, conv.ID, runID, aiFailed, aiErrorText(err))
 			return

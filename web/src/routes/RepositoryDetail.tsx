@@ -64,7 +64,7 @@ export function repositoryKey(namespace: string, name: string, ...parts: string[
 export function RepositoryDetailPage() {
   const intl = useOptionalIntl();
   const { name } = useParams({ from: "/app-layout/repositories/$name" });
-  const { ns = DEFAULT_NAMESPACE } = useSearch({ from: "/app-layout/repositories/$name" });
+  const { ns = DEFAULT_NAMESPACE, tab, conversation } = useSearch({ from: "/app-layout/repositories/$name" });
   const repository = useQuery({
     queryKey: repositoryKey(ns, name),
     queryFn: ({ signal }) => Repositories.get(name, ns, signal),
@@ -77,14 +77,14 @@ export function RepositoryDetailPage() {
   const retry = () => { void repository.refetch(); void access.refetch(); };
   if (repository.error || access.error) return <div className="p-6"><ErrorCard message={intl.formatMessage({ id: "web.repositories.load_failed", defaultMessage: "This repository could not be loaded. Check your access and try again.", description: "Repository detail: error card when the repository or the user's access cannot be loaded" })} onRetry={retry} /></div>;
   if (!repository.data || !access.data) return <div className="p-6"><LoadingCard message={intl.formatMessage({ id: "web.repositories.loading_one", defaultMessage: "Loading repository…", description: "Repository detail: loading text while the repository is fetched" })} /></div>;
-  return <RepositoryView repository={repository.data} access={access.data} />;
+  return <RepositoryView repository={repository.data} access={access.data} initialTab={tab} conversation={conversation} />;
 }
 
-function RepositoryView({ repository, access }: { repository: Repository; access: RepositoryAccess }) {
+function RepositoryView({ repository, access, initialTab, conversation }: { repository: Repository; access: RepositoryAccess; initialTab?: string; conversation?: string }) {
   const intl = useOptionalIntl();
   const nav = useNavigate();
   const assistant = useAssistantStatus();
-  const [tab, setTab] = useState<TabKey>("git");
+  const [tab, setTab] = useState<TabKey>(initialTab === "assistant" ? "assistant" : "git");
   const [seed, setSeed] = useState<AssistantSeed>();
   const clearSeed = useCallback(() => setSeed(undefined), []);
   const { name, namespace, uid } = repository;
@@ -210,7 +210,7 @@ function RepositoryView({ repository, access }: { repository: Repository; access
               {activeTab === "files" && <FilesTab name={name} ns={namespace} path={filesPath ?? "/"} onNavigate={openFiles} />}
               {activeTab === "git" && <GitTab target={target} canWrite={canWrite} canPush={canPush} branch={repository.branch} />}
               {activeTab === "builds" && <BuildsTab repository={repository} canWrite={canWrite} onAskAssistant={askAssistant} />}
-              {activeTab === "assistant" && <div className="p-4 sm:p-6"><AssistantPanel scope={assistantScope(target)} seed={seed} onSeeded={clearSeed} /></div>}
+              {activeTab === "assistant" && <div className="p-4 sm:p-6"><AssistantPanel scope={assistantScope(target)} seed={seed} onSeeded={clearSeed} conversation={conversation} /></div>}
             </Suspense>
           )}
         </div>

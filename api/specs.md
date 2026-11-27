@@ -561,6 +561,17 @@ Spec: [`specs/030-repository-builds/`](../specs/030-repository-builds/spec.md); 
 - **Initiative rule:** in the system prompt and the tool description: "Deploy only when the user names the target servers or asked through the deploy modal; after a build, report the result and stop." A message seeded by the With Assistant mode counts as an explicit request.
 - **Cross-target reads (every scope):** `read_file` and `list_files` take an optional `server` or `repository` argument, and `repositories_list` joins `servers_list`. `authorize` lets other targets through for GET only: `files/{list,read,size}` and the repository Git reads (`git/status`, `git/log`, `git/diff`, `git/commits`). The caller's own RBAC decides, so a server the user may not read is refused. Every write stays on the conversation's own target; `build_deploy` writes only through the deploy endpoint.
 
+### Linear issues (spec 031)
+
+Spec: [`specs/031-linear-issues/`](../specs/031-linear-issues/spec.md) (open decisions in `OPEN-DECISIONS.md`). Handlers `handlers/ai_linear.go` (routes, solve flow) and `db/linear.go` (repository links, conversation link).
+
+- **Routes** (authenticated; each call uses the caller's own Linear key): `GET /ai/linear/teams` → `[{id,key,name}]`; `GET /ai/linear/projects` → `[{id,name}]`; `GET /ai/linear/issues?view=mine|team|all|review|runs&team=&status=&q=&sort=priority|updated&cursor=` → `{issues, cursor}`, where without `view` the mention-menu response (`[{id,title,status,statusType}]`) is unchanged; `GET /ai/linear/issues/{id}` → `{issue, comments, run}`; `POST /ai/linear/issues/{id}/solve` with `{repository, namespace, message}` → 201 `{conversation}`; `GET|PUT /ai/linear/links` → `[{projectId, projectName, repository, namespace}]`, per user.
+- **Errors:** 503 when Linear is not available to the user (disabled or no key), 502 when Linear fails, 404 repository not found, 400 validation.
+- `AssistantConversation` gains `linearIssue` (the issue identifier such as `CHK-142`, `""` when none).
+- **Solve flow:** (1) the RBAC check for the repository's assistant comes first (same rule as a repository-scope conversation); (2) the issue moves to the team's first `started` state (`list_issue_statuses`, then `save_issue`) with the caller's key, allowed without `linearWrite` because the click is the approval; (3) a repository-scope conversation is created with `message` plus `@linear <KEY>` as its first message and linked through `linear_issue`; (4) the audit reason is `linear.solve.start issue=<KEY> repository=<ns>/<name>`.
+- **System prompt:** a conversation with `linear_issue` set gets an added instruction on both the Messages API path and the CLI path (`--append-system-prompt`). It tells the assistant to fix the issue, build with `build_start`, then stop and ask before any deploy, reply or status change. When `linearComment` or `linearWrite` is off, it says the assistant cannot reply or move the issue.
+- **Migration** `common/027_linear.sql` (portable, values bound from Go): `ai_conversations.linear_issue TEXT NOT NULL DEFAULT ''` with an index on `(user_id, linear_issue)`; table `linear_repo_links` (`user_id`, `project_id` primary key, `project_name`, `repository`, `namespace`).
+
 ## Key invariants
 
 1. **Operator-authoritative:** every mutating request goes through K8s API (Create/Patch/Delete on CRDs); API waits for operator to reconcile status

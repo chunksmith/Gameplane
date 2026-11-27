@@ -422,7 +422,7 @@ func main() {
 		repoAgent.MountServers(p, reg)
 		handlers.MountRepositoryBuilds(p, reg, r, auditor)
 		handlers.MountMavenIntegration(p, k8s, cfg.namespace)
-		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.NewAILinearKeys(k8s, cfg.namespace))
+		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.NewAILinearKeys(k8s, cfg.namespace), auditor)
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over
 		// the startup --curseforge-api-key flag, so adding/rotating a key

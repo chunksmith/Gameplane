@@ -33,6 +33,14 @@ This document is the **first stop** for AI agents modifying or extending Gamepla
 | **Web** | `web/src/routes/repository/BuildsTab.tsx`, `DeployModal.tsx`; `web/src/components/ServerPicker.tsx`, `settings/MavenCard.tsx` | Builds tab, Deploy modal (Manual / With Assistant), Build settings card, Maven card. |
 | **Chart** | `charts/gameplane/templates/maven.yaml`, `values.yaml` (`mavenRepository`, `repositories.build`), `templates/networkpolicies.yaml` | Reposilite with read and write token Secrets; build egress. |
 
+## Feature Map: Linear issues (spec 031)
+
+| Layer | Files | Notes |
+| --- | --- | --- |
+| **Spec** | `specs/031-linear-issues/` (`spec.md`, `OPEN-DECISIONS.md`, `tasks.md`) | Source of truth for the routes, the solve flow, the assistant prompt and the open decisions. |
+| **Linear issues page / solve flow** | `api/internal/handlers/ai_linear.go`, `api/internal/db/linear.go`, `web/src/routes/Linear.tsx`, `web/src/components/linear/`, `web/src/lib/linear.ts` | Issue lists and detail, Start solving, repository links, embedded assistant. See `api/specs.md` and `web/specs.md`. |
+| **Security** | `docs/security.md` → Linear issues solve flow | The caller's own Linear key and RBAC, the In Progress move, approval gates. |
+
 ## Security & Protection Components
 
 | Component | `specs.md` location | Primary Responsibilities |
