@@ -32,7 +32,9 @@ mvn -s /etc/gameplane-build/settings.xml $BUILD_ARGS
 const buildScriptMavenPublish = `published=false
 if [ "${BUILD_PUBLISH:-}" = "true" ] && [ -n "${GAMEPLANE_MAVEN_URL:-}" ] && [ -n "${GAMEPLANE_MAVEN_WRITE_TOKEN:-}" ] && [ -n "$main" ]; then
   pom=pom.xml
-  if [ -f target/dependency-reduced-pom.xml ]; then pom=target/dependency-reduced-pom.xml; fi
+  for reduced in dependency-reduced-pom.xml target/dependency-reduced-pom.xml; do
+    if [ -f "$reduced" ]; then pom="$reduced"; fi
+  done
   repository=releases
   case "$(basename "$main")" in *-SNAPSHOT*) repository=snapshots ;; esac
   if mvn -s /etc/gameplane-build/settings.xml -B deploy:deploy-file -Dfile="$main" -DpomFile="$pom" -DrepositoryId=gameplane-deploy -Durl="$GAMEPLANE_MAVEN_URL/$repository"; then
