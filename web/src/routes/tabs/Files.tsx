@@ -51,6 +51,7 @@ const ROOT = "/";
 const ROOT_ENTRY: FileEntry = { name: "", path: ROOT, size: 0, dir: true };
 const AUTOSAVE_DELAY_MS = 800;
 const ARCHIVE_PATTERN = /\.(zip|tar|gz|tgz|rar|7z|jar)$/i;
+const IMAGE_PATTERN = /\.(png|jpe?g|gif|webp|bmp|ico|svg)$/i;
 const LIST_REFRESH_MS = 5_000;
 const MAX_UPLOAD_FILES = 64;
 const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
@@ -668,9 +669,11 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
   const { name, namespace: ns } = resourceTarget;
   const client = useResourceClient(resourceTarget);
   const qc = useQueryClient();
+  const image = IMAGE_PATTERN.test(entry.name);
   const content = useQuery({
     queryKey: resourceKey(resourceTarget, "file-content", name, path, ns),
     queryFn: ({ signal }) => client.withSignal(signal).Files.read(name, path, ns),
+    enabled: !image,
     gcTime: 0,
     staleTime: Infinity,
   });
@@ -733,7 +736,11 @@ function FileEditor({ resourceTarget, path, entry, onNavigate, viewToggle, aside
     <div className={cn("flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background", tabs && "md:min-h-0")}>
       {tabs && <EditorTabs {...tabs} active={path} />}
       <div className="relative flex flex-1 flex-col">
-        {content.error ? (
+        {image ? (
+          <div className="absolute inset-0 grid place-items-center overflow-auto p-6">
+            <img src={client.Files.downloadURL(name, path, ns)} alt={entry.name} className="max-h-full max-w-full min-w-32 object-contain [image-rendering:pixelated]" />
+          </div>
+        ) : content.error ? (
           <div className="absolute inset-0 grid place-items-center p-6 text-sm text-danger">{content.error.message}</div>
         ) : draft === null ? (
           <Spinner />
