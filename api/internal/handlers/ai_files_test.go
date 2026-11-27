@@ -78,7 +78,12 @@ func TestAIFileTool(t *testing.T) {
 			writes = append(writes, call.target+" "+call.body)
 		}
 	}
-	want := []string{"/servers/lobby/files/write?cluster=local&namespace=games&path=%2Fc.yml a: 2\nb: 2\n", "/servers/lobby/files/write?cluster=local&namespace=games&path=%2Fnew.yml x: 1\n"}
+	want := []string{
+		"/servers/lobby/files/write?cluster=local&namespace=games&path=%2Fc.yml a: 2\nb: 2\n",
+		"/servers/lobby/files/write?cluster=local&namespace=games&path=%2Fnew.yml x: 1\n",
+		"/servers/survival/files/write?namespace=games&path=%2Fc.yml a: 2\n",
+		"/servers/survival/files/write?namespace=games&path=%2Fc.yml x",
+	}
 	if !slices.Equal(writes, want) {
 		t.Errorf("writes = %q", writes)
 	}

@@ -462,7 +462,7 @@ func TestAIRunServerConversation(t *testing.T) {
 	f.mu.Lock()
 	last := f.calls[len(f.calls)-1]
 	f.mu.Unlock()
-	if last.target != "/servers/lobby/files/read?cluster=local&namespace=games&path=%2Fconfig.yml" || last.cookie != "gameplane_session=s1" || last.csrf != "c1" {
+	if last.target != "/servers/lobby/files/read?namespace=evil&path=%2Fconfig.yml" || last.cookie != "gameplane_session=s1" || last.csrf != "c1" {
 		t.Errorf("tool call = %+v", last)
 	}
 	_, msgs, _ := f.detail(conv.ID, "")
