@@ -364,16 +364,18 @@ spec:
             - --address-manager={{ .Values.operator.addressManager }}
             - --metallb-namespace={{ .Values.operator.metalLBNamespace | default "metallb-system" }}
             - --zap-log-level={{ .Values.operator.logLevel }}
-            - {{ printf "--build-maven-image=%s" .Values.repositories.build.images.maven | quote }}
-            - {{ printf "--build-gradle-image=%s" .Values.repositories.build.images.gradle | quote }}
-            - {{ printf "--build-cpu-request=%s" .Values.repositories.build.resources.requests.cpu | quote }}
-            - {{ printf "--build-memory-request=%s" .Values.repositories.build.resources.requests.memory | quote }}
-            - {{ printf "--build-cpu-limit=%s" .Values.repositories.build.resources.limits.cpu | quote }}
-            - {{ printf "--build-memory-limit=%s" .Values.repositories.build.resources.limits.memory | quote }}
-            - {{ printf "--build-cache-size=%s" .Values.repositories.build.cacheSize | quote }}
-            - {{ printf "--build-deadline=%v" .Values.repositories.build.deadlineSeconds | quote }}
-            - {{ printf "--build-keep=%v" .Values.repositories.build.keep | quote }}
-            - {{ printf "--maven-url=%s" (ternary (printf "http://gameplane-maven.%s.svc:8080" .Release.Namespace) "" .Values.mavenRepository.enabled) | quote }}
+            {{- with dig "build" dict (.Values.repositories | default dict) }}
+            - {{ printf "--build-maven-image=%s" .images.maven | quote }}
+            - {{ printf "--build-gradle-image=%s" .images.gradle | quote }}
+            - {{ printf "--build-cpu-request=%s" .resources.requests.cpu | quote }}
+            - {{ printf "--build-memory-request=%s" .resources.requests.memory | quote }}
+            - {{ printf "--build-cpu-limit=%s" .resources.limits.cpu | quote }}
+            - {{ printf "--build-memory-limit=%s" .resources.limits.memory | quote }}
+            - {{ printf "--build-cache-size=%s" .cacheSize | quote }}
+            - {{ printf "--build-deadline=%v" .deadlineSeconds | quote }}
+            - {{ printf "--build-keep=%v" .keep | quote }}
+            {{- end }}
+            - {{ printf "--maven-url=%s" (ternary (printf "http://gameplane-maven.%s.svc:8080" .Release.Namespace) "" (eq (include "gameplane.mavenEnabled" .) "true")) | quote }}
             - {{ printf "--maven-namespace=%s" .Release.Namespace | quote }}
             {{- if .Values.operator.localModules.enabled }}
             - --module-local-root={{ .Values.operator.localModules.mountPath }}

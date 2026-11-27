@@ -37,8 +37,8 @@ const (
 	buildLogGracePeriod     = 2 * time.Minute
 	defaultMavenBuildArgs   = "-B clean package"
 	defaultGradleBuildArgs  = "build"
-	mavenReadRef     = "gameplane-maven-read"
-	mavenWriteRef    = "gameplane-maven-write"
+	mavenReadRef            = "gameplane-maven-read"
+	mavenWriteRef           = "gameplane-maven-write"
 	buildJobCreatedCondType = "JobCreated"
 	buildPublishedCondType  = "Published"
 	buildUID                = 65532

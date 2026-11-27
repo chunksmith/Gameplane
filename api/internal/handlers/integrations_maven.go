@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	mavenReadName   = "gameplane-maven-read"
+	mavenReadName     = "gameplane-maven-read"
 	mavenPublicURLEnv = "GAMEPLANE_MAVEN_PUBLIC_URL"
 )
 

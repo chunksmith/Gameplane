@@ -200,7 +200,7 @@ subjects:
     name: gameplane-api
     namespace: {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.mavenRepository.enabled }}
+{{- if eq (include "gameplane.mavenEnabled" .) "true" }}
 ---
 # Repository builds (spec 030): the API reads the Maven read-token Secret for
 # GET /integrations/maven and the repository's status, and nothing else in the
@@ -570,7 +570,7 @@ spec:
             - name: GAMEPLANE_PROMETHEUS_URL
               value: {{ $prom.url | quote }}
             {{- end }}
-            {{- if and .Values.mavenRepository.enabled .Values.mavenRepository.ingress.enabled .Values.mavenRepository.ingress.host }}
+            {{- if and (eq (include "gameplane.mavenEnabled" .) "true") .Values.mavenRepository.ingress.enabled .Values.mavenRepository.ingress.host }}
             - name: GAMEPLANE_MAVEN_PUBLIC_URL
               value: {{ printf "https://%s/releases" .Values.mavenRepository.ingress.host | quote }}
             {{- end }}

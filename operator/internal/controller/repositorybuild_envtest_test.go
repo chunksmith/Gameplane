@@ -73,8 +73,8 @@ func createRepositoryBuild(t *testing.T, ns, repo string, number int, publish bo
 func createMavenSecrets(t *testing.T, ns string) {
 	t.Helper()
 	secrets := map[string]map[string][]byte{
-		mavenReadSecretName:  {"username": []byte("reader"), "token": []byte("read-secret")},
-		mavenWriteSecretName: {"username": []byte("writer"), "token": []byte("write-secret")},
+		mavenReadRef:  {"username": []byte("reader"), "token": []byte("read-secret")},
+		mavenWriteRef: {"username": []byte("writer"), "token": []byte("write-secret")},
 	}
 	for name, data := range secrets {
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}, Data: data}

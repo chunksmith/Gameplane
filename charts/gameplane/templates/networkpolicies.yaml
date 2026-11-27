@@ -1,6 +1,6 @@
 {{- if (eq (include "gameplane.operatorEnabled" .) "true") }}
 {{- if .Values.networkPolicies.enabled }}
-{{- if .Values.mavenRepository.enabled }}
+{{- if eq (include "gameplane.mavenEnabled" .) "true" }}
 ---
 # Reposilite (gameplane-maven) accepts only the API, the token bootstrap hook,
 # repository build pods in every games namespace and, when ingress is on, the
@@ -264,7 +264,7 @@ spec:
         - { protocol: {{ .protocol }}, port: {{ .port }} }
         {{- end }}
       {{- end }}
-{{- if .Values.mavenRepository.enabled }}
+{{- if eq (include "gameplane.mavenEnabled" .) "true" }}
 ---
 # Repository build pods reach the in-cluster Maven repository in the release
 # namespace. RFC1918 addresses are excluded from the public egress below, so

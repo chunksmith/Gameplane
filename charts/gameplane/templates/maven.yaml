@@ -1,4 +1,4 @@
-{{- if .Values.mavenRepository.enabled }}
+{{- if eq (include "gameplane.mavenEnabled" .) "true" }}
 {{- $adminSecret := lookup "v1" "Secret" .Release.Namespace "gameplane-maven-admin" }}
 {{- $adminToken := dig "data" "token" (randAlphaNum 48 | b64enc) $adminSecret }}
 apiVersion: v1

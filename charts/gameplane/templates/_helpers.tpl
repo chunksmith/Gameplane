@@ -201,3 +201,7 @@ install/upgrade time, so re-run helm upgrade if the API endpoint moves.
 {{- define "gameplane.crdManifestConfigMap" -}}
 {{- printf "%s-crd-%s" (index . 0).Release.Name (base (index . 1) | trimSuffix ".yaml" | replace "." "-" | replace "_" "-") -}}
 {{- end -}}
+
+{{- define "gameplane.mavenEnabled" -}}
+{{- and (dig "enabled" false (.Values.mavenRepository | default dict)) (eq (include "gameplane.apiEnabled" .) "true") (eq (include "gameplane.operatorEnabled" .) "true") -}}
+{{- end }}

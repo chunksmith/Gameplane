@@ -850,7 +850,7 @@ repositories:
 # read and write tokens, created by a post-install hook into gameplane-maven-read
 # and gameplane-maven-write.
 mavenRepository:
-  enabled: false
+  enabled: true
   image:
     repository: dzikoysk/reposilite
     tag: "3.5.28"
