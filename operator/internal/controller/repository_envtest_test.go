@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -254,4 +255,51 @@ func TestRepository_URLImmutable(t *testing.T) {
 	if err := k8sClient.Update(context.Background(), repo); err == nil {
 		t.Fatal("expected spec.url change to be rejected")
 	}
+}
+
+func TestRepository_ClearCacheRecreatesBuildCache(t *testing.T) {
+	ns := newNamespace(t)
+	startMgr(t, ns, withRepositoryReconciler(t, ns))
+	createRepository(t, ns, "lfln", nil)
+	ctx := context.Background()
+	cacheKey := types.NamespacedName{Namespace: ns, Name: "lfln-build-cache"}
+
+	eventually(t, func() (bool, string) {
+		var pvc corev1.PersistentVolumeClaim
+		if err := k8sClient.Get(ctx, cacheKey, &pvc); err != nil {
+			return false, err.Error()
+		}
+		size := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+		return size.String() == "5Gi", size.String()
+	})
+
+	requested := time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var current gameplanev1alpha1.Repository
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: "lfln"}, &current); err != nil {
+			return err
+		}
+		if current.Annotations == nil {
+			current.Annotations = map[string]string{}
+		}
+		current.Annotations[gameplanev1alpha1.RepositoryClearCacheAnnotation] = requested
+		return k8sClient.Update(ctx, &current)
+	})
+	if err != nil {
+		t.Fatalf("set clear-cache annotation: %v", err)
+	}
+
+	eventually(t, func() (bool, string) {
+		var current gameplanev1alpha1.Repository
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: "lfln"}, &current); err != nil {
+			return false, err.Error()
+		}
+		cleared := current.Status.CacheClearedAt != nil && current.Status.CacheClearedAt.UTC().Format(time.RFC3339) == requested
+		return cleared, fmt.Sprint(current.Status.CacheClearedAt)
+	})
+	eventually(t, func() (bool, string) {
+		var pvc corev1.PersistentVolumeClaim
+		err := k8sClient.Get(ctx, cacheKey, &pvc)
+		return err == nil && pvc.DeletionTimestamp.IsZero(), fmt.Sprint(err)
+	})
 }

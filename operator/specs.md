@@ -54,7 +54,7 @@ operator/
 │   Edited manually; regenerate deepcopy + YAML after any type edit.
 │
 ├── config/
-│   ├── crd/              Generated CRD YAML (11 kinds). Do not hand-edit.
+│   ├── crd/              Generated CRD YAML (12 kinds). Do not hand-edit.
 │   ├── rbac/             Generated ServiceAccount, Role, RoleBinding, ClusterRole,
 │   │                     ClusterRoleBinding. Do not hand-edit.
 │   ├── manager/          Manager deployment, StatefulSet, and RBAC references.
@@ -108,7 +108,7 @@ operator/
 
 ## Custom Resource Definitions
 
-Eleven CRD kinds under `gameplane.local/v1alpha1`:
+Twelve CRD kinds under `gameplane.local/v1alpha1`:
 
 ### Cluster-scoped (4)
 
@@ -119,7 +119,7 @@ Eleven CRD kinds under `gameplane.local/v1alpha1`:
 | **ModuleSource** | `modulesource_types.go` | Registry of module bundles (OCI, git, HTTP, or local). Declares source location, refresh interval, optional credentials Secret, and optional cosign verification policy. Status lists available modules. |
 | **Cluster** | `cluster_types.go` | Metadata for a remote Kubernetes cluster (displayName, kubeconfig Secret ref). Cluster-scoped so multiple control planes can discover each other. Status tracks health (Unknown/Healthy/Unhealthy), lastCheckTime, conditions. |
 
-### Namespaced (7)
+### Namespaced (8)
 
 | Kind | File | Purpose |
 |------|------|---------|
@@ -129,9 +129,10 @@ Eleven CRD kinds under `gameplane.local/v1alpha1`:
 | **BackupSchedule** | `backupschedule_types.go` | Recurring backup schedule for a GameServer. Spec declares cron expression, retention rules (keep-daily, keep-weekly, keep-monthly, keep-yearly), optional suspend. Status reports next firing time, last fire time, retention condition. |
 | **Restore** | `restore_types.go` | One-shot restore of a Backup into a GameServer (typically a fresh copy). Spec refs the source Backup and target GameServer. `RestorePhase` declares Pending/Suspending/Running/Resuming/Succeeded/Failed, but the controller only ever assigns Pending/Suspending/Running/Succeeded/Failed — it clears the GameServer's suspend flag and sets Succeeded in the same pass, with no intermediate Resuming (`RestorePhaseResuming` is declared but never written; see F-260). Coordinates suspend → restic restore Job → resume. |
 | **NetworkCapture** | `networkcapture_types.go` | Opt-in packet-capture session for a GameServer. Spec declares gameServer ref, optional pcap filter, max duration, max file size, and optional TTL. Status tracks phase (Pending/Running/Completed/Failed/Expired), start/completion times, packet/byte counts, and error messages. Owned by its parent GameServer via ownerReferences. |
-| **Repository** | `repository_types.go` | A GitHub repository working copy (spec 029). Spec declares `url` (HTTPS `github.com/<owner>/<repo>` only, CRD pattern, immutable), `branch` (empty = default branch), `storage.size` (operator default 2Gi) and `storage.storageClassName`. Owner, collaborators, collaborator grants and network ride on the same annotations as GameServer. Status `phase` (Pending/Cloning/Ready/Failed), `head`, `branch`, `ahead`, `behind`, `dirty`, `lastFetch`, `conditions`; the operator writes only `phase: Pending` and `AgentReady`, the API derives the live fields from the agent. |
+| **Repository** | `repository_types.go` | A GitHub repository working copy (spec 029). Spec declares `url` (HTTPS `github.com/<owner>/<repo>` only, CRD pattern, immutable), `branch` (empty = default branch), `storage.size` (operator default 2Gi) and `storage.storageClassName`. Owner, collaborators, collaborator grants and network ride on the same annotations as GameServer. Status `phase` (Pending/Cloning/Ready/Failed), `head`, `branch`, `ahead`, `behind`, `dirty`, `lastFetch`, `conditions`; the operator writes only `phase: Pending` and `AgentReady`, the API derives the live fields from the agent. Spec 030 adds `spec.build` (`tool`, `jdk`, `args`, `publish`, where `publish` defaults to true) and `status.cacheClearedAt`. |
+| **RepositoryBuild** | `repositorybuild_types.go` | One build of a Repository (spec 030, short name `rbuild`), modelled on Restore. Named `<repo>-build-<N>` and owned by its Repository (`controller: true`). Spec declares `repositoryRef` (immutable), `tool` (auto/maven/gradle, resolved by the API), `jdk`, `args`, `publish` and the informational `source` (`commit`, `changes`). Status `phase` (Queued/Pending/Running/Succeeded/Failed), `tool`, `startTime`, `completionTime`, `message`, `artifacts` (path, size, sha256, shaded), `published`, `cacheBytes`, `resources` (the limits the Job ran with) and conditions `JobCreated` and `Published`. |
 
-**Verification:** CRD YAML in `config/crd/` generated from types via `make manifests`. All 11 kinds present and scopes correct (verified against `gameplane.local_*.yaml` files): 4 cluster-scoped (GameTemplate, Module, ModuleSource, Cluster) + 7 namespaced (GameServer, GameServerSet, Backup, BackupSchedule, Restore, NetworkCapture, Repository).
+**Verification:** CRD YAML in `config/crd/` generated from types via `make manifests`. All 12 kinds present and scopes correct (verified against `gameplane.local_*.yaml` files): 4 cluster-scoped (GameTemplate, Module, ModuleSource, Cluster) + 8 namespaced (GameServer, GameServerSet, Backup, BackupSchedule, Restore, NetworkCapture, Repository, RepositoryBuild).
 
 ## Reconcilers
 
@@ -396,6 +397,23 @@ different copy under the old owner. See [operator operation recovery](../docs/op
 - **Pod:** container `agent` from `--repo-agent-image`, args `--mode=repository --data-root=/repo` plus the agent TLS flags; the PVC at `/repo`, an `emptyDir` at `/tmp` (`HOME`), read-only root filesystem, uid 65532, all capabilities dropped, no service account token, no heartbeat and no RCON. `GAMEPLANE_SERVER_UID` is the Repository UID so the agent's `/v1/targets/{uid}` guard works.
 - **Status:** sets `phase: Pending` when empty and the `AgentReady` condition from the StatefulSet's ready replicas. It never runs Git, never holds a user token and never moves the phase past `Pending`; clones start from the API.
 - **Name collisions:** a Repository and a GameServer of the same name in one namespace would share child names; `SetControllerReference` fails the second reconcile and the API refuses such names (409 `name_taken`).
+- **Build cache (spec 030):** the reconciler also owns PVC `<repo>-build-cache` (RWO, `--build-cache-size`, default 5Gi, the storage class of `<repo>-data`). It holds `m2/` (`-Dmaven.repo.local`) and `gradle/` (`GRADLE_USER_HOME`).
+- **Clear-cache flow (spec 030):** the API sets the `gameplane.local/clear-cache` annotation on the Repository to a timestamp. When that value is newer than `status.cacheClearedAt` and no build is active, the reconciler deletes the PVC, recreates it and records `status.cacheClearedAt`.
+
+### RepositoryBuildReconciler (spec 030)
+- **Responsibility:** Run one Job per RepositoryBuild in the cluster, next to the repository's working copy, and copy the Job outcome into the build's status. Uncommitted changes are built.
+- **Queueing:** at most one active build per repository. A later build stays `Queued` until the earlier one ends. The API also answers 409, so the queue is only a safety net. Cancelling deletes the CR instead of ending in a phase.
+- **Placement:** the working copy volume is RWO, so the Job mounts `<repo>-data` at `/repo` and `<repo>-build-cache` at `/cache`. It has required `podAffinity` to the repo agent pod: selector `app.kubernetes.io/name=gameplane-repo` and `app.kubernetes.io/instance=<repo>`, `topologyKey: kubernetes.io/hostname`.
+- **Images:** Maven uses `--build-maven-image` (default `maven:3.9.11-eclipse-temurin-{jdk}`), Gradle uses `--build-gradle-image` (default `gradle:9.9.2-jdk{jdk}`). `{jdk}` is replaced with the JDK version. A project with `gradlew` uses its wrapper.
+- **Build Secret `<build>`:** owned by the build, with keys `build.sh`, `settings.xml` (an `activeByDefault` profile that adds the Gameplane repository), `gameplane.gradle` (an `init.d` script that adds it to `repositories` and, when publishing, to `publishing.repositories`), `read-token` and `write-token`. Tokens come from the control-namespace Secrets `gameplane-maven-read` and `gameplane-maven-write`. `write-token` is rendered only when `publish` is true.
+- **Steps:**
+  1. Build: Maven runs `mvn <args>` (default `-B clean package`); Gradle runs `gradle <args>` (default `build`).
+  2. Find artifacts: Maven `target/*.jar`, Gradle `build/libs/*.jar`. Excluded: `original-*`, `*-sources`, `*-javadoc`, `*-plain`.
+  3. Publish, if enabled: Maven uploads the main artifact with `deploy:deploy-file`, using the reduced POM when the shade plugin wrote one (no second build); Gradle runs `gradle publish`. A publish failure is logged, sets condition `Published=False` and leaves the build `Succeeded`.
+  4. Print `::artifact:: <path> <bytes> <sha256>` per jar, `::published:: true|false` and `::cache:: <bytes>`.
+- **Markers and status:** Job state is copied into `status` with the backup controller's `mirrorJobStatus` pattern. On completion the reconciler parses the markers from the pod log, as the backup controller does for restic output. A failed Job's message comes from `jobFailureMessage`.
+- **Sandbox:** pod `runAsNonRoot`, UID/GID/fsGroup 65532, seccomp `RuntimeDefault`; container `readOnlyRootFilesystem` with an `emptyDir` at `/tmp` and `HOME=/tmp`, `allowPrivilegeEscalation: false`, all capabilities dropped; `automountServiceAccountToken: false`; no GitHub token. Job `backoffLimit: 0`, `activeDeadlineSeconds` from `--build-deadline` (default 1800), resources from the build flags, label `app.kubernetes.io/name: gameplane-build`.
+- **Retention:** the reconciler deletes a repository's oldest finished builds beyond `--build-keep` (default 10). The Job and its pod go with the CR, so the logs of kept builds stay readable.
 
 ### Sidecar client (operator/internal/agent/sidecar_capture.go)
 
@@ -468,6 +486,17 @@ different copy under the old owner. See [operator operation recovery](../docs/op
 | `--capture-default-max-duration-seconds` | int64 | `300` | Default maximum duration (seconds) for a single capture when the request does not provide an explicit `maxDuration`. 5-minute default. |
 | `--capture-default-max-size-bytes` | int64 | `5368709120` | Default maximum file size (bytes) for a single capture when the request does not provide an explicit `maxSize`. 5 GiB default. |
 | `--repo-agent-image` | string | `ghcr.io/gameplanepanel/gameplane/repo-agent:dev`, or `GAMEPLANE_REPO_AGENT_IMAGE` env | Repo agent image (agent binary plus the `git` CLI, `agent/Dockerfile.repo`) run by Repository StatefulSets; chart `repositories.agentImage`. |
+| `--build-maven-image` | string | `maven:3.9.11-eclipse-temurin-{jdk}` | Maven build Job image; `{jdk}` is replaced with the JDK version. Chart `repositories.build.images.maven`. |
+| `--build-gradle-image` | string | `gradle:9.9.2-jdk{jdk}` | Gradle build Job image; `{jdk}` is replaced with the JDK version. Chart `repositories.build.images.gradle`. |
+| `--build-cpu-request` | string | `500m` | CPU request of build Jobs. Chart `repositories.build.resources`. |
+| `--build-memory-request` | string | `768Mi` | Memory request of build Jobs. Chart `repositories.build.resources`. |
+| `--build-cpu-limit` | string | `2` | CPU limit of build Jobs. Chart `repositories.build.resources`. |
+| `--build-memory-limit` | string | `2Gi` | Memory limit of build Jobs. Chart `repositories.build.resources`. |
+| `--build-cache-size` | string | `5Gi` | Size of the `<repo>-build-cache` PVC. Chart `repositories.build.cacheSize`. |
+| `--build-deadline` | int64 | `1800` | ActiveDeadlineSeconds of build Jobs; must be > 0. Chart `repositories.build.deadlineSeconds`. |
+| `--build-keep` | int64 | `10` | Finished builds kept per repository. Chart `repositories.build.keep`. |
+| `--maven-url` | string | `http://gameplane-maven.<ns>.svc:8080`; empty when `mavenRepository` is disabled | Reposilite URL that builds read and publish to (`GAMEPLANE_MAVEN_URL`); derived from `mavenRepository`. |
+| `--maven-namespace` | string | control-plane namespace (`--control-plane-namespace`) | Namespace of the Reposilite Service and the `gameplane-maven-read` and `gameplane-maven-write` Secrets. |
 | `--capture-sidecar-image` | string | `ghcr.io/gameplanepanel/gameplane/capture-sidecar:dev` | Container image for the network capture sidecar injected when capture is enabled. |
 
 **Manager configuration:**

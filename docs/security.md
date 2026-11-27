@@ -360,6 +360,8 @@ When `networkPolicies.enabled=true` (default) the chart applies:
   172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 to block in-cluster and
   cloud-metadata access). Ports customizable via `networkPolicies.gameEgress.ports`.
   Repo agent pods (`gameplane-repo`) are selected too, for HTTPS to github.com.
+  Build pods (`gameplane-build`, spec 030) are selected the same way, and also
+  get egress to `gameplane-maven:8080` (the private Maven repository).
 
 **Note:** `default-deny-egress` applies to all pods in the games namespace
 (`podSelector: {}`), while `allow-agent-to-apiserver` and
@@ -580,6 +582,44 @@ token is the asset to protect.
   and its own PVC; the games-namespace NetworkPolicies admit only the API and
   operator on 8090 and give it the same public-only egress as game pods
   (`allow-game-public-egress`).
+
+## Repository builds
+
+Builds (spec 030) run a repository's own Maven or Gradle build. That executes
+plugins and build scripts from the repository, so a build is treated as
+untrusted code.
+
+- **Sandbox.** The build Job runs non-root with UID, GID and fsGroup 65532 and
+  seccomp `RuntimeDefault`. The root filesystem is read-only; `/tmp` is an
+  `emptyDir` and `HOME=/tmp`. All capabilities are dropped and
+  `allowPrivilegeEscalation` is false. `automountServiceAccountToken` is false,
+  so there is no Kubernetes token, and no GitHub token is mounted or passed.
+  The Job mounts only the working copy at `/repo` and the build cache at
+  `/cache`.
+- **Bounds.** `backoffLimit` is 0 and `activeDeadlineSeconds` is the chart value
+  `repositories.build.deadlineSeconds` (default 1800). CPU and memory requests
+  and limits come from the chart (defaults `500m`/`768Mi` and `2`/`2Gi`). The
+  build is pinned by required pod affinity to its repository's agent pod, which
+  is where the RWO working copy lives.
+- **Egress.** Build pods get the public egress policy (80 and 443, with private
+  CIDRs excluded) and reach only `gameplane-maven:8080` inside the cluster,
+  besides DNS.
+- **Tokens.** The read token can only read the private Maven repository. The
+  write token is rendered into the build Secret only when publish is on. With
+  publish on, a hostile build script could overwrite artifacts that other builds
+  use, because `releases` allows redeploying a version. Per-repository tokens or
+  publishing from the operator are open decisions (spec 030, OPEN-DECISIONS 2).
+- **Deploy.** A deploy replays the user's own file requests under the user's own
+  RBAC. `servers:write` is checked on every target before anything is written,
+  and each target is audited as `repository.build.deploy`. The jar must still
+  match the SHA-256 recorded when the build finished, or the deploy answers 409
+  `artifact_changed`. The assistant's `build_deploy` always needs approval except
+  in `bypassPermissions`.
+- **Maven repository.** Reposilite serves two private repositories, `releases`
+  and `snapshots`. The chart hook creates the read and write tokens in Secrets
+  `gameplane-maven-read` and `gameplane-maven-write`, using the management token
+  in `gameplane-maven-admin`. Personal publish tokens are created by an
+  administrator in Reposilite in v1 (spec 030, OPEN-DECISIONS 1).
 
 ## AI assistant web fetch
 

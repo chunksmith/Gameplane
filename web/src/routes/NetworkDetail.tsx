@@ -7,7 +7,6 @@ import {
   AlertDialogContainer,
   Button,
   Card,
-  Input,
   ListBox,
   ListBoxItem,
   Modal,
@@ -18,7 +17,8 @@ import {
   ModalHeading,
   Select,
 } from "@heroui/react";
-import { ArrowLeft, Check, Network as NetworkIcon, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Network as NetworkIcon, Plus, Trash2, X } from "lucide-react";
+import { ServerPicker } from "@/components/ServerPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PhaseChip } from "@/components/ui/PhaseChip";
@@ -113,9 +113,7 @@ function ServersCard({ name, servers, items }: { name: string; servers: FleetIte
   const intl = useOptionalIntl();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
-  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<FleetItem<GameServer>[]>([]);
-  const candidates = items.filter((item) => networkOf(item) !== name && item.target.name.toLowerCase().includes(search.trim().toLowerCase()));
   const refresh = () => qc.invalidateQueries({ queryKey: ["fleet", "servers"] });
   const add = useMutation({
     mutationFn: () => Promise.all(selected.map((item) => Servers.setNetwork(item.target.name, item.target.namespace, name, item.target.cluster))),
@@ -149,45 +147,13 @@ function ServersCard({ name, servers, items }: { name: string; servers: FleetIte
       />
       {adding && (
         <div className="flex flex-col gap-3 border-b border-border p-4">
-          <Input
-            aria-label={intl.formatMessage({ id: "web.routes.network_detail.search_servers", defaultMessage: "Search servers", description: "Network detail: accessible name of the search input in the add-servers picker" })}
-            placeholder={intl.formatMessage({ id: "web.routes.network_detail.search_servers_placeholder", defaultMessage: "Search servers…", description: "Network detail: placeholder of the search input in the add-servers picker" })}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+          <ServerPicker
+            items={items}
+            selected={selected}
+            onToggle={toggle}
+            filter={(item) => networkOf(item) !== name}
+            rowText={(item) => networkOf(item) || intl.formatMessage({ id: "web.routes.network_detail.unassigned", defaultMessage: "Unassigned", description: "Network detail: label in the add-servers picker for a server that belongs to no network" })}
           />
-          {selected.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {selected.map((item) => (
-                <button
-                  key={targetKey(item.target)}
-                  type="button"
-                  onClick={() => toggle(item)}
-                  aria-label={intl.formatMessage({ id: "web.routes.network_detail.remove_from_selection", defaultMessage: "Remove {name} from selection", description: "Network detail: accessible name of the chip that removes a server from the add-servers selection; {name} is the server name" }, { name: item.target.name })}
-                  className="inline-flex h-7 items-center gap-1 rounded-full bg-accent/10 px-2.5 font-mono text-xs text-accent"
-                >
-                  {item.target.name}
-                  <X className="h-3 w-3" aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-          )}
-          <ul className="max-h-64 divide-y divide-border overflow-y-auto rounded-lg border border-border">
-            {candidates.map((item) => {
-              const isSelected = selected.some((candidate) => targetKey(candidate.target) === targetKey(item.target));
-              const current = networkOf(item);
-              return (
-                <li key={targetKey(item.target)}>
-                  <button type="button" aria-pressed={isSelected} onClick={() => toggle(item)} className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-default/40">
-                    <span className="truncate font-mono text-xs">{item.target.name}</span>
-                    <span className="flex items-center gap-2 text-xs text-muted">
-                      {current || intl.formatMessage({ id: "web.routes.network_detail.unassigned", defaultMessage: "Unassigned", description: "Network detail: label in the add-servers picker for a server that belongs to no network" })}
-                      {isSelected ? <Check className="h-3.5 w-3.5 text-accent" aria-hidden="true" /> : <Plus className="h-3.5 w-3.5" aria-hidden="true" />}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onPress={() => { setSelected([]); setAdding(false); }} isDisabled={add.isPending}>
               {intl.formatMessage({ id: "web.routes.network_detail.cancel", defaultMessage: "Cancel", description: "Network detail: button that closes the add-servers picker without assigning anything; keep it short" })}

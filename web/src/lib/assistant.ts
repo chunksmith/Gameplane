@@ -317,9 +317,31 @@ const stringOf = (value: unknown): string => (typeof value === "string" ? value 
 
 export function toolView(block: AssistantBlock): ToolView | null {
   const input = block.input ?? {};
+  const repository = stringOf(input.repository);
+  const target = stringOf(input.server) || repository;
+  const build = [repository, `#${String(input.build ?? "")}`].filter(Boolean).join(" ");
   switch (block.name) {
     case "grep":
       return { kind: "grep", action: stringOf(input.pattern), arg: stringOf(input.path) || "/" };
+    case "builds_list":
+      return { kind: "builds", action: "", arg: repository };
+    case "build_start":
+      return { kind: "build", action: "", arg: repository };
+    case "build_status":
+      return { kind: "build", action: "", arg: build };
+    case "build_log":
+      return { kind: "build_log", action: "", arg: build };
+    case "build_deploy":
+      return { kind: "deploy", action: "", arg: `${build} ${stringOf(input.artifact)}` };
+    case "repositories_list":
+      return { kind: "repos", action: "", arg: "" };
+    case "git_status":
+    case "git_log":
+    case "git_diff":
+      return { kind: "git", action: "", arg: [repository, block.name.slice("git_".length)].filter(Boolean).join(" ") };
+    case "read_file":
+    case "list_files":
+      return target ? { kind: block.name === "read_file" ? "read" : "list", action: "", arg: `${target}:${stringOf(input.file_path) || stringOf(input.path) || "/"}` } : null;
     case "glob":
       return { kind: "glob", action: "", arg: stringOf(input.pattern) };
     case "WebSearch":

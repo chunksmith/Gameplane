@@ -833,3 +833,40 @@ capture:
 repositories:
   # Repo agent image. Defaults to {image.registry}/repo-agent:{image.tag} if unset.
   agentImage: ""
+  build:
+    images:
+      # {jdk} is replaced with the Job's JDK (17, 21 or 25). Tags verified for all three.
+      maven: "maven:3.9.11-eclipse-temurin-{jdk}"
+      # Gradle 8.14.3 has no jdk25 tag; 9.9.2 has jdk17, jdk21 and jdk25.
+      gradle: "gradle:9.9.2-jdk{jdk}"
+    resources:
+      requests: { cpu: 500m, memory: 768Mi }
+      limits: { cpu: "2", memory: 2Gi }
+    cacheSize: 5Gi
+    deadlineSeconds: 1800
+    keep: 10
+
+# In-cluster Maven repository (spec 030) for repository builds: Reposilite with
+# read and write tokens, created by a post-install hook into gameplane-maven-read
+# and gameplane-maven-write.
+mavenRepository:
+  enabled: false
+  image:
+    repository: dzikoysk/reposilite
+    tag: "3.5.28"
+  # Image for the token bootstrap hook. Needs kubectl, curl and jq; retag for air-gapped installs.
+  bootstrapImage: alpine/k8s:1.36.6
+  storage:
+    size: 10Gi
+    storageClassName: ""
+  ingress:
+    enabled: false
+    host: ""
+    className: ""
+    annotations: {}
+    tls: []
+    # Namespace of the ingress controller; its pods may reach Reposilite when ingress is enabled.
+    controllerNamespace: ingress-nginx
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }

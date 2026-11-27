@@ -169,6 +169,17 @@ func main() {
 		captureDefaultMaxSizeBytes       int64
 		backupJobBackoffLimit            int64
 		backupJobActiveDeadlineSeconds   int64
+		buildMavenImage                  string
+		buildGradleImage                 string
+		buildCPURequest                  string
+		buildMemoryRequest               string
+		buildCPULimit                    string
+		buildMemoryLimit                 string
+		buildCacheSize                   string
+		buildDeadline                    int64
+		buildKeep                        int
+		mavenURL                         string
+		mavenNamespace                   string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address the metrics endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address the probe endpoint binds to.")
@@ -290,6 +301,22 @@ func main() {
 		"StorageClass for game server data volumes (GameServer spec.storage.storageClassName). "+
 			"Empty (default) uses the cluster's default StorageClass. "+
 			"Applies when a GameServer does not explicitly set spec.storage.storageClassName.")
+
+	flag.StringVar(&buildMavenImage, "build-maven-image", "maven:3.9.11-eclipse-temurin-{jdk}",
+		"Image for Maven repository builds. {jdk} is replaced with the build's JDK version.")
+	flag.StringVar(&buildGradleImage, "build-gradle-image", "gradle:9.9.2-jdk{jdk}",
+		"Image for Gradle repository builds. {jdk} is replaced with the build's JDK version.")
+	flag.StringVar(&buildCPURequest, "build-cpu-request", "500m", "CPU request for repository build pods.")
+	flag.StringVar(&buildMemoryRequest, "build-memory-request", "768Mi", "Memory request for repository build pods.")
+	flag.StringVar(&buildCPULimit, "build-cpu-limit", "2", "CPU limit for repository build pods.")
+	flag.StringVar(&buildMemoryLimit, "build-memory-limit", "2Gi", "Memory limit for repository build pods.")
+	flag.StringVar(&buildCacheSize, "build-cache-size", "5Gi", "Size of the per-repository build cache PVC (Maven and Gradle caches).")
+	flag.Int64Var(&buildDeadline, "build-deadline", 1800, "ActiveDeadlineSeconds for repository build Jobs.")
+	flag.IntVar(&buildKeep, "build-keep", 10, "Number of finished builds kept per repository; older ones are deleted.")
+	flag.StringVar(&mavenURL, "maven-url", "",
+		"URL of the Gameplane Maven repository for build dependencies and publishing. Empty disables it.")
+	flag.StringVar(&mavenNamespace, "maven-namespace", controlPlaneNamespaceDefault,
+		"Namespace holding the gameplane-maven-read and gameplane-maven-write Secrets.")
 
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -462,8 +489,34 @@ func main() {
 		AgentCASecretName:       agentCASecretName,
 		AgentCASecretNamespace:  agentCASecretNamespace,
 		DefaultStorageClassName: gameDataStorageClass,
+		BuildCacheSize:          resource.MustParse(buildCacheSize),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "Repository")
+		os.Exit(1)
+	}
+	if err := (&controller.RepositoryBuildReconciler{
+		Client:      mgr.GetClient(),
+		APIReader:   mgr.GetAPIReader(),
+		Scheme:      mgr.GetScheme(),
+		Clientset:   kubernetes.NewForConfigOrDie(mgr.GetConfig()),
+		MavenImage:  buildMavenImage,
+		GradleImage: buildGradleImage,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(buildCPURequest),
+				corev1.ResourceMemory: resource.MustParse(buildMemoryRequest),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(buildCPULimit),
+				corev1.ResourceMemory: resource.MustParse(buildMemoryLimit),
+			},
+		},
+		Deadline:       buildDeadline,
+		Keep:           buildKeep,
+		MavenURL:       mavenURL,
+		MavenNamespace: mavenNamespace,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to set up controller", "controller", "RepositoryBuild")
 		os.Exit(1)
 	}
 	if err := (&controller.GameServerSetReconciler{

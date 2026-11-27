@@ -1,18 +1,19 @@
 import { useId, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button, Card, Input } from "@heroui/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, Card, Input, Switch } from "@heroui/react";
 import { defineMessages, type MessageDescriptor } from "react-intl";
 import { Check, Plus } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { Networks } from "@/lib/endpoints";
-import { useOptionalIntl } from "@/lib/i18n/format";
-import { gitErrorText, initials, Repositories, repoSlug, useRepositoryRefresh, type RepositoryProps } from "@/lib/repositories";
+import { useFormat, useOptionalIntl } from "@/lib/i18n/format";
+import { Builds, buildsKey, gitErrorText, initials, Repositories, repoSlug, useBuilds, useRepositoryRefresh, type RepositoryProps } from "@/lib/repositories";
 import { resourceKey } from "@/lib/resourceTarget";
 import { cn } from "@/lib/utils";
-import type { RepositoryCollaborator } from "@/types";
+import type { BuildJdk, BuildSettings, BuildTool, Repository, RepositoryCollaborator } from "@/types";
 import { RepositoryAvatar } from "../Repositories";
+import { joinDot, sizeLabel, toolLabel } from "./buildUi";
 
 const M: Record<string, MessageDescriptor> = defineMessages({
   kind: { id: "web.repositories.settings.kind", defaultMessage: "repository", description: "Repository settings: small label under the repository name on the summary card" },
@@ -114,6 +115,8 @@ export function RepositorySettingsTab({ repository, target, permissions }: Repos
           </Card.Content>
         </Card>
 
+        <BuildCard repository={repository} canWrite={permissions.includes("repositories:write")} />
+
         <CollaboratorsCard repositoryName={name} namespace={namespace} canManage={canManage} collaborators={collaborators.data} error={collaborators.error} onChanged={refresh} />
 
         {canManage && (
@@ -141,6 +144,135 @@ export function RepositorySettingsTab({ repository, target, permissions }: Repos
         busy={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
+    </div>
+  );
+}
+
+const B: Record<string, MessageDescriptor> = defineMessages({
+  title: { id: "web.repositories.settings.build_title", defaultMessage: "Build", description: "Repository settings: title of the build card" },
+  hint: { id: "web.repositories.settings.build_hint", defaultMessage: "How Gameplane compiles this repository. Builds run on the node that holds the repository.", description: "Repository settings: text under the build card title" },
+  tool: { id: "web.repositories.settings.build_tool", defaultMessage: "Tool", description: "Repository settings: label of the build tool setting" },
+  tool_group: { id: "web.repositories.settings.build_tool_group", defaultMessage: "Build tool", description: "Repository settings: accessible name of the build tool choice" },
+  tool_auto: { id: "web.repositories.settings.build_tool_auto", defaultMessage: "Auto", description: "Repository settings: build tool choice that picks Maven or Gradle from the files; keep it short" },
+  tool_maven: { id: "web.repositories.settings.build_tool_maven", defaultMessage: "Maven", description: "Repository settings: build tool choice for Maven; a product name, usually left untranslated" },
+  tool_gradle: { id: "web.repositories.settings.build_tool_gradle", defaultMessage: "Gradle", description: "Repository settings: build tool choice for Gradle; a product name, usually left untranslated" },
+  detected: { id: "web.repositories.settings.build_detected", defaultMessage: "Auto picks {tool} from the repository's files.", description: "Repository settings: hint under the build tool choice when it is Auto; {tool} is Maven or Gradle" },
+  jdk: { id: "web.repositories.settings.build_jdk", defaultMessage: "Java", description: "Repository settings: label of the Java version setting" },
+  jdk_group: { id: "web.repositories.settings.build_jdk_group", defaultMessage: "Java version", description: "Repository settings: accessible name of the Java version choice" },
+  args: { id: "web.repositories.settings.build_args", defaultMessage: "Arguments", description: "Repository settings: label of the build arguments field" },
+  args_hint: { id: "web.repositories.settings.build_args_hint", defaultMessage: "Passed to the build tool, such as -B clean package.", description: "Repository settings: hint under the build arguments field" },
+  publish: { id: "web.repositories.settings.build_publish", defaultMessage: "Publish to Gameplane Maven", description: "Repository settings: label of the switch that uploads successful builds to the Gameplane Maven repository" },
+  publish_hint: { id: "web.repositories.settings.build_publish_hint", defaultMessage: "Successful builds upload their jars to the Gameplane Maven repository.", description: "Repository settings: hint under the publish switch" },
+  cache: { id: "web.repositories.settings.build_cache", defaultMessage: "cache {size}", description: "Repository settings: size of the build cache in the build card footer; {size} is the formatted size" },
+  keep: { id: "web.repositories.settings.build_keep", defaultMessage: "keeps the last {keep} builds", description: "Repository settings: how many builds are kept, in the build card footer; {keep} is the number" },
+  limits: { id: "web.repositories.settings.build_limits", defaultMessage: "Limits {cpu} CPU, {memory}", description: "Repository settings: CPU and memory limits of the newest build, in the build card footer; {cpu} is the core count and {memory} the memory size" },
+  save: { id: "web.repositories.settings.build_save", defaultMessage: "Save", description: "Repository settings: button that saves the build settings; keep it short" },
+});
+
+const BUILD_JDKS: BuildJdk[] = [17, 21, 25];
+
+type BuildFields = Omit<BuildSettings, "detected">;
+
+function BuildCard({ repository, canWrite }: { repository: Repository; canWrite: boolean }) {
+  const intl = useOptionalIntl();
+  const format = useFormat();
+  const qc = useQueryClient();
+  const { name, namespace } = repository;
+  const list = useBuilds(name, namespace);
+  const [draft, setDraft] = useState<Partial<BuildFields>>({});
+  const settings = list.data?.settings;
+  const fields: BuildFields = { tool: settings?.tool ?? "auto", jdk: settings?.jdk ?? 21, args: settings?.args ?? "", publish: settings?.publish ?? true, ...draft };
+  const save = useMutation({
+    mutationFn: () => Builds.saveSettings(name, fields, namespace),
+    onSuccess: async () => {
+      setDraft({});
+      await qc.invalidateQueries({ queryKey: buildsKey(namespace, name) });
+    },
+  });
+  const change = (patch: Partial<BuildFields>) => setDraft((current) => ({ ...current, ...patch }));
+  const toolOptions: Array<{ value: BuildTool; label: string }> = [
+    { value: "auto", label: intl.formatMessage(B.tool_auto) },
+    { value: "maven", label: intl.formatMessage(B.tool_maven) },
+    { value: "gradle", label: intl.formatMessage(B.tool_gradle) },
+  ];
+  const newest = list.data?.builds[0];
+  const footer = list.data && joinDot(intl, [
+    intl.formatMessage(B.cache, { size: sizeLabel(intl, format, list.data.cacheBytes ?? 0) }),
+    intl.formatMessage(B.keep, { keep: list.data.keep }),
+    newest && intl.formatMessage(B.limits, { cpu: newest.limits.cpu, memory: newest.limits.memory }),
+  ]);
+
+  return (
+    <Card className="border border-border">
+      <Card.Content className="gap-4 p-5">
+        <div>
+          <div className="font-semibold">{intl.formatMessage(B.title)}</div>
+          <p className="text-sm text-muted">{intl.formatMessage(B.hint)}</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium">{intl.formatMessage(B.tool)}</span>
+            <Segment label={intl.formatMessage(B.tool_group)} options={toolOptions} value={fields.tool} isDisabled={!canWrite} onChange={(tool) => change({ tool })} />
+            {settings?.detected && fields.tool === "auto" && (
+              <span className="text-xs text-muted">{intl.formatMessage(B.detected, { tool: toolLabel(intl, settings.detected) })}</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium">{intl.formatMessage(B.jdk)}</span>
+            <Segment label={intl.formatMessage(B.jdk_group)} options={BUILD_JDKS.map((jdk) => ({ value: jdk, label: String(jdk) }))} value={fields.jdk} isDisabled={!canWrite} onChange={(jdk) => change({ jdk })} />
+          </div>
+        </div>
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium">{intl.formatMessage(B.args)}</span>
+          <Input aria-label={intl.formatMessage(B.args)} value={fields.args} disabled={!canWrite} onChange={(e) => change({ args: e.target.value })} />
+          <span className="text-xs text-muted">{intl.formatMessage(B.args_hint)}</span>
+        </label>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">{intl.formatMessage(B.publish)}</div>
+            <div className="text-xs text-muted">{intl.formatMessage(B.publish_hint)}</div>
+          </div>
+          <Switch aria-label={intl.formatMessage(B.publish)} isSelected={fields.publish} isDisabled={!canWrite} onChange={(publish) => change({ publish })}>
+            <Switch.Content>
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <span className="text-xs text-muted">{footer}</span>
+          <Button variant="primary" size="sm" isDisabled={Object.keys(draft).length === 0 || !canWrite || save.isPending} isPending={save.isPending} onPress={() => save.mutate()}>
+            {intl.formatMessage(B.save)}
+          </Button>
+        </div>
+        {save.error && <ErrorBanner err={gitErrorText(intl, save.error)} onDismiss={() => save.reset()} />}
+      </Card.Content>
+    </Card>
+  );
+}
+
+function Segment<T extends string | number>({ label, options, value, isDisabled, onChange }: {
+  label: string;
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  isDisabled: boolean;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex w-fit rounded-full border border-border p-0.5 text-xs">
+      {options.map((option) => (
+        <button
+          key={String(option.value)}
+          type="button"
+          aria-pressed={option.value === value}
+          disabled={isDisabled}
+          onClick={() => onChange(option.value)}
+          className={cn("rounded-full px-3 py-1 disabled:cursor-not-allowed", option.value === value && "bg-accent/10 text-accent")}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }

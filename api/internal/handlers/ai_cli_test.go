@@ -226,7 +226,7 @@ func TestAICLIRun(t *testing.T) {
 	first := spawns()[0]
 	if !slices.Equal(first.sent(), []string{"check the fleet"}) || slices.Contains(first.args, "--resume") ||
 		!hasArg(first.args, "--model", "claude-opus-5-5") || !hasArg(first.args, "--effort", "medium") ||
-		!hasArg(first.args, "--tools", "Task,WebSearch") || !hasArg(first.args, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiServerTools)), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
+		!hasArg(first.args, "--tools", "Task,WebSearch") || !hasArg(first.args, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiScopeTools(conv))), ",")) || !hasArg(first.args, "--permission-mode", "dontAsk") ||
 		!hasArg(first.args, "--input-format", "stream-json") || !slices.Contains(first.args, "--include-partial-messages") {
 		t.Errorf("first spawn = %v %v", first.sent(), first.args)
 	}
@@ -709,11 +709,11 @@ func TestAICLIAdminShell(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
 	conv := aiConversation{Model: "claude-opus-5-5", Effort: "medium"}
 	user := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", false)
-	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiServerTools)), ",")) || strings.Contains(user[slices.Index(user, "--append-system-prompt")+1], "kubectl") {
+	if !hasArg(user, "--tools", "Task,WebSearch") || !hasArg(user, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiScopeTools(conv))), ",")) || strings.Contains(user[slices.Index(user, "--append-system-prompt")+1], "kubectl") {
 		t.Errorf("user args = %v", user)
 	}
 	admin := aiCLIArgs(conv, "http://127.0.0.1:1/mcp", "tok", true)
-	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiServerTools), []string{"Bash", "Monitor", "TaskStop"}), ",")) || !strings.Contains(admin[slices.Index(admin, "--append-system-prompt")+1], "kubectl") {
+	if !hasArg(admin, "--tools", "Task,WebSearch,Bash,Monitor,TaskStop") || !hasArg(admin, "--allowedTools", strings.Join(slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiScopeTools(conv)), []string{"Bash", "Monitor", "TaskStop"}), ",")) || !strings.Contains(admin[slices.Index(admin, "--append-system-prompt")+1], "kubectl") {
 		t.Errorf("admin args = %v", admin)
 	}
 	if env := aiCLIEnv("oat", false); slices.Contains(env, "SHELL=/bin/bash") || !slices.Contains(env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1") {

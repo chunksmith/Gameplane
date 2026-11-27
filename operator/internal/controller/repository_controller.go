@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ import (
 const (
 	repositoryDataRoot       = "/repo"
 	repositoryAgentCondition = "AgentReady"
+	defaultBuildCacheSize    = "5Gi"
 )
 
 type RepositoryReconciler struct {
@@ -35,6 +37,7 @@ type RepositoryReconciler struct {
 	AgentCASecretName       string
 	AgentCASecretNamespace  string
 	DefaultStorageClassName string
+	BuildCacheSize          resource.Quantity
 }
 
 // +kubebuilder:rbac:groups=gameplane.local,resources=repositories,verbs=get;list;watch
@@ -50,6 +53,10 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.reconcilePVC(ctx, &repo); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile repository PVC: %w", err)
 	}
+	cacheRequeue, err := r.reconcileBuildCache(ctx, &repo)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("reconcile repository build cache: %w", err)
+	}
 	if err := ensureAgentTLS(ctx, r.Client, r.Scheme, r.AgentCASecretName, r.AgentCASecretNamespace, &repo); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile repository agent TLS: %w", err)
 	}
@@ -60,7 +67,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile repository StatefulSet: %w", err)
 	}
-	return ctrl.Result{}, r.reconcileStatus(ctx, &repo, sts)
+	return ctrl.Result{RequeueAfter: cacheRequeue}, r.reconcileStatus(ctx, &repo, sts)
 }
 
 func repositoryLabels(repo *gameplanev1alpha1.Repository) map[string]string {
@@ -77,6 +84,13 @@ func repositoryStorageSize(repo *gameplanev1alpha1.Repository) resource.Quantity
 	return repo.Spec.Storage.Size
 }
 
+func (r *RepositoryReconciler) repositoryStorageClassName(repo *gameplanev1alpha1.Repository) *string {
+	if repo.Spec.Storage.StorageClassName == nil && r.DefaultStorageClassName != "" {
+		return &r.DefaultStorageClassName
+	}
+	return repo.Spec.Storage.StorageClassName
+}
+
 func (r *RepositoryReconciler) reconcilePVC(ctx context.Context, repo *gameplanev1alpha1.Repository) error {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: repo.Name + "-data", Namespace: repo.Namespace},
@@ -85,14 +99,82 @@ func (r *RepositoryReconciler) reconcilePVC(ctx context.Context, repo *gameplane
 		if pvc.CreationTimestamp.IsZero() {
 			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
 			pvc.Spec.Resources.Requests = corev1.ResourceList{corev1.ResourceStorage: repositoryStorageSize(repo)}
-			pvc.Spec.StorageClassName = repo.Spec.Storage.StorageClassName
-			if pvc.Spec.StorageClassName == nil && r.DefaultStorageClassName != "" {
-				pvc.Spec.StorageClassName = &r.DefaultStorageClassName
-			}
+			pvc.Spec.StorageClassName = r.repositoryStorageClassName(repo)
 		}
 		return controllerutil.SetControllerReference(repo, pvc, r.Scheme)
 	})
 	return err
+}
+
+func (r *RepositoryReconciler) buildCacheSize() resource.Quantity {
+	if r.BuildCacheSize.IsZero() {
+		return resource.MustParse(defaultBuildCacheSize)
+	}
+	return r.BuildCacheSize
+}
+
+func (r *RepositoryReconciler) reconcileBuildCache(ctx context.Context, repo *gameplanev1alpha1.Repository) (time.Duration, error) {
+	if requeue, err := r.clearBuildCache(ctx, repo); err != nil || requeue > 0 {
+		return requeue, err
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: buildCachePVCName(repo.Name), Namespace: repo.Namespace},
+	}
+	err := r.Get(ctx, client.ObjectKeyFromObject(pvc), pvc)
+	switch {
+	case err == nil && !pvc.DeletionTimestamp.IsZero():
+		return 5 * time.Second, nil
+	case err != nil && !apierrors.IsNotFound(err):
+		return 0, fmt.Errorf("get build cache PVC: %w", err)
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
+		if pvc.CreationTimestamp.IsZero() {
+			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+			pvc.Spec.Resources.Requests = corev1.ResourceList{corev1.ResourceStorage: r.buildCacheSize()}
+			pvc.Spec.StorageClassName = r.repositoryStorageClassName(repo)
+		}
+		return controllerutil.SetControllerReference(repo, pvc, r.Scheme)
+	})
+	if err != nil {
+		return 0, fmt.Errorf("reconcile build cache PVC: %w", err)
+	}
+	return 0, nil
+}
+
+func (r *RepositoryReconciler) clearBuildCache(ctx context.Context, repo *gameplanev1alpha1.Repository) (time.Duration, error) {
+	raw, ok := repo.Annotations[gameplanev1alpha1.RepositoryClearCacheAnnotation]
+	if !ok {
+		return 0, nil
+	}
+	requested, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return 0, nil
+	}
+	if repo.Status.CacheClearedAt != nil && !requested.After(repo.Status.CacheClearedAt.Time) {
+		return 0, nil
+	}
+	var builds gameplanev1alpha1.RepositoryBuildList
+	if err := r.List(ctx, &builds, client.InNamespace(repo.Namespace),
+		client.MatchingLabels{gameplanev1alpha1.RepositoryLabel: repo.Name}); err != nil {
+		return 0, fmt.Errorf("list repository builds: %w", err)
+	}
+	for i := range builds.Items {
+		if !buildPhaseTerminal(builds.Items[i].Status.Phase) {
+			return 10 * time.Second, nil
+		}
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: buildCachePVCName(repo.Name), Namespace: repo.Namespace},
+	}
+	if err := r.Delete(ctx, pvc); client.IgnoreNotFound(err) != nil {
+		return 0, fmt.Errorf("delete build cache PVC: %w", err)
+	}
+	base := repo.DeepCopy()
+	repo.Status.CacheClearedAt = &metav1.Time{Time: requested}
+	if err := r.Status().Patch(ctx, repo, client.MergeFrom(base)); err != nil {
+		return 0, fmt.Errorf("patch repository cache status: %w", err)
+	}
+	return 0, nil
 }
 
 func (r *RepositoryReconciler) reconcileService(ctx context.Context, repo *gameplanev1alpha1.Repository) error {

@@ -51,10 +51,11 @@ func (s aiToolSpec) mcp() *mcp.Tool {
 }
 
 var aiFileScope = map[string]any{
-	"file_path": map[string]any{"type": "string", "description": "Absolute path inside the server's data volume, for example /plugins/Essentials/config.yml"},
-	"server":    map[string]any{"type": "string", "description": "Server name; only in a conversation that is not tied to one server"},
-	"namespace": map[string]any{"type": "string", "description": "The server's namespace; only with server"},
-	"cluster":   map[string]any{"type": "string", "description": "The server's cluster when it is not \"local\"; only with server"},
+	"file_path":  map[string]any{"type": "string", "description": "Absolute path inside the server's data volume, for example /plugins/Essentials/config.yml"},
+	"server":     map[string]any{"type": "string", "description": "Server name; required in a conversation that is not tied to one server. Another server is only readable: read_file and read_archive"},
+	"repository": map[string]any{"type": "string", "description": "Repository name to read instead of this conversation's own; reads only (read_file, read_archive). file_path is then relative to the repository root"},
+	"namespace":  map[string]any{"type": "string", "description": "The server's or repository's namespace; only with server or repository"},
+	"cluster":    map[string]any{"type": "string", "description": "The server's cluster when it is not \"local\"; only with server"},
 }
 
 func aiFileSpec(name, description string, required []string, extra map[string]any) aiToolSpec {
@@ -164,6 +165,7 @@ func aiBetaTools() []anthropic.BetaToolUnionParam {
 
 type aiFileInput struct {
 	Server     string `json:"server"`
+	Repository string `json:"repository"`
 	Namespace  string `json:"namespace"`
 	Cluster    string `json:"cluster"`
 	Path       string `json:"file_path"`
@@ -205,7 +207,11 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 	case aiJobStop:
 		return h.jobStop(ctx, conv, creds, in)
 	}
-	if err := aiCheckFile(conv, in); err != nil {
+	check := aiCheckFile
+	if name == aiReadFile || name == aiReadArchive {
+		check = aiCheckRead
+	}
+	if err := check(conv, in); err != nil {
 		return err.Error(), true
 	}
 	switch name {
@@ -221,9 +227,28 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 	return h.storeFile(ctx, conv, creds, in, in.Content, fmt.Sprintf("Wrote %d bytes to %s", len(in.Content), in.Path))
 }
 
+func aiCheckRead(conv aiConversation, in aiFileInput) error {
+	if !strings.HasPrefix(in.Path, "/") {
+		return errors.New("file_path must be an absolute path inside the server's data volume")
+	}
+	if in.Repository != "" && in.Repository != conv.Repository {
+		return nil
+	}
+	if in.Server != "" && in.Server != conv.Server {
+		if !dnsLabelRE.MatchString(in.Server) || in.Namespace == "" {
+			return errors.New("server and namespace are required to read another server")
+		}
+		return nil
+	}
+	return aiCheckFile(conv, in)
+}
+
 func aiCheckFile(conv aiConversation, in aiFileInput) error {
 	if !strings.HasPrefix(in.Path, "/") {
 		return errors.New("file_path must be an absolute path inside the server's data volume")
+	}
+	if in.Repository != "" && in.Repository != conv.Repository {
+		return fmt.Errorf("this conversation can change only repository %s", conv.Repository)
 	}
 	if conv.Repository != "" {
 		if in.Server != "" {
@@ -300,10 +325,17 @@ func (h *aiHandler) fileCall(ctx context.Context, conv aiConversation, creds aiC
 }
 
 func aiFileCall(conv aiConversation, method, op string, in aiFileInput) aiToolInput {
-	call := aiToolInput{Method: method, Path: "/servers/" + cmp.Or(conv.Server, in.Server) + "/files/" + op, Query: map[string]string{"path": in.Path}}
-	if conv.Repository != "" {
-		call.Path = "/repositories/" + conv.Repository + "/files/" + op
-	} else if conv.Server == "" {
+	call := aiToolInput{Method: method, Query: map[string]string{"path": in.Path}}
+	if in.Repository != "" || conv.Repository != "" && in.Server == "" {
+		repository := cmp.Or(in.Repository, conv.Repository)
+		call.Path = "/repositories/" + repository + "/files/" + op
+		if in.Repository != "" && in.Repository != conv.Repository {
+			call.Query["namespace"] = cmp.Or(in.Namespace, conv.Namespace)
+		}
+		return call
+	}
+	call.Path = "/servers/" + cmp.Or(in.Server, conv.Server) + "/files/" + op
+	if conv.Server == "" || in.Server != "" && in.Server != conv.Server {
 		call.Query["namespace"] = in.Namespace
 		if in.Cluster != "" {
 			call.Query["cluster"] = in.Cluster

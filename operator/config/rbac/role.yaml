@@ -114,6 +114,7 @@ rules:
   - modulesources
   - networkcaptures
   - repositories
+  - repositorybuilds
   - restores
   verbs:
   - get

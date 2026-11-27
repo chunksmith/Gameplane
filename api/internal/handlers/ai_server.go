@@ -70,15 +70,19 @@ func aiIsServerTool(name string) bool {
 
 func aiScopeTools(conv aiConversation) []aiToolSpec {
 	if conv.Repository != "" {
-		return aiGitTools
+		return slices.Concat(aiGitTools, aiBuildTools, []aiToolSpec{aiReposListTool})
 	}
-	return aiServerTools
+	return slices.Concat(aiServerTools, aiGitReadTools, []aiToolSpec{aiReposListTool})
 }
 
 func aiCallInput(conv aiConversation, name string, raw json.RawMessage) (aiToolInput, error) {
 	switch {
 	case aiIsGitTool(name):
-		return aiGitInput(conv.Repository, name, raw)
+		return aiGitCall(conv, name, raw)
+	case aiIsBuildTool(name):
+		return aiBuildInput(conv, name, raw)
+	case name == aiReposList:
+		return aiToolInput{Method: http.MethodGet, Path: "/repositories"}, nil
 	case aiIsServerTool(name):
 		return aiServerInput(conv, name, raw)
 	}

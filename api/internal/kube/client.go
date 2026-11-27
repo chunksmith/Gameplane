@@ -51,11 +51,12 @@ var GVRs = map[string]schema.GroupVersionResource{
 // Kept separate from GVRs because /clusters is not a generic CRUD route —
 // it serves the cluster registry and mTLS kubeconfig distribution surface.
 var (
-	GVRCluster        = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "clusters"}
-	GVRModule         = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "modules"}
-	GVRModuleSource   = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "modulesources"}
-	GVRNetworkCapture = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "networkcaptures"}
-	GVRRepository     = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "repositories"}
+	GVRCluster         = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "clusters"}
+	GVRModule          = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "modules"}
+	GVRModuleSource    = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "modulesources"}
+	GVRNetworkCapture  = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "networkcaptures"}
+	GVRRepository      = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "repositories"}
+	GVRRepositoryBuild = schema.GroupVersionResource{Group: "gameplane.local", Version: "v1alpha1", Resource: "repositorybuilds"}
 )
 
 // GetRepository fetches a Repository by namespace and name.

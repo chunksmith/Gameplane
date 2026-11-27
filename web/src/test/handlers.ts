@@ -3,6 +3,7 @@
 // every endpoint. Tests override individual routes via `server.use(...)`.
 
 import { http, HttpResponse, ws, type PathParams } from "msw";
+import type { BuildSettings } from "@/types";
 import { fleetHandlers } from "./fleetHandlers";
 import { DEFAULT_RANGE, isStatisticsRange } from "@/lib/statisticsRange";
 import type { StatisticsRange } from "@/types";
@@ -18,8 +19,13 @@ import {
   makeDestination,
   makeFileEntry,
   makeGitCommit,
+  makeBuild,
+  makeBuildList,
+  makeBuildSettings,
+  makeDeployment,
   makeGitHub,
   makeGitStatus,
+  makeMaven,
   makeRepository,
   makeModule,
   makeModuleSource,
@@ -98,6 +104,15 @@ const repositoryHandlers = [
   http.delete("/repositories/:name/collaborators/:userId", () => new HttpResponse(null, { status: 204 })),
   http.put(/\/repositories\/[^/]+:network$/, () => new HttpResponse(null, { status: 204 })),
   http.post(/\/repositories\/[^/]+:reclone$/, () => HttpResponse.json(makeRepository({ phase: "Cloning", cloneProgress: 0 }), { status: 202 })),
+  http.get("/repositories/:name/builds", () => HttpResponse.json(makeBuildList())),
+  http.post("/repositories/:name/builds", () => HttpResponse.json(makeBuild({ number: 15, phase: "Queued", artifacts: [] }), { status: 201 })),
+  http.get("/repositories/:name/builds/:number", ({ params }) => HttpResponse.json(makeBuild({ number: Number(params.number) }))),
+  http.delete("/repositories/:name/builds/:number", () => new HttpResponse(null, { status: 204 })),
+  http.get("/repositories/:name/builds/:number/log", () => new HttpResponse("[INFO] Scanning for projects...\n[INFO] BUILD SUCCESS\nartifact  target/site-1.0.0.jar  5.4 MB\n", { headers: { "Content-Type": "text/plain" } })),
+  http.post(/\/repositories\/[^/]+\/builds:clear-cache$/, () => new HttpResponse(null, { status: 202 })),
+  http.put("/repositories/:name/build", async ({ request }) => HttpResponse.json(makeBuildSettings((await request.json()) as Partial<BuildSettings>))),
+  http.post("/repositories/:name/builds/:number/deploy", () => HttpResponse.json({ deployment: makeDeployment() })),
+  http.get("/integrations/maven", () => HttpResponse.json(makeMaven())),
   http.get("/repositories/:name/git/status", () => HttpResponse.json(makeGitStatus())),
   http.get("/repositories/:name/git/diff", () => new HttpResponse("@@ -1,2 +1,2 @@\n-old: 1\n+new: 2\n keep\n", { headers: { "Content-Type": "text/x-diff" } })),
   ...["stage", "unstage", "discard", "undo", "checkout", "fetch", "pull", "push"].map((action) =>

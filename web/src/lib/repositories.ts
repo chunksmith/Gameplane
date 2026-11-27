@@ -4,11 +4,19 @@ import { APIError, api } from "@/lib/api";
 import { errorTextIntl } from "@/lib/errors";
 import { resourceKey, type ResourceTarget } from "@/lib/resourceTarget";
 import type {
+  Build,
+  BuildList,
+  BuildPhase,
+  BuildSettings,
+  BuildStart,
+  DeployRequest,
+  DeployResult,
   GitBranch,
   GitCommit,
   GitFileState,
   GitHubIntegration,
   GitStatus,
+  MavenIntegration,
   Repository,
   RepositoryAccess,
   RepositoryCollaborator,
@@ -44,8 +52,8 @@ function withNS(path: string, ns?: string): string {
   return `${path}${path.includes("?") ? "&" : "?"}namespace=${encodeURIComponent(ns)}`;
 }
 
-async function text(path: string): Promise<string> {
-  const res = await fetch(path, { credentials: "include", cache: "no-store" });
+async function text(path: string, signal?: AbortSignal): Promise<string> {
+  const res = await fetch(path, { credentials: "include", cache: "no-store", signal });
   const body = await res.text();
   if (!res.ok) throw new APIError(res.status, body, res.statusText, res.headers.get("content-type") ?? undefined);
   return body;
@@ -67,6 +75,50 @@ export const Repositories = {
   removeCollaborator: (name: string, userId: number, ns?: string) =>
     api<void>(withNS(base(name, `/collaborators/${userId}`), ns), { method: "DELETE" }),
 };
+
+export const buildsKey = (namespace: string, name: string) => [...REPOSITORIES_KEY, namespace, name, "builds"] as const;
+
+export function isActiveBuild(phase: BuildPhase): boolean {
+  return phase === "Queued" || phase === "Pending" || phase === "Running";
+}
+
+export const Builds = {
+  list: (name: string, ns?: string, signal?: AbortSignal) => api<BuildList>(withNS(base(name, "/builds"), ns), { signal }),
+  start: (name: string, body: BuildStart, ns?: string) => api<Build>(withNS(base(name, "/builds"), ns), { method: "POST", body }),
+  get: (name: string, number: number, ns?: string, signal?: AbortSignal) => api<Build>(withNS(base(name, `/builds/${number}`), ns), { signal }),
+  remove: (name: string, number: number, ns?: string) => api<void>(withNS(base(name, `/builds/${number}`), ns), { method: "DELETE" }),
+  logText: (name: string, number: number, ns?: string, signal?: AbortSignal) => text(withNS(base(name, `/builds/${number}/log`), ns), signal),
+  clearCache: (name: string, ns?: string) => api<void>(withNS(base(name, "/builds:clear-cache"), ns), { method: "POST" }),
+  saveSettings: (name: string, body: Omit<BuildSettings, "detected">, ns?: string) => api<BuildSettings>(withNS(base(name, "/build"), ns), { method: "PUT", body }),
+  deploy: (name: string, number: number, body: DeployRequest, ns?: string) => api<DeployResult>(withNS(base(name, `/builds/${number}/deploy`), ns), { method: "POST", body }),
+};
+
+export async function followBuildLog(name: string, number: number, ns: string | undefined, onText: (chunk: string) => void, signal: AbortSignal): Promise<void> {
+  const res = await fetch(withNS(base(name, `/builds/${number}/log?follow=1`), ns), { credentials: "include", cache: "no-store", signal });
+  if (!res.ok || !res.body) throw new APIError(res.status, await res.text().catch(() => ""), res.statusText, res.headers.get("content-type") ?? undefined);
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) onText(chunk.value);
+}
+
+export function artifactURL(name: string, path: string, ns?: string): string {
+  return withNS(base(name, `/files/download?path=${encodeURIComponent(`/${path}`)}`), ns);
+}
+
+export const Maven = {
+  get: (signal?: AbortSignal) => api<MavenIntegration>("/integrations/maven", { signal }),
+};
+
+export function useMaven() {
+  return useQuery({ queryKey: ["integrations", "maven"], queryFn: ({ signal }) => Maven.get(signal) });
+}
+
+export function useBuilds(name: string, namespace: string) {
+  return useQuery({
+    queryKey: buildsKey(namespace, name),
+    queryFn: ({ signal }) => Builds.list(name, namespace, signal),
+    refetchInterval: (query) => (query.state.data?.builds.some((build) => isActiveBuild(build.phase)) ? 3_000 : 15_000),
+  });
+}
 
 const gitPath = (target: ResourceTarget, path: string) =>
   withNS(`/${target.resource ?? "servers"}/${encodeURIComponent(target.name)}/git${path}`, target.namespace);

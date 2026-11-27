@@ -62,6 +62,32 @@ spec:
               branch:
                 maxLength: 255
                 type: string
+              build:
+                description: RepositoryBuildDefaults are the per-repository build
+                  settings.
+                properties:
+                  args:
+                    maxLength: 512
+                    type: string
+                  jdk:
+                    default: 21
+                    enum:
+                    - 17
+                    - 21
+                    - 25
+                    format: int32
+                    type: integer
+                  publish:
+                    type: boolean
+                  tool:
+                    default: auto
+                    description: BuildTool is the build tool of a repository build.
+                    enum:
+                    - auto
+                    - maven
+                    - gradle
+                    type: string
+                type: object
               storage:
                 description: RepositoryStorage sizes the PVC holding the shared working
                   copy.
@@ -95,6 +121,9 @@ spec:
                 format: int32
                 type: integer
               branch:
+                type: string
+              cacheClearedAt:
+                format: date-time
                 type: string
               conditions:
                 items:

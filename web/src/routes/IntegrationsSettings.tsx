@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SettingsNav } from "@/components/ui/SettingsNav";
 import { LinearLogo } from "@/components/assistant/LinearLogo";
 import { GitHubCard } from "@/components/settings/GitHubCard";
+import { MavenCard } from "@/components/settings/MavenCard";
 import { Assistant } from "@/lib/assistant";
 import { can, useMe } from "@/lib/auth";
 import { errorTextIntl } from "@/lib/errors";
@@ -116,6 +117,7 @@ export function IntegrationsSettingsPage() {
           </Card.Content>
         </Card>
         <GitHubCard />
+        <MavenCard />
         </div>
       </div>
     </div>

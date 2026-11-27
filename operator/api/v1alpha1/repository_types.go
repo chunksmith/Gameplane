@@ -26,6 +26,25 @@ type RepositoryStorage struct {
 	StorageClassName *string `json:"storageClassName,omitempty"`
 }
 
+// RepositoryBuildDefaults are the per-repository build settings.
+type RepositoryBuildDefaults struct {
+	// +kubebuilder:default=auto
+	// +optional
+	Tool BuildTool `json:"tool,omitempty"`
+
+	// +kubebuilder:validation:Enum=17;21;25
+	// +kubebuilder:default=21
+	// +optional
+	JDK int32 `json:"jdk,omitempty"`
+
+	// +kubebuilder:validation:MaxLength=512
+	// +optional
+	Args string `json:"args,omitempty"`
+
+	// +optional
+	Publish *bool `json:"publish,omitempty"`
+}
+
 // RepositorySpec is the desired state of a Repository.
 type RepositorySpec struct {
 	// +kubebuilder:validation:Pattern=`^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`
@@ -39,6 +58,9 @@ type RepositorySpec struct {
 
 	// +optional
 	Storage RepositoryStorage `json:"storage,omitempty"`
+
+	// +optional
+	Build *RepositoryBuildDefaults `json:"build,omitempty"`
 }
 
 // RepositoryStatus is the observed state of a Repository.
@@ -63,6 +85,9 @@ type RepositoryStatus struct {
 
 	// +optional
 	LastFetch *metav1.Time `json:"lastFetch,omitempty"`
+
+	// +optional
+	CacheClearedAt *metav1.Time `json:"cacheClearedAt,omitempty"`
 
 	// +optional
 	// +patchMergeKey=type

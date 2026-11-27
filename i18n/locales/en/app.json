@@ -275,6 +275,10 @@
     "defaultMessage": "A wake window in the idle schedule cannot be parsed: {details}",
     "description": "Condition when spec.idle has an invalid wake window. details is the English parse error."
   },
+  "condition.jobcreated.jobcreated": {
+    "defaultMessage": "The build Job exists.",
+    "description": "RepositoryBuild JobCreated condition once the operator has created the build Job."
+  },
   "condition.localesvalid.invalidentries": {
     "defaultMessage": "Some module translation entries are invalid and were left out.",
     "description": "LocalesValid condition on a GameTemplate when translation entries or files were dropped. The message holds the English per-language counts."
@@ -354,6 +358,14 @@
   "condition.progressing.waitingforagent": {
     "defaultMessage": "The server is up. Waiting for the first heartbeat from the agent.",
     "description": "Progressing detail once the game container runs but the agent has not reported yet."
+  },
+  "condition.published.notpublished": {
+    "defaultMessage": "The artifacts were not published to the Gameplane Maven repository.",
+    "description": "RepositoryBuild Published condition when publishing was on but the upload failed or was skipped; the build itself still succeeded."
+  },
+  "condition.published.published": {
+    "defaultMessage": "The artifacts were published to the Gameplane Maven repository.",
+    "description": "RepositoryBuild Published condition when the build published its artifact to the cluster Maven repository."
   },
   "condition.pulling.applied": {
     "defaultMessage": "The module pull finished.",
@@ -859,6 +871,54 @@
     "defaultMessage": "The Git request was not valid.",
     "description": "Git error for a malformed Git request, for example a missing path or an invalid branch name."
   },
+  "server.repositories.builds.active": {
+    "defaultMessage": "A build of this repository is still running. Wait for it or cancel it.",
+    "description": "Build error when a new build or a cache clear is requested while another build of the repository is queued, pending or running."
+  },
+  "server.repositories.builds.artifact_changed": {
+    "defaultMessage": "The artifact changed after this build, or it is gone. Deploy a newer build.",
+    "description": "Build deploy error when the artifact's SHA-256 no longer matches the build record because a later build overwrote it."
+  },
+  "server.repositories.builds.artifact_unknown": {
+    "defaultMessage": "This build has no such artifact.",
+    "description": "Build deploy error when the requested artifact path is not among the build's artifacts."
+  },
+  "server.repositories.builds.bad_path": {
+    "defaultMessage": "The folder, file name or removed file names are not valid.",
+    "description": "Build deploy error when the target folder, the file name or a removed jar name is not a safe relative name ending in .jar."
+  },
+  "server.repositories.builds.bad_settings": {
+    "defaultMessage": "The build settings are not valid.",
+    "description": "Build error when the tool, JDK version or arguments of a build or of the build settings are out of range."
+  },
+  "server.repositories.builds.bad_target": {
+    "defaultMessage": "A deploy target is not valid or is listed twice.",
+    "description": "Build deploy error when a target server name is malformed, a namespace is invalid, or the same target is listed twice, or when there are no targets or more than 50."
+  },
+  "server.repositories.builds.log_gone": {
+    "defaultMessage": "The build log is gone because its pod was removed.",
+    "description": "Build error when the log of a build is requested after its pod no longer exists."
+  },
+  "server.repositories.builds.no_project": {
+    "defaultMessage": "No pom.xml or build.gradle was found in the repository. Choose the build tool in Settings.",
+    "description": "Build error when the build tool is auto and the repository root has neither a Maven nor a Gradle project file."
+  },
+  "server.repositories.builds.not_found": {
+    "defaultMessage": "The build was not found.",
+    "description": "Build error when no build with the requested number exists in the repository."
+  },
+  "server.repositories.builds.not_ready": {
+    "defaultMessage": "The repository is not ready. Wait until its working copy is cloned.",
+    "description": "Build error when a build starts before the repository agent is ready or its Git status cannot be read."
+  },
+  "server.repositories.builds.not_succeeded": {
+    "defaultMessage": "Only a successful build can be deployed.",
+    "description": "Build deploy error when the build has not finished successfully."
+  },
+  "server.repositories.builds.target_forbidden": {
+    "defaultMessage": "You may not write to one of the target servers. Nothing was written.",
+    "description": "Build deploy error when the caller lacks servers:write on a target server; the deploy stops before any write."
+  },
   "server.repositories.busy": {
     "defaultMessage": "Another Git operation is running on this repository. Try again in a moment.",
     "description": "Git error when another Git command holds the repository lock."
@@ -1323,6 +1383,42 @@
     "defaultMessage": "Decline",
     "description": "Assistant panel: button that rejects the actions waiting for approval; keep it short"
   },
+  "web.components.assistant.assistant_panel.deploy_artifact": {
+    "defaultMessage": "Artifact",
+    "description": "Assistant panel: label of the deploy approval card row for the jar being deployed"
+  },
+  "web.components.assistant.assistant_panel.deploy_folder": {
+    "defaultMessage": "Folder",
+    "description": "Assistant panel: label of the deploy approval card row for the folder the jar goes to"
+  },
+  "web.components.assistant.assistant_panel.deploy_none": {
+    "defaultMessage": "none",
+    "description": "Assistant panel: value of a deploy approval card row that has nothing in it; keep it short"
+  },
+  "web.components.assistant.assistant_panel.deploy_remove": {
+    "defaultMessage": "Remove",
+    "description": "Assistant panel: label of the deploy approval card row for the old jars to delete"
+  },
+  "web.components.assistant.assistant_panel.deploy_restart": {
+    "defaultMessage": "Restart",
+    "description": "Assistant panel: label of the deploy approval card row for whether servers restart"
+  },
+  "web.components.assistant.assistant_panel.deploy_restart_no": {
+    "defaultMessage": "no",
+    "description": "Assistant panel: value of the deploy restart row when the servers do not restart; keep it short"
+  },
+  "web.components.assistant.assistant_panel.deploy_restart_yes": {
+    "defaultMessage": "yes",
+    "description": "Assistant panel: value of the deploy restart row when the servers restart; keep it short"
+  },
+  "web.components.assistant.assistant_panel.deploy_servers": {
+    "defaultMessage": "Servers",
+    "description": "Assistant panel: label of the deploy approval card row for the target servers"
+  },
+  "web.components.assistant.assistant_panel.deploy_title": {
+    "defaultMessage": "Deploy a build's jar to servers",
+    "description": "Assistant panel: title of the approval card for a deploy the assistant asks to run"
+  },
   "web.components.assistant.assistant_panel.enter_sends_linear": {
     "defaultMessage": "Enter sends · Shift + Enter adds a line · @linear adds Linear",
     "description": "Assistant panel: hint under the message box explaining the Enter and Shift + Enter keys and that typing @linear gives the assistant the Linear workspace or one of its issues"
@@ -1495,6 +1591,22 @@
     "defaultMessage": "{tokens} tokens",
     "description": "Assistant panel: chip in the header with the conversation's total token count; {tokens} is the formatted number"
   },
+  "web.components.assistant.assistant_panel.tool_build": {
+    "defaultMessage": "Build",
+    "description": "Assistant panel: name of a tool call that starts or reads a build; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_build_log": {
+    "defaultMessage": "Build log",
+    "description": "Assistant panel: name of a tool call that reads the log of a build; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_builds": {
+    "defaultMessage": "Builds",
+    "description": "Assistant panel: name of a tool call that lists a repository's builds; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_deploy": {
+    "defaultMessage": "Deploy",
+    "description": "Assistant panel: name of a tool call that deploys a build's jar to servers; keep it short"
+  },
   "web.components.assistant.assistant_panel.tool_ended": {
     "defaultMessage": "Ended",
     "description": "Assistant panel: badge of a background command whose status is no longer known; keep it short"
@@ -1514,6 +1626,10 @@
   "web.components.assistant.assistant_panel.tool_find_files": {
     "defaultMessage": "Find files",
     "description": "Assistant panel: action of a glob tool call that finds files by name pattern; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_git": {
+    "defaultMessage": "Git",
+    "description": "Assistant panel: name of a tool call that reads a repository's Git state; a tool name, keep it short"
   },
   "web.components.assistant.assistant_panel.tool_glob": {
     "defaultMessage": "Glob",
@@ -1535,6 +1651,10 @@
     "defaultMessage": "Job",
     "description": "Assistant panel: name of a tool call that reads the output of a background command; keep it short"
   },
+  "web.components.assistant.assistant_panel.tool_list": {
+    "defaultMessage": "List",
+    "description": "Assistant panel: name of a tool call that lists files on a server or in a repository; a tool name, keep it short"
+  },
   "web.components.assistant.assistant_panel.tool_matches": {
     "defaultMessage": "{count, plural, one {# match} other {# matches}}",
     "description": "Assistant panel: result badge of a grep tool call; {count} is the number of matching lines"
@@ -1547,9 +1667,17 @@
     "defaultMessage": "Output of",
     "description": "Assistant panel: action of a tool call that reads the output of a background job; keep it short"
   },
+  "web.components.assistant.assistant_panel.tool_read": {
+    "defaultMessage": "Read",
+    "description": "Assistant panel: name of a tool call that reads a file on a server or in a repository; a tool name, keep it short"
+  },
   "web.components.assistant.assistant_panel.tool_read_page": {
     "defaultMessage": "Read page",
     "description": "Assistant panel: action of a tool call that reads a web page; keep it short"
+  },
+  "web.components.assistant.assistant_panel.tool_repos": {
+    "defaultMessage": "Repositories",
+    "description": "Assistant panel: name of a tool call that lists repositories; keep it short"
   },
   "web.components.assistant.assistant_panel.tool_running": {
     "defaultMessage": "Running",
@@ -4251,6 +4379,14 @@
     "defaultMessage": "Working…",
     "description": "Wipe server dialog: submit button label while the wipe runs"
   },
+  "web.components.server_picker.remove_selected": {
+    "defaultMessage": "Remove {name} from selection",
+    "description": "Server picker: accessible name of the chip that removes a server from the selection; {name} is the server name"
+  },
+  "web.components.server_picker.search": {
+    "defaultMessage": "Search servers…",
+    "description": "Server picker: accessible name and placeholder of the search field"
+  },
   "web.components.statistics.heatmap.cell_tooltip": {
     "defaultMessage": "{node} at {time}: {value}",
     "description": "Statistics heatmap: tooltip over one cell, naming the node, the time bucket and the value"
@@ -5383,6 +5519,226 @@
     "defaultMessage": "Repositories",
     "description": "Breadcrumb: label for the repositories list crumb"
   },
+  "web.repositories.builds.artifacts_title": {
+    "defaultMessage": "Artifacts",
+    "description": "Builds: title of the card that lists the jars a build produced"
+  },
+  "web.repositories.builds.assistant": {
+    "defaultMessage": "Assistant",
+    "description": "Builds: who started a build when the assistant asked for it; keep it short"
+  },
+  "web.repositories.builds.back": {
+    "defaultMessage": "Builds",
+    "description": "Builds: back button on small screens that returns from a build to the list; keep it short"
+  },
+  "web.repositories.builds.build": {
+    "defaultMessage": "Build",
+    "description": "Builds tab: button that starts a new build; keep it short"
+  },
+  "web.repositories.builds.build_number": {
+    "defaultMessage": "#{number}",
+    "description": "Builds: short label of a build, with its sequence number; {number} is the build number"
+  },
+  "web.repositories.builds.built_from": {
+    "defaultMessage": "built from {source}",
+    "description": "Builds: where an artifact was built from; {source} is the commit and uncommitted changes"
+  },
+  "web.repositories.builds.cache": {
+    "defaultMessage": "cache {size}",
+    "description": "Builds tab: size of the build cache; {size} is the formatted size"
+  },
+  "web.repositories.builds.cancel": {
+    "defaultMessage": "Cancel build",
+    "description": "Builds: button that cancels a running build; keep it short"
+  },
+  "web.repositories.builds.clear_cache": {
+    "defaultMessage": "Clear cache",
+    "description": "Builds tab: button that empties the build cache; keep it short"
+  },
+  "web.repositories.builds.copy": {
+    "defaultMessage": "Copy",
+    "description": "Builds: button that copies the build log; keep it short"
+  },
+  "web.repositories.builds.count": {
+    "defaultMessage": "{count, plural, one {# build} other {# builds}}",
+    "description": "Builds tab: number of builds in the list; {count} is the number"
+  },
+  "web.repositories.builds.deploy": {
+    "defaultMessage": "Deploy to servers…",
+    "description": "Builds: button that opens the deploy dialog for an artifact; keep it short"
+  },
+  "web.repositories.builds.deploy_approved": {
+    "defaultMessage": "approved by {who}",
+    "description": "Builds: who approved a deployment the assistant made; {who} is the user"
+  },
+  "web.repositories.builds.deploy_assistant": {
+    "defaultMessage": "Assistant",
+    "description": "Builds: name of the assistant when it made a deployment; keep it short"
+  },
+  "web.repositories.builds.deploy_by": {
+    "defaultMessage": "by {who}",
+    "description": "Builds: who made a deployment; {who} is the user or Assistant"
+  },
+  "web.repositories.builds.deploy_error": {
+    "defaultMessage": "{server}: {error}",
+    "description": "Builds: a server that a deployment could not write; {server} is the server name and {error} the reason"
+  },
+  "web.repositories.builds.deploy_line": {
+    "defaultMessage": "{targets} → {path}",
+    "description": "Builds: one deployment, the target servers, an arrow, then the file path written; {targets} is a list of server names"
+  },
+  "web.repositories.builds.deploy_no_restart": {
+    "defaultMessage": "no restart",
+    "description": "Builds: note that a deployment did not restart the servers; keep it short"
+  },
+  "web.repositories.builds.deploy_removed": {
+    "defaultMessage": "Removed {files}",
+    "description": "Builds: note listing the old jars a deployment removed; {files} is a comma-separated list of file names"
+  },
+  "web.repositories.builds.deploy_restart": {
+    "defaultMessage": "restart",
+    "description": "Builds: note that a deployment restarted the servers; keep it short"
+  },
+  "web.repositories.builds.deploy_written": {
+    "defaultMessage": "{ok} / {total} written",
+    "description": "Builds: result of a deployment; {ok} is the servers written and {total} the servers targeted"
+  },
+  "web.repositories.builds.deployments_title": {
+    "defaultMessage": "Deployments",
+    "description": "Builds: title of the card that lists where a build was deployed"
+  },
+  "web.repositories.builds.download": {
+    "defaultMessage": "Download",
+    "description": "Builds: button that downloads a build artifact; keep it short"
+  },
+  "web.repositories.builds.download_log": {
+    "defaultMessage": "Download",
+    "description": "Builds: button that downloads the build log as a file; keep it short"
+  },
+  "web.repositories.builds.empty": {
+    "defaultMessage": "No builds yet. Start one to compile this repository.",
+    "description": "Builds tab: empty state when the repository has no builds"
+  },
+  "web.repositories.builds.follow": {
+    "defaultMessage": "Follow",
+    "description": "Builds: toggle that keeps the live log scrolled to the newest line; keep it short"
+  },
+  "web.repositories.builds.hint_failed": {
+    "defaultMessage": "Failed",
+    "description": "Builds tab: label of a failed build in the list when it has no message; keep it short"
+  },
+  "web.repositories.builds.jars": {
+    "defaultMessage": "{count, plural, one {# jar} other {# jars}}",
+    "description": "Builds tab: number of jar artifacts a build produced; {count} is the number"
+  },
+  "web.repositories.builds.jdk": {
+    "defaultMessage": "JDK {version}",
+    "description": "Builds tab: Java version a build runs with; {version} is 17, 21 or 25"
+  },
+  "web.repositories.builds.jdk_short": {
+    "defaultMessage": "JDK {version}",
+    "description": "Builds: Java version a build runs with, in the build header; {version} is 17, 21 or 25"
+  },
+  "web.repositories.builds.keeps": {
+    "defaultMessage": "Keeps the last {keep}",
+    "description": "Builds tab: note in the build list header with how many builds are kept; {keep} is the number"
+  },
+  "web.repositories.builds.limits": {
+    "defaultMessage": "{cpu} CPU / {memory}",
+    "description": "Builds: CPU and memory limits a build ran with; {cpu} is the core count and {memory} the memory size"
+  },
+  "web.repositories.builds.log_empty": {
+    "defaultMessage": "No output yet.",
+    "description": "Builds: text shown when a build has not printed anything yet"
+  },
+  "web.repositories.builds.log_gone": {
+    "defaultMessage": "The log is no longer available. Its build pod was removed.",
+    "description": "Builds: text shown when the pod of a finished build no longer exists"
+  },
+  "web.repositories.builds.log_loading": {
+    "defaultMessage": "Loading log…",
+    "description": "Builds: text shown while the build log is loading"
+  },
+  "web.repositories.builds.log_title": {
+    "defaultMessage": "Log",
+    "description": "Builds: title of the build log card"
+  },
+  "web.repositories.builds.node": {
+    "defaultMessage": "builds run on this repository's node",
+    "description": "Builds tab: note next to the toolbar that builds run on the node holding the repository"
+  },
+  "web.repositories.builds.phase_failed": {
+    "defaultMessage": "Failed",
+    "description": "Builds: phase of a build that failed; keep it short"
+  },
+  "web.repositories.builds.phase_pending": {
+    "defaultMessage": "Pending",
+    "description": "Builds: phase of a build whose pod is still starting; keep it short"
+  },
+  "web.repositories.builds.phase_queued": {
+    "defaultMessage": "Queued",
+    "description": "Builds: phase of a build waiting behind another build of the same repository; keep it short"
+  },
+  "web.repositories.builds.phase_running": {
+    "defaultMessage": "Running",
+    "description": "Builds: phase of a build that is running right now; keep it short"
+  },
+  "web.repositories.builds.phase_succeeded": {
+    "defaultMessage": "Succeeded",
+    "description": "Builds: phase of a build that finished without errors; keep it short"
+  },
+  "web.repositories.builds.rebuild": {
+    "defaultMessage": "Rebuild",
+    "description": "Builds: button that starts a new build with the same settings; keep it short"
+  },
+  "web.repositories.builds.refresh": {
+    "defaultMessage": "Refresh builds",
+    "description": "Builds tab: accessible name of the icon button that reloads the build list"
+  },
+  "web.repositories.builds.seconds": {
+    "defaultMessage": "{seconds} s",
+    "description": "Builds: duration of a build in seconds; {seconds} is the formatted number"
+  },
+  "web.repositories.builds.shaded": {
+    "defaultMessage": "shaded",
+    "description": "Builds: note on an artifact whose dependencies were shaded in; keep it short"
+  },
+  "web.repositories.builds.size_gb": {
+    "defaultMessage": "{size} GB",
+    "description": "Builds: size in gigabytes; {size} is the formatted number"
+  },
+  "web.repositories.builds.size_mb": {
+    "defaultMessage": "{size} MB",
+    "description": "Builds: size in megabytes; {size} is the formatted number"
+  },
+  "web.repositories.builds.started_by": {
+    "defaultMessage": "started by {who}",
+    "description": "Builds: who started the build; {who} is the user or Assistant"
+  },
+  "web.repositories.builds.starter": {
+    "defaultMessage": "@{name}",
+    "description": "Builds: who started a build, prefixed with an at sign; {name} is the user's login"
+  },
+  "web.repositories.builds.tab_title": {
+    "defaultMessage": "Builds",
+    "description": "Builds tab: heading of the build list card"
+  },
+  "web.repositories.builds.tool_auto": {
+    "defaultMessage": "Auto",
+    "description": "Builds: build tool setting that picks Maven or Gradle from the repository files; keep it short"
+  },
+  "web.repositories.builds.tool_gradle": {
+    "defaultMessage": "Gradle",
+    "description": "Builds: name of the Gradle build tool; a product name, usually left untranslated"
+  },
+  "web.repositories.builds.tool_maven": {
+    "defaultMessage": "Maven",
+    "description": "Builds: name of the Maven build tool; a product name, usually left untranslated"
+  },
+  "web.repositories.builds.uncommitted": {
+    "defaultMessage": "+ {count} uncommitted",
+    "description": "Builds: source of a build that includes uncommitted files; {count} is the number of files"
+  },
   "web.repositories.cancel": {
     "defaultMessage": "Cancel",
     "description": "Repositories: button that closes a dialog without changes"
@@ -5426,6 +5782,134 @@
   "web.repositories.default_branch": {
     "defaultMessage": "default branch",
     "description": "Repositories: shown instead of a branch name when the repository uses the remote's default branch"
+  },
+  "web.repositories.deploy.approval": {
+    "defaultMessage": "The assistant asks you to approve before it deploys. It runs with your permissions.",
+    "description": "Deploy dialog: note that the assistant asks before deploying"
+  },
+  "web.repositories.deploy.artifact": {
+    "defaultMessage": "Artifact",
+    "description": "Deploy dialog: label of the field that picks the jar to deploy"
+  },
+  "web.repositories.deploy.artifact_hint": {
+    "defaultMessage": "Jars this build produced. Sources, javadoc and unshaded originals are hidden.",
+    "description": "Deploy dialog: hint under the artifact field"
+  },
+  "web.repositories.deploy.ask": {
+    "defaultMessage": "Ask Assistant",
+    "description": "Deploy dialog: button that opens the assistant with the instruction; keep it short"
+  },
+  "web.repositories.deploy.assistant_intro": {
+    "defaultMessage": "Tell the assistant where to deploy this jar. It opens a conversation about this build.",
+    "description": "Deploy dialog: text in the assistant mode explaining what the button does"
+  },
+  "web.repositories.deploy.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "Deploy dialog: button that closes the dialog without deploying; keep it short"
+  },
+  "web.repositories.deploy.deploy_count": {
+    "defaultMessage": "Deploy to {count, plural, one {# server} other {# servers}}",
+    "description": "Deploy dialog: primary button; {count} is the number of servers picked"
+  },
+  "web.repositories.deploy.done": {
+    "defaultMessage": "Done",
+    "description": "Deploy dialog: button that closes the dialog after a deploy; keep it short"
+  },
+  "web.repositories.deploy.file_name": {
+    "defaultMessage": "File name",
+    "description": "Deploy dialog: label of the field with the name the jar gets on the servers"
+  },
+  "web.repositories.deploy.file_name_hint": {
+    "defaultMessage": "An existing file with this name is replaced.",
+    "description": "Deploy dialog: hint under the file name field"
+  },
+  "web.repositories.deploy.folder": {
+    "defaultMessage": "Folder",
+    "description": "Deploy dialog: label of the folder field, relative to the server's data folder"
+  },
+  "web.repositories.deploy.folder_hint": {
+    "defaultMessage": "Relative to each server's data folder.",
+    "description": "Deploy dialog: hint under the folder field"
+  },
+  "web.repositories.deploy.has_jar": {
+    "defaultMessage": "has {file}",
+    "description": "Deploy dialog: server row note naming an older jar of the same plugin; {file} is the file name"
+  },
+  "web.repositories.deploy.instruction": {
+    "defaultMessage": "Instruction",
+    "description": "Deploy dialog: label of the text field with the instruction for the assistant"
+  },
+  "web.repositories.deploy.instruction_placeholder": {
+    "defaultMessage": "Example: deploy to the spawn servers and restart them",
+    "description": "Deploy dialog: placeholder example of an instruction for the assistant"
+  },
+  "web.repositories.deploy.intro": {
+    "defaultMessage": "Copy a jar from this build into the servers you pick. Only servers you can edit are listed.",
+    "description": "Deploy dialog: text under the heading explaining what the deploy does"
+  },
+  "web.repositories.deploy.manual": {
+    "defaultMessage": "Manual",
+    "description": "Deploy dialog: segment that deploys by picking the jar and servers yourself; keep it short"
+  },
+  "web.repositories.deploy.permissions_body": {
+    "defaultMessage": "Each server is written with your own access. If one fails, the others still deploy and the result shows which one failed. Every deploy goes to the audit log.",
+    "description": "Deploy dialog: body of the note about permissions"
+  },
+  "web.repositories.deploy.permissions_title": {
+    "defaultMessage": "Runs with your permissions",
+    "description": "Deploy dialog: title of the note about permissions; keep it short"
+  },
+  "web.repositories.deploy.remove": {
+    "defaultMessage": "Remove old jars",
+    "description": "Deploy dialog: label of the chips that pick old jars to delete"
+  },
+  "web.repositories.deploy.remove_hint": {
+    "defaultMessage": "Suggested from {prefix}-*.jar files already in the folder on the selected servers.",
+    "description": "Deploy dialog: hint under the remove chips; {prefix} is the plugin name"
+  },
+  "web.repositories.deploy.restart": {
+    "defaultMessage": "Restart after deploy",
+    "description": "Deploy dialog: label of the switch that restarts the servers after the deploy"
+  },
+  "web.repositories.deploy.restart_hint": {
+    "defaultMessage": "Off: the plugin loads on each server's next restart.",
+    "description": "Deploy dialog: hint under the restart switch"
+  },
+  "web.repositories.deploy.result": {
+    "defaultMessage": "{ok} / {total} written",
+    "description": "Deploy dialog: result summary; {ok} is the servers written and {total} the servers targeted"
+  },
+  "web.repositories.deploy.result_failed": {
+    "defaultMessage": "Failed: {error}",
+    "description": "Deploy dialog: result line for a server that could not be written; {error} is the reason"
+  },
+  "web.repositories.deploy.runtime_template": {
+    "defaultMessage": "{template}",
+    "description": "Deploy dialog: template name shown in a server row; {template} is the template name"
+  },
+  "web.repositories.deploy.seed": {
+    "defaultMessage": "Build #{number}, artifact {artifact}. Deploy it as follows: {instruction}",
+    "description": "Deploy dialog: first message the assistant receives; {number} is the build number, {artifact} the jar path and {instruction} what the user asked for"
+  },
+  "web.repositories.deploy.selected": {
+    "defaultMessage": "{count} selected",
+    "description": "Deploy dialog: number of servers picked; {count} is the number"
+  },
+  "web.repositories.deploy.servers": {
+    "defaultMessage": "Servers",
+    "description": "Deploy dialog: label of the server picker"
+  },
+  "web.repositories.deploy.servers_hint": {
+    "defaultMessage": "Servers on other clusters are listed too. Stopped servers get the file through their files pod.",
+    "description": "Deploy dialog: hint under the server picker"
+  },
+  "web.repositories.deploy.title": {
+    "defaultMessage": "Deploy {artifact}",
+    "description": "Deploy dialog: heading; {artifact} is the jar file name"
+  },
+  "web.repositories.deploy.with_assistant": {
+    "defaultMessage": "With Assistant",
+    "description": "Deploy dialog: segment that asks the assistant to deploy; keep it short"
   },
   "web.repositories.disk_hint": {
     "defaultMessage": "Volume for the working copy.",
@@ -5819,6 +6303,78 @@
     "defaultMessage": "Add collaborator",
     "description": "Repository settings: button that adds the chosen user as a collaborator; keep it short"
   },
+  "web.repositories.settings.build_args": {
+    "defaultMessage": "Arguments",
+    "description": "Repository settings: label of the build arguments field"
+  },
+  "web.repositories.settings.build_args_hint": {
+    "defaultMessage": "Passed to the build tool, such as -B clean package.",
+    "description": "Repository settings: hint under the build arguments field"
+  },
+  "web.repositories.settings.build_cache": {
+    "defaultMessage": "cache {size}",
+    "description": "Repository settings: size of the build cache in the build card footer; {size} is the formatted size"
+  },
+  "web.repositories.settings.build_detected": {
+    "defaultMessage": "Auto picks {tool} from the repository's files.",
+    "description": "Repository settings: hint under the build tool choice when it is Auto; {tool} is Maven or Gradle"
+  },
+  "web.repositories.settings.build_hint": {
+    "defaultMessage": "How Gameplane compiles this repository. Builds run on the node that holds the repository.",
+    "description": "Repository settings: text under the build card title"
+  },
+  "web.repositories.settings.build_jdk": {
+    "defaultMessage": "Java",
+    "description": "Repository settings: label of the Java version setting"
+  },
+  "web.repositories.settings.build_jdk_group": {
+    "defaultMessage": "Java version",
+    "description": "Repository settings: accessible name of the Java version choice"
+  },
+  "web.repositories.settings.build_keep": {
+    "defaultMessage": "keeps the last {keep} builds",
+    "description": "Repository settings: how many builds are kept, in the build card footer; {keep} is the number"
+  },
+  "web.repositories.settings.build_limits": {
+    "defaultMessage": "Limits {cpu} CPU, {memory}",
+    "description": "Repository settings: CPU and memory limits of the newest build, in the build card footer; {cpu} is the core count and {memory} the memory size"
+  },
+  "web.repositories.settings.build_publish": {
+    "defaultMessage": "Publish to Gameplane Maven",
+    "description": "Repository settings: label of the switch that uploads successful builds to the Gameplane Maven repository"
+  },
+  "web.repositories.settings.build_publish_hint": {
+    "defaultMessage": "Successful builds upload their jars to the Gameplane Maven repository.",
+    "description": "Repository settings: hint under the publish switch"
+  },
+  "web.repositories.settings.build_save": {
+    "defaultMessage": "Save",
+    "description": "Repository settings: button that saves the build settings; keep it short"
+  },
+  "web.repositories.settings.build_title": {
+    "defaultMessage": "Build",
+    "description": "Repository settings: title of the build card"
+  },
+  "web.repositories.settings.build_tool": {
+    "defaultMessage": "Tool",
+    "description": "Repository settings: label of the build tool setting"
+  },
+  "web.repositories.settings.build_tool_auto": {
+    "defaultMessage": "Auto",
+    "description": "Repository settings: build tool choice that picks Maven or Gradle from the files; keep it short"
+  },
+  "web.repositories.settings.build_tool_gradle": {
+    "defaultMessage": "Gradle",
+    "description": "Repository settings: build tool choice for Gradle; a product name, usually left untranslated"
+  },
+  "web.repositories.settings.build_tool_group": {
+    "defaultMessage": "Build tool",
+    "description": "Repository settings: accessible name of the build tool choice"
+  },
+  "web.repositories.settings.build_tool_maven": {
+    "defaultMessage": "Maven",
+    "description": "Repository settings: build tool choice for Maven; a product name, usually left untranslated"
+  },
   "web.repositories.settings.change_network": {
     "defaultMessage": "Change network",
     "description": "Repository settings: button that edits the network; keep it short"
@@ -5934,6 +6490,10 @@
   "web.repositories.tab_assistant": {
     "defaultMessage": "Assistant",
     "description": "Repository detail: label of the Assistant tab"
+  },
+  "web.repositories.tab_builds": {
+    "defaultMessage": "Builds",
+    "description": "Repository detail: label of the Builds tab"
   },
   "web.repositories.tab_files": {
     "defaultMessage": "Files",
@@ -9451,10 +10011,6 @@
     "defaultMessage": "Network not found",
     "description": "Network detail: title of the empty state shown when no network matches the URL"
   },
-  "web.routes.network_detail.remove_from_selection": {
-    "defaultMessage": "Remove {name} from selection",
-    "description": "Network detail: accessible name of the chip that removes a server from the add-servers selection; {name} is the server name"
-  },
   "web.routes.network_detail.remove_member": {
     "defaultMessage": "Remove {username} from {network}",
     "description": "Network detail: accessible name of the button that removes a member from the network; {username} is the member and {network} the network name"
@@ -9466,14 +10022,6 @@
   "web.routes.network_detail.request_failed": {
     "defaultMessage": "Request failed",
     "description": "Network detail: fallback error shown when a network request fails without a readable message"
-  },
-  "web.routes.network_detail.search_servers": {
-    "defaultMessage": "Search servers",
-    "description": "Network detail: accessible name of the search input in the add-servers picker"
-  },
-  "web.routes.network_detail.search_servers_placeholder": {
-    "defaultMessage": "Search servers…",
-    "description": "Network detail: placeholder of the search input in the add-servers picker"
   },
   "web.routes.network_detail.sections": {
     "defaultMessage": "Network sections",
@@ -14882,5 +15430,45 @@
   "web.settings.language.untranslated_note": {
     "defaultMessage": "Text that has not been translated yet is shown in English.",
     "description": "Note under the language options explaining untranslated text falls back to English"
+  },
+  "web.settings.maven.copy": {
+    "defaultMessage": "Copy",
+    "description": "Integrations settings: button that copies the Maven repository URL; keep it short"
+  },
+  "web.settings.maven.open_admin": {
+    "defaultMessage": "Open Reposilite",
+    "description": "Integrations settings: link that opens the Reposilite admin page; Reposilite is a product name"
+  },
+  "web.settings.maven.running": {
+    "defaultMessage": "Running",
+    "description": "Integrations settings: state of the Maven store when it answers; keep it short"
+  },
+  "web.settings.maven.snippet_hint": {
+    "defaultMessage": "Add this server to ~/.m2/settings.xml with your own Reposilite token, then run mvn deploy.",
+    "description": "Integrations settings: hint above the Maven deploy snippet"
+  },
+  "web.settings.maven.snippet_title": {
+    "defaultMessage": "Use it from your machine",
+    "description": "Integrations settings: heading of the settings.xml and deploy snippet"
+  },
+  "web.settings.maven.stored": {
+    "defaultMessage": "{count, plural, one {# artifact} other {# artifacts}} stored",
+    "description": "Integrations settings: number of artifacts in the Maven store; {count} is the number"
+  },
+  "web.settings.maven.subtitle": {
+    "defaultMessage": "Gameplane's own Maven store. Builds read it with a read-only token. Publishing is on by default per repository.",
+    "description": "Integrations settings: subtitle of the Maven card, explaining the read token and that publishing is on by default"
+  },
+  "web.settings.maven.title": {
+    "defaultMessage": "Maven repository",
+    "description": "Integrations settings: title of the Maven card; a product name, usually left untranslated"
+  },
+  "web.settings.maven.unavailable": {
+    "defaultMessage": "Unavailable",
+    "description": "Integrations settings: state of the Maven store when it does not answer; keep it short"
+  },
+  "web.settings.maven.url": {
+    "defaultMessage": "Repository URL",
+    "description": "Integrations settings: label of the Maven repository URL row"
   }
 }

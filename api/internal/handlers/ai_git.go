@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -18,16 +21,30 @@ const (
 	aiGitPush   = "git_push"
 )
 
-var aiGitTools = []aiToolSpec{
-	{name: aiGitStatus, description: "Show the repository's branch, its distance to the upstream branch and every changed file (staged or not).", properties: map[string]any{}},
-	{name: aiGitDiff, description: "Show the unified diff of the working copy, or of one file. Untracked files have no diff: read them with read_file.", properties: map[string]any{
+var aiGitRepositoryScope = map[string]any{
+	"repository": map[string]any{"type": "string", "description": "Repository to read instead of this conversation's own; reads only"},
+	"namespace":  map[string]any{"type": "string", "description": "The repository's namespace; only with repository"},
+}
+
+func aiGitRead(name, description string, extra map[string]any) aiToolSpec {
+	properties := maps.Clone(aiGitRepositoryScope)
+	maps.Copy(properties, extra)
+	return aiToolSpec{name: name, description: description, properties: properties}
+}
+
+var aiGitReadTools = []aiToolSpec{
+	aiGitRead(aiGitStatus, "Show the repository's branch, its distance to the upstream branch and every changed file (staged or not).", nil),
+	aiGitRead(aiGitDiff, "Show the unified diff of the working copy, or of one file. Untracked files have no diff: read them with read_file.", map[string]any{
 		"path":   map[string]any{"type": "string", "description": "Repository-relative file path; omit for every change"},
 		"staged": map[string]any{"type": "boolean", "description": "Diff the staged changes instead of the unstaged ones"},
-	}},
-	{name: aiGitLog, description: "List recent commits, newest first.", properties: map[string]any{
+	}),
+	aiGitRead(aiGitLog, "List recent commits, newest first.", map[string]any{
 		"ref":   map[string]any{"type": "string", "description": "Branch or commit to start from (default HEAD)"},
 		"limit": map[string]any{"type": "integer", "description": "Number of commits (default 20)"},
-	}},
+	}),
+}
+
+var aiGitTools = slices.Concat(aiGitReadTools, []aiToolSpec{
 	{name: aiGitCommit, description: "Commit the staged changes with the user's own GitHub identity. Stage files first with POST /repositories/{repo}/git/stage. Does not push.", properties: map[string]any{
 		"summary":     map[string]any{"type": "string", "description": "One-line commit message"},
 		"description": map[string]any{"type": "string", "description": "Optional commit body"},
@@ -35,7 +52,7 @@ var aiGitTools = []aiToolSpec{
 	{name: aiGitPush, description: "Push the current branch to GitHub with the user's own token. Needs the user's approval unless bypass permissions is on.", properties: map[string]any{
 		"set_upstream": map[string]any{"type": "boolean", "description": "Create the branch on GitHub and track it"},
 	}},
-}
+})
 
 func aiIsGitTool(name string) bool {
 	switch name {
@@ -51,6 +68,32 @@ func aiBetaToolsFor(conv aiConversation) []anthropic.BetaToolUnionParam {
 		tools = append(tools, spec.beta())
 	}
 	return tools
+}
+
+func aiGitCall(conv aiConversation, name string, raw json.RawMessage) (aiToolInput, error) {
+	var target struct {
+		Repository string `json:"repository"`
+		Namespace  string `json:"namespace"`
+	}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &target); err != nil {
+			return aiToolInput{}, fmt.Errorf("decode %s: %w", name, err)
+		}
+	}
+	repository := cmp.Or(target.Repository, conv.Repository)
+	foreign := target.Repository != "" && target.Repository != conv.Repository
+	if foreign && (name == aiGitCommit || name == aiGitPush) {
+		return aiToolInput{}, fmt.Errorf("%s works only in repository %s", name, conv.Repository)
+	}
+	in, err := aiGitInput(repository, name, raw)
+	if err != nil || !foreign {
+		return in, err
+	}
+	if in.Query == nil {
+		in.Query = map[string]string{}
+	}
+	in.Query["namespace"] = cmp.Or(target.Namespace, conv.Namespace)
+	return in, nil
 }
 
 func aiGitInput(repository, name string, raw json.RawMessage) (aiToolInput, error) {
@@ -69,7 +112,7 @@ func aiGitInput(repository, name string, raw json.RawMessage) (aiToolInput, erro
 		}
 	}
 	if repository == "" {
-		return aiToolInput{}, errors.New("git tools work only in a repository conversation")
+		return aiToolInput{}, errors.New("repository is required outside a repository conversation")
 	}
 	base := "/repositories/" + repository + "/git/"
 	query := map[string]string{}
@@ -118,7 +161,7 @@ API reference (gameplane_api; put query parameters in "query", send JSON bodies 
 - GET /repositories/` + conv.Repository + `/files/list?path=/dir, POST /repositories/` + conv.Repository + `/files/mkdir?path=/dir, DELETE /repositories/` + conv.Repository + `/files/delete?path=/file (recursive=true for folders).
 - POST /repositories/` + conv.Repository + `/git/stage and /git/unstage with {"paths":["a.txt"]} or {"paths":"all"}; POST /git/discard with the same body throws local changes away.
 - GET /git/branches; POST /git/branches with {"name","from"}; POST /git/checkout with {"branch"}.
-- POST /git/fetch, POST /git/pull (rebases; a conflict aborts and lists the files), POST /git/undo (undoes the last unpushed commit, keeping its changes), POST /git/revert with {"sha"}, GET /git/commits/{sha}.`
+- POST /git/fetch, POST /git/pull (rebases; a conflict aborts and lists the files), POST /git/undo (undoes the last unpushed commit, keeping its changes), POST /git/revert with {"sha"}, GET /git/commits/{sha}.` + aiBuildsPrompt
 }
 
 func aiRepositoryApprovalText(mode string) string {

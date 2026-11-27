@@ -16,7 +16,7 @@ func TestAIRepositoryScope(t *testing.T) {
 	}{
 		{"GET", "/repositories/site/git/status", "/repositories/site/git/status?namespace=games"},
 		{"POST", "/repositories/site/files/write", "/repositories/site/files/write?namespace=games"},
-		{"GET", "/repositories/other/git/status", ""},
+		{"GET", "/repositories/other/git/status", "/repositories/other/git/status"},
 		{"GET", "/repositories/site", ""},
 		{"GET", "/servers/lobby", ""},
 		{"GET", "/repositories/site/files/download", ""},
@@ -72,7 +72,7 @@ func TestAIRepositoryScope(t *testing.T) {
 	if prompt := aiSystemPrompt(conv); !strings.Contains(prompt, `repository "site"`) || strings.Contains(prompt, "kubectl") {
 		t.Error("repository prompt")
 	}
-	if names := len(aiBetaToolsFor(conv)) - len(aiBetaTools()); names != len(aiGitTools) {
+	if names := len(aiBetaToolsFor(conv)) - len(aiBetaTools()); names != len(aiGitTools)+len(aiBuildTools)+1 {
 		t.Errorf("git tools in repository scope = %d", names)
 	}
 	if err := aiCheckFile(conv, aiFileInput{Path: "/a", Server: "lobby"}); err == nil {

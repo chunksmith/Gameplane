@@ -34,6 +34,11 @@ import type {
   GitCommit,
   GitHubIntegration,
   GitStatus,
+  Build,
+  BuildList,
+  BuildSettings,
+  Deployment,
+  MavenIntegration,
   Repository,
 } from "@/types";
 import type { AllConfig } from "@/lib/config";
@@ -564,4 +569,61 @@ export function makeGitCommit(over: Partial<GitCommit> = {}): GitCommit {
 
 export function makeGitHub(over: Partial<GitHubIntegration> = {}): GitHubIntegration {
   return { keySet: true, keyHint: "7c2e", login: "arda", name: "Arda", contents: "write", workflows: false, ...over };
+}
+
+export function makeBuildSettings(over: Partial<BuildSettings> = {}): BuildSettings {
+  return { tool: "auto", detected: "maven", jdk: 21, args: "-B clean package", publish: true, ...over };
+}
+
+export function makeBuild(over: Partial<Build> = {}): Build {
+  return {
+    number: 14,
+    name: "site-build-14",
+    repository: "site",
+    phase: "Succeeded",
+    message: null,
+    tool: "maven",
+    jdk: 21,
+    args: "-B clean package",
+    publish: true,
+    published: true,
+    source: { commit: "53f95f0", changes: 2 },
+    startedBy: { id: "1", name: "arda" },
+    via: "dashboard",
+    createdAt: "2026-04-01T10:00:00Z",
+    startTime: "2026-04-01T10:00:01Z",
+    completionTime: "2026-04-01T10:00:06Z",
+    limits: { cpu: "2", memory: "2Gi" },
+    artifacts: [{ path: "target/site-1.0.0.jar", name: "site-1.0.0.jar", size: 5662310, sha256: "9f86d0", shaded: true }],
+    deployments: [],
+    ...over,
+  };
+}
+
+export function makeDeployment(over: Partial<Deployment> = {}): Deployment {
+  return {
+    id: "d1",
+    time: "2026-04-01T10:05:00Z",
+    artifact: "target/site-1.0.0.jar",
+    dir: "plugins",
+    filename: "site-1.0.0.jar",
+    removed: ["site-0.9.2.jar"],
+    restart: false,
+    actor: { id: "1", name: "arda" },
+    via: "dashboard",
+    approvedBy: null,
+    targets: [
+      { cluster: "local", namespace: "gameplane-games", server: "spawn-1", ok: true, error: null },
+      { cluster: "local", namespace: "gameplane-games", server: "spawn-2", ok: true, error: null },
+    ],
+    ...over,
+  };
+}
+
+export function makeBuildList(over: Partial<BuildList> = {}): BuildList {
+  return { builds: [makeBuild()], settings: makeBuildSettings(), cacheBytes: 190840832, keep: 10, ...over };
+}
+
+export function makeMaven(over: Partial<MavenIntegration> = {}): MavenIntegration {
+  return { enabled: true, url: "https://maven.example.com", state: "running", artifacts: 3, bytes: 16777216, adminUrl: "https://maven-admin.example.com", ...over };
 }

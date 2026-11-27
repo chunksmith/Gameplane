@@ -1002,6 +1002,22 @@ Feature spec: `specs/029-repositories/`; API contract `specs/029-repositories/co
 - **Server Git tab:** `ServerDetail.tsx` probes `GET /servers/{name}/git/status` once (no retry) and shows a Git tab when it answers 200 or `git_unavailable`. `routes/tabs/Git.tsx` renders the shared `GitTab` (props `target`, `canWrite`, `canPush`, `branch`, `sync` for the Pull and Push toolbar buttons) or, without Git in the agent, an Enable Git panel for the owner or an admin (`PUT /servers/{name}:git`). `Git` client calls take a `ResourceTarget` and use its `resource` base path.
 - **Strings:** `web.repositories.*` ids (spec 019); tests `Repositories.test.tsx` and `RepositoryDetail.test.tsx` with MSW handlers in `web/src/test/handlers.ts`.
 
+## Repository builds (spec 030)
+
+Feature spec `specs/030-repository-builds/`; API contract `contracts/builds-api.md`. Approved Figma frames (file "Gameplane Dashboard", page "Page 1"): `104:1273` Builds, `104:1661` and `104:2447` Deploy modal (Manual, With Assistant), `104:1731` Build settings, `104:2088` Maven card, `104:2126` and `104:2289` mobile, `104:2398` assistant thread.
+
+- **Builds tab** (`web/src/routes/repository/BuildsTab.tsx`, registered in `RepositoryDetail.tsx` between Git and Assistant): toolbar with the effective settings (tool, JDK, arguments), cache size and "builds run on this repository's node", plus Refresh, Clear cache and Build (the last two need `repositories:write`). The left list shows status, `#N · Phase`, source (for example `53f95f0 + 2 uncommitted`), starter, jar count or failure hint, duration and "Keeps the last 10". The right detail has the header with Rebuild and, while running, Cancel; an Artifacts card (Download, Deploy to servers…); a Deployments card (`N / M written`, red on partial failure); and a live Log card with Follow, Copy and Download.
+- **Deploy modal** (`repository/DeployModal.tsx`) with a Manual / With Assistant switch.
+  - Manual: artifact select (jars only), a `ServerPicker` multi-select, folder (default `plugins`), file name (default the artifact name), remove-old-jars chips suggested from matching jars on the selected servers, a restart switch (off by default), a "Runs with your permissions" note and **Deploy to N servers**.
+  - With Assistant: a free-text instruction and **Ask Assistant**, which opens the Assistant tab with a seeded new conversation.
+  - Full-height sheet on mobile.
+- **Mobile:** the list and the detail stack; a tapped build opens full width with `← Builds`.
+- **Build card** in `SettingsTab.tsx`, under the repository card: Tool (Auto shows what it detected), Java (17, 21, 25), Arguments, "Publish to Gameplane Maven" (on by default), and a footer with cache size and the administrator's limits. **Save** sends `PUT /repositories/{name}/build`.
+- **Maven card** (`web/src/components/settings/MavenCard.tsx`, Integrations): state chip, repository URL with Copy, "Publish from your computer" with Open Reposilite, stored artifact count and size, "Used by builds: Automatic", and a `settings.xml` and `mvn deploy` snippet. Hidden when `mavenRepository.enabled` is false. Its copy reads "Publishing is on by default per repository", replacing the opt-in wording.
+- **ServerPicker** (`web/src/components/ServerPicker.tsx`) is extracted from the `NetworkDetail.tsx` servers card. `NetworkDetail` uses it unchanged; the Deploy modal uses it for the searchable server multi-select.
+- **Client:** a `Builds` client and hooks in `lib/repositories.ts`, types in `types.ts`, MSW handlers and factories in `web/src/test/`. Assistant tool labels and the `build_deploy` approval card are in `lib/assistant.ts`.
+- **Strings:** `web.repositories.builds.*` and `web.settings.maven.*` (spec 019). Tests `BuildsTab.test.tsx` and `DeployModal.test.tsx`.
+
 ## ServerDetail Tabs
 
 Visible tab set depends on server template + active version:

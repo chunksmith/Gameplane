@@ -43,6 +43,7 @@ The diagram and direct-agent examples below describe the combined installation.
 │    Backup       → Job (restic)             │
 │    BackupSchedule → Backups + retention    │
 │    Restore      → Job (restic restore)     │
+│    RepositoryBuild → Job (Maven, Gradle)   │
 │    GameTemplate → inUseCount bookkeeping   │
 │    Module       → materializes GameTemplate│
 │    ModuleSource → indexes bundle registry  │
@@ -256,6 +257,27 @@ a Backup that simply hasn't produced a `snapshotID` yet leaves the Restore
 `Pending`, requeued every 15s until it does. After the pin the Backup's
 `snapshotID` is never re-read — but a source Backup that disappears outright
 still fails the Restore on the next pass.
+
+### Build and deploy a repository
+
+Repository builds (spec 030) compile a Git repository's Java project in the
+cluster and deploy the jar to chosen servers. The private Maven repository is
+Reposilite, deployed by the chart when `mavenRepository.enabled` is true, with
+private `releases` and `snapshots` repositories.
+
+1. The dashboard or the assistant starts a build. The API reads `git/status` from
+   the repository's agent and creates a `RepositoryBuild` (`<repo>-build-<N>`),
+   owned by the Repository.
+2. The operator queues it (one active build per repository), renders a per-build
+   Secret with the build script and Maven or Gradle settings, and creates a
+   sandboxed Job pinned next to the repository's agent pod. The Job uses the
+   working copy and a per-repository build cache.
+3. The script builds the project, prints one marker line per jar, and publishes
+   to Reposilite when publish is on. On completion the operator copies the
+   markers into the build's status.
+4. A deploy goes through the API. It downloads the jar once from the repository
+   agent, checks its SHA-256, and replays the upload, removals and optional
+   restart to each target under the user's own permissions.
 
 ## Module system
 

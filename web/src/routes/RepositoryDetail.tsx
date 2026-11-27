@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button, Tab, Tabs } from "@heroui/react";
@@ -11,6 +11,7 @@ import {
   Copy,
   FileCode2,
   FolderOpen,
+  Hammer,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -19,7 +20,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { AssistantPanel } from "@/components/assistant/AssistantPanel";
+import { AssistantPanel, type AssistantSeed } from "@/components/assistant/AssistantPanel";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/DropdownMenu";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ErrorCard } from "@/components/ui/ErrorCard";
@@ -32,16 +33,18 @@ import { assistantScope, ResourceTargetProvider, type ResourceTarget, type Serve
 import { formatRelative } from "@/lib/utils";
 import type { Repository, RepositoryAccess } from "@/types";
 import { AheadBehind, RepositoryAvatar } from "./Repositories";
+import { BuildsTab } from "./repository/BuildsTab";
 import { GitTab } from "./repository/GitTab";
 import { RepositorySettingsTab } from "./repository/SettingsTab";
 
 const FilesTab = lazy(() => import("./tabs/Files").then((m) => ({ default: m.FilesTab })));
 
-type TabKey = "files" | "git" | "assistant" | "settings";
+type TabKey = "files" | "git" | "builds" | "assistant" | "settings";
 
 const TAB_LABELS = defineMessages({
   files: { id: "web.repositories.tab_files", defaultMessage: "Files", description: "Repository detail: label of the Files tab" },
   git: { id: "web.repositories.tab_git", defaultMessage: "Git", description: "Repository detail: label of the Git tab" },
+  builds: { id: "web.repositories.tab_builds", defaultMessage: "Builds", description: "Repository detail: label of the Builds tab" },
   assistant: { id: "web.repositories.tab_assistant", defaultMessage: "Assistant", description: "Repository detail: label of the Assistant tab" },
   settings: { id: "web.repositories.tab_settings", defaultMessage: "Settings", description: "Repository detail: label of the Settings tab" },
 });
@@ -49,6 +52,7 @@ const TAB_LABELS = defineMessages({
 const TABS: Array<{ key: TabKey; label: MessageDescriptor; icon: LucideIcon }> = [
   { key: "files", label: TAB_LABELS.files, icon: FolderOpen },
   { key: "git", label: TAB_LABELS.git, icon: FileCode2 },
+  { key: "builds", label: TAB_LABELS.builds, icon: Hammer },
   { key: "assistant", label: TAB_LABELS.assistant, icon: Sparkles },
   { key: "settings", label: TAB_LABELS.settings, icon: SettingsIcon },
 ];
@@ -81,6 +85,8 @@ function RepositoryView({ repository, access }: { repository: Repository; access
   const nav = useNavigate();
   const assistant = useAssistantStatus();
   const [tab, setTab] = useState<TabKey>("git");
+  const [seed, setSeed] = useState<AssistantSeed>();
+  const clearSeed = useCallback(() => setSeed(undefined), []);
   const { name, namespace, uid } = repository;
   const target = useMemo<ResourceTarget>(() => Object.freeze({ cluster: "local", namespace, name, uid, resource: "repositories" }), [namespace, name, uid]);
   const permissions = access.permissions;
@@ -106,6 +112,11 @@ function RepositoryView({ repository, access }: { repository: Repository; access
     if (key === "files") return openFiles("/");
     setTab(key);
     if (filesPath !== null) void nav({ to: "/repositories/$name", params: { name }, search });
+  }
+
+  function askAssistant(text: string) {
+    setSeed({ id: Date.now(), text });
+    setTab("assistant");
   }
 
   const action = useMutation({
@@ -198,7 +209,8 @@ function RepositoryView({ repository, access }: { repository: Repository; access
             <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" /></div>}>
               {activeTab === "files" && <FilesTab name={name} ns={namespace} path={filesPath ?? "/"} onNavigate={openFiles} />}
               {activeTab === "git" && <GitTab target={target} canWrite={canWrite} canPush={canPush} branch={repository.branch} />}
-              {activeTab === "assistant" && <div className="p-4 sm:p-6"><AssistantPanel scope={assistantScope(target)} /></div>}
+              {activeTab === "builds" && <BuildsTab repository={repository} canWrite={canWrite} onAskAssistant={askAssistant} />}
+              {activeTab === "assistant" && <div className="p-4 sm:p-6"><AssistantPanel scope={assistantScope(target)} seed={seed} onSeeded={clearSeed} /></div>}
             </Suspense>
           )}
         </div>

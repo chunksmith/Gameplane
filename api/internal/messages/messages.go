@@ -238,7 +238,7 @@ var (
 )
 
 func init() {
-	all := slices.Concat(entries, serverEntries, repositoryEntries)
+	all := slices.Concat(entries, serverEntries, repositoryEntries, buildEntries)
 	byID = make(map[ID]parsedEntry, len(all))
 	for _, e := range all {
 		if _, dup := byID[e.ID]; dup {

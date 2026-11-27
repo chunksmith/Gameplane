@@ -1,0 +1,282 @@
+{{- if .Values.mavenRepository.enabled }}
+{{- $adminSecret := lookup "v1" "Secret" .Release.Namespace "gameplane-maven-admin" }}
+{{- $adminToken := dig "data" "token" (randAlphaNum 48 | b64enc) $adminSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gameplane-maven-admin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: gameplane-maven
+    {{- include "gameplane.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+data:
+  token: {{ $adminToken }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gameplane-maven
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: gameplane-maven
+    {{- include "gameplane.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.mavenRepository.storage.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.mavenRepository.storage.size | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameplane-maven
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: gameplane-maven
+    {{- include "gameplane.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gameplane-maven
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gameplane-maven
+        {{- include "gameplane.labels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 977
+        runAsGroup: 977
+        fsGroup: 977
+        seccompProfile: { type: RuntimeDefault }
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: reposilite
+          image: {{ printf "%s:%s" .Values.mavenRepository.image.repository .Values.mavenRepository.image.tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef: { name: gameplane-maven-admin, key: token }
+            - name: REPOSILITE_OPTS
+              value: "--token gameplane-admin:$(ADMIN_TOKEN)"
+            - name: JAVA_OPTS
+              value: "-XX:MaxRAMPercentage=75"
+          readinessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources: {{ toYaml .Values.mavenRepository.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /app/data }
+            - { name: logs, mountPath: /var/log/reposilite }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gameplane-maven
+        - name: logs
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gameplane-maven
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: gameplane-maven
+    {{- include "gameplane.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: gameplane-maven
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+{{- if .Values.mavenRepository.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gameplane-maven
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: gameplane-maven
+    {{- include "gameplane.labels" . | nindent 4 }}
+  {{- with .Values.mavenRepository.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.mavenRepository.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  rules:
+    - host: {{ required "mavenRepository.ingress.host is required when mavenRepository.ingress.enabled is true" .Values.mavenRepository.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gameplane-maven
+                port: { name: http }
+  {{- with .Values.mavenRepository.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gameplane-maven-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "gameplane.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml (dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-weight" "-5" "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded") | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gameplane-maven-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "gameplane.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml (dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-weight" "-5" "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded") | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [gameplane-maven-admin]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [gameplane-maven-read, gameplane-maven-write]
+    verbs: [get, update, patch]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gameplane-maven-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "gameplane.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml (dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-weight" "-5" "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded") | nindent 4 }}
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: gameplane-maven-bootstrap }
+subjects:
+  - kind: ServiceAccount
+    name: gameplane-maven-bootstrap
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gameplane-maven-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: gameplane-maven-bootstrap
+    {{- include "gameplane.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml (dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-weight" "0" "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded") | nindent 4 }}
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gameplane-maven-bootstrap
+        {{- include "gameplane.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: gameplane-maven-bootstrap
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+        seccompProfile: { type: RuntimeDefault }
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bootstrap
+          image: {{ .Values.mavenRepository.bootstrapImage | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              ns="{{ .Release.Namespace }}"
+              base="http://gameplane-maven.${ns}.svc:8080"
+              admin_token=$(kubectl get secret gameplane-maven-admin -n "$ns" -o jsonpath='{.data.token}' | base64 -d)
+              auth="gameplane-admin:${admin_token}"
+              attempts=0
+              until curl -sf -u "$auth" "$base/api/settings/domains" > /dev/null; do
+                attempts=$((attempts + 1))
+                if [ "$attempts" -ge 150 ]; then
+                  echo "Maven repository did not become ready" >&2
+                  exit 1
+                fi
+                sleep 2
+              done
+              curl -sf -u "$auth" "$base/api/settings/domain/maven" > /tmp/maven-settings.json
+              jq '.repositories |= map(if .id == "releases" then (.visibility = "PRIVATE" | .redeployment = true) elif .id == "snapshots" then (.visibility = "PRIVATE") else . end)' /tmp/maven-settings.json > /tmp/maven-settings-new.json
+              curl -sf -u "$auth" -X PUT -H "Content-Type: application/json" --data-binary @/tmp/maven-settings-new.json "$base/api/settings/domain/maven" > /dev/null
+              ensure_token() {
+                name="$1"
+                secret_name="$2"
+                routes="$3"
+                if kubectl get secret "$secret_name" -n "$ns" > /dev/null 2>&1; then
+                  secret=$(kubectl get secret "$secret_name" -n "$ns" -o jsonpath='{.data.token}' | base64 -d)
+                  create_secret=0
+                else
+                  secret=$(head -c 512 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 48)
+                  create_secret=1
+                fi
+                body=$(jq -n --arg secret "$secret" --argjson routes "$routes" '{type: "PERSISTENT", secret: $secret, permissions: [], routes: $routes}')
+                curl -sf -u "$auth" -X PUT -H "Content-Type: application/json" --data "$body" "$base/api/tokens/$name" > /dev/null
+                if [ "$create_secret" = 1 ]; then
+                  kubectl create secret generic "$secret_name" -n "$ns" --from-literal=username="$name" --from-literal=token="$secret"
+                fi
+              }
+              ensure_token gameplane-read gameplane-maven-read '[{"path":"/","permissions":["r"]}]'
+              ensure_token gameplane-write gameplane-maven-write '[{"path":"/releases","permissions":["r","w"]},{"path":"/snapshots","permissions":["r","w"]}]'
+          env:
+            - { name: HOME, value: /tmp }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

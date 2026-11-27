@@ -420,6 +420,8 @@ func main() {
 		repoAgent := ws.NewRepoAgent(cfg.agentCABundle, cfg.agentClientCert, cfg.agentClientKey, githubTokens.Credentials)
 		handlers.MountRepositories(p, reg, store, repoAgent, githubTokens)
 		repoAgent.MountServers(p, reg)
+		handlers.MountRepositoryBuilds(p, reg, r, auditor)
+		handlers.MountMavenIntegration(p, k8s, cfg.namespace)
 		handlers.MountAI(p, store, r, handlers.AIKeyReader(k8s, cfg.namespace), handlers.NewAILinearKeys(k8s, cfg.namespace))
 		// Precedence: a runtime, admin-configured key (DB row + labelled
 		// Secret, resolved lazily per registry.DBKeyFunc) always wins over
@@ -960,7 +962,8 @@ func isLargeTransferPath(method, path string) bool {
 		return strings.HasSuffix(path, "/files/download") ||
 			strings.HasSuffix(path, "/files/archive") ||
 			strings.HasSuffix(path, "/logs/download") ||
-			strings.HasSuffix(path, ":capture-file")
+			strings.HasSuffix(path, ":capture-file") ||
+			strings.Contains(path, "/builds/") && strings.HasSuffix(path, "/log")
 	}
 	if method == http.MethodPost && strings.HasPrefix(path, "/repositories/") {
 		// Git network operations wait for GitHub.
@@ -970,7 +973,8 @@ func isLargeTransferPath(method, path string) bool {
 			strings.HasSuffix(path, "/git/fetch") ||
 			strings.HasSuffix(path, "/git/pull") ||
 			strings.HasSuffix(path, "/git/push") ||
-			strings.HasSuffix(path, "/git/commit")
+			strings.HasSuffix(path, "/git/commit") ||
+			strings.HasSuffix(path, "/deploy")
 	}
 	if method == http.MethodPost && strings.HasPrefix(path, "/servers/") {
 		// Uploads stream their body on req.Context(). URL installs also

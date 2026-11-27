@@ -622,8 +622,11 @@ func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, arg
 	if err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
-	if run.mode() != aiModeBypass && in.needsApproval() && !h.await(ctx, run, in) {
-		return "The user declined this action.", true
+	if run.mode() != aiModeBypass && in.needsApproval() {
+		if !h.await(ctx, run, in) {
+			return "The user declined this action.", true
+		}
+		ctx = withUserApproval(ctx)
 	}
 	status, body := h.tool(ctx, run.conv, run.creds, in)
 	return fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest

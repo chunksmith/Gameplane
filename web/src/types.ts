@@ -1440,6 +1440,111 @@ export interface RepositoryCollaborator {
   push: boolean;
 }
 
+export type BuildPhase = "Queued" | "Pending" | "Running" | "Succeeded" | "Failed";
+export type BuildTool = "auto" | "maven" | "gradle";
+export type BuildJdk = 17 | 21 | 25;
+
+export interface BuildSettings {
+  tool: BuildTool;
+  detected: "maven" | "gradle" | null;
+  jdk: BuildJdk;
+  args: string;
+  publish: boolean;
+}
+
+export interface BuildArtifact {
+  path: string;
+  name: string;
+  size: number;
+  sha256: string;
+  shaded: boolean;
+}
+
+export interface DeployTargetResult {
+  cluster: string;
+  namespace: string;
+  server: string;
+  ok: boolean;
+  error: string | null;
+}
+
+export interface Deployment {
+  id: string;
+  time: string;
+  artifact: string;
+  dir: string;
+  filename: string;
+  removed: string[];
+  restart: boolean;
+  actor: { id: string; name: string };
+  via: "dashboard" | "assistant";
+  approvedBy: string | null;
+  targets: DeployTargetResult[];
+}
+
+export interface Build {
+  number: number;
+  name: string;
+  repository: string;
+  phase: BuildPhase;
+  message: string | null;
+  tool: "maven" | "gradle";
+  jdk: BuildJdk;
+  args: string;
+  publish: boolean;
+  published: boolean | null;
+  source: { commit: string | null; changes: number };
+  startedBy: { id: string; name: string } | null;
+  via: "dashboard" | "assistant";
+  createdAt: string;
+  startTime: string | null;
+  completionTime: string | null;
+  limits: { cpu: string; memory: string };
+  artifacts: BuildArtifact[];
+  deployments: Deployment[];
+}
+
+export interface BuildList {
+  builds: Build[];
+  settings: BuildSettings;
+  cacheBytes: number | null;
+  keep: number;
+}
+
+export interface BuildStart {
+  tool?: BuildTool;
+  jdk?: BuildJdk;
+  args?: string;
+}
+
+export interface DeployTarget {
+  cluster?: string;
+  namespace?: string;
+  server: string;
+}
+
+export interface DeployRequest {
+  artifact: string;
+  targets: DeployTarget[];
+  dir?: string;
+  filename?: string;
+  remove?: string[];
+  restart?: boolean;
+}
+
+export interface DeployResult {
+  deployment: Deployment;
+}
+
+export interface MavenIntegration {
+  enabled: boolean;
+  url: string | null;
+  state: "running" | "unavailable" | "disabled";
+  artifacts: number | null;
+  bytes: number | null;
+  adminUrl: string | null;
+}
+
 export interface GitChange {
   path: string;
   oldPath?: string;

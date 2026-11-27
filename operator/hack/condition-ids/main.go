@@ -135,6 +135,9 @@ var rows = []row{
 
 	{types: []string{"AgentReady"}, reason: "AgentNotReady", english: "The repository agent pod is not ready.", description: "Repository AgentReady condition while the repository agent pod is starting or failing."},
 	{types: []string{"AgentReady"}, reason: "AgentReady", english: "The repository agent pod is ready.", description: "Repository AgentReady condition once the repository agent pod is ready."},
+	{types: []string{"JobCreated"}, reason: "JobCreated", english: "The build Job exists.", description: "RepositoryBuild JobCreated condition once the operator has created the build Job."},
+	{types: []string{"Published"}, reason: "Published", english: "The artifacts were published to the Gameplane Maven repository.", description: "RepositoryBuild Published condition when the build published its artifact to the cluster Maven repository."},
+	{types: []string{"Published"}, reason: "NotPublished", english: "The artifacts were not published to the Gameplane Maven repository.", description: "RepositoryBuild Published condition when publishing was on but the upload failed or was skipped; the build itself still succeeded."},
 
 	// Backup, Restore, Unquiesced, SnapshotForgotten (Type Completed is shared)
 	{types: []string{"Completed"}, reason: "Succeeded", english: "The backup or restore completed successfully.", description: "Completed condition on a Backup or Restore that finished."},

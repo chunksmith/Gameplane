@@ -165,7 +165,12 @@ const assistantAvatar = (
 
 const chipClass = "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-foreground/5 px-2.5 py-1 text-xs text-muted";
 
-export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
+export interface AssistantSeed {
+  id: number;
+  text: string;
+}
+
+export function AssistantPanel({ scope = {}, seed, onSeeded }: { scope?: AssistantScope; seed?: AssistantSeed; onSeeded?: () => void }) {
   const intl = useOptionalIntl();
   const fmt = useFormat();
   const dotSeparator = intl.formatMessage({ id: "web.common.separator_dot", defaultMessage: "·", description: "Visual separator between two items" });
@@ -180,6 +185,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const [pickedMode, setPickedMode] = useState<AssistantMode>();
   const [pickedModel, setPickedModel] = useState<AssistantPick>();
   const attachments = useAttachments();
+  const [seedError, setSeedError] = useState<unknown>(null);
   const ready = !!status.data?.enabled && status.data.configured;
 
   const list = useQuery({
@@ -215,6 +221,20 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
     qc.setQueryData<AssistantDetail>(["ai", "conversation", conv.id], (old) => old && { ...old, conversation: conv, pending: [] });
     refresh();
   };
+  const seeded = useRef<number | null>(null);
+  useEffect(() => {
+    if (!seed || !ready || seeded.current === seed.id) return;
+    seeded.current = seed.id;
+    void Assistant.create(seed.text, scope, pickedMode, pickedModel)
+      .then((conv) => {
+        setSelected(conv.id);
+        started(conv);
+        onSeeded?.();
+      })
+      .catch((err: unknown) => {
+        setSeedError(err);
+      });
+  }, [seed, ready, scope, pickedMode, pickedModel, started, onSeeded]);
   const submit = useMutation({
     mutationFn: async ({ text, files }: { text: string; files?: AssistantAttachment[] }) => {
       const body = withContextBlock(text, await mentionContext(scope, text));
@@ -253,6 +273,8 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
   const starters = scope.repository ? repositoryStarters : scope.server ? serverStarters : fleetStarters;
   const pending = detail.data?.pending ?? [];
   const approvals = pending.filter((p) => p.method !== "ASK" && p.method !== "PLAN");
+  const toolBlocks = new Map((detail.data?.messages ?? []).flatMap(blocksOf).filter((block) => !!block.id).map((block) => [block.id ?? "", block]));
+  const deployBlock = (id: string) => (toolBlocks.get(id)?.name === "build_deploy" ? toolBlocks.get(id) : undefined);
   const mode = pickedMode ?? conv?.mode ?? status.data.defaultMode;
   const model = pickedModel ?? (conv ? { model: conv.model, effort: conv.effort } : { model: status.data.defaultModel, effort: status.data.defaultEffort });
   const modeLabel = intl.formatMessage({ id: "web.components.assistant.assistant_panel.permission_mode", defaultMessage: "Permission mode", description: "Assistant panel: accessible name of the dropdown above the message box that picks how the assistant asks for approval; keep it short" });
@@ -281,7 +303,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
     setPrompt([...queue.drain(), prompt].filter(Boolean).join("\n\n"));
     stop.mutate();
   };
-  const actionError = submit.error ?? decide.error ?? stop.error;
+  const actionError = submit.error ?? decide.error ?? stop.error ?? seedError;
   const subtitle = conv
     ? [conv.server || conv.repository || intl.formatMessage({ id: "web.components.assistant.assistant_panel.all_servers", defaultMessage: "All servers", description: "Assistant panel: server shown under the title of a conversation that is not tied to one server; keep it short" }), conv.namespace, all && conv.username].filter(Boolean).join(` ${dotSeparator} `)
     : scoped
@@ -427,7 +449,9 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
               <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                 {approvals.map((p) => (
                   <li key={p.id}>
-                    {p.method === LINEAR_METHOD ? (
+                    {deployBlock(p.id) ? (
+                      <DeployApproval input={deployBlock(p.id)?.input ?? {}} />
+                    ) : p.method === LINEAR_METHOD ? (
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs">
                         <LinearLogo className="h-3.5 w-3.5" />
                         <code className="font-mono">{p.path}</code>
@@ -445,7 +469,7 @@ export function AssistantPanel({ scope = {} }: { scope?: AssistantScope }) {
             </div>
           </div>
         )}
-        {actionError && <div className="mx-4 mb-3"><ErrorBanner err={actionError} /></div>}
+        {actionError ? <div className="mx-4 mb-3"><ErrorBanner err={actionError} /></div> : null}
 
         <div className="space-y-2 border-t border-border bg-surface/60 p-3 sm:px-4">
           <QueuedMessages items={queue.items} disabled={submit.isPending || stop.isPending} onSendNow={queue.sendNow} />
@@ -526,6 +550,14 @@ const TOOL_KIND_MESSAGES: Record<string, MessageDescriptor> = defineMessages({
   job: { id: "web.components.assistant.assistant_panel.tool_job", defaultMessage: "Job", description: "Assistant panel: name of a tool call that reads the output of a background command; keep it short" },
   stop: { id: "web.components.assistant.assistant_panel.tool_stop", defaultMessage: "Stop", description: "Assistant panel: name of a tool call that stops a background command; keep it short" },
   monitor: { id: "web.components.assistant.assistant_panel.tool_monitor", defaultMessage: "Monitor", description: "Assistant panel: name of a tool call that watches a background process; a tool name, keep it short" },
+  read: { id: "web.components.assistant.assistant_panel.tool_read", defaultMessage: "Read", description: "Assistant panel: name of a tool call that reads a file on a server or in a repository; a tool name, keep it short" },
+  list: { id: "web.components.assistant.assistant_panel.tool_list", defaultMessage: "List", description: "Assistant panel: name of a tool call that lists files on a server or in a repository; a tool name, keep it short" },
+  git: { id: "web.components.assistant.assistant_panel.tool_git", defaultMessage: "Git", description: "Assistant panel: name of a tool call that reads a repository's Git state; a tool name, keep it short" },
+  repos: { id: "web.components.assistant.assistant_panel.tool_repos", defaultMessage: "Repositories", description: "Assistant panel: name of a tool call that lists repositories; keep it short" },
+  builds: { id: "web.components.assistant.assistant_panel.tool_builds", defaultMessage: "Builds", description: "Assistant panel: name of a tool call that lists a repository's builds; keep it short" },
+  build: { id: "web.components.assistant.assistant_panel.tool_build", defaultMessage: "Build", description: "Assistant panel: name of a tool call that starts or reads a build; keep it short" },
+  build_log: { id: "web.components.assistant.assistant_panel.tool_build_log", defaultMessage: "Build log", description: "Assistant panel: name of a tool call that reads the log of a build; keep it short" },
+  deploy: { id: "web.components.assistant.assistant_panel.tool_deploy", defaultMessage: "Deploy", description: "Assistant panel: name of a tool call that deploys a build's jar to servers; keep it short" },
 });
 
 const TOOL_ACTION_MESSAGES: Record<string, MessageDescriptor> = defineMessages({
@@ -710,6 +742,47 @@ function Thread({ detail, tail, scope, own, deciding, onDecide }: { detail: Assi
 }
 
 const str = (value: unknown) => (typeof value === "string" ? value : "");
+
+const APPROVAL_MESSAGES = defineMessages({
+  artifact: { id: "web.components.assistant.assistant_panel.deploy_artifact", defaultMessage: "Artifact", description: "Assistant panel: label of the deploy approval card row for the jar being deployed" },
+  servers: { id: "web.components.assistant.assistant_panel.deploy_servers", defaultMessage: "Servers", description: "Assistant panel: label of the deploy approval card row for the target servers" },
+  folder: { id: "web.components.assistant.assistant_panel.deploy_folder", defaultMessage: "Folder", description: "Assistant panel: label of the deploy approval card row for the folder the jar goes to" },
+  remove: { id: "web.components.assistant.assistant_panel.deploy_remove", defaultMessage: "Remove", description: "Assistant panel: label of the deploy approval card row for the old jars to delete" },
+  restart: { id: "web.components.assistant.assistant_panel.deploy_restart", defaultMessage: "Restart", description: "Assistant panel: label of the deploy approval card row for whether servers restart" },
+  none: { id: "web.components.assistant.assistant_panel.deploy_none", defaultMessage: "none", description: "Assistant panel: value of a deploy approval card row that has nothing in it; keep it short" },
+  restart_yes: { id: "web.components.assistant.assistant_panel.deploy_restart_yes", defaultMessage: "yes", description: "Assistant panel: value of the deploy restart row when the servers restart; keep it short" },
+  restart_no: { id: "web.components.assistant.assistant_panel.deploy_restart_no", defaultMessage: "no", description: "Assistant panel: value of the deploy restart row when the servers do not restart; keep it short" },
+  title: { id: "web.components.assistant.assistant_panel.deploy_title", defaultMessage: "Deploy a build's jar to servers", description: "Assistant panel: title of the approval card for a deploy the assistant asks to run" },
+});
+
+function DeployApproval({ input }: { input: Record<string, unknown> }) {
+  const intl = useOptionalIntl();
+  const targets = Array.isArray(input.targets)
+    ? input.targets.map((target: unknown) => (typeof target === "string" ? target : str((target as { server?: unknown })?.server)))
+    : [];
+  const removed = Array.isArray(input.remove) ? input.remove.map(String) : [];
+  const path = `${str(input.dir) || "plugins"}/${str(input.filename) || str(input.artifact).split("/").pop()}`;
+  const rows: Array<[MessageDescriptor, string]> = [
+    [APPROVAL_MESSAGES.artifact, str(input.artifact)],
+    [APPROVAL_MESSAGES.servers, targets.join(", ")],
+    [APPROVAL_MESSAGES.folder, path],
+    [APPROVAL_MESSAGES.remove, removed.join(", ") || intl.formatMessage(APPROVAL_MESSAGES.none)],
+    [APPROVAL_MESSAGES.restart, intl.formatMessage(input.restart === true ? APPROVAL_MESSAGES.restart_yes : APPROVAL_MESSAGES.restart_no)],
+  ];
+  return (
+    <div className="w-full space-y-2">
+      <div className="text-xs font-medium">{intl.formatMessage(APPROVAL_MESSAGES.title)}</div>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+        {rows.map(([label, value]) => (
+          <div key={label.id} className="contents">
+            <dt className="text-warning-soft-foreground/80">{intl.formatMessage(label)}</dt>
+            <dd className="min-w-0 break-all font-mono">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 const ToolCall = memo(function ToolCall({ block, result, waiting, running, jobs, scope, own }: { block: AssistantBlock; result?: AssistantBlock; waiting: boolean; running: boolean; jobs: Map<string, JobStatus>; scope: AssistantScope; own: boolean }) {
   const intl = useOptionalIntl();

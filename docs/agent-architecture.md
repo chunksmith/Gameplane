@@ -23,6 +23,16 @@ This document is the **first stop** for AI agents modifying or extending Gamepla
 | **Security** | `docs/security.md` → Repositories and GitHub tokens | Token storage, transport, redaction, remote allowlist. |
 | **E2E** | `test/e2e/api_repositories_e2e_test.go` (bucket `multicluster`) | Clone, edit, commit and push against an in-cluster `git daemon` fixture. |
 
+## Feature Map: Repository builds (spec 030, in progress)
+
+| Layer | Files | Notes |
+| --- | --- | --- |
+| **Spec & contract** | `specs/030-repository-builds/` (`spec.md`, `data-model.md`, `contracts/builds-api.md`, `tasks.md`) | Source of truth for the build Job, the deploy flow, the assistant rules and the Maven repository. |
+| **Operator** | `operator/api/v1alpha1/repositorybuild_types.go`, `operator/internal/controller/repositorybuild_controller.go`; `repository_controller.go` (build cache PVC) | `RepositoryBuild` → sandboxed Maven/Gradle Job pinned next to `<repo>-0`; status from `::artifact::` log markers. |
+| **API** | `api/internal/handlers/repository_builds.go`, `ai_builds.go` | Builds, log stream, deploy replay per target, `GET /integrations/maven`, assistant build and deploy tools, cross-target reads. |
+| **Web** | `web/src/routes/repository/BuildsTab.tsx`, `DeployModal.tsx`; `web/src/components/ServerPicker.tsx`, `settings/MavenCard.tsx` | Builds tab, Deploy modal (Manual / With Assistant), Build settings card, Maven card. |
+| **Chart** | `charts/gameplane/templates/maven.yaml`, `values.yaml` (`mavenRepository`, `repositories.build`), `templates/networkpolicies.yaml` | Reposilite with read and write token Secrets; build egress. |
+
 ## Security & Protection Components
 
 | Component | `specs.md` location | Primary Responsibilities |

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -62,7 +63,8 @@ func (in aiToolInput) needsApproval() bool {
 	method := strings.ToUpper(in.Method)
 	return method == http.MethodDelete || strings.HasSuffix(in.Path, ":wipe-data") ||
 		(method == http.MethodPost && strings.HasPrefix(in.Path, "/restores")) ||
-		(method == http.MethodPost && strings.HasPrefix(in.Path, "/repositories/") && aiGitNeedsApproval(in))
+		(method == http.MethodPost && strings.HasPrefix(in.Path, "/repositories/") && aiGitNeedsApproval(in)) ||
+		aiBuildNeedsApproval(in)
 }
 
 func aiGitNeedsApproval(in aiToolInput) bool {
@@ -207,7 +209,11 @@ func (h *aiHandler) execute(ctx context.Context, conv aiConversation, creds aiCr
 		case aiIsFileTool(use.name):
 			text, failed = h.fileTool(ctx, conv, creds, use.name, use.raw)
 		default:
-			status, body := h.tool(ctx, conv, creds, use.input)
+			toolCtx := ctx
+			if approved != nil && *approved && use.needsApproval() {
+				toolCtx = withUserApproval(ctx)
+			}
+			status, body := h.tool(toolCtx, conv, creds, use.input)
 			text, failed = fmt.Sprintf("HTTP %d\n%s", status, body), status >= http.StatusBadRequest
 		}
 		out = append(out, anthropic.NewBetaToolResultBlock(use.id, text, failed))
@@ -253,10 +259,13 @@ func (h *aiHandler) authorize(ctx context.Context, conv aiConversation, creds ai
 	for k, v := range in.Query {
 		q.Set(k, v)
 	}
+	if aiCrossRead(conv, method, p) {
+		return aiTarget(p, q), nil
+	}
 	seg := aiSegment(p)
 	if conv.Repository != "" {
 		base := "/repositories/" + conv.Repository + "/"
-		if !strings.HasPrefix(p, base+"files/") && !strings.HasPrefix(p, base+"git/") {
+		if !strings.HasPrefix(p, base+"files/") && !strings.HasPrefix(p, base+"git/") && p != base+"builds" && !strings.HasPrefix(p, base+"builds/") {
 			return "", fmt.Errorf("this conversation is limited to repository %s", conv.Repository)
 		}
 		q.Set("namespace", conv.Namespace)
@@ -305,6 +314,21 @@ func (h *aiHandler) checkServerRef(ctx context.Context, conv aiConversation, cre
 }
 
 func (h *aiHandler) call(ctx context.Context, creds aiCreds, method, target string, body []byte, contentType string) (int, []byte) {
+	return routerCall(withAssistantOrigin(ctx), h.router, creds, method, target, body, contentType)
+}
+
+type aiApprovalKey struct{}
+
+func withUserApproval(ctx context.Context) context.Context {
+	return context.WithValue(ctx, aiApprovalKey{}, true)
+}
+
+func userApproved(ctx context.Context) bool {
+	approved, _ := ctx.Value(aiApprovalKey{}).(bool)
+	return approved
+}
+
+func routerCall(ctx context.Context, router http.Handler, creds aiCreds, method, target string, body []byte, contentType string) (int, []byte) {
 	req, err := http.NewRequestWithContext(context.WithValue(auth.WithoutRateLimit(ctx), chi.RouteCtxKey, nil), method, target, bytes.NewReader(body))
 	if err != nil {
 		return http.StatusBadRequest, []byte(err.Error())
@@ -317,8 +341,27 @@ func (h *aiHandler) call(ctx context.Context, creds aiCreds, method, target stri
 		req.Header.Set("Content-Type", contentType)
 	}
 	rec := httptest.NewRecorder()
-	h.router.ServeHTTP(rec, req)
+	router.ServeHTTP(rec, req)
 	return rec.Code, rec.Body.Bytes()
+}
+
+var aiCrossReadRE = regexp.MustCompile(`^/(servers|repositories)/([a-z0-9-]+)/(files/(list|read|size)|git/(status|log|diff|commits/[0-9a-f]{4,64}))$`)
+
+func aiCrossRead(conv aiConversation, method, p string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	if p == "/repositories" {
+		return true
+	}
+	m := aiCrossReadRE.FindStringSubmatch(p)
+	if m == nil {
+		return false
+	}
+	if m[1] == "servers" {
+		return m[2] != conv.Server
+	}
+	return m[2] != conv.Repository
 }
 
 func aiParams(conv aiConversation, history []anthropic.BetaMessageParam) anthropic.BetaMessageNewParams {
@@ -522,6 +565,7 @@ API reference (put query parameters in "query"; send JSON bodies as objects):
 - Backups: backups_list and backup_create; GET /backups/{name} and DELETE /backups/{name} through gameplane_api.
 - Schedules: GET and POST /schedules, PUT and DELETE /schedules/{name}. Restores: GET /restores, POST /restores (spec.backupRef and spec.serverRef).
 - Namespaced calls take the query parameter namespace; servers outside the "local" cluster also need cluster.`
+	prompt += "\n\n" + aiOtherTargetsPrompt
 	if conv.Server != "" {
 		prompt += aiMemoryPrompt + conv.Memory
 	}

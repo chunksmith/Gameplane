@@ -339,6 +339,7 @@ var rules = []rule{
 	{segment: "ai", perm: ""},
 	// Each user's own GitHub token (spec 029); handlers act on the caller only.
 	{segment: "integrations", prefix: "/integrations/github", perm: ""},
+	{segment: "integrations", prefix: "/integrations/maven", perm: ""},
 
 	// Repositories (spec 029). The list filters itself by membership; the
 	// rbac repository fallback resolves owner, collaborator and network
@@ -346,6 +347,7 @@ var rules = []rule{
 	{method: "GET", exact: "/repositories", perm: ""},
 	{method: "POST", exact: "/repositories", perm: "repositories:create"},
 	{method: "POST", segment: "repositories", suffix: "/git/push", perm: "repositories:push"},
+	{method: "POST", segment: "repositories", suffix: "/deploy", perm: "repositories:read"},
 	{method: "GET", segment: "repositories", perm: "repositories:read"},
 	{segment: "repositories", perm: "repositories:write"},
 

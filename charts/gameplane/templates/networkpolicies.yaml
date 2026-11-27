@@ -1,5 +1,51 @@
 {{- if (eq (include "gameplane.operatorEnabled" .) "true") }}
 {{- if .Values.networkPolicies.enabled }}
+{{- if .Values.mavenRepository.enabled }}
+---
+# Reposilite (gameplane-maven) accepts only the API, the token bootstrap hook,
+# repository build pods in every games namespace and, when ingress is on, the
+# ingress controller. Its pods are otherwise unreachable.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gameplane-maven-ingress
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "gameplane.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gameplane-maven
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gameplane-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gameplane-maven-bootstrap
+        {{- range $buildNamespace := include "gameplane.gamesNamespaces" . | fromJsonArray }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $buildNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gameplane-build
+        {{- end }}
+        {{- if .Values.mavenRepository.ingress.enabled }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.mavenRepository.ingress.controllerNamespace | quote }}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+{{- end }}
 {{- range $gamesNamespace := include "gameplane.gamesNamespaces" . | fromJsonArray }}
 {{- with $ }}
 ---
@@ -218,6 +264,33 @@ spec:
         - { protocol: {{ .protocol }}, port: {{ .port }} }
         {{- end }}
       {{- end }}
+{{- if .Values.mavenRepository.enabled }}
+---
+# Repository build pods reach the in-cluster Maven repository in the release
+# namespace. RFC1918 addresses are excluded from the public egress below, so
+# this is the explicit path to gameplane-maven.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-build-to-maven-egress
+  namespace: {{ $gamesNamespace }}
+  labels: {{- include "gameplane.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gameplane-build
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gameplane-maven
+      ports:
+        - { protocol: TCP, port: 8080 }
+{{- end }}
 {{- if .Values.networkPolicies.gameEgress.enabled }}
 ---
 # Allow game pods to reach the public internet for binary/asset/mod
@@ -234,7 +307,7 @@ metadata:
 spec:
   podSelector:
     matchExpressions:
-      - { key: app.kubernetes.io/name, operator: In, values: [gameplane-game, gameplane-repo] }
+      - { key: app.kubernetes.io/name, operator: In, values: [gameplane-game, gameplane-repo, gameplane-build] }
   policyTypes: [Egress]
   egress:
     - to:
