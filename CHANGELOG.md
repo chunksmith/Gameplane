@@ -73,7 +73,10 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 - **Forget Job limits:** the snapshot forget/prune Job's memory limit is the
   Helm value `operator.forgetJobMemoryLimit` (default `8Gi`, was a fixed
   `2Gi`) and its deadline is 2 h (was 30 min), so a prune of a large
-  repository is no longer OOM-killed or cut off mid-run.
+  repository is no longer OOM-killed or cut off mid-run. The prune runs with
+  `--max-unused unlimited`: it deletes only fully unused packs and never
+  repacks, so it holds the exclusive lock for less time; run a full
+  `restic prune` by hand to reclaim space in partly used packs.
 - **Server disk shows usage only:** the server list, server stat cards and the
   server Statistics tab show the data volume's used bytes without the volume
   size, percentage or fill bar. `status.agent.diskTotalBytes` stays in the API.
