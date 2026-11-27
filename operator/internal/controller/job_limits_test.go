@@ -11,10 +11,10 @@ func TestResolveJobLimits(t *testing.T) {
 		wantB int32
 		wantD int64
 	}{
-		{"unset uses defaults", nil, 0, 2, 86400},
+		{"unset uses defaults", nil, 0, 2, 21600},
 		{"override both", &five, 3600, 5, 3600},
-		{"explicit zero backoff honoured", &zero, 0, 0, 86400},
-		{"negative backoff and deadline fall back", &neg, -5, 2, 86400},
+		{"explicit zero backoff honoured", &zero, 0, 0, 21600},
+		{"negative backoff and deadline fall back", &neg, -5, 2, 21600},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
