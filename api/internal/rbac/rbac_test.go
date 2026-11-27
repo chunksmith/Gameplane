@@ -75,7 +75,8 @@ func TestAllow(t *testing.T) {
 		{RoleViewer, "GET", "/servers/foo/git/status", scope.DefaultCluster, true},
 		{RoleViewer, "POST", "/servers/foo/git/commit", scope.DefaultCluster, false},
 		{RoleOperator, "POST", "/servers/foo/git/commit", scope.DefaultCluster, true},
-		{RoleOperator, "POST", "/servers/foo/git/push", scope.DefaultCluster, false},
+		{RoleOperator, "POST", "/servers/foo/git/push", scope.DefaultCluster, true},
+		{RoleViewer, "POST", "/servers/foo/git/push", scope.DefaultCluster, false},
 		{RoleAdmin, "POST", "/servers/foo/git/push", scope.DefaultCluster, true},
 		{RoleOperator, "POST", "/servers", scope.DefaultCluster, true},
 		{RoleOperator, "DELETE", "/users/1", scope.DefaultCluster, false},
@@ -163,14 +164,14 @@ func TestAllow(t *testing.T) {
 		{RoleAdmin, "PUT", "/modules/sources/upstream", scope.DefaultCluster, true},
 		{RoleOperator, "DELETE", "/modules/sources/upstream", scope.DefaultCluster, false},
 		{RoleAdmin, "DELETE", "/modules/sources/upstream", scope.DefaultCluster, true},
-		// Repositories: operators may add them; reading, editing and pushing
-		// others' repositories needs membership (repository_test.go).
 		{RoleOperator, "POST", "/repositories", scope.DefaultCluster, true},
 		{RoleViewer, "POST", "/repositories", scope.DefaultCluster, false},
 		{RoleViewer, "GET", "/repositories", scope.DefaultCluster, true},
 		{RoleViewer, "GET", "/repositories/foo", scope.DefaultCluster, false},
-		{RoleOperator, "GET", "/repositories/foo/git/status", scope.DefaultCluster, false},
-		{RoleOperator, "POST", "/repositories/foo/git/commit", scope.DefaultCluster, false},
+		{RoleOperator, "GET", "/repositories/foo/git/status", scope.DefaultCluster, true},
+		{RoleOperator, "POST", "/repositories/foo/git/commit", scope.DefaultCluster, true},
+		{RoleOperator, "POST", "/repositories/foo/git/push", scope.DefaultCluster, true},
+		{RoleViewer, "POST", "/repositories/foo/git/push", scope.DefaultCluster, false},
 		{RoleAdmin, "POST", "/repositories/foo/git/push", scope.DefaultCluster, true},
 		{RoleAdmin, "DELETE", "/repositories/foo", scope.DefaultCluster, true},
 		// Backup destinations: read viewer+, write admin-only.
