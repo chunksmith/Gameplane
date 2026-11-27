@@ -94,7 +94,15 @@ const mavenServersXML = `  <servers>
   </servers>
 `
 
-const mavenProfileXML = `  <profiles>
+const mavenProfileXML = `  <mirrors>
+    <mirror>
+      <id>maven-default-http-blocker</id>
+      <mirrorOf>external:http:*,!gameplane,!gameplane-snapshots</mirrorOf>
+      <url>http://0.0.0.0/</url>
+      <blocked>true</blocked>
+    </mirror>
+  </mirrors>
+  <profiles>
     <profile>
       <id>gameplane</id>
       <repositories>
@@ -146,6 +154,7 @@ if (gameplaneUrl) {
         repositories {
             maven {
                 url = "${gameplaneUrl}/releases"
+                allowInsecureProtocol = true
                 credentials {
                     username = System.getenv("GAMEPLANE_MAVEN_USER")
                     password = System.getenv("GAMEPLANE_MAVEN_READ_TOKEN")
@@ -153,6 +162,7 @@ if (gameplaneUrl) {
             }
             maven {
                 url = "${gameplaneUrl}/snapshots"
+                allowInsecureProtocol = true
                 credentials {
                     username = System.getenv("GAMEPLANE_MAVEN_USER")
                     password = System.getenv("GAMEPLANE_MAVEN_READ_TOKEN")
@@ -165,6 +175,7 @@ if (gameplaneUrl) {
                     maven {
                         name = "gameplane"
                         url = project.version.toString().endsWith("SNAPSHOT") ? "${gameplaneUrl}/snapshots" : "${gameplaneUrl}/releases"
+                        allowInsecureProtocol = true
                         credentials {
                             username = System.getenv("GAMEPLANE_MAVEN_WRITE_USER")
                             password = System.getenv("GAMEPLANE_MAVEN_WRITE_TOKEN")
