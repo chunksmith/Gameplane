@@ -24,7 +24,6 @@ import (
 
 	"github.com/GameplanePanel/gameplane/api/internal/audit"
 	"github.com/GameplanePanel/gameplane/api/internal/auth"
-	"github.com/GameplanePanel/gameplane/api/internal/db"
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
 )
@@ -758,7 +757,7 @@ func (h *aiHandler) solveLinear(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *aiHandler) linearLinks(w http.ResponseWriter, req *http.Request) {
-	links, err := h.store.LinearLinks(req.Context(), auth.UserFromContext(req.Context()).ID)
+	links, err := h.loadLinearLinks(req.Context(), auth.UserFromContext(req.Context()).ID)
 	if err != nil {
 		httperr.Write(w, req, err)
 		return
@@ -767,7 +766,7 @@ func (h *aiHandler) linearLinks(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *aiHandler) putLinearLinks(w http.ResponseWriter, req *http.Request) {
-	var links []db.LinearLink
+	var links []aiLinearLink
 	if !aiDecode(w, req, &links) {
 		return
 	}
@@ -792,11 +791,11 @@ func (h *aiHandler) putLinearLinks(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	user := auth.UserFromContext(req.Context()).ID
-	if err := h.store.SetLinearLinks(req.Context(), user, links); err != nil {
+	if err := h.saveLinearLinks(req.Context(), user, links); err != nil {
 		httperr.Write(w, req, err)
 		return
 	}
-	saved, err := h.store.LinearLinks(req.Context(), user)
+	saved, err := h.loadLinearLinks(req.Context(), user)
 	if err != nil {
 		httperr.Write(w, req, err)
 		return
@@ -816,4 +815,52 @@ func aiLinearIssuePrompt(issue string, tools []string) string {
 		prompt += " You cannot change Linear issues here, so you cannot move " + issue + ": say so instead of offering it."
 	}
 	return prompt
+}
+
+type aiLinearLink struct {
+	ProjectID   string `json:"projectId"`
+	ProjectName string `json:"projectName"`
+	Repository  string `json:"repository"`
+	Namespace   string `json:"namespace"`
+}
+
+func (h *aiHandler) loadLinearLinks(ctx context.Context, userID int64) ([]aiLinearLink, error) {
+	rows, err := h.store.DB.QueryContext(ctx, `SELECT project_id, project_name, repository, namespace FROM linear_repo_links WHERE user_id = ? ORDER BY project_name`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list linear links: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	links := []aiLinearLink{}
+	for rows.Next() {
+		var link aiLinearLink
+		if err := rows.Scan(&link.ProjectID, &link.ProjectName, &link.Repository, &link.Namespace); err != nil {
+			return nil, fmt.Errorf("scan linear link: %w", err)
+		}
+		links = append(links, link)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read linear links: %w", err)
+	}
+	return links, nil
+}
+
+func (h *aiHandler) saveLinearLinks(ctx context.Context, userID int64, links []aiLinearLink) error {
+	tx, err := h.store.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin linear links: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM linear_repo_links WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("clear linear links: %w", err)
+	}
+	for _, link := range links {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO linear_repo_links(user_id, project_id, project_name, repository, namespace) VALUES (?, ?, ?, ?, ?)`,
+			userID, link.ProjectID, link.ProjectName, link.Repository, link.Namespace); err != nil {
+			return fmt.Errorf("insert linear link: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit linear links: %w", err)
+	}
+	return nil
 }

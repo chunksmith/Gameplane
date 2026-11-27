@@ -162,7 +162,7 @@ function RunChat({ run }: { run: LinearRun }) {
     <section className="flex h-[70dvh] min-h-[28rem] flex-col overflow-hidden rounded-xl border border-border bg-surface">
       <RunHeader run={run} />
       <div className="min-h-0 flex-1">
-        <AssistantPanel embedded scope={scope} conversation={run.conversation} />
+        <AssistantPanel key={run.conversation} embedded scope={scope} conversation={run.conversation} />
       </div>
     </section>
   );

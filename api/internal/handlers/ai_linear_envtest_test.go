@@ -184,7 +184,7 @@ func TestAILinearIssuesViews(t *testing.T) {
 
 func TestAILinearLinks(t *testing.T) {
 	f, _ := linearFixture(t)
-	links := []db.LinearLink{{ProjectID: "p1", ProjectName: "Ardiy", Repository: "lithomes", Namespace: "gameplane-games"}}
+	links := []aiLinearLink{{ProjectID: "p1", ProjectName: "Ardiy", Repository: "lithomes", Namespace: "gameplane-games"}}
 	rr := f.do(http.MethodPut, "/ai/linear/links", "", links)
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"projectId":"p1"`) {
 		t.Fatalf("put links = %d %s", rr.Code, rr.Body.String())
@@ -193,7 +193,7 @@ func TestAILinearLinks(t *testing.T) {
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"repository":"lithomes"`) {
 		t.Fatalf("get links = %d %s", rr.Code, rr.Body.String())
 	}
-	bad := []db.LinearLink{{ProjectID: "p1", ProjectName: "Ardiy", Repository: "Bad_Name", Namespace: "gameplane-games"}}
+	bad := []aiLinearLink{{ProjectID: "p1", ProjectName: "Ardiy", Repository: "Bad_Name", Namespace: "gameplane-games"}}
 	if rr = f.do(http.MethodPut, "/ai/linear/links", "", bad); rr.Code != http.StatusBadRequest {
 		t.Fatalf("bad repository = %d %s", rr.Code, rr.Body.String())
 	}

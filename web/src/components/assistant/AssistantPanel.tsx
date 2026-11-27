@@ -223,9 +223,6 @@ export function AssistantPanel({ scope = {}, seed, onSeeded, conversation, embed
     qc.setQueryData<AssistantDetail>(["ai", "conversation", conv.id], (old) => old && { ...old, conversation: conv, pending: [] });
     refresh();
   };
-  useEffect(() => {
-    if (conversation) setSelected(conversation);
-  }, [conversation]);
   const seeded = useRef<number | null>(null);
   useEffect(() => {
     if (!seed || !ready || seeded.current === seed.id) return;

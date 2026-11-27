@@ -59,7 +59,7 @@ describe("LinearPage", () => {
     renderWithQuery(<LinearPage />);
     expect(await screen.findByRole("heading", { name: "CHK-142 · /sethome ignores home limit" })).toBeInTheDocument();
     expect(await screen.findByDisplayValue("Solve CHK-142.")).toBeInTheDocument();
-    expect(await screen.findByText("lithomes · main · clean")).toBeInTheDocument();
+    expect((await screen.findAllByText("lithomes · main · clean"))[0]).toBeInTheDocument();
   });
 
   it("starts solving in the linked repository", async () => {
@@ -70,7 +70,7 @@ describe("LinearPage", () => {
       return HttpResponse.json({ conversation: { id: "c1" } }, { status: 201 });
     }));
     renderWithQuery(<LinearPage />);
-    await screen.findByText("lithomes · main · clean");
+    await screen.findAllByText("lithomes · main · clean");
     await userEvent.click(screen.getByRole("button", { name: "Start solving" }));
     await waitFor(() => expect(body).toEqual({ repository: "lithomes", namespace: "gameplane-games", message: "Solve CHK-142." }));
   });

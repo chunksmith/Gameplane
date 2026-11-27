@@ -12,7 +12,7 @@ description: "Task list for Feature 031: Linear issues"
 
 ## Phase 1: API
 
-- [X] T001 Migration `027_linear.sql`: `ai_conversations.linear_issue` + index, table `linear_repo_links`; store methods in `api/internal/db`
+- [X] T001 Migration `027_linear.sql`: `ai_conversations.linear_issue` + index, table `linear_repo_links`; store queries in `api/internal/handlers/ai_linear.go` (unexported, see OPEN-DECISIONS 7)
 - [X] T002 `api/internal/handlers/ai_linear.go`: `GET /ai/linear/teams`, `GET /ai/linear/issues` with `view` and filters (keep the mention-menu response when no `view`), `GET /ai/linear/issues/{id}`
 - [X] T003 `POST /ai/linear/issues/{id}/solve`: RBAC check, move to the first `started` state, create the repository conversation with `linear_issue`, audit `linear.solve.start`
 - [X] T004 `GET|PUT /ai/linear/links`
