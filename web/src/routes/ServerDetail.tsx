@@ -462,6 +462,7 @@ function ServerDetailView({ lookupTarget }: { lookupTarget: ResourceTarget }) {
             <ServerGitTab
               target={target}
               unavailable={!gitProbe.isSuccess}
+              failure={gitError === "git_failed" || gitError === "git_dir" ? gitProbe.error : undefined}
               enabling={gitEnabling}
               canWrite={!!access?.canWrite}
               canPush={!!access?.isOwner || !!access?.isCollaborator || resourceCan(permissions, "servers:push")}

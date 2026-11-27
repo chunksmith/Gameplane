@@ -2543,6 +2543,8 @@ func buildAgentContainer(
 	securityContext := agentSecurityContext()
 	if filesFromContainer(gs, tmpl) {
 		args = append(args, "--files-from-container")
+	}
+	if filesFromContainer(gs, tmpl) || gs.Annotations[gitAnnotation] == "true" {
 		securityContext = gameAgentSecurityContext(tmpl)
 	}
 	rc := resolveRCON(gs, tmpl)

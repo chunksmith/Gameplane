@@ -21,3 +21,20 @@ func TestAgentImageForGit(t *testing.T) {
 		t.Fatalf("git server without repo agent image %q", got)
 	}
 }
+
+func TestGitAgentRunsAsGameUser(t *testing.T) {
+	tmpl := &gameplanev1alpha1.GameTemplate{}
+	gs := &gameplanev1alpha1.GameServer{}
+	if uid := *buildAgentContainer(gs, tmpl, nil, "agent", "", "").SecurityContext.RunAsUser; uid != 65532 {
+		t.Fatalf("plain agent uid %d", uid)
+	}
+	gs.Annotations = map[string]string{gitAnnotation: "true"}
+	if uid := *buildAgentContainer(gs, tmpl, nil, "agent", "", "").SecurityContext.RunAsUser; uid != 0 {
+		t.Fatalf("git agent uid %d", uid)
+	}
+	game := int64(1000)
+	tmpl.Spec.Security = &gameplanev1alpha1.GameSecuritySpec{RunAsUser: &game}
+	if uid := *buildAgentContainer(gs, tmpl, nil, "agent", "", "").SecurityContext.RunAsUser; uid != game {
+		t.Fatalf("git agent uid %d, want template uid", uid)
+	}
+}

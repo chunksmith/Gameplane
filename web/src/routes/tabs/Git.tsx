@@ -20,9 +20,10 @@ const M: Record<string, MessageDescriptor> = defineMessages({
   owner_only: { id: "web.servers.git.owner_only", defaultMessage: "Only the server's owner or an admin can enable Git.", description: "Server Git tab: note shown instead of the enable button to users who cannot enable Git" },
 });
 
-export function ServerGitTab({ target, unavailable, enabling, canWrite, canPush, canEnable }: {
+export function ServerGitTab({ target, unavailable, failure, enabling, canWrite, canPush, canEnable }: {
   target: ResourceTarget;
   unavailable: boolean;
+  failure?: unknown;
   enabling: boolean;
   canWrite: boolean;
   canPush: boolean;
@@ -32,6 +33,13 @@ export function ServerGitTab({ target, unavailable, enabling, canWrite, canPush,
   const [confirm, setConfirm] = useState(false);
   const enable = useMutation({ mutationFn: () => Git.enableServer(target) });
   if (!unavailable) return <GitTab target={target} canWrite={canWrite} canPush={canPush} sync />;
+  if (failure) {
+    return (
+      <div className="mx-auto max-w-lg p-10">
+        <ErrorBanner err={gitErrorText(intl, failure)} />
+      </div>
+    );
+  }
   if (enabling || enable.isSuccess) {
     return (
       <div className="mx-auto max-w-md space-y-3 p-10 text-center">
