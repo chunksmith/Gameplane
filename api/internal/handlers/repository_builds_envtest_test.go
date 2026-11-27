@@ -52,6 +52,7 @@ func TestRepositoryBuildsEnvtest(t *testing.T) {
 		}
 		req := httptest.NewRequestWithContext(t.Context(), method, path, bytes.NewReader(raw))
 		req.Header.Set("X-User", user)
+		req.Header.Set("Accept", "application/problem+json")
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 		return rr
