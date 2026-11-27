@@ -4,6 +4,7 @@ import { defineMessages, type MessageDescriptor } from "react-intl";
 import { Search } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { IssueRowsSkeleton } from "./Skeletons";
 import { priorityLabel, statusDot } from "@/lib/linear";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { cn, formatRelative } from "@/lib/utils";
@@ -26,6 +27,7 @@ const RUN_LABELS: Record<string, MessageDescriptor> = defineMessages({
 
 const MESSAGES: Record<string, MessageDescriptor> = defineMessages({
   title: { id: "web.linear.list_title", defaultMessage: "Issues · {count}", description: "Linear: header of the issue list card; {count} is the number of loaded issues" },
+  titlePending: { id: "web.linear.list_title_pending", defaultMessage: "Issues", description: "Linear: header of the issue list card while the first page loads and the count is not known yet" },
   issue: { id: "web.linear.issue_title", defaultMessage: "{id} · {title}", description: "Linear: issue line in the list and detail header; {id} is the issue identifier such as CHK-142, {title} the issue title" },
   loading: { id: "web.linear.issues_loading", defaultMessage: "Loading issues…", description: "Linear: text in the issue list while the first page loads" },
   empty: { id: "web.linear.issues_empty", defaultMessage: "No issues match these filters", description: "Linear: empty state of the issue list when no issue matches the filters" },
@@ -69,11 +71,11 @@ export function IssueList({ view, teamKey, issues, selected, onSelect, pending, 
   return (
     <section className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
       <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 text-xs text-muted">
-        <span>{intl.formatMessage(MESSAGES.title, { count: issues.length })}</span>
+        <span>{pending ? intl.formatMessage(MESSAGES.titlePending) : intl.formatMessage(MESSAGES.title, { count: issues.length })}</span>
         <span>{scope}</span>
       </header>
       {error ? <div className="p-3"><ErrorBanner err={error} /></div> : null}
-      {pending && <p className="p-4 text-sm text-muted">{intl.formatMessage(MESSAGES.loading)}</p>}
+      {pending && <IssueRowsSkeleton label={intl.formatMessage(MESSAGES.loading)} />}
       {!pending && !error && issues.length === 0 && <EmptyState icon={<Search />} title={intl.formatMessage(MESSAGES.empty)} />}
       <ul className="divide-y divide-border">
         {issues.map((issue) => {

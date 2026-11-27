@@ -9,7 +9,7 @@ import { IssueDetail } from "@/components/linear/IssueDetail";
 import { IssueList } from "@/components/linear/IssueList";
 import { RepositoryLinks } from "@/components/linear/RepositoryLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { LoadingCard } from "@/components/ui/LoadingCard";
+import { IssueDetailSkeleton, IssueRowsSkeleton } from "@/components/linear/Skeletons";
 import { useAssistantStatus } from "@/lib/assistant";
 import { useOptionalIntl } from "@/lib/i18n/format";
 import { Linear, LINEAR_KEY, workspaceOf, type LinearListQuery } from "@/lib/linear";
@@ -90,7 +90,16 @@ export function LinearPage() {
     enabled: linear && tab !== "links" && (view !== "team" || !!team),
   });
 
-  if (assistant.isPending) return <div className="p-4 sm:p-6"><LoadingCard message={intl.formatMessage(MESSAGES.loading)} /></div>;
+  if (assistant.isPending) {
+    return (
+      <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[24rem_minmax(0,1fr)]">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+          <IssueRowsSkeleton label={intl.formatMessage(MESSAGES.loading)} />
+        </div>
+        {search.issue && <IssueDetailSkeleton label={intl.formatMessage(MESSAGES.loading)} />}
+      </div>
+    );
+  }
   if (!linear) {
     return (
       <div className="p-4 sm:p-6">
@@ -109,7 +118,7 @@ export function LinearPage() {
   const issueId = search.issue;
   const syncedAt = issues.dataUpdatedAt ? formatRelative(new Date(issues.dataUpdatedAt).toISOString(), intl) : "";
   const meta = team ? intl.formatMessage(MESSAGES.meta, { team: team.name, key: team.key, when: syncedAt }) : "";
-  const label = (key: LinearTab) => (key === tab && key !== "links" ? intl.formatMessage(MESSAGES.tabCount, { label: intl.formatMessage(TAB_LABELS[key]), count: list.length }) : intl.formatMessage(TAB_LABELS[key]));
+  const label = (key: LinearTab) => (key === tab && key !== "links" && !issues.isPending ?intl.formatMessage(MESSAGES.tabCount, { label: intl.formatMessage(TAB_LABELS[key]), count: list.length }) : intl.formatMessage(TAB_LABELS[key]));
 
   function go(next: { tab?: LinearTab; issue?: string }) {
     void nav({ to: "/linear", search: (prev) => ({ ...prev, ...next }) });

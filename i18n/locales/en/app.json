@@ -5503,13 +5503,17 @@
     "defaultMessage": "Connect your Linear API key in Settings → Integrations",
     "description": "Linear: empty state hint explaining where to connect the Linear API key"
   },
-  "web.linear.detail_assigned": {
-    "defaultMessage": "assigned to {assignee}",
-    "description": "Linear: meta item in the issue detail header naming the assignee"
+  "web.linear.detail_assignee": {
+    "defaultMessage": "Assignee",
+    "description": "Linear: label of the assignee field in the issue detail header"
   },
   "web.linear.detail_comments": {
-    "defaultMessage": "Comments · {count}",
-    "description": "Linear: heading of the comments panel; {count} is the number of comments"
+    "defaultMessage": "Comments",
+    "description": "Linear: heading of the comments panel; the number of comments is shown next to it in a badge"
+  },
+  "web.linear.detail_created": {
+    "defaultMessage": "Created",
+    "description": "Linear: label of the creation time field in the issue detail header"
   },
   "web.linear.detail_description": {
     "defaultMessage": "Description",
@@ -5517,19 +5521,15 @@
   },
   "web.linear.detail_loading": {
     "defaultMessage": "Loading issue…",
-    "description": "Linear: text in the issue detail while the issue loads"
+    "description": "Linear: screen-reader label of the issue detail placeholder while the issue loads"
   },
   "web.linear.detail_no_description": {
     "defaultMessage": "No description",
     "description": "Linear: text in the description panel when the issue has no description"
   },
-  "web.linear.detail_opened": {
-    "defaultMessage": "opened by {author} {age}",
-    "description": "Linear: meta item in the issue detail header naming the author and how long ago it was opened"
-  },
-  "web.linear.detail_project": {
-    "defaultMessage": "project {project}",
-    "description": "Linear: meta item in the issue detail header naming the project"
+  "web.linear.detail_opened_by": {
+    "defaultMessage": "Opened by",
+    "description": "Linear: label of the author field in the issue detail header"
   },
   "web.linear.detail_run_awaiting": {
     "defaultMessage": "Waiting for approval",
@@ -5546,6 +5546,14 @@
   "web.linear.detail_run_running": {
     "defaultMessage": "Running",
     "description": "Linear: status of the Assistant run in the chat header while it works on the issue"
+  },
+  "web.linear.detail_unassigned": {
+    "defaultMessage": "Unassigned",
+    "description": "Linear: assignee value in the issue detail header when nobody is assigned"
+  },
+  "web.linear.detail_updated": {
+    "defaultMessage": "Updated",
+    "description": "Linear: label of the last update time field in the issue detail header"
   },
   "web.linear.issue_title": {
     "defaultMessage": "{id} · {title}",
@@ -5606,6 +5614,10 @@
   "web.linear.list_title": {
     "defaultMessage": "Issues · {count}",
     "description": "Linear: header of the issue list card; {count} is the number of loaded issues"
+  },
+  "web.linear.list_title_pending": {
+    "defaultMessage": "Issues",
+    "description": "Linear: header of the issue list card while the first page loads and the count is not known yet"
   },
   "web.linear.load_more": {
     "defaultMessage": "Load more",
@@ -5737,11 +5749,11 @@
   },
   "web.linear.solve_opens_in": {
     "defaultMessage": "Opens a conversation in {repository}'s Assistant tab",
-    "description": "Linear: text at the top right of the solve card naming the repository whose Assistant tab opens"
+    "description": "Linear: subtitle under the solve card title naming the repository whose Assistant tab opens"
   },
   "web.linear.solve_opens_none": {
     "defaultMessage": "Opens a conversation in the Assistant tab",
-    "description": "Linear: text at the top right of the solve card when no repository is chosen yet"
+    "description": "Linear: subtitle under the solve card title when no repository is chosen yet"
   },
   "web.linear.solve_pick_hint": {
     "defaultMessage": "Pick the repository that holds the code",

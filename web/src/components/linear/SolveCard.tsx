@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, ListBox, ListBoxItem, Select } from "@heroui/react";
 import { defineMessages, type MessageDescriptor } from "react-intl";
-import { Sparkles } from "lucide-react";
+import { GitBranch, Info, Link2, Sparkles } from "lucide-react";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAssistantStatus } from "@/lib/assistant";
 import { useOptionalIntl } from "@/lib/i18n/format";
@@ -13,8 +13,8 @@ import type { LinearIssueDetail, LinearRun, Repository } from "@/types";
 
 const MESSAGES: Record<string, MessageDescriptor> = defineMessages({
   title: { id: "web.linear.solve_title", defaultMessage: "Solve with Assistant", description: "Linear: title of the card that starts an Assistant conversation for an issue" },
-  opensIn: { id: "web.linear.solve_opens_in", defaultMessage: "Opens a conversation in {repository}'s Assistant tab", description: "Linear: text at the top right of the solve card naming the repository whose Assistant tab opens" },
-  opensNone: { id: "web.linear.solve_opens_none", defaultMessage: "Opens a conversation in the Assistant tab", description: "Linear: text at the top right of the solve card when no repository is chosen yet" },
+  opensIn: { id: "web.linear.solve_opens_in", defaultMessage: "Opens a conversation in {repository}'s Assistant tab", description: "Linear: subtitle under the solve card title naming the repository whose Assistant tab opens" },
+  opensNone: { id: "web.linear.solve_opens_none", defaultMessage: "Opens a conversation in the Assistant tab", description: "Linear: subtitle under the solve card title when no repository is chosen yet" },
   repository: { id: "web.linear.solve_repository", defaultMessage: "Repository", description: "Linear: label of the repository select in the solve card" },
   choose: { id: "web.linear.solve_choose", defaultMessage: "Choose a repository", description: "Linear: placeholder of the repository select in the solve card" },
   repoOption: { id: "web.linear.solve_repo_option", defaultMessage: "{name} · {branch} · {changes, plural, =0 {clean} one {# change} other {# changes}}", description: "Linear: repository option in the solve card; {changes} is the number of uncommitted changes" },
@@ -53,7 +53,7 @@ export function SolveCard({ issue, onStarted }: { issue: LinearIssueDetail; onSt
 
   if (status.data && status.data.linear !== true) {
     return (
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 text-sm">
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 text-sm">
         <p className="text-muted">{intl.formatMessage(MESSAGES.disabledNote)}</p>
         <Link to="/settings/integrations" className="text-accent hover:underline">{intl.formatMessage(MESSAGES.integrations)}</Link>
       </section>
@@ -61,16 +61,22 @@ export function SolveCard({ issue, onStarted }: { issue: LinearIssueDetail; onSt
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted">{intl.formatMessage(MESSAGES.title)}</h3>
-        <span className="text-xs text-muted">{intl.formatMessage(repo ? MESSAGES.opensIn : MESSAGES.opensNone, { repository: repo?.name ?? "" })}</span>
+    <section className="overflow-hidden rounded-xl border border-accent/35 bg-card">
+      <header className="flex items-center gap-3 bg-accent-soft px-5 py-4">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">{intl.formatMessage(MESSAGES.title)}</h3>
+          <p className="truncate text-xs text-accent-soft-foreground">{intl.formatMessage(repo ? MESSAGES.opensIn : MESSAGES.opensNone, { repository: repo?.name ?? "" })}</p>
+        </div>
       </header>
-      <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-start">
-        <span className="pt-2 text-sm text-muted">{intl.formatMessage(MESSAGES.repository)}</span>
+      <div className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted">{intl.formatMessage(MESSAGES.repository)}</span>
           <Select aria-label={intl.formatMessage(MESSAGES.repository)} value={selected} onChange={(next) => setPicked(String(next ?? ""))} placeholder={intl.formatMessage(MESSAGES.choose)} className="w-full">
-            <Select.Trigger className="w-full items-center rounded border border-border bg-surface px-3 py-2 text-sm">
+            <Select.Trigger className="w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+              <GitBranch className="h-4 w-4 shrink-0 text-muted" />
               <Select.Value />
               <Select.Indicator className="ml-auto h-4 w-4" />
             </Select.Trigger>
@@ -83,15 +89,23 @@ export function SolveCard({ issue, onStarted }: { issue: LinearIssueDetail; onSt
               </ListBox>
             </Select.Popover>
           </Select>
-          <p className="text-xs text-muted">{intl.formatMessage(linked ? MESSAGES.linkedHint : MESSAGES.pickHint, { project: issue.project ?? "" })}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted">
+            {linked && <Link2 className="h-3.5 w-3.5 shrink-0" />}
+            {intl.formatMessage(linked ? MESSAGES.linkedHint : MESSAGES.pickHint, { project: issue.project ?? "" })}
+          </p>
         </div>
-        <span className="pt-2 text-sm text-muted">{intl.formatMessage(MESSAGES.message)}</span>
-        <textarea aria-label={intl.formatMessage(MESSAGES.message)} value={message} onChange={(event) => setMessage(event.target.value)} rows={3} className="w-full rounded border border-border bg-surface px-3 py-2 text-sm" />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted">{intl.formatMessage(MESSAGES.message)}</span>
+          <textarea aria-label={intl.formatMessage(MESSAGES.message)} value={message} onChange={(event) => setMessage(event.target.value)} rows={3} className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm" />
+        </div>
+        {solve.error && <ErrorBanner err={solve.error} />}
       </div>
-      {solve.error && <ErrorBanner err={solve.error} />}
-      <footer className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted">{intl.formatMessage(MESSAGES.note, { id: issue.id })}</p>
-        <Button variant="primary" className="shrink-0" onPress={() => repo && solve.mutate(repo)} isDisabled={!repo || !message.trim() || solve.isPending}>
+      <footer className="flex flex-col gap-3 border-t border-border bg-surface px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-start gap-1.5 text-xs text-muted">
+          <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+          {intl.formatMessage(MESSAGES.note, { id: issue.id })}
+        </p>
+        <Button variant="primary" className="shrink-0 shadow-lg shadow-accent/30" onPress={() => repo && solve.mutate(repo)} isDisabled={!repo || !message.trim() || solve.isPending}>
           <Sparkles className="h-4 w-4" />
           {intl.formatMessage(MESSAGES.start)}
         </Button>
