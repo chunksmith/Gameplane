@@ -89,7 +89,7 @@ var snapshotIDPattern = regexp.MustCompile(`^[0-9a-f]{8,64}$`)
 //     counts as success: the goal state, "snapshot absent", already holds.
 const forgetScript = `set -u
 restic unlock || true
-out=$(restic forget "$` + forgetSnapshotIDEnv + `" --prune --retry-lock 10m 2>&1); rc=$?
+out=$(restic forget "$` + forgetSnapshotIDEnv + `" --prune --retry-lock 10m ` + resticStuckRequestTimeout + ` 2>&1); rc=$?
 echo "$out"
 [ "$rc" -eq 0 ] && exit 0
 echo "$out" | grep -qiE 'no matching ID|could not find snapshot|id not found' && exit 0

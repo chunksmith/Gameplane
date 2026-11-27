@@ -54,7 +54,7 @@ func TestBackup_CreatesJobWithExpectedSpec(t *testing.T) {
 	if !strings.HasPrefix(c.Image, "restic/restic:") {
 		t.Errorf("image = %q, want restic/restic:*", c.Image)
 	}
-	if got, want := c.Args, []string{"backup", "/data", "--json", "--retry-lock", "10m", "--host", ns + "/smp", "--tag", "gameplane", "--exclude=/data/lost+found"}; !equalStrings(got, want) {
+	if got, want := c.Args, []string{"backup", "/data", "--json", "--retry-lock", "10m", resticStuckRequestTimeout, "--host", ns + "/smp", "--tag", "gameplane", "--exclude=/data/lost+found"}; !equalStrings(got, want) {
 		t.Errorf("args = %v, want %v", got, want)
 	}
 
@@ -271,7 +271,7 @@ func TestBackup_MirrorsJobFailedToFailed(t *testing.T) {
 		if b.Status.Phase != gameplanev1alpha1.BackupPhaseFailed {
 			return false, describeBackupStatus(b)
 		}
-		if b.Status.Message != "backup job reported Failed" {
+		if b.Status.Message != "backup job reported Failed: no failure detail reported" {
 			return false, "message = " + b.Status.Message
 		}
 		return true, ""
@@ -362,7 +362,7 @@ func TestBackup_PassesTagsToRestic(t *testing.T) {
 		if !ok {
 			return false, "job not yet created"
 		}
-		want := []string{"backup", "/data", "--json", "--retry-lock", "10m", "--host", ns + "/smp", "--tag", "gameplane", "--tag", "nightly", "--tag", "preupgrade", "--exclude=/data/lost+found"}
+		want := []string{"backup", "/data", "--json", "--retry-lock", "10m", resticStuckRequestTimeout, "--host", ns + "/smp", "--tag", "gameplane", "--tag", "nightly", "--tag", "preupgrade", "--exclude=/data/lost+found"}
 		if !equalStrings(j.Spec.Template.Spec.Containers[0].Args, want) {
 			return false, "args = " + strings.Join(j.Spec.Template.Spec.Containers[0].Args, " ")
 		}

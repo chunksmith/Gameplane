@@ -57,8 +57,10 @@ const maxUnquiesceFinalizeRetry = 10 * time.Minute
 // operator.backupJobActiveDeadlineSeconds).
 const (
 	DefaultBackupJobBackoffLimit          int32 = 2
-	DefaultBackupJobActiveDeadlineSeconds int64 = 86400 // 24 hours
+	DefaultBackupJobActiveDeadlineSeconds int64 = 21600 // 6 hours
 )
+
+const resticStuckRequestTimeout = "--stuck-request-timeout=2m"
 
 // resolveJobLimits returns the Job BackoffLimit and ActiveDeadlineSeconds to
 // use: a nil backoff selects the default (0 is a valid explicit value, so
@@ -214,7 +216,7 @@ func (r *BackupReconciler) failUnrestorable(
 // DefaultResticImage is the pinned restic image used by the backup and
 // restore Jobs. Overridable via the operator's --restic-image flag for
 // air-gapped installs (both reconcilers fall back to it when unset).
-const DefaultResticImage = "restic/restic:0.17.1"
+const DefaultResticImage = "restic/restic:0.19.1"
 
 // resticImageOrDefault resolves the configured restic image, falling back
 // to the pin when the operator wasn't given a --restic-image.
@@ -556,9 +558,9 @@ func (r *BackupReconciler) mirrorJobStatus(
 	case gameplanev1alpha1.BackupPhaseFailed:
 		cond.Status = metav1.ConditionFalse
 		cond.Reason = "JobFailed"
-		cond.Message = "backup job reported Failed"
+		cond.Message = "backup job reported Failed: " + jobFailureMessage(job)
 		if b.Status.Message == "" {
-			b.Status.Message = "backup job reported Failed"
+			b.Status.Message = cond.Message
 			dirty = true
 		}
 	default:
@@ -1123,7 +1125,7 @@ func (r *BackupReconciler) buildBackupPodSpec(b *gameplanev1alpha1.Backup, tmpl 
 	// --retry-lock makes the backup wait (up to 10m) for the repository lock
 	// instead of failing while a snapshot forget/prune, started by deleting
 	// another Backup, holds it exclusively.
-	args := []string{"backup", "/data", "--json", "--retry-lock", "10m", "--host", b.Namespace + "/" + b.Spec.ServerRef.Name, "--tag", "gameplane"}
+	args := []string{"backup", "/data", "--json", "--retry-lock", "10m", resticStuckRequestTimeout, "--host", b.Namespace + "/" + b.Spec.ServerRef.Name, "--tag", "gameplane"}
 	for _, t := range b.Spec.Tags {
 		args = append(args, "--tag", t)
 	}

@@ -63,6 +63,13 @@ reaches `1.0.0`. Pre-1.0 minor versions may contain breaking changes.
 
 ### Changed
 
+- **Backup Job limits:** `operator.backupJobActiveDeadlineSeconds` now
+  defaults to `21600` (6 h) instead of `86400`, restic backup, restore and
+  forget runs retry a repository request stuck for 2 minutes
+  (`--stuck-request-timeout=2m`), and a failed Backup or Restore shows the
+  Job's failure reason (for example the deadline) in its status message.
+  The operator's built-in restic image default is now `restic/restic:0.19.1`,
+  matching the chart.
 - **Server disk shows usage only:** the server list, server stat cards and the
   server Statistics tab show the data volume's used bytes without the volume
   size, percentage or fill bar. `status.agent.diskTotalBytes` stays in the API.

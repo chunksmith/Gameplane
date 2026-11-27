@@ -203,7 +203,7 @@ func main() {
 	flag.Int64Var(&backupJobBackoffLimit, "backup-job-backoff-limit", int64(controller.DefaultBackupJobBackoffLimit),
 		"BackoffLimit for the restic backup and restore Jobs (retries before the Job is marked Failed). Must be >= 0. Defaults to 2.")
 	flag.Int64Var(&backupJobActiveDeadlineSeconds, "backup-job-active-deadline-seconds", controller.DefaultBackupJobActiveDeadlineSeconds,
-		"ActiveDeadlineSeconds for the restic backup and restore Jobs. Must be > 0. Defaults to 86400 (24 hours).")
+		"ActiveDeadlineSeconds for the restic backup and restore Jobs. Must be > 0. Defaults to 21600 (6 hours).")
 	flag.StringVar(&sentinelImage, "sentinel-image", controller.DefaultSentinelImage,
 		"Image for the wake sentinel pod that holds advertised ports while a server is asleep. "+
 			"Point at a private registry mirror for air-gapped installs.")

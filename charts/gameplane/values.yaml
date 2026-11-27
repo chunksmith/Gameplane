@@ -111,9 +111,9 @@ operator:
   # Bounds for the restic backup and restore Jobs the operator creates.
   # backupJobBackoffLimit: retries before a Job is marked Failed (>= 0).
   # backupJobActiveDeadlineSeconds: wall-clock cap per Job (> 0), so a stuck
-  # pod cannot hold a Backup/Restore in flight forever. Defaults: 2 and 86400 (24h).
+  # pod cannot hold a Backup/Restore in flight forever. Defaults: 2 and 21600 (6h).
   backupJobBackoffLimit: 2
-  backupJobActiveDeadlineSeconds: 86400
+  backupJobActiveDeadlineSeconds: 21600
   # Mount a directory of module bundles into the operator so local-type
   # ModuleSources can index it (homelab: drop module dirs on disk and
   # they appear in the catalog). Provide exactly one of existingClaim

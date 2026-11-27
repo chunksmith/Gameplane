@@ -288,7 +288,7 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	case jobPermanentlyFailed(job):
 		// Leave the server suspended; surface the failure.
-		return r.fail(ctx, &rs, "restore job reported Failed")
+		return r.fail(ctx, &rs, "restore job reported Failed: "+jobFailureMessage(job))
 
 	default:
 		if rs.Status.StartTime == nil && job.Status.StartTime != nil {
@@ -368,7 +368,7 @@ func (r *RestoreReconciler) buildRestorePodSpec(
 			// anything under --target. --include /data pins that scope
 			// to the same subtree the companion backup captures, so the
 			// restore both lands and prunes only inside /data.
-			Args: []string{"restore", rs.Status.SnapshotID, "--target", "/", "--delete", "--include", "/data", "--retry-lock", "10m"},
+			Args: []string{"restore", rs.Status.SnapshotID, "--target", "/", "--delete", "--include", "/data", "--retry-lock", "10m", resticStuckRequestTimeout},
 			Env:  resticEnv(src.Spec.RepoRef.Name),
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "data", MountPath: "/data"},
