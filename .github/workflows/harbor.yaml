@@ -149,7 +149,7 @@ jobs:
               repo-agent) args+=(--set "repositories.agentImage=$registry/repo-agent:$tag") ;;
             esac
           done
-          helm upgrade gameplane charts/gameplane -n gameplane --reset-then-reuse-values "${args[@]}" --wait --timeout 10m
+          helm upgrade gameplane charts/gameplane -n gameplane --reset-then-reuse-values "${args[@]}" --history-max 3 --wait --timeout 10m
           for component in operator api web; do
             kubectl -n gameplane rollout status "deploy/gameplane-$component" --timeout 5m
           done
