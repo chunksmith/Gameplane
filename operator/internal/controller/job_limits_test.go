@@ -1,6 +1,10 @@
 package controller
 
-import "testing"
+import (
+	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+)
 
 func TestResolveJobLimits(t *testing.T) {
 	zero, five, neg := int32(0), int32(5), int32(-1)
@@ -23,5 +27,14 @@ func TestResolveJobLimits(t *testing.T) {
 				t.Errorf("got (%d,%d), want (%d,%d)", b, d, tc.wantB, tc.wantD)
 			}
 		})
+	}
+}
+
+func TestForgetMemoryLimit(t *testing.T) {
+	if got := (&BackupReconciler{}).forgetMemoryLimit(); got.String() != DefaultForgetJobMemoryLimit {
+		t.Errorf("unset = %s, want %s", got.String(), DefaultForgetJobMemoryLimit)
+	}
+	if got := (&BackupReconciler{ForgetMemoryLimit: resource.MustParse("4Gi")}).forgetMemoryLimit(); got.String() != "4Gi" {
+		t.Errorf("override = %s, want 4Gi", got.String())
 	}
 }

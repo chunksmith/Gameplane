@@ -191,8 +191,8 @@ garbage collection of a deleted GameServer's auto-schedule.
   `<backup>-forget` that executes `restic forget <snapshotID> --prune` with
   the same repo Secret, restic image and locked-down security context as the
   backup Job. It needs no PVC, GameServer or GameTemplate, so it still works
-  after the server is gone. The Job has a backoff limit of 3 and a 30-minute
-  deadline, and waits up to 10 minutes for the repository lock
+  after the server is gone. The Job has a backoff limit of 3, a 2-hour
+  deadline and an 8Gi memory limit (`operator.forgetJobMemoryLimit`), and waits up to 10 minutes for the repository lock
   (`--retry-lock`); backup and restore Jobs use the same `--retry-lock` so neither
   fails while a forget is pruning. A snapshot that is already gone counts as
   success. The Backup stays `Terminating` for the duration (seconds to minutes),

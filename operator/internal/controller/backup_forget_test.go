@@ -371,6 +371,9 @@ func TestFinalizeSnapshot_CreatesForgetJob(t *testing.T) {
 	if !strings.Contains(forgetScript, `restic forget "$FORGET_SNAPSHOT_ID" --prune --retry-lock 10m`) {
 		t.Errorf("forget script does not run restic forget on the env var: %s", forgetScript)
 	}
+	if got := c.Resources.Limits[corev1.ResourceMemory]; got.String() != DefaultForgetJobMemoryLimit {
+		t.Errorf("memory limit = %s, want %s", got.String(), DefaultForgetJobMemoryLimit)
+	}
 	env := map[string]corev1.EnvVar{}
 	for _, e := range c.Env {
 		env[e.Name] = e

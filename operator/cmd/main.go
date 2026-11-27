@@ -13,6 +13,7 @@ import (
 
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -141,6 +142,7 @@ func main() {
 		configInitImage                  string
 		resticImage                      string
 		resticLimitUpload                int64
+		forgetJobMemoryLimit             string
 		sentinelImage                    string
 		tunnelFrpImage                   string
 		tunnelTailscaleImage             string
@@ -200,6 +202,8 @@ func main() {
 			"Point at a private registry mirror for air-gapped installs.")
 	flag.Int64Var(&resticLimitUpload, "restic-limit-upload", 0,
 		"Upload limit in KiB/s for restic backup Jobs (restic --limit-upload). 0 means unlimited.")
+	flag.StringVar(&forgetJobMemoryLimit, "forget-job-memory-limit", controller.DefaultForgetJobMemoryLimit,
+		"Memory limit for the restic snapshot forget/prune Jobs. Defaults to 8Gi.")
 	flag.Int64Var(&backupJobBackoffLimit, "backup-job-backoff-limit", int64(controller.DefaultBackupJobBackoffLimit),
 		"BackoffLimit for the restic backup and restore Jobs (retries before the Job is marked Failed). Must be >= 0. Defaults to 2.")
 	flag.Int64Var(&backupJobActiveDeadlineSeconds, "backup-job-active-deadline-seconds", controller.DefaultBackupJobActiveDeadlineSeconds,
@@ -297,6 +301,11 @@ func main() {
 	backupJobBackoff32, err := boundedInt32(backupJobBackoffLimit) // rejects <0 and >MaxInt32
 	if err != nil {
 		setupLog.Error(err, "invalid --backup-job-backoff-limit value (must be >= 0)", "value", backupJobBackoffLimit)
+		os.Exit(1)
+	}
+	forgetMemoryLimit, err := resource.ParseQuantity(forgetJobMemoryLimit)
+	if err != nil || forgetMemoryLimit.Sign() <= 0 {
+		setupLog.Error(err, "invalid --forget-job-memory-limit value (must be a positive quantity)", "value", forgetJobMemoryLimit)
 		os.Exit(1)
 	}
 	if backupJobActiveDeadlineSeconds <= 0 {
@@ -482,6 +491,7 @@ func main() {
 		ResticLimitUpload:        resticLimitUpload,
 		JobBackoffLimit:          &backupJobBackoff32,
 		JobActiveDeadlineSeconds: backupJobActiveDeadlineSeconds,
+		ForgetMemoryLimit:        forgetMemoryLimit,
 		EventRecorder:            mgr.GetEventRecorder("backup-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to set up controller", "controller", "Backup")

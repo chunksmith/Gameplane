@@ -128,6 +128,7 @@ type BackupReconciler struct {
 	// DefaultBackupJobBackoffLimit / DefaultBackupJobActiveDeadlineSeconds.
 	JobBackoffLimit          *int32
 	JobActiveDeadlineSeconds int64
+	ForgetMemoryLimit        resource.Quantity
 	// SnapshotScrapeGracePeriod bounds how long after the restic Job
 	// completes the reconciler keeps retrying to read the snapshot id from
 	// the pod logs before failing the Backup. Zero uses

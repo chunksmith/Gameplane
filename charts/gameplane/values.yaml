@@ -108,6 +108,9 @@ operator:
   resticImage: restic/restic:0.19.1
   # restic --limit-upload for backup Jobs, in KiB/s. 0 or unset = unlimited.
   resticLimitUpload: 40960
+  # Memory limit of the snapshot forget/prune Jobs; prune loads the whole
+  # repository index, so size it to the repository. Unset = 8Gi.
+  forgetJobMemoryLimit: 8Gi
   # Bounds for the restic backup and restore Jobs the operator creates.
   # backupJobBackoffLimit: retries before a Job is marked Failed (>= 0).
   # backupJobActiveDeadlineSeconds: wall-clock cap per Job (> 0), so a stuck

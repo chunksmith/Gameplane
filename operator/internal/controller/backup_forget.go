@@ -47,13 +47,15 @@ const conditionSnapshotForgotten = "SnapshotForgotten"
 // as such, while a vanished Job or an image that can never be pulled still
 // releases the Backup. Past it, the finalizer is released with a Warning event
 // and the snapshot stays in the repository.
-const maxSnapshotForgetWait = 45 * time.Minute
+const maxSnapshotForgetWait = 2*time.Hour + 15*time.Minute
 
 const (
 	// forgetJobBackoffLimit and forgetJobDeadlineSeconds bound one forget Job:
-	// three pod retries, thirty minutes in total.
+	// three pod retries, two hours in total.
 	forgetJobBackoffLimit    int32 = 3
-	forgetJobDeadlineSeconds int64 = 1800
+	forgetJobDeadlineSeconds int64 = 7200
+
+	DefaultForgetJobMemoryLimit = "8Gi"
 
 	// forgetJobSuffix is appended to the Backup name to name its forget Job.
 	forgetJobSuffix = "-forget"
@@ -444,7 +446,7 @@ func (r *BackupReconciler) buildForgetPodSpec(b *gameplanev1alpha1.Backup) corev
 					corev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("2Gi"),
+					corev1.ResourceMemory: r.forgetMemoryLimit(),
 				},
 			},
 			VolumeMounts: []corev1.VolumeMount{
@@ -457,4 +459,11 @@ func (r *BackupReconciler) buildForgetPodSpec(b *gameplanev1alpha1.Backup) corev
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		}},
 	}
+}
+
+func (r *BackupReconciler) forgetMemoryLimit() resource.Quantity {
+	if r.ForgetMemoryLimit.IsZero() {
+		return resource.MustParse(DefaultForgetJobMemoryLimit)
+	}
+	return r.ForgetMemoryLimit
 }

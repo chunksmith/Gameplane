@@ -123,6 +123,7 @@ Top-level knobs (see `values.yaml` for the full list):
   where Docker Hub is unreachable. They map to the operator's
   `--config-init-image` / `--restic-image` flags, mirroring `operator.agentImage`
 - `operator.backupJobBackoffLimit` / `operator.backupJobActiveDeadlineSeconds` — retry limit (default `2`, must be >= 0) and wall-clock deadline in seconds (default `21600`, must be > 0) for the restic backup/restore Jobs. They map to the operator's `--backup-job-backoff-limit` / `--backup-job-active-deadline-seconds` flags. Negative or non-integer values fail the render; an unset key (e.g. `helm upgrade --reuse-values` from an older release) or a `0` deadline uses the default, while an explicit `0` backoff is honoured.
+- `operator.forgetJobMemoryLimit` — memory limit of the snapshot forget/prune Jobs (default `8Gi`); prune loads the whole repository index, so size it to the repository. Unset uses the default. It maps to the operator's `--forget-job-memory-limit` flag.
 - `operator.resticLimitUpload` — restic `--limit-upload` for backup Jobs in KiB/s (default `40960`). `0` or unset means unlimited. It maps to the operator's `--restic-limit-upload` flag.
 - `operator.gameDataStorage.storageClassName` — install-time default storage class
   for game server data volumes (since v0.3.0) (default `""`). Empty string uses the cluster's
