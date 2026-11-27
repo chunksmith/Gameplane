@@ -205,20 +205,7 @@ func TestRepositoryBuild_MirrorsSucceededStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get job: %v", err)
 	}
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current, err := getBuildJob(ns, job.Name)
-		if err != nil {
-			return err
-		}
-		current.Status.Succeeded = 1
-		current.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
-		now := metav1.Now()
-		current.Status.CompletionTime = &now
-		return k8sClient.Status().Update(context.Background(), current)
-	})
-	if err != nil {
-		t.Fatalf("mark Job succeeded: %v", err)
-	}
+	patchJobStatus(t, ns, job.Name, func(s *batchv1.JobStatus) { s.Succeeded = 1 })
 
 	eventually(t, func() (bool, string) {
 		var build gameplanev1alpha1.RepositoryBuild

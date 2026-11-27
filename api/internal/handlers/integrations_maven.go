@@ -15,6 +15,7 @@ import (
 
 	"github.com/GameplanePanel/gameplane/api/internal/httperr"
 	"github.com/GameplanePanel/gameplane/api/internal/kube"
+	"github.com/GameplanePanel/gameplane/api/internal/messages"
 )
 
 const (
@@ -45,6 +46,10 @@ func MountMavenIntegration(r chi.Router, k8s *kube.Client, namespace string) {
 }
 
 func (h mavenIntegrationHandler) get(w http.ResponseWriter, req *http.Request) {
+	if isRemoteCluster(req) {
+		httperr.WriteMessage(w, req, messages.New(httperr.IDForbidden, nil))
+		return
+	}
 	out := mavenIntegration{State: "disabled"}
 	secret, err := h.k8s.Typed.CoreV1().Secrets(h.namespace).Get(req.Context(), mavenReadName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {

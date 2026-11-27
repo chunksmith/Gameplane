@@ -300,6 +300,11 @@ func TestRepository_ClearCacheRecreatesBuildCache(t *testing.T) {
 	eventually(t, func() (bool, string) {
 		var pvc corev1.PersistentVolumeClaim
 		err := k8sClient.Get(ctx, cacheKey, &pvc)
+		if err == nil && !pvc.DeletionTimestamp.IsZero() && len(pvc.Finalizers) > 0 {
+			pvc.Finalizers = nil
+			_ = k8sClient.Update(ctx, &pvc)
+			return false, "build cache PVC is terminating"
+		}
 		return err == nil && pvc.DeletionTimestamp.IsZero(), fmt.Sprint(err)
 	})
 }

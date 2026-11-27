@@ -20,6 +20,7 @@ var homeClientMounts = []string{
 	"handlers.MountAuthProviderSecrets",
 	"handlers.MountClusterActions",
 	"handlers.MountClusters",
+	"handlers.MountMavenIntegration",
 	"handlers.MountNotifications",
 	"handlers.MountRegistrySecrets",
 	"handlers.MountSystemLogs",

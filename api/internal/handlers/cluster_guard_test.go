@@ -276,6 +276,7 @@ func mountHomeClientRoutes(t *testing.T, r chi.Router, home *kube.Client, reg *k
 	MountSystemLogs(r, home, controlNS)
 	MountRegistrySecrets(r, home, controlNS)
 	MountAISecret(r, home, controlNS)
+	MountMavenIntegration(r, home, controlNS)
 }
 
 // TestHomeClientMounts_ServeHomeClusterOnly calls every route of the
