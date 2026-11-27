@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	mavenReadSecret   = "gameplane-maven-read"
+	mavenReadName   = "gameplane-maven-read"
 	mavenPublicURLEnv = "GAMEPLANE_MAVEN_PUBLIC_URL"
 )
 
@@ -38,6 +38,7 @@ type mavenIntegrationHandler struct {
 	httpClient *http.Client
 }
 
+// MountMavenIntegration wires GET /integrations/maven (spec 030).
 func MountMavenIntegration(r chi.Router, k8s *kube.Client, namespace string) {
 	h := mavenIntegrationHandler{k8s: k8s, namespace: namespace, publicURL: os.Getenv(mavenPublicURLEnv), httpClient: &http.Client{Timeout: 3 * time.Second}}
 	r.Get("/integrations/maven", h.get)
@@ -45,7 +46,7 @@ func MountMavenIntegration(r chi.Router, k8s *kube.Client, namespace string) {
 
 func (h mavenIntegrationHandler) get(w http.ResponseWriter, req *http.Request) {
 	out := mavenIntegration{State: "disabled"}
-	secret, err := h.k8s.Typed.CoreV1().Secrets(h.namespace).Get(req.Context(), mavenReadSecret, metav1.GetOptions{})
+	secret, err := h.k8s.Typed.CoreV1().Secrets(h.namespace).Get(req.Context(), mavenReadName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		writeJSON(w, out)
 		return

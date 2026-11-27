@@ -167,6 +167,7 @@ const B: Record<string, MessageDescriptor> = defineMessages({
   keep: { id: "web.repositories.settings.build_keep", defaultMessage: "keeps the last {keep} builds", description: "Repository settings: how many builds are kept, in the build card footer; {keep} is the number" },
   limits: { id: "web.repositories.settings.build_limits", defaultMessage: "Limits {cpu} CPU, {memory}", description: "Repository settings: CPU and memory limits of the newest build, in the build card footer; {cpu} is the core count and {memory} the memory size" },
   save: { id: "web.repositories.settings.build_save", defaultMessage: "Save", description: "Repository settings: button that saves the build settings; keep it short" },
+  save_label: { id: "web.repositories.settings.build_save_label", defaultMessage: "Save build settings", description: "Repository settings: accessible name of the Save button in the Build card; not shown as text" },
 });
 
 const BUILD_JDKS: BuildJdk[] = [17, 21, 25];
@@ -242,7 +243,7 @@ function BuildCard({ repository, canWrite }: { repository: Repository; canWrite:
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <span className="text-xs text-muted">{footer}</span>
-          <Button variant="primary" size="sm" isDisabled={Object.keys(draft).length === 0 || !canWrite || save.isPending} isPending={save.isPending} onPress={() => save.mutate()}>
+          <Button variant="primary" size="sm" isDisabled={Object.keys(draft).length === 0 || !canWrite || save.isPending} isPending={save.isPending} onPress={() => save.mutate()} aria-label={intl.formatMessage(B.save_label)}>
             {intl.formatMessage(B.save)}
           </Button>
         </div>

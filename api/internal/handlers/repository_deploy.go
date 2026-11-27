@@ -113,12 +113,13 @@ func (h *buildHandler) deploy(w http.ResponseWriter, req *http.Request) {
 	}
 	results := make([]buildDeploymentTarget, len(plan.targets))
 	slots := make(chan struct{}, buildDeployParallel)
+	ctx := req.Context()
 	var wg sync.WaitGroup
 	for i, t := range plan.targets {
 		wg.Go(func() {
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			results[i] = h.deployTarget(req.Context(), creds, t, plan, data)
+			results[i] = h.deployTarget(ctx, creds, t, plan, data)
 		})
 	}
 	wg.Wait()

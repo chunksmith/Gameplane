@@ -37,8 +37,8 @@ const (
 	buildLogGracePeriod     = 2 * time.Minute
 	defaultMavenBuildArgs   = "-B clean package"
 	defaultGradleBuildArgs  = "build"
-	mavenReadSecretName     = "gameplane-maven-read"
-	mavenWriteSecretName    = "gameplane-maven-write"
+	mavenReadRef     = "gameplane-maven-read"
+	mavenWriteRef    = "gameplane-maven-write"
 	buildJobCreatedCondType = "JobCreated"
 	buildPublishedCondType  = "Published"
 	buildUID                = 65532
@@ -161,11 +161,11 @@ func (r *RepositoryBuildReconciler) buildSecretData(
 	if r.MavenURL == "" {
 		return data, nil
 	}
-	if err := r.copyMavenCredentials(ctx, data, mavenReadSecretName, "read"); err != nil {
+	if err := r.copyMavenCredentials(ctx, data, mavenReadRef, "read"); err != nil {
 		return nil, err
 	}
 	if build.Spec.Publish {
-		if err := r.copyMavenCredentials(ctx, data, mavenWriteSecretName, "write"); err != nil {
+		if err := r.copyMavenCredentials(ctx, data, mavenWriteRef, "write"); err != nil {
 			return nil, err
 		}
 	}
@@ -379,7 +379,7 @@ func (r *RepositoryBuildReconciler) recordSucceeded(
 	if err != nil {
 		return fmt.Errorf("read build logs: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	artifacts, published, cacheBytes := ParseBuildMarkers(reader)
 	build.Status.Phase = gameplanev1alpha1.BuildPhaseSucceeded
 	build.Status.Message = ""

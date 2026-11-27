@@ -14,6 +14,7 @@ EXPECTED_CRDS = {
     "restores.gameplane.local", "modules.gameplane.local",
     "modulesources.gameplane.local", "clusters.gameplane.local",
     "networkcaptures.gameplane.local", "repositories.gameplane.local",
+    "repositorybuilds.gameplane.local",
 }
 
 

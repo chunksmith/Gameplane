@@ -6351,6 +6351,10 @@
     "defaultMessage": "Save",
     "description": "Repository settings: button that saves the build settings; keep it short"
   },
+  "web.repositories.settings.build_save_label": {
+    "defaultMessage": "Save build settings",
+    "description": "Repository settings: accessible name of the Save button in the Build card; not shown as text"
+  },
   "web.repositories.settings.build_title": {
     "defaultMessage": "Build",
     "description": "Repository settings: title of the build card"

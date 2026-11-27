@@ -189,9 +189,14 @@ function DeploymentRow({ deployment }: { deployment: Deployment }) {
 }
 
 function BuildLog({ name, namespace, build }: { name: string; namespace: string; build: Build }) {
+  const [follow, setFollow] = useState(true);
+  const streaming = isActiveBuild(build.phase) && follow;
+  return <BuildLogView key={`${namespace}/${name}/${build.number}/${streaming}`} name={name} namespace={namespace} build={build} follow={follow} onFollow={setFollow} />;
+}
+
+function BuildLogView({ name, namespace, build, follow, onFollow }: { name: string; namespace: string; build: Build; follow: boolean; onFollow: (follow: boolean) => void }) {
   const intl = useOptionalIntl();
   const live = isActiveBuild(build.phase);
-  const [follow, setFollow] = useState(true);
   const [log, setLog] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -203,12 +208,9 @@ function BuildLog({ name, namespace, build }: { name: string; namespace: string;
   useEffect(() => {
     const controller = new AbortController();
     let retry: number | undefined;
-    setLog("");
-    setLoaded(false);
-    setError(null);
     const load = streaming
-      ? followBuildLog(name, build.number, namespace, (chunk) => setLog((text) => text + chunk), controller.signal)
-      : Builds.logText(name, build.number, namespace, controller.signal).then((text) => setLog(text));
+      ? followBuildLog(name, build.number, namespace, (chunk) => { setError(null); setLog((text) => text + chunk); }, controller.signal)
+      : Builds.logText(name, build.number, namespace, controller.signal).then((text) => { setError(null); setLog(text); });
     void load
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
@@ -244,7 +246,7 @@ function BuildLog({ name, namespace, build }: { name: string; namespace: string;
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted">{intl.formatMessage(M.log_title)}</h3>
           <div className="flex items-center gap-1">
             {live && (
-              <Button variant="ghost" size="sm" aria-pressed={follow} onPress={() => setFollow((value) => !value)}>{intl.formatMessage(M.follow)}</Button>
+              <Button variant="ghost" size="sm" aria-pressed={follow} onPress={() => onFollow(!follow)}>{intl.formatMessage(M.follow)}</Button>
             )}
             <Button variant="ghost" size="sm" onPress={copy} isDisabled={!text}>
               <Copy className="h-3.5 w-3.5" />{intl.formatMessage(M.copy)}

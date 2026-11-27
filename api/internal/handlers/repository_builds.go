@@ -199,6 +199,7 @@ type buildHandler struct {
 	auditor *audit.Auditor
 }
 
+// MountRepositoryBuilds wires the repository build, log, deploy and build settings routes (spec 030). Home cluster only.
 func MountRepositoryBuilds(r chi.Router, reg *kube.Registry, router http.Handler, auditor *audit.Auditor) {
 	h := &buildHandler{reg: reg, router: router, auditor: auditor}
 	r = r.With(func(next http.Handler) http.Handler {

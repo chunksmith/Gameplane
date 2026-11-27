@@ -141,16 +141,15 @@ func (r *RepositoryReconciler) reconcileBuildCache(ctx context.Context, repo *ga
 	return 0, nil
 }
 
+func clearCacheRequest(repo *gameplanev1alpha1.Repository) (time.Time, bool) {
+	requested, parseErr := time.Parse(time.RFC3339, repo.Annotations[gameplanev1alpha1.RepositoryClearCacheAnnotation])
+	pending := repo.Status.CacheClearedAt == nil || requested.After(repo.Status.CacheClearedAt.Time)
+	return requested, parseErr == nil && pending
+}
+
 func (r *RepositoryReconciler) clearBuildCache(ctx context.Context, repo *gameplanev1alpha1.Repository) (time.Duration, error) {
-	raw, ok := repo.Annotations[gameplanev1alpha1.RepositoryClearCacheAnnotation]
+	requested, ok := clearCacheRequest(repo)
 	if !ok {
-		return 0, nil
-	}
-	requested, err := time.Parse(time.RFC3339, raw)
-	if err != nil {
-		return 0, nil
-	}
-	if repo.Status.CacheClearedAt != nil && !requested.After(repo.Status.CacheClearedAt.Time) {
 		return 0, nil
 	}
 	var builds gameplanev1alpha1.RepositoryBuildList
