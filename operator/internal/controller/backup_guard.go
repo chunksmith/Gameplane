@@ -27,6 +27,7 @@ const (
 	backupRecoveryAnnotation        = "backup.gameplane.local/recovering-owner"
 	backupRecoveryLineageAnnotation = "backup.gameplane.local/recovering-owners"
 	backupSnapshotAbortAnnotation   = "backup.gameplane.local/snapshot-aborted"
+	backupWorkloadGrace             = 2 * time.Minute
 )
 
 type backupIdentity struct {
@@ -264,6 +265,13 @@ func (r *BackupReconciler) prepareBackupQuiesce(ctx context.Context, b *gameplan
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	fenced, err := fenceBackupWorkload(ctx, r.Client, r.backupAPIReader(), gs)
+	if errors.Is(err, errBackupWorkloadUnavailable) {
+		if time.Since(b.CreationTimestamp.Time) < backupWorkloadGrace {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		_, err = r.fail(ctx, b, err.Error())
+		return ctrl.Result{RequeueAfter: time.Nanosecond}, err
+	}
 	if err != nil || !fenced {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}

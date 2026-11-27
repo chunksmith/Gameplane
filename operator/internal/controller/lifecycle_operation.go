@@ -18,7 +18,10 @@ import (
 
 const lifecycleOperationAnnotation = "operations.gameplane.local/owner"
 
-var errLifecycleGenerationChanged = errors.New("lifecycle operation spec changed after admission")
+var (
+	errLifecycleGenerationChanged = errors.New("lifecycle operation spec changed after admission")
+	errBackupWorkloadUnavailable  = errors.New("backup workload unavailable")
+)
 
 // The GameServer is the arbitration object. A wipe has no separate CR, so its
 // request token and GameServer UID identify the operation. Generation is pinned
@@ -375,15 +378,18 @@ func (r *BackupReconciler) setLifecycleUnquiesceIntent(ctx context.Context, b *g
 // observed before admission) or conflicts with it. StatefulSet mutation also
 // reads the live owner inside its callback and preserves the whole pod template.
 func fenceBackupWorkload(ctx context.Context, c client.Client, reader client.Reader, gs *gameplanev1alpha1.GameServer) (bool, error) {
+	if statefulSetReplica(gs) {
+		return true, nil
+	}
 	var ss appsv1.StatefulSet
 	if err := reader.Get(ctx, client.ObjectKeyFromObject(gs), &ss); err != nil {
 		if apierrors.IsNotFound(err) {
-			return false, nil // wait for the workload reconciler to create a fenced set
+			return false, fmt.Errorf("%w: StatefulSet %q not found", errBackupWorkloadUnavailable, gs.Name)
 		}
 		return false, err
 	}
 	if !metav1.IsControlledBy(&ss, gs) {
-		return false, fmt.Errorf("backup StatefulSet is not controlled by the bound GameServer")
+		return false, fmt.Errorf("%w: StatefulSet %q is not controlled by the bound GameServer", errBackupWorkloadUnavailable, gs.Name)
 	}
 	value := gs.Annotations[lifecycleOperationAnnotation]
 	if value == "" {
