@@ -109,3 +109,47 @@ jobs:
           for component in operator api web; do
             kubectl -n gameplane rollout status "deploy/gameplane-$component" --timeout 5m
           done
+
+  deploy-chicken-new:
+    if: >-
+      always() && github.repository == 'chunksmith/Gameplane' && github.ref == 'refs/heads/master'
+      && needs.deploy.result == 'success'
+    name: deploy chicken-new
+    needs: [changes, images, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: chicken-new
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.1
+      - name: helm upgrade with this commit's images
+        env:
+          KUBECONFIG_DATA: ${{ secrets.CHICKEN_NEW_KUBECONFIG }}
+          MATRIX: ${{ needs.changes.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KUBECONFIG_DATA" ]; then
+            echo "::warning::CHICKEN_NEW_KUBECONFIG is not set in the chicken-new environment; skipping the deploy"
+            exit 0
+          fi
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          printf '%s' "$KUBECONFIG_DATA" > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+          registry=registry.chunksmith.net/chunksmith/gameplane
+          tag="sha-${GITHUB_SHA::7}"
+          args=()
+          for component in $(jq -r '.include[]?.component' <<<"$MATRIX"); do
+            case "$component" in
+              operator|api|web) args+=(--set "$component.image.tag=$tag") ;;
+              agent) args+=(--set "operator.agentImage=$registry/agent:$tag") ;;
+              repo-agent) args+=(--set "repositories.agentImage=$registry/repo-agent:$tag") ;;
+            esac
+          done
+          helm upgrade gameplane charts/gameplane -n gameplane --reset-then-reuse-values "${args[@]}" --wait --timeout 10m
+          for component in operator api web; do
+            kubectl -n gameplane rollout status "deploy/gameplane-$component" --timeout 5m
+          done
