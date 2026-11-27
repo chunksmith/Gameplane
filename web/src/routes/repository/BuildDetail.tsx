@@ -188,6 +188,10 @@ function DeploymentRow({ deployment }: { deployment: Deployment }) {
   );
 }
 
+function logNotReady(err: unknown) {
+  return err instanceof APIError && (err.status === 404 || err.status === 400);
+}
+
 function BuildLog({ name, namespace, build }: { name: string; namespace: string; build: Build }) {
   const [follow, setFollow] = useState(true);
   const streaming = isActiveBuild(build.phase) && follow;
@@ -203,7 +207,7 @@ function BuildLogView({ name, namespace, build, follow, onFollow }: { name: stri
   const [attempt, setAttempt] = useState(0);
   const scroller = useRef<HTMLPreElement>(null);
   const streaming = live && follow;
-  const waiting = live && error instanceof APIError && error.status === 404;
+  const waiting = live && logNotReady(error);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -215,7 +219,7 @@ function BuildLogView({ name, namespace, build, follow, onFollow }: { name: stri
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         setError(err);
-        if (live && err instanceof APIError && err.status === 404) retry = window.setTimeout(() => setAttempt((count) => count + 1), 2000);
+        if (live && logNotReady(err)) retry = window.setTimeout(() => setAttempt((count) => count + 1), 2000);
       })
       .finally(() => { if (!controller.signal.aborted) setLoaded(true); });
     return () => {

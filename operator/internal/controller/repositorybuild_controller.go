@@ -357,7 +357,7 @@ func (r *RepositoryBuildReconciler) mirrorJobStatus(
 		build.Status.Phase = gameplanev1alpha1.BuildPhaseFailed
 		build.Status.Message = jobFailureMessage(job)
 		build.Status.CompletionTime = jobCompletionTime(job)
-	case job.Status.Ready != nil && *job.Status.Ready > 0:
+	case job.Status.Ready != nil && *job.Status.Ready > 0, build.Status.Phase == gameplanev1alpha1.BuildPhaseRunning:
 		build.Status.Phase = gameplanev1alpha1.BuildPhaseRunning
 		build.Status.Message = ""
 		result.RequeueAfter = buildPollInterval
