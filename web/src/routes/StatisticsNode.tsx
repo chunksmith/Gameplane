@@ -20,12 +20,14 @@ import {
   NodeStatusPill,
   StatisticsNotice,
   UsageBar,
+  UsageCell,
   mbps,
   messages as overview,
   peakOf,
   percentChange,
   toPercentSeries,
   trendOf,
+  usageDetail,
 } from "@/routes/Statistics";
 import type { StatisticsNodeDetail, StatisticsPoint, StatisticsRange, StatisticsServerSummary } from "@/types";
 
@@ -67,11 +69,11 @@ const messages: Record<string, MessageDescriptor> = defineMessages({
   servers: { id: "web.routes.statistics_node.servers", defaultMessage: "Game servers on this node", description: "Node statistics: title of the card listing game servers on this node" },
   serversSubtitle: { id: "web.routes.statistics_node.servers_subtitle", defaultMessage: "{pods} pods · {servers, plural, one {# game server} other {# game servers}}", description: "Node statistics: subtitle of the game servers card with the pod count and the number of game servers" },
   noServers: { id: "web.routes.statistics_node.no_servers", defaultMessage: "No game servers on this node.", description: "Node statistics: text shown when no game server runs on this node" },
-  netValue: { id: "web.routes.statistics_node.net_value", defaultMessage: "{inbound} / {outbound} MB/s", description: "Node statistics: game server inbound and outbound rate in MB/s" },
+  diskValue: { id: "web.routes.statistics_node.disk_value", defaultMessage: "{used} / {total}", description: "Node statistics: game server disk space used and the data volume size; {used} and {total} are byte sizes" },
   empty: { id: "web.common.empty_value", defaultMessage: "—", description: "Shown in place of a value that is not set" },
 });
 
-const SERVER_COLUMNS = "@4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]";
+const SERVER_COLUMNS = "@4xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.7fr)]";
 const HEADER_CLASS = "text-[11px] font-semibold uppercase tracking-wider text-muted";
 const CHART_CARD = "min-w-0 gap-3 border border-border bg-card p-4 sm:p-5";
 
@@ -267,70 +269,67 @@ function NodeBody({ data, range, updatedAt }: { data: StatisticsNodeDetail; rang
             <InterfacesTable interfaces={interfaces} range={range} />
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className={cn(CHART_CARD, "gap-4")}>
-              <div>
-                <div className="text-sm font-semibold">{intl.formatMessage(messages.system)}</div>
-                <div className="text-xs text-muted">{intl.formatMessage(messages.systemSubtitle)}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                <MiniStat label={intl.formatMessage(messages.load1)} value={amount(node.load1, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-                <MiniStat label={intl.formatMessage(messages.load5)} value={amount(live.load5, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-                <MiniStat label={intl.formatMessage(messages.load15)} value={amount(live.load15, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-                <MiniStat label={intl.formatMessage(messages.diskRead)} value={rate(live.diskRead)} />
-                <MiniStat label={intl.formatMessage(messages.diskWrite)} value={rate(live.diskWrite)} />
-              </div>
-              {loadPct !== null && (
-                <p className="text-xs text-muted">
-                  {intl.formatMessage(messages.loadNote, { cores: format.number(node.cpuCapacity), percent: format.number(Math.round(loadPct)) })}
-                </p>
-              )}
-              {filesystems.length > 0 && (
-                <div className="space-y-3">
-                  <div className={HEADER_CLASS}>{intl.formatMessage(messages.filesystems)}</div>
-                  {filesystems.map((filesystem) => {
-                    const share = percent(filesystem.used, filesystem.size) ?? 0;
-                    return (
-                      <div key={filesystem.mountpoint} className="space-y-1.5">
-                        <div className="flex items-baseline justify-between gap-3 text-xs">
-                          <span className="flex min-w-0 items-baseline gap-1.5 truncate">
-                            <span className="font-mono text-foreground">{filesystem.mountpoint}</span>
-                            <span className="truncate text-muted">{intl.formatMessage(messages.filesystemMeta, { device: filesystem.device, fstype: filesystem.fstype })}</span>
-                          </span>
-                          <span className="shrink-0 font-mono text-muted">
-                            {intl.formatMessage(messages.filesystemUsage, { percent: format.number(Math.round(share)), used: formatBytes(filesystem.used), size: formatBytes(filesystem.size) })}
-                          </span>
-                        </div>
-                        <UsageBar share={share} className={share >= 80 ? "bg-warning" : "bg-success"} />
+          <Card className={cn(CHART_CARD, "gap-4")}>
+            <div>
+              <div className="text-sm font-semibold">{intl.formatMessage(messages.system)}</div>
+              <div className="text-xs text-muted">{intl.formatMessage(messages.systemSubtitle)}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <MiniStat label={intl.formatMessage(messages.load1)} value={amount(node.load1, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
+              <MiniStat label={intl.formatMessage(messages.load5)} value={amount(live.load5, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
+              <MiniStat label={intl.formatMessage(messages.load15)} value={amount(live.load15, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
+              <MiniStat label={intl.formatMessage(messages.diskRead)} value={rate(live.diskRead)} />
+              <MiniStat label={intl.formatMessage(messages.diskWrite)} value={rate(live.diskWrite)} />
+            </div>
+            {loadPct !== null && (
+              <p className="text-xs text-muted">
+                {intl.formatMessage(messages.loadNote, { cores: format.number(node.cpuCapacity), percent: format.number(Math.round(loadPct)) })}
+              </p>
+            )}
+            {filesystems.length > 0 && (
+              <div className="space-y-3">
+                <div className={HEADER_CLASS}>{intl.formatMessage(messages.filesystems)}</div>
+                {filesystems.map((filesystem) => {
+                  const share = percent(filesystem.used, filesystem.size) ?? 0;
+                  return (
+                    <div key={filesystem.mountpoint} className="space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-3 text-xs">
+                        <span className="flex min-w-0 items-baseline gap-1.5 truncate">
+                          <span className="font-mono text-foreground">{filesystem.mountpoint}</span>
+                          <span className="truncate text-muted">{intl.formatMessage(messages.filesystemMeta, { device: filesystem.device, fstype: filesystem.fstype })}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-muted">
+                          {intl.formatMessage(messages.filesystemUsage, { percent: format.number(Math.round(share)), used: formatBytes(filesystem.used), size: formatBytes(filesystem.size) })}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-
-            <Card className={cn(CHART_CARD, "gap-4")}>
-              <div>
-                <div className="text-sm font-semibold">{intl.formatMessage(messages.servers)}</div>
-                <div className="text-xs text-muted">{intl.formatMessage(messages.serversSubtitle, { pods: node.pods, servers: servers.length })}</div>
+                      <UsageBar share={share} className={share >= 80 ? "bg-warning" : "bg-success"} />
+                    </div>
+                  );
+                })}
               </div>
-              {servers.length === 0 ? (
-                <p className="text-sm text-muted">{intl.formatMessage(messages.noServers)}</p>
-              ) : (
-                <div className="@container flex flex-col">
-                  <div className={cn("hidden items-center gap-3 border-b border-border px-2 pb-2 @4xl:grid", SERVER_COLUMNS)}>
-                    <span className={HEADER_CLASS}>{intl.formatMessage(overview.columnServer)}</span>
-                    <span className={HEADER_CLASS}>{intl.formatMessage(overview.columnCpu)}</span>
-                    <span className={HEADER_CLASS}>{intl.formatMessage(overview.columnMemory)}</span>
-                    <span className={HEADER_CLASS}>{intl.formatMessage(overview.columnNet)}</span>
-                  </div>
-                  {servers.map((server) => (
-                    <NodeServerRow key={`${server.namespace}/${server.name}`} server={server} />
+            )}
+          </Card>
+
+          <Card className={cn(CHART_CARD, "gap-4")}>
+            <div>
+              <div className="text-sm font-semibold">{intl.formatMessage(messages.servers)}</div>
+              <div className="text-xs text-muted">{intl.formatMessage(messages.serversSubtitle, { pods: node.pods, servers: servers.length })}</div>
+            </div>
+            {servers.length === 0 ? (
+              <p className="text-sm text-muted">{intl.formatMessage(messages.noServers)}</p>
+            ) : (
+              <div className="@container flex flex-col">
+                <div className={cn("hidden items-center gap-4 border-b border-border px-2 pb-2 @4xl:grid", SERVER_COLUMNS)}>
+                  {[overview.columnServer, overview.columnCpu, overview.columnMemory, overview.columnDisk, overview.columnNet, overview.columnPlayers].map((column) => (
+                    <span key={column.id} className={HEADER_CLASS}>{intl.formatMessage(column)}</span>
                   ))}
                 </div>
-              )}
-            </Card>
-          </div>
+                {servers.map((server) => (
+                  <NodeServerRow key={`${server.namespace}/${server.name}`} server={server} />
+                ))}
+              </div>
+            )}
+          </Card>
         </>
       )}
     </>
@@ -438,41 +437,50 @@ function NodeServerRow({ server }: { server: StatisticsServerSummary }) {
   const intl = useOptionalIntl();
   const format = useFormat();
   const emptyValue = intl.formatMessage(messages.empty);
-  const cores = server.cpu === null ? emptyValue : intl.formatMessage(messages.coresValue, { value: format.number(server.cpu, { maximumFractionDigits: 2 }) });
-  const memory = server.memory === null ? emptyValue : formatBytes(server.memory);
+  const amount = (value: number | null, options?: Intl.NumberFormatOptions) => (value === null ? emptyValue : format.number(value, options));
+  const bytes = (value: number | null) => (value === null ? emptyValue : formatBytes(value));
+  const initials = server.name.slice(0, 2).toUpperCase();
+  const cpuText = intl.formatMessage(overview.serverCpu, { used: amount(server.cpu, { maximumFractionDigits: 2 }), limit: amount(server.cpuLimit, { maximumFractionDigits: 2 }) });
+  const memoryText = intl.formatMessage(overview.serverMemory, { used: bytes(server.memory), limit: bytes(server.memoryLimit) });
+  const diskText = intl.formatMessage(messages.diskValue, { used: bytes(server.diskUsed), total: bytes(server.diskTotal) });
+  const cpuDetail = usageDetail(intl, format, "cpu", server.cpu, server.cpuLimit);
+  const memoryDetail = usageDetail(intl, format, "bytes", server.memory, server.memoryLimit);
+  const diskDetail = usageDetail(intl, format, "bytes", server.diskUsed, server.diskTotal);
+  const share = (used: number | null, limit: number | null) => percent(used, limit ?? 0) ?? 0;
   return (
     <Link
       to="/servers/$name"
       params={{ name: server.name }}
       search={{ ns: server.namespace }}
-      className="block rounded-md px-2 py-2.5 hover:bg-surface"
+      className="block rounded-md px-2 py-3 hover:bg-surface @4xl:py-2.5"
     >
-      <span className="flex items-center justify-between gap-3 @4xl:hidden">
+      <span className="flex flex-col gap-2 @4xl:hidden">
         <span className="flex min-w-0 items-center gap-3">
-          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border font-mono text-[10px] font-semibold text-muted">
-            {server.name.slice(0, 2).toUpperCase()}
-          </span>
+          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border font-mono text-[10px] font-semibold text-muted">{initials}</span>
           <span className="truncate font-mono text-sm font-semibold text-foreground">{server.name}</span>
         </span>
-        <span className="shrink-0 text-right">
-          <span className="block font-mono text-xs text-foreground">{cores}</span>
-          <span className="block font-mono text-xs text-muted">{memory}</span>
+        <span className="grid grid-cols-1 gap-2 @md:grid-cols-3">
+          <UsageCell text={cpuText} share={share(server.cpu, server.cpuLimit)} barClass="bg-accent" detail={cpuDetail} />
+          <UsageCell text={memoryText} share={share(server.memory, server.memoryLimit)} barClass="bg-chart-stat" detail={memoryDetail} />
+          <UsageCell text={diskText} share={share(server.diskUsed, server.diskTotal)} barClass="bg-success" detail={diskDetail} />
         </span>
       </span>
-      <span className={cn("hidden items-center @4xl:grid @4xl:gap-3", SERVER_COLUMNS)}>
+      <span className={cn("hidden items-center @4xl:grid @4xl:gap-4", SERVER_COLUMNS)}>
         <span className="flex min-w-0 items-center gap-3">
-          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border font-mono text-[10px] font-semibold text-muted">
-            {server.name.slice(0, 2).toUpperCase()}
+          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border font-mono text-[10px] font-semibold text-muted">{initials}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-mono text-sm font-semibold text-foreground">{server.name}</span>
+            <span className="block truncate text-xs text-muted">{intl.formatMessage(overview.serverScope, { namespace: server.namespace })}</span>
           </span>
-          <span className="truncate font-mono text-sm font-semibold text-foreground">{server.name}</span>
         </span>
-        <span className="font-mono text-xs text-foreground">{cores}</span>
-        <span className="font-mono text-xs text-foreground">{memory}</span>
+        <UsageCell text={cpuText} share={share(server.cpu, server.cpuLimit)} barClass="bg-accent" detail={cpuDetail} />
+        <UsageCell text={memoryText} share={share(server.memory, server.memoryLimit)} barClass="bg-chart-stat" detail={memoryDetail} />
+        <UsageCell text={diskText} share={share(server.diskUsed, server.diskTotal)} barClass="bg-success" detail={diskDetail} />
         <span className="font-mono text-xs text-foreground">
-          {intl.formatMessage(messages.netValue, {
-            inbound: server.rx === null ? emptyValue : mbps(server.rx, format),
-            outbound: server.tx === null ? emptyValue : mbps(server.tx, format),
-          })}
+          {intl.formatMessage(overview.serverNet, { inbound: server.rx === null ? emptyValue : mbps(server.rx, format), outbound: server.tx === null ? emptyValue : mbps(server.tx, format) })}
+        </span>
+        <span className="font-mono text-xs text-foreground">
+          {intl.formatMessage(overview.serverPlayers, { online: amount(server.players), max: server.maxPlayers === -1 ? intl.formatMessage(overview.unlimited) : amount(server.maxPlayers) })}
         </span>
       </span>
     </Link>

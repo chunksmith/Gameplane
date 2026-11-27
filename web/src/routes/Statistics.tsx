@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, ChartLine, ChevronRight, Cpu, MemoryStick } from "lucide-react";
 import { Card, ListBox, ListBoxItem, Select, buttonVariants } from "@heroui/react";
-import { defineMessages, type MessageDescriptor } from "react-intl";
+import { defineMessages, type IntlShape, type MessageDescriptor } from "react-intl";
 import { PageHeader } from "@/components/PageHeader";
 import { ErrorCard } from "@/components/ui/ErrorCard";
 import { LoadingCard } from "@/components/ui/LoadingCard";
@@ -15,6 +15,7 @@ import { SplitBars } from "@/components/statistics/SplitBars";
 import { RangeSelect } from "@/components/statistics/RangeSelect";
 import { SegmentedControl } from "@/components/statistics/SegmentedControl";
 import { InlineMeter } from "@/components/statistics/InlineMeter";
+import { UsageTooltip } from "@/components/statistics/UsageTooltip";
 import { Statistics } from "@/lib/endpoints";
 import { useFormat, useOptionalIntl, type FormatApi } from "@/lib/i18n/format";
 import { STATISTICS_SETUP_URL } from "@/lib/links";
@@ -71,6 +72,8 @@ export const messages: Record<string, MessageDescriptor> = defineMessages({
   metricCpu: { id: "web.routes.statistics.metric_cpu", defaultMessage: "CPU", description: "Statistics: switch option for CPU; technical term, usually left untranslated" },
   metricMemory: { id: "web.routes.statistics.metric_memory", defaultMessage: "Memory", description: "Statistics: switch option for memory" },
   metricNetwork: { id: "web.routes.statistics.metric_network", defaultMessage: "Network", description: "Statistics: switch option for network traffic" },
+  cpuDetail: { id: "web.routes.statistics.cpu_detail", defaultMessage: "{used} / {capacity} cores ({percent}%)", description: "Statistics: tooltip on a CPU meter; {used} is the cores in use, {capacity} the total or limit cores and {percent} the share in use" },
+  usageDetail: { id: "web.routes.statistics.usage_detail", defaultMessage: "{used} / {capacity} ({percent}%)", description: "Statistics: tooltip on a memory or disk meter; {used} and {capacity} are byte sizes and {percent} the share in use" },
   percentValue: { id: "web.routes.statistics.percent_value", defaultMessage: "{value}%", description: "Statistics: a percentage of capacity in use; {value} is a whole number" },
   unitPercent: { id: "web.routes.statistics.unit_percent", defaultMessage: "%", description: "Statistics: unit shown after a live CPU or memory percentage" },
   unitMbps: { id: "web.routes.statistics.unit_mbps", defaultMessage: "MB/s", description: "Statistics: unit shown after a live network rate in megabytes per second" },
@@ -157,6 +160,15 @@ export function peakOf(points: StatisticsPoint[], describe: (value: number) => s
 export function mbps(bytesPerSecond: number, format: FormatApi): string {
   const megabytes = bytesPerSecond / 1e6;
   return format.number(megabytes, megabytes < 100 ? { minimumFractionDigits: 1, maximumFractionDigits: 1 } : { maximumFractionDigits: 0 });
+}
+
+export function usageDetail(intl: IntlShape, format: FormatApi, kind: "cpu" | "bytes", used: number | null, capacity: number | null): string | undefined {
+  const share = percent(used, capacity ?? 0);
+  if (used === null || capacity === null || share === null) return undefined;
+  const shareText = format.number(share, { maximumFractionDigits: 1 });
+  if (kind === "bytes") return intl.formatMessage(messages.usageDetail, { used: formatBytes(used), capacity: formatBytes(capacity), percent: shareText });
+  const cores = (value: number) => format.number(value, { maximumFractionDigits: 2 });
+  return intl.formatMessage(messages.cpuDetail, { used: cores(used), capacity: cores(capacity), percent: shareText });
 }
 
 function useRollingSeries(value: number | null, updatedAt: number): StatisticsPoint[] {
@@ -394,6 +406,17 @@ export function UsageBar({ share, className }: { share: number; className: strin
   );
 }
 
+export function UsageCell({ text, share, barClass, detail }: { text: string; share: number; barClass: string; detail: string | undefined }) {
+  return (
+    <UsageTooltip detail={detail} className="min-w-0">
+      <span className="block min-w-0 space-y-1">
+        <span className="block font-mono text-xs text-foreground">{text}</span>
+        <UsageBar share={share} className={barClass} />
+      </span>
+    </UsageTooltip>
+  );
+}
+
 function LiveSparkline({ points }: { points: StatisticsPoint[] }) {
   return <Sparkline data={points.map(([, value]) => value)} className="text-accent" />;
 }
@@ -559,6 +582,9 @@ function NodeRow({ node, trend, range }: { node: StatisticsNodeSummary; trend: S
   const mbpsText = (value: number | null) => (value === null ? emptyValue : mbps(value, format));
   const cpuPct = percent(node.cpuUsed, node.cpuCapacity);
   const memoryPct = percent(node.memoryUsed, node.memoryCapacity);
+  const cpuDetail = usageDetail(intl, format, "cpu", node.cpuUsed, node.cpuCapacity);
+  const memoryDetail = usageDetail(intl, format, "bytes", node.memoryUsed, node.memoryCapacity);
+  const diskDetail = usageDetail(intl, format, "bytes", node.diskUsed, node.diskCapacity);
   const disk = node.diskUsed === null || node.diskCapacity === null
     ? emptyValue
     : intl.formatMessage(messages.nodeDisk, { used: formatBytes(node.diskUsed), capacity: formatBytes(node.diskCapacity) });
@@ -586,11 +612,11 @@ function NodeRow({ node, trend, range }: { node: StatisticsNodeSummary; trend: S
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <span className="flex min-w-[8rem] flex-1 items-center gap-2">
             <span className="w-8 shrink-0 text-muted">{intl.formatMessage(messages.mobileCpu)}</span>
-            <InlineMeter pct={cpuPct} tone="cpu" />
+            <InlineMeter pct={cpuPct} tone="cpu" detail={cpuDetail} />
           </span>
           <span className="flex min-w-[8rem] flex-1 items-center gap-2">
             <span className="w-8 shrink-0 text-muted">{intl.formatMessage(messages.mobileMemory)}</span>
-            <InlineMeter pct={memoryPct} tone="memory" />
+            <InlineMeter pct={memoryPct} tone="memory" detail={memoryDetail} />
           </span>
           <span className="font-mono text-foreground">{intl.formatMessage(messages.mobileDisk, { disk })}</span>
           <span className="font-mono text-foreground">{intl.formatMessage(messages.mobileRates, { rx: mbpsText(node.rx), tx: mbpsText(node.tx) })}</span>
@@ -602,9 +628,11 @@ function NodeRow({ node, trend, range }: { node: StatisticsNodeSummary; trend: S
           <span className="block truncate text-xs text-muted">{spec}</span>
         </span>
         <NodeStatusPill ready={node.ready} />
-        <InlineMeter pct={cpuPct} tone="cpu" />
-        <InlineMeter pct={memoryPct} tone="memory" />
-        <span className="whitespace-nowrap font-mono text-xs text-foreground">{disk}</span>
+        <InlineMeter pct={cpuPct} tone="cpu" detail={cpuDetail} />
+        <InlineMeter pct={memoryPct} tone="memory" detail={memoryDetail} />
+        <UsageTooltip detail={diskDetail} className="whitespace-nowrap font-mono text-xs text-foreground">
+          <span className="whitespace-nowrap font-mono text-xs text-foreground">{disk}</span>
+        </UsageTooltip>
         <span className="font-mono text-xs text-foreground">{rate(node.rx)}</span>
         <span className="font-mono text-xs text-foreground">{rate(node.tx)}</span>
         <span className="font-mono text-xs text-foreground">{amount(node.load1, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -695,14 +723,8 @@ function ServerRow({ server }: { server: StatisticsServerSummary }) {
           </span>
         </span>
         <span className="font-mono text-xs text-muted">{server.node ?? emptyValue}</span>
-        <span className="min-w-0 space-y-1">
-          <span className="block font-mono text-xs text-foreground">{cpuText}</span>
-          <UsageBar share={cpuShare} className="bg-accent" />
-        </span>
-        <span className="min-w-0 space-y-1">
-          <span className="block font-mono text-xs text-foreground">{memoryText}</span>
-          <UsageBar share={memoryShare} className="bg-chart-stat" />
-        </span>
+        <UsageCell text={cpuText} share={cpuShare} barClass="bg-accent" detail={usageDetail(intl, format, "cpu", server.cpu, server.cpuLimit)} />
+        <UsageCell text={memoryText} share={memoryShare} barClass="bg-chart-stat" detail={usageDetail(intl, format, "bytes", server.memory, server.memoryLimit)} />
         <span className="font-mono text-xs text-foreground">
           {intl.formatMessage(messages.serverNet, { inbound: server.rx === null ? emptyValue : mbps(server.rx, format), outbound: server.tx === null ? emptyValue : mbps(server.tx, format) })}
         </span>

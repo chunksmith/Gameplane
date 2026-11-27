@@ -374,9 +374,9 @@ const statisticsNodes: StatisticsNodeSummary[] = [
 ];
 
 const statisticsServers: StatisticsServerSummary[] = [
-  { name: "alpha", namespace: "gameplane-games", node: "node-a", cpu: 1.2, cpuLimit: 4, memory: 3.8 * gib, memoryLimit: 8 * gib, rx: 9.6e6, tx: 12.4e6, players: 8, maxPlayers: 350 },
-  { name: "beta", namespace: "gameplane-games", node: "node-b", cpu: 2.15, cpuLimit: 4, memory: 6.1 * gib, memoryLimit: 8 * gib, rx: 2.2e6, tx: 3.1e6, players: 61, maxPlayers: 500 },
-  { name: "gamma", namespace: "gameplane-games", node: "node-c", cpu: 0.94, cpuLimit: 4, memory: 5.7 * gib, memoryLimit: 12 * gib, rx: 1.4e6, tx: 1.9e6, players: 7, maxPlayers: -1 },
+  { name: "alpha", namespace: "gameplane-games", node: "node-a", cpu: 1.2, cpuLimit: 4, memory: 3.8 * gib, memoryLimit: 8 * gib, diskUsed: 14 * gib, diskTotal: 50 * gib, rx: 9.6e6, tx: 12.4e6, players: 8, maxPlayers: 350 },
+  { name: "beta", namespace: "gameplane-games", node: "node-b", cpu: 2.15, cpuLimit: 4, memory: 6.1 * gib, memoryLimit: 8 * gib, diskUsed: 14 * gib, diskTotal: 50 * gib, rx: 2.2e6, tx: 3.1e6, players: 61, maxPlayers: 500 },
+  { name: "gamma", namespace: "gameplane-games", node: "node-c", cpu: 0.94, cpuLimit: 4, memory: 5.7 * gib, memoryLimit: 12 * gib, diskUsed: 14 * gib, diskTotal: 50 * gib, rx: 1.4e6, tx: 1.9e6, players: 7, maxPlayers: -1 },
 ];
 
 function statisticsSeries(count: number, stepSeconds: number, base: number, amplitude: number): StatisticsPoint[] {

@@ -467,6 +467,7 @@ func (s *nodeSamples) values() nodeValues {
 
 type serverSamples struct {
 	cpu, memory, rx, tx, online, playersMax, cpuLimit, memoryLimit []prom.Sample
+	diskUsed, diskTotal                                            []prom.Sample
 	replicas                                                       map[string]bool
 }
 
@@ -499,6 +500,8 @@ func queueServers(run *promRun, samples *serverSamples, window string) {
 	run.instant(&samples.playersMax, `max by (namespace, server) (gameplane_agent_players_max)`)
 	run.instant(&samples.cpuLimit, `max by (namespace, server) (gameplane_agent_cpu_limit_millicores) / 1000`)
 	run.instant(&samples.memoryLimit, `max by (namespace, server) (gameplane_agent_memory_limit_bytes)`)
+	run.instant(&samples.diskUsed, `max by (namespace, server) (gameplane_agent_disk_used_bytes)`)
+	run.instant(&samples.diskTotal, `max by (namespace, server) (gameplane_agent_disk_total_bytes)`)
 }
 
 func (s *serverSamples) rows() []statisticsServer {
@@ -510,6 +513,8 @@ func (s *serverSamples) rows() []statisticsServer {
 	playersMax := indexSamples(s.playersMax, "namespace", "server")
 	cpuLimit := indexSamples(s.cpuLimit, "namespace", "server")
 	memoryLimit := indexSamples(s.memoryLimit, "namespace", "server")
+	diskUsed := indexSamples(s.diskUsed, "namespace", "server")
+	diskTotal := indexSamples(s.diskTotal, "namespace", "server")
 
 	names := map[string]statisticsServer{}
 	add := func(namespace, name string) {
@@ -545,6 +550,8 @@ func (s *serverSamples) rows() []statisticsServer {
 		row.MaxPlayers = valueOfSample(playersMax, serverKey)
 		row.CPULimit = valueOfSample(cpuLimit, serverKey)
 		row.MemoryLimit = valueOfSample(memoryLimit, serverKey)
+		row.DiskUsed = valueOfSample(diskUsed, serverKey)
+		row.DiskTotal = valueOfSample(diskTotal, serverKey)
 		if sample, ok := cpu[podKey]; ok && sample.Labels["node"] != "" {
 			node := sample.Labels["node"]
 			row.Node = &node
@@ -575,6 +582,8 @@ type statisticsServer struct {
 	CPULimit    *float64 `json:"cpuLimit"`
 	Memory      *float64 `json:"memory"`
 	MemoryLimit *float64 `json:"memoryLimit"`
+	DiskUsed    *float64 `json:"diskUsed"`
+	DiskTotal   *float64 `json:"diskTotal"`
 	RX          *float64 `json:"rx"`
 	TX          *float64 `json:"tx"`
 	Players     *float64 `json:"players"`

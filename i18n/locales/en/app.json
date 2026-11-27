@@ -11175,6 +11175,10 @@
     "defaultMessage": "CPU",
     "description": "Statistics: label of the cluster CPU card; technical term, usually left untranslated"
   },
+  "web.routes.statistics.cpu_detail": {
+    "defaultMessage": "{used} / {capacity} cores ({percent}%)",
+    "description": "Statistics: tooltip on a CPU meter; {used} is the cores in use, {capacity} the total or limit cores and {percent} the share in use"
+  },
   "web.routes.statistics.cpu_sub": {
     "defaultMessage": "{used} of {capacity} cores in use",
     "description": "Statistics: CPU card subtitle; {used} and {capacity} are core counts"
@@ -11419,6 +11423,10 @@
     "defaultMessage": "Prometheus is unreachable",
     "description": "Statistics: heading of the callout shown when a configured Prometheus does not answer"
   },
+  "web.routes.statistics.usage_detail": {
+    "defaultMessage": "{used} / {capacity} ({percent}%)",
+    "description": "Statistics: tooltip on a memory or disk meter; {used} and {capacity} are byte sizes and {percent} the share in use"
+  },
   "web.routes.statistics_node.back": {
     "defaultMessage": "Back to statistics",
     "description": "Node statistics: link back to the overview from the not-found state"
@@ -11442,6 +11450,10 @@
   "web.routes.statistics_node.disk_read": {
     "defaultMessage": "Disk read",
     "description": "Node statistics: mini stat with the disk read rate"
+  },
+  "web.routes.statistics_node.disk_value": {
+    "defaultMessage": "{used} / {total}",
+    "description": "Node statistics: game server disk space used and the data volume size; {used} and {total} are byte sizes"
   },
   "web.routes.statistics_node.disk_write": {
     "defaultMessage": "Disk write",
@@ -11506,10 +11518,6 @@
   "web.routes.statistics_node.memory_usage": {
     "defaultMessage": "Memory usage",
     "description": "Node statistics: title of the memory usage chart"
-  },
-  "web.routes.statistics_node.net_value": {
-    "defaultMessage": "{inbound} / {outbound} MB/s",
-    "description": "Node statistics: game server inbound and outbound rate in MB/s"
   },
   "web.routes.statistics_node.network_subtitle": {
     "defaultMessage": "All interfaces on this node · last {range}",

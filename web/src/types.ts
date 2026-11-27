@@ -1301,6 +1301,8 @@ export interface StatisticsServerSummary {
   cpuLimit: number | null;
   memory: number | null;
   memoryLimit: number | null;
+  diskUsed: number | null;
+  diskTotal: number | null;
   rx: number | null;
   tx: number | null;
   players: number | null;
