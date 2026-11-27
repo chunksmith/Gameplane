@@ -261,7 +261,16 @@ func TestAIServerInput(t *testing.T) {
 			t.Errorf("%s %s accepted", c.name, c.raw)
 		}
 	}
-	if in, _ := aiServerInput(server, aiModsRemove, json.RawMessage(`{"name":"a.jar"}`)); !in.needsApproval() {
+	if in, _ := aiServerInput(server, aiModsRemove, json.RawMessage(`{"name":"a.jar"}`)); !in.needsApproval(aiModeDefault) {
 		t.Error("mods_remove needs approval")
+	}
+	if in, _ := aiServerInput(server, aiModsRemove, json.RawMessage(`{"name":"a.jar"}`)); in.needsApproval(aiModeAuto) {
+		t.Error("mods_remove runs without approval in auto mode")
+	}
+	if in, err := aiServerInput(aiConversation{Repository: "litteams", Namespace: "dev"}, aiServerPower, json.RawMessage(`{"action":"restart","server":"lobby","namespace":"games"}`)); err != nil || in.Path != "/servers/lobby:restart" || in.Query["namespace"] != "games" {
+		t.Errorf("server_power from a repository conversation = %+v %v", in, err)
+	}
+	if in, err := aiServerInput(server, aiServerStatus, json.RawMessage(`{"server":"survival","namespace":"games"}`)); err != nil || in.Path != "/servers/survival/status" || in.Query["namespace"] != "games" {
+		t.Errorf("server_status on another server = %+v %v", in, err)
 	}
 }

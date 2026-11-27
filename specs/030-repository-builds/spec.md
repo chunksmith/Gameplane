@@ -172,7 +172,7 @@
 - **Approval and modes**:
   - `build_deploy` needs approval in every mode except `bypassPermissions`. Its card lists every target.
   - Plan mode blocks `build_start` and `build_deploy`.
-- **Initiative rule**, in the system prompt and the tool description: "Deploy only when the user names the target servers or asked through the deploy modal; after a build, report the result and stop." A message seeded by the With Assistant mode counts as an explicit request.
+- **Initiative rule**, in the system prompt and the tool description: "Deploy when the user asked for the fix to reach a server, names the target servers or asked through the deploy modal; otherwise, after a build, report the result and stop." In a server conversation that server is the target (revised 2026-11-27). A message seeded by the With Assistant mode counts as an explicit request.
 - **Cross-target reads, every scope**:
   - `read_file` and `list_files` take an optional `server` or `repository` argument.
   - A new `repositories_list` joins `servers_list`.

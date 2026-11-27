@@ -40,6 +40,8 @@ func TestAIFileTool(t *testing.T) {
 	f := newAIFixture(t, true)
 	f.routes["GET /servers/lobby/files/read"] = func() (int, string) { return http.StatusOK, "a: 1\nb: 1\n" }
 	f.routes["POST /servers/lobby/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
+	f.routes["GET /servers/survival/files/read"] = func() (int, string) { return http.StatusOK, "a: 1\n" }
+	f.routes["POST /servers/survival/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
 	lobby := aiConversation{Server: "lobby", Namespace: "games", Cluster: "local"}
 	cases := []struct {
 		conv   aiConversation
@@ -55,8 +57,9 @@ func TestAIFileTool(t *testing.T) {
 		{lobby, aiEditFile, `{"file_path":"/c.yml","old_string":": 1","new_string":": 2"}`, "appears 2 times", true},
 		{lobby, aiEditFile, `{"file_path":"/c.yml","old_string":": 1","new_string":": 2","replace_all":true}`, "Edited /c.yml: 2 replacement(s)", false},
 		{lobby, aiWriteFile, `{"file_path":"/new.yml","content":"x: 1\n"}`, "Wrote 5 bytes to /new.yml", false},
-		{lobby, aiEditFile, `{"file_path":"/c.yml","server":"survival","namespace":"games","old_string":"a: 1","new_string":"a: 2"}`, "limited to server lobby", true},
-		{lobby, aiWriteFile, `{"file_path":"/c.yml","server":"survival","namespace":"games","content":"x"}`, "limited to server lobby", true},
+		{lobby, aiEditFile, `{"file_path":"/c.yml","server":"survival","namespace":"games","old_string":"a: 1","new_string":"a: 2"}`, "Edited /c.yml", false},
+		{lobby, aiWriteFile, `{"file_path":"/c.yml","server":"survival","namespace":"games","content":"x"}`, "Wrote 1 bytes to /c.yml", false},
+		{lobby, aiWriteFile, `{"file_path":"/c.yml","server":"survival","content":"x"}`, "server and namespace are required", true},
 		{lobby, aiReadFile, `{"file_path":"/c.yml","offset":2,"limit":9223372036854775807}`, "     2\tb: 1\n", false},
 		{aiConversation{}, aiReadFile, `{"file_path":"/c.yml"}`, "server and namespace are required", true},
 		{aiConversation{}, aiReadFile, `{"file_path":"/c.yml","server":"other","namespace":"g"}`, "HTTP 403", true},
@@ -85,6 +88,8 @@ func TestAIFileToolsRun(t *testing.T) {
 	f := newAIFixture(t, true)
 	f.routes["GET /servers/lobby/files/read"] = func() (int, string) { return http.StatusOK, "motd: old\nmax: 10\n" }
 	f.routes["POST /servers/lobby/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
+	f.routes["GET /servers/survival/files/read"] = func() (int, string) { return http.StatusOK, "a: 1\n" }
+	f.routes["POST /servers/survival/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
 	f.script(nil,
 		fileToolReply("t1", aiReadFile, `{"file_path":"/config.yml","server":"lobby","namespace":"evil"}`),
 		fileToolReply("t2", aiEditFile, `{"file_path":"/config.yml","old_string":"motd: old","new_string":"motd: new"}`),
@@ -108,6 +113,8 @@ func TestAIEditFileCRLF(t *testing.T) {
 	f := newAIFixture(t, true)
 	f.routes["GET /servers/lobby/files/read"] = func() (int, string) { return http.StatusOK, "a: 1\r\nb: 1\r\n" }
 	f.routes["POST /servers/lobby/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
+	f.routes["GET /servers/survival/files/read"] = func() (int, string) { return http.StatusOK, "a: 1\n" }
+	f.routes["POST /servers/survival/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
 	conv := aiConversation{Server: "lobby", Namespace: "games", Cluster: "local"}
 	got, failed := f.h.fileTool(context.Background(), conv, aiCreds{}, aiEditFile, json.RawMessage(`{"file_path":"/c.yml","old_string":"a: 1\nb: 1","new_string":"a: 2\nb: 2"}`))
 	if failed || got != "Edited /c.yml: 1 replacement(s)" {
@@ -125,6 +132,8 @@ func TestAICopyFileMovesBinary(t *testing.T) {
 	image := "\x89PNG\r\n\x1a\n\x00\xff"
 	f.routes["GET /servers/lobby/files/read"] = func() (int, string) { return http.StatusOK, image }
 	f.routes["POST /servers/lobby/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
+	f.routes["GET /servers/survival/files/read"] = func() (int, string) { return http.StatusOK, "a: 1\n" }
+	f.routes["POST /servers/survival/files/write"] = func() (int, string) { return http.StatusNoContent, "" }
 	f.routes["DELETE /servers/lobby/files/delete"] = func() (int, string) { return http.StatusNoContent, "" }
 	conv := aiConversation{Server: "lobby", Namespace: "games", Cluster: "local"}
 	got, failed := f.h.fileTool(context.Background(), conv, aiCreds{}, aiCopyFile, json.RawMessage(`{"file_path":"/a.png","destination":"/pack/a.png","move":true}`))
@@ -160,7 +169,10 @@ func TestAIShellOutput(t *testing.T) {
 func TestAICheckServer(t *testing.T) {
 	lobby := aiConversation{Server: "lobby"}
 	if aiCheckServer(lobby, aiFileInput{Server: "other"}) == nil {
-		t.Error("other server allowed")
+		t.Error("other server without a namespace allowed")
+	}
+	if err := aiCheckServer(lobby, aiFileInput{Server: "other", Namespace: "games"}); err != nil {
+		t.Errorf("other server = %v", err)
 	}
 	if aiCheckServer(aiConversation{}, aiFileInput{}) == nil {
 		t.Error("empty server allowed")

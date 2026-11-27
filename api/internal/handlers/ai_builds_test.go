@@ -17,18 +17,19 @@ func TestAIBuildAuthorize(t *testing.T) {
 		{"POST", "/repositories/site/builds", "/repositories/site/builds?namespace=games"},
 		{"GET", "/repositories/site/builds/3/log", "/repositories/site/builds/3/log?namespace=games"},
 		{"POST", "/repositories/site/builds/3/deploy", "/repositories/site/builds/3/deploy?namespace=games"},
-		{"POST", "/repositories/site/builds:clear-cache", ""},
-		{"GET", "/repositories/other/builds", ""},
-		{"POST", "/repositories/other/builds/1/deploy", ""},
-		{"POST", "/repositories/other/files/write", ""},
+		{"POST", "/repositories/site/builds:clear-cache", "/repositories/site/builds:clear-cache?namespace=games"},
+		{"GET", "/repositories/other/builds", "/repositories/other/builds?namespace=games"},
+		{"POST", "/repositories/other/builds/1/deploy", "/repositories/other/builds/1/deploy?namespace=games"},
+		{"POST", "/repositories/other/files/write", "/repositories/other/files/write?namespace=games"},
+		{"POST", "/repositories/site/collaborators", ""},
 		{"GET", "/repositories/other/files/read", "/repositories/other/files/read"},
 		{"GET", "/repositories/other/git/log", "/repositories/other/git/log"},
 		{"GET", "/repositories", "/repositories"},
 		{"GET", "/servers/lobby/files/read", "/servers/lobby/files/read"},
-		{"POST", "/servers/lobby/files/write", ""},
+		{"POST", "/servers/lobby/files/write", "/servers/lobby/files/write?namespace=games"},
 		{"GET", "/servers/lobby/files/download", ""},
 	} {
-		got, err := h.authorize(t.Context(), conv, aiCreds{}, c.method, aiToolInput{Method: c.method, Path: c.path})
+		got, err := h.authorize(conv, c.method, aiToolInput{Method: c.method, Path: c.path})
 		if (c.want == "") != (err != nil) || (err == nil && !strings.HasPrefix(got, c.want)) {
 			t.Errorf("authorize %s %s = %q, %v; want %q", c.method, c.path, got, err, c.want)
 		}
@@ -44,7 +45,7 @@ func TestAIBuildApprovalAndPlanMode(t *testing.T) {
 		{aiToolInput{Method: "POST", Path: "/repositories/site/builds"}, false},
 		{aiToolInput{Method: "GET", Path: "/repositories/site/builds/3/deploy"}, false},
 	} {
-		if c.in.needsApproval() != c.want {
+		if c.in.needsApproval(aiModeDefault) != c.want {
 			t.Errorf("needsApproval(%s %s) != %v", c.in.Method, c.in.Path, c.want)
 		}
 	}
@@ -72,7 +73,14 @@ func TestAIBuildInputs(t *testing.T) {
 		t.Error("build_status without a build number")
 	}
 	if _, err := aiBuildInput(aiConversation{}, aiBuildsList, nil); err == nil {
-		t.Error("build tools outside a repository conversation")
+		t.Error("build tools without a repository")
+	}
+	in, err = aiBuildInput(aiConversation{Server: "lobby", Namespace: "games"}, aiBuildStart, json.RawMessage(`{"repository":"litteams","namespace":"dev"}`))
+	if err != nil || in.Path != "/repositories/litteams/builds" || in.Method != http.MethodPost || in.Query["namespace"] != "dev" {
+		t.Errorf("build_start on another repository = %+v %v", in, err)
+	}
+	if _, err := aiBuildInput(conv, aiBuildsList, json.RawMessage(`{"repository":"a/../b"}`)); err == nil {
+		t.Error("invalid repository name accepted")
 	}
 }
 

@@ -60,7 +60,7 @@ var aiServerTools = []aiToolSpec{
 		"id":     map[string]any{"type": "string", "description": "Action id"},
 		"params": map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Action parameters"},
 	}),
-	aiScopedSpec(aiBackupsList, "List backups: in a server conversation that server's, otherwise every backup in the namespace. Read one with GET /backups/{name} and delete one with DELETE /backups/{name} through gameplane_api.", nil, nil),
+	aiScopedSpec(aiBackupsList, "List backups: in a server conversation without server that server's, otherwise every backup in the namespace. Read one with GET /backups/{name} and delete one with DELETE /backups/{name} through gameplane_api.", nil, nil),
 	aiScopedSpec(aiBackupCreate, "Start a manual backup of a server.", nil, nil),
 }
 
@@ -68,11 +68,8 @@ func aiIsServerTool(name string) bool {
 	return slices.ContainsFunc(aiServerTools, func(spec aiToolSpec) bool { return spec.name == name })
 }
 
-func aiScopeTools(conv aiConversation) []aiToolSpec {
-	if conv.Repository != "" {
-		return slices.Concat(aiGitTools, aiBuildTools, []aiToolSpec{aiReposListTool})
-	}
-	return slices.Concat(aiServerTools, aiGitReadTools, []aiToolSpec{aiReposListTool})
+func aiScopeTools() []aiToolSpec {
+	return slices.Concat(aiServerTools, aiGitTools, aiBuildTools, []aiToolSpec{aiReposListTool})
 }
 
 func aiCallInput(conv aiConversation, name string, raw json.RawMessage) (aiToolInput, error) {
@@ -112,19 +109,16 @@ func aiServerInput(conv aiConversation, name string, raw json.RawMessage) (aiToo
 			return aiToolInput{}, fmt.Errorf("decode %s: %w", name, err)
 		}
 	}
-	if conv.Repository != "" {
-		return aiToolInput{}, errors.New("server tools are not available in a repository conversation")
-	}
 	if name == aiServersList {
 		return aiToolInput{Method: http.MethodGet, Path: "/fleet/servers"}, nil
 	}
 	if err := aiCheckServer(conv, aiFileInput{Server: in.Server, Namespace: in.Namespace}); err != nil {
 		return aiToolInput{}, err
 	}
-	server := cmp.Or(conv.Server, in.Server)
+	server := cmp.Or(in.Server, conv.Server)
 	base := "/servers/" + server
 	query := map[string]string{}
-	if conv.Server == "" {
+	if server != conv.Server {
 		query["namespace"] = in.Namespace
 		if in.Cluster != "" {
 			query["cluster"] = in.Cluster

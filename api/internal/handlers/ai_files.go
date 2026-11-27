@@ -52,8 +52,8 @@ func (s aiToolSpec) mcp() *mcp.Tool {
 
 var aiFileScope = map[string]any{
 	"file_path":  map[string]any{"type": "string", "description": "Absolute path inside the server's data volume, for example /plugins/Essentials/config.yml"},
-	"server":     map[string]any{"type": "string", "description": "Server name; required in a conversation that is not tied to one server. Another server is only readable: read_file and read_archive"},
-	"repository": map[string]any{"type": "string", "description": "Repository name to read instead of this conversation's own; reads only (read_file, read_archive). file_path is then relative to the repository root"},
+	"server":     map[string]any{"type": "string", "description": "Server name: another server than this conversation's own, or required when the conversation is not tied to one server"},
+	"repository": map[string]any{"type": "string", "description": "Repository name to work on instead of this conversation's own (file tools only). file_path is then relative to the repository root"},
 	"namespace":  map[string]any{"type": "string", "description": "The server's or repository's namespace; only with server or repository"},
 	"cluster":    map[string]any{"type": "string", "description": "The server's cluster when it is not \"local\"; only with server"},
 }
@@ -207,11 +207,7 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 	case aiJobStop:
 		return h.jobStop(ctx, conv, creds, in)
 	}
-	check := aiCheckFile
-	if name == aiReadFile || name == aiReadArchive {
-		check = aiCheckRead
-	}
-	if err := check(conv, in); err != nil {
+	if err := aiCheckFile(conv, in); err != nil {
 		return err.Error(), true
 	}
 	switch name {
@@ -227,47 +223,31 @@ func (h *aiHandler) fileTool(ctx context.Context, conv aiConversation, creds aiC
 	return h.storeFile(ctx, conv, creds, in, in.Content, fmt.Sprintf("Wrote %d bytes to %s", len(in.Content), in.Path))
 }
 
-func aiCheckRead(conv aiConversation, in aiFileInput) error {
-	if !strings.HasPrefix(in.Path, "/") {
-		return errors.New("file_path must be an absolute path inside the server's data volume")
-	}
-	if in.Repository != "" && in.Repository != conv.Repository {
-		return nil
-	}
-	if in.Server != "" && in.Server != conv.Server {
-		if !dnsLabelRE.MatchString(in.Server) || in.Namespace == "" {
-			return errors.New("server and namespace are required to read another server")
-		}
-		return nil
-	}
-	return aiCheckFile(conv, in)
-}
-
 func aiCheckFile(conv aiConversation, in aiFileInput) error {
 	if !strings.HasPrefix(in.Path, "/") {
 		return errors.New("file_path must be an absolute path inside the server's data volume")
 	}
-	if in.Repository != "" && in.Repository != conv.Repository {
-		return fmt.Errorf("this conversation can change only repository %s", conv.Repository)
+	if in.Repository != "" && in.Server != "" {
+		return errors.New("pass server or repository, not both")
 	}
-	if conv.Repository != "" {
-		if in.Server != "" {
-			return fmt.Errorf("this conversation is limited to repository %s", conv.Repository)
+	if in.Repository != "" {
+		if !dnsLabelRE.MatchString(in.Repository) {
+			return errors.New("repository must be a repository name")
 		}
+		return nil
+	}
+	if conv.Repository != "" && in.Server == "" {
 		return nil
 	}
 	return aiCheckServer(conv, in)
 }
 
 func aiCheckServer(conv aiConversation, in aiFileInput) error {
-	if conv.Repository != "" {
-		return fmt.Errorf("shell tools are not available in repository %s", conv.Repository)
-	}
-	if conv.Server == "" && (!dnsLabelRE.MatchString(in.Server) || in.Namespace == "") {
+	if conv.Server == "" && in.Server == "" {
 		return errors.New("server and namespace are required in this conversation")
 	}
-	if conv.Server != "" && in.Server != "" && in.Server != conv.Server {
-		return fmt.Errorf("this conversation is limited to server %s", conv.Server)
+	if in.Server != "" && in.Server != conv.Server && (!dnsLabelRE.MatchString(in.Server) || in.Namespace == "") {
+		return errors.New("server and namespace are required to reach another server")
 	}
 	return nil
 }
@@ -359,7 +339,7 @@ func (h *aiHandler) readArchive(ctx context.Context, conv aiConversation, creds 
 	if index < 0 {
 		return in.Path + " was not found", true
 	}
-	target, err := h.authorize(ctx, conv, creds, http.MethodGet, aiFileCall(conv, http.MethodGet, "read", in))
+	target, err := h.authorize(conv, http.MethodGet, aiFileCall(conv, http.MethodGet, "read", in))
 	if err != nil {
 		return err.Error(), true
 	}

@@ -632,6 +632,19 @@ mode is a UX guard that keeps the assistant from changing things before a
 plan is approved, not an authorization boundary; RBAC still decides every
 `gameplane_api` call.
 
+## AI assistant cross-target access
+
+A conversation's server or repository is only its default target (revised
+2026-11-27). Every tool can read and change any other server or repository,
+and the API's RBAC on each replayed call, made with the signed-in user's own
+session, is the only access check: the assistant can reach exactly what the
+user can. The endpoint allowlist and `aiBlocked` still apply, and collaborator
+and network changes stay unreachable. Deletes need approval in the default
+mode and run at once in `auto` and `bypassPermissions`; data wipes, restores,
+re-clones, pushes, pulls and deploys keep their approval except in
+`bypassPermissions`. Server memory and Linear text can therefore steer a run
+toward other targets the user may change, under the same approvals.
+
 ## AI assistant server memory
 
 In a server conversation the assistant loads `/CLAUDE.md` and

@@ -22,36 +22,36 @@ const (
 )
 
 var aiGitRepositoryScope = map[string]any{
-	"repository": map[string]any{"type": "string", "description": "Repository to read instead of this conversation's own; reads only"},
+	"repository": map[string]any{"type": "string", "description": "Repository to use instead of this conversation's own; required outside a repository conversation"},
 	"namespace":  map[string]any{"type": "string", "description": "The repository's namespace; only with repository"},
 }
 
-func aiGitRead(name, description string, extra map[string]any) aiToolSpec {
+func aiRepoSpec(name, description string, required []string, extra map[string]any) aiToolSpec {
 	properties := maps.Clone(aiGitRepositoryScope)
 	maps.Copy(properties, extra)
-	return aiToolSpec{name: name, description: description, properties: properties}
+	return aiToolSpec{name: name, description: description, properties: properties, required: required}
 }
 
 var aiGitReadTools = []aiToolSpec{
-	aiGitRead(aiGitStatus, "Show the repository's branch, its distance to the upstream branch and every changed file (staged or not).", nil),
-	aiGitRead(aiGitDiff, "Show the unified diff of the working copy, or of one file. Untracked files have no diff: read them with read_file.", map[string]any{
+	aiRepoSpec(aiGitStatus, "Show the repository's branch, its distance to the upstream branch and every changed file (staged or not).", nil, nil),
+	aiRepoSpec(aiGitDiff, "Show the unified diff of the working copy, or of one file. Untracked files have no diff: read them with read_file.", nil, map[string]any{
 		"path":   map[string]any{"type": "string", "description": "Repository-relative file path; omit for every change"},
 		"staged": map[string]any{"type": "boolean", "description": "Diff the staged changes instead of the unstaged ones"},
 	}),
-	aiGitRead(aiGitLog, "List recent commits, newest first.", map[string]any{
+	aiRepoSpec(aiGitLog, "List recent commits, newest first.", nil, map[string]any{
 		"ref":   map[string]any{"type": "string", "description": "Branch or commit to start from (default HEAD)"},
 		"limit": map[string]any{"type": "integer", "description": "Number of commits (default 20)"},
 	}),
 }
 
 var aiGitTools = slices.Concat(aiGitReadTools, []aiToolSpec{
-	{name: aiGitCommit, description: "Commit the staged changes with the user's own GitHub identity. Stage files first with POST /repositories/{repo}/git/stage. Does not push.", properties: map[string]any{
+	aiRepoSpec(aiGitCommit, "Commit the staged changes with the user's own GitHub identity. Stage files first with POST /repositories/{repo}/git/stage. Does not push.", []string{"summary"}, map[string]any{
 		"summary":     map[string]any{"type": "string", "description": "One-line commit message"},
 		"description": map[string]any{"type": "string", "description": "Optional commit body"},
-	}, required: []string{"summary"}},
-	{name: aiGitPush, description: "Push the current branch to GitHub with the user's own token. Needs the user's approval unless bypass permissions is on.", properties: map[string]any{
+	}),
+	aiRepoSpec(aiGitPush, "Push the current branch to GitHub with the user's own token. Needs the user's approval unless bypass permissions is on.", nil, map[string]any{
 		"set_upstream": map[string]any{"type": "boolean", "description": "Create the branch on GitHub and track it"},
-	}},
+	}),
 })
 
 func aiIsGitTool(name string) bool {
@@ -62,9 +62,9 @@ func aiIsGitTool(name string) bool {
 	return false
 }
 
-func aiBetaToolsFor(conv aiConversation) []anthropic.BetaToolUnionParam {
+func aiBetaToolsFor() []anthropic.BetaToolUnionParam {
 	tools := aiBetaTools()
-	for _, spec := range aiScopeTools(conv) {
+	for _, spec := range aiScopeTools() {
 		tools = append(tools, spec.beta())
 	}
 	return tools
@@ -80,11 +80,11 @@ func aiGitCall(conv aiConversation, name string, raw json.RawMessage) (aiToolInp
 			return aiToolInput{}, fmt.Errorf("decode %s: %w", name, err)
 		}
 	}
+	if target.Repository != "" && !dnsLabelRE.MatchString(target.Repository) {
+		return aiToolInput{}, errors.New("repository must be a repository name")
+	}
 	repository := cmp.Or(target.Repository, conv.Repository)
 	foreign := target.Repository != "" && target.Repository != conv.Repository
-	if foreign && (name == aiGitCommit || name == aiGitPush) {
-		return aiToolInput{}, fmt.Errorf("%s works only in repository %s", name, conv.Repository)
-	}
 	in, err := aiGitInput(repository, name, raw)
 	if err != nil || !foreign {
 		return in, err
@@ -147,7 +147,7 @@ func aiGitInput(repository, name string, raw json.RawMessage) (aiToolInput, erro
 func aiRepositoryPrompt(conv aiConversation) string {
 	return fmt.Sprintf(`You are the Gameplane assistant. This conversation is about the Git repository %q in namespace %q: one shared working copy that everyone with access edits together. You act for the signed-in user through read_file, edit_file, write_file and copy_file (paths start at the repository root, for example /README.md), the git_status, git_diff, git_log, git_commit and git_push tools, and gameplane_api for the other repository routes. Every call runs with the user's own session, and Git operations that reach GitHub use the user's own GitHub token.
 
-Permissions: the API enforces the user's access to this repository on every call. HTTP 403 means the user may not do that, and HTTP 428 means the user has not connected a GitHub token yet: say so plainly and never look for another route to the same result. `, conv.Repository, conv.Namespace) + aiRepositoryApprovalText(conv.Mode) + `
+Permissions: the API enforces the user's access to every repository and server on every call. HTTP 403 means the user may not do that, and HTTP 428 means the user has not connected a GitHub token yet: say so plainly and never look for another route to the same result. `, conv.Repository, conv.Namespace) + aiRepositoryApprovalText(conv.Mode) + `
 
 Working rules:
 - Look before you change: run git_status, list and read files before editing them.
@@ -161,12 +161,17 @@ API reference (gameplane_api; put query parameters in "query", send JSON bodies 
 - GET /repositories/` + conv.Repository + `/files/list?path=/dir, POST /repositories/` + conv.Repository + `/files/mkdir?path=/dir, DELETE /repositories/` + conv.Repository + `/files/delete?path=/file (recursive=true for folders).
 - POST /repositories/` + conv.Repository + `/git/stage and /git/unstage with {"paths":["a.txt"]} or {"paths":"all"}; POST /git/discard with the same body throws local changes away.
 - GET /git/branches; POST /git/branches with {"name","from"}; POST /git/checkout with {"branch"}.
-- POST /git/fetch, POST /git/pull (rebases; a conflict aborts and lists the files), POST /git/undo (undoes the last unpushed commit, keeping its changes), POST /git/revert with {"sha"}, GET /git/commits/{sha}.` + aiBuildsPrompt
+- POST /git/fetch, POST /git/pull (rebases; a conflict aborts and lists the files), POST /git/undo (undoes the last unpushed commit, keeping its changes), POST /git/revert with {"sha"}, GET /git/commits/{sha}.
+
+Servers: servers_list finds the servers that run this code, and the server tools (server_status, server_power, mods_list, mods_remove, players_list, run_action, backups_list, backup_create and the rest), shell, grep, glob and the file tools take server with namespace (and cluster when it is not "local") to inspect and change them, for example to read a plugin's config or its logs on the server that reports the bug.` + aiBuildsPrompt
 }
 
 func aiRepositoryApprovalText(mode string) string {
-	if mode == aiModeBypass {
-		return "Bypass permissions is on: every call runs at once without approval, pushes, pulls, discards, undo and revert included. The user does not want to confirm actions: do what they ask without asking first."
+	switch mode {
+	case aiModeBypass:
+		return "Bypass permissions is on: every call runs at once without approval, pushes, pulls, discards, undo, revert, deletes and deploys included. The user does not want to confirm actions: do what they ask without asking first."
+	case aiModeAuto:
+		return "Auto mode is on: deletes run at once without approval. Pushes, pulls, discards, undo, revert, deploys, data wipes and restores pause until the user approves them in the panel; call them normally."
 	}
-	return "Pushes, pulls, discards, undo, revert and deletes pause until the user approves them in the panel; call them normally."
+	return "Pushes, pulls, discards, undo, revert, deploys, data wipes, restores and deletes pause until the user approves them in the panel; call them normally."
 }

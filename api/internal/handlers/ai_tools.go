@@ -371,7 +371,7 @@ func aiPlanBlocked(mode, name string, raw json.RawMessage) bool {
 		var in aiToolInput
 		return json.Unmarshal(raw, &in) != nil || !strings.EqualFold(in.Method, http.MethodGet)
 	case strings.HasPrefix(name, aiLinearPrefix):
-		return aiToolUse{name: name}.needsApproval()
+		return aiToolUse{name: name}.needsApproval(aiModeDefault)
 	}
 	return false
 }

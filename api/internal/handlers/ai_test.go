@@ -273,7 +273,7 @@ func TestAIAuthorizeGeneral(t *testing.T) {
 		{"TRACE", "/servers", nil, ""},
 	}
 	for _, c := range cases {
-		got, err := h.authorize(t.Context(), conv, aiCreds{}, c.method, aiToolInput{Method: c.method, Path: c.path, Query: c.query})
+		got, err := h.authorize(conv, c.method, aiToolInput{Method: c.method, Path: c.path, Query: c.query})
 		if c.want == "" && err == nil {
 			t.Errorf("%s %s allowed as %q", c.method, c.path, got)
 		}
@@ -284,43 +284,55 @@ func TestAIAuthorizeGeneral(t *testing.T) {
 }
 
 func TestAIAuthorizeServerScope(t *testing.T) {
-	f := newAIFixture(t, true)
-	f.routes["GET /backups/own"] = func() (int, string) { return http.StatusOK, `{"spec":{"serverRef":{"name":"lobby"}}}` }
-	f.routes["GET /backups/other"] = func() (int, string) { return http.StatusOK, `{"spec":{"serverRef":{"name":"survival"}}}` }
+	h := &aiHandler{}
 	conv := aiConversation{Server: "lobby", Namespace: "games", Cluster: "local"}
 	cases := []struct {
 		method, path string
-		body         string
+		query        map[string]string
 		want         string
 	}{
-		{"GET", "/servers/lobby/files/read", "", "/servers/lobby/files/read?cluster=local&namespace=games"},
-		{"POST", "/servers/lobby:restart", "", "/servers/lobby:restart?cluster=local&namespace=games"},
-		{"GET", "/templates/paper", "", "/templates/paper?cluster=local&namespace=games"},
-		{"GET", "/backups", "", "/backups?cluster=local&namespace=games"},
-		{"POST", "/backups", `{"spec":{"serverRef":{"name":"lobby"}}}`, "/backups?cluster=local&namespace=games"},
-		{"DELETE", "/backups/own", "", "/backups/own?cluster=local&namespace=games"},
-		{"PUT", "/backups/own", `{"spec":{"serverRef":{"name":"lobby"}}}`, "/backups/own?cluster=local&namespace=games"},
-		{"PUT", "/backups/own", `{"spec":{"serverRef":{"name":"survival"}}}`, ""},
-		{"DELETE", "/backups/other", "", ""},
-		{"DELETE", "/backups/missing", "", ""},
-		{"POST", "/backups", `{"spec":{"serverRef":{"name":"survival"}}}`, ""},
-		{"GET", "/backups/own/extra", "", ""},
-		{"GET", "/servers/survival", "", ""},
-		{"POST", "/servers/lobby:shares", "", ""},
-		{"GET", "/servers", "", ""},
-		{"GET", "/fleet/servers", "", ""},
+		{"GET", "/servers/lobby/files/read", nil, "/servers/lobby/files/read?cluster=local&namespace=games"},
+		{"POST", "/servers/lobby:restart", nil, "/servers/lobby:restart?cluster=local&namespace=games"},
+		{"GET", "/templates/paper", nil, "/templates/paper?cluster=local&namespace=games"},
+		{"GET", "/backups", nil, "/backups?cluster=local&namespace=games"},
+		{"DELETE", "/backups/other", nil, "/backups/other?cluster=local&namespace=games"},
+		{"GET", "/servers/survival", nil, "/servers/survival?cluster=local&namespace=games"},
+		{"POST", "/servers/survival/files/write", map[string]string{"namespace": "smp"}, "/servers/survival/files/write?namespace=smp"},
+		{"POST", "/servers/survival:restart", map[string]string{"namespace": "smp", "cluster": "eu"}, "/servers/survival:restart?cluster=eu&namespace=smp"},
+		{"POST", "/repositories/litteams/git/commit", nil, "/repositories/litteams/git/commit?namespace=games"},
+		{"DELETE", "/repositories/litteams", map[string]string{"namespace": "dev"}, "/repositories/litteams?namespace=dev"},
+		{"POST", "/repositories/litteams/collaborators", nil, ""},
+		{"POST", "/servers/lobby:shares", nil, ""},
+		{"GET", "/admin/config", nil, ""},
 	}
 	for _, c := range cases {
-		in := aiToolInput{Method: c.method, Path: c.path, Query: map[string]string{"namespace": "evil"}}
-		if c.body != "" {
-			in.Body = json.RawMessage(c.body)
-		}
-		got, err := f.h.authorize(t.Context(), conv, aiCreds{}, c.method, in)
+		got, err := h.authorize(conv, c.method, aiToolInput{Method: c.method, Path: c.path, Query: c.query})
 		if c.want == "" && err == nil {
 			t.Errorf("%s %s allowed as %q", c.method, c.path, got)
 		}
 		if c.want != "" && (err != nil || got != c.want) {
 			t.Errorf("%s %s = %q, %v; want %q", c.method, c.path, got, err, c.want)
+		}
+	}
+}
+
+func TestAIAutoModeApproval(t *testing.T) {
+	for _, c := range []struct {
+		use  aiToolUse
+		mode string
+		want bool
+	}{
+		{aiToolUse{input: aiToolInput{Method: "DELETE", Path: "/servers/a/files/delete"}}, aiModeAuto, false},
+		{aiToolUse{input: aiToolInput{Method: "DELETE", Path: "/servers/a/files/delete"}}, aiModeDefault, true},
+		{aiToolUse{input: aiToolInput{Method: "POST", Path: "/restores"}}, aiModeAuto, true},
+		{aiToolUse{input: aiToolInput{Method: "POST", Path: "/repositories/a/git/push"}}, aiModeAuto, true},
+		{aiToolUse{name: aiLinearPrefix + "delete_comment"}, aiModeAuto, false},
+		{aiToolUse{name: aiLinearPrefix + "delete_comment"}, aiModeDefault, true},
+		{aiToolUse{name: aiLinearPrefix + "save_issue"}, aiModeAuto, true},
+		{aiToolUse{name: aiLinearPrefix + "get_issue"}, aiModeDefault, false},
+	} {
+		if got := c.use.needsApproval(c.mode); got != c.want {
+			t.Errorf("needsApproval(%s %s %s, %s) = %v, want %v", c.use.name, c.use.input.Method, c.use.input.Path, c.mode, got, c.want)
 		}
 	}
 }
@@ -350,9 +362,6 @@ func TestAIHelpers(t *testing.T) {
 	if got := aiTitle(strings.Repeat("ü", 90) + "\nsecond"); got != strings.Repeat("ü", 80)+"…" {
 		t.Errorf("title = %q", got)
 	}
-	if aiServerName("/servers/a:start") != "a" || aiServerName("/servers/a/files") != "a" || aiServerName("/servers/a") != "a" || aiServerName("/backups/a") != "" {
-		t.Error("aiServerName")
-	}
 	for _, c := range []struct {
 		in   aiToolInput
 		want bool
@@ -361,8 +370,9 @@ func TestAIHelpers(t *testing.T) {
 		{aiToolInput{Method: "POST", Path: "/servers/a:wipe-data"}, true},
 		{aiToolInput{Method: "POST", Path: "/restores"}, true},
 		{aiToolInput{Method: "POST", Path: "/servers/a:restart"}, false},
+		{aiToolInput{Method: "POST", Path: "/repositories/a:reclone"}, true},
 	} {
-		if c.in.needsApproval() != c.want {
+		if c.in.needsApproval(aiModeDefault) != c.want {
 			t.Errorf("needsApproval(%+v) != %v", c.in, c.want)
 		}
 	}
@@ -386,7 +396,7 @@ func TestAIHelpers(t *testing.T) {
 
 func TestAIParams(t *testing.T) {
 	p := aiParams(aiConversation{Model: "claude-opus-5-5", Effort: "high"}, nil)
-	if len(p.Betas) != 1 || p.OutputConfig.Effort != "high" || len(p.Tools) != len(aiTools)+len(aiScopeTools(aiConversation{})) {
+	if len(p.Betas) != 1 || p.OutputConfig.Effort != "high" || len(p.Tools) != len(aiTools)+len(aiScopeTools()) {
 		t.Errorf("opus params = %+v", p)
 	}
 	if p := aiParams(aiConversation{Model: "claude-haiku-5-5", Effort: "low"}, nil); len(p.Betas) != 0 {

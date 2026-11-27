@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -25,10 +24,10 @@ import (
 
 var (
 	aiMethods        = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
-	aiGeneralWrite   = map[string]bool{"servers": true, "serversets": true, "backups": true, "schedules": true, "restores": true}
+	aiGeneralWrite   = map[string]bool{"servers": true, "serversets": true, "backups": true, "schedules": true, "restores": true, "repositories": true}
 	aiGeneralRead    = map[string]bool{"templates": true, "fleet": true, "namespaces": true, "modules": true, "cluster": true, "backup-destinations": true}
 	aiServerRefKinds = map[string]bool{"backups": true, "schedules": true, "restores": true}
-	aiBlocked        = []string{":tunnel-credentials", ":transfer", ":collaborators", ":network", ":capture", "/files/download", "/files/archive", "/files/upload", "/mods/upload", "/logs/download", "/shares", ":shares"}
+	aiBlocked        = []string{":tunnel-credentials", ":transfer", ":collaborators", ":network", ":capture", "/files/download", "/files/archive", "/files/upload", "/mods/upload", "/logs/download", "/shares", ":shares", "/collaborators"}
 	errAIEndpoint    = errors.New("this endpoint is not available to the assistant")
 )
 
@@ -59,9 +58,12 @@ type aiToolUse struct {
 	err   error
 }
 
-func (in aiToolInput) needsApproval() bool {
+func (in aiToolInput) needsApproval(mode string) bool {
 	method := strings.ToUpper(in.Method)
-	return method == http.MethodDelete || strings.HasSuffix(in.Path, ":wipe-data") ||
+	if method == http.MethodDelete {
+		return mode != aiModeAuto
+	}
+	return strings.HasSuffix(in.Path, ":wipe-data") || strings.HasSuffix(in.Path, ":reclone") ||
 		(method == http.MethodPost && strings.HasPrefix(in.Path, "/restores")) ||
 		(method == http.MethodPost && strings.HasPrefix(in.Path, "/repositories/") && aiGitNeedsApproval(in)) ||
 		aiBuildNeedsApproval(in)
@@ -90,11 +92,11 @@ func (use aiToolUse) linear() (string, bool) {
 	return strings.CutPrefix(use.name, aiLinearPrefix)
 }
 
-func (use aiToolUse) needsApproval() bool {
+func (use aiToolUse) needsApproval(mode string) bool {
 	if tool, ok := use.linear(); ok {
-		return !aiLinearRead(tool)
+		return !aiLinearRead(tool) && (mode != aiModeAuto || !strings.HasPrefix(tool, "delete_"))
 	}
-	return use.input.needsApproval()
+	return use.input.needsApproval(mode)
 }
 
 func (use aiToolUse) method() string {
@@ -142,7 +144,7 @@ func (h *aiHandler) run(ctx context.Context, conv aiConversation, creds aiCreds,
 			return
 		}
 		if uses := aiToolUsesIn(conv, msgs); len(uses) > 0 {
-			if approved == nil && conv.Mode != aiModeBypass && conv.Mode != aiModePlan && slices.ContainsFunc(uses, aiToolUse.needsApproval) {
+			if approved == nil && conv.Mode != aiModeBypass && conv.Mode != aiModePlan && slices.ContainsFunc(uses, func(use aiToolUse) bool { return use.needsApproval(conv.Mode) }) {
 				h.settle(ctx, conv.ID, runID, aiAwaiting, "")
 				return
 			}
@@ -198,7 +200,7 @@ func (h *aiHandler) execute(ctx context.Context, conv aiConversation, creds aiCr
 		switch {
 		case use.err != nil:
 			text, failed = "Invalid tool input: "+use.err.Error(), true
-		case approved != nil && !*approved && use.needsApproval():
+		case approved != nil && !*approved && use.needsApproval(conv.Mode):
 			text, failed = "The user declined this action.", true
 		case aiPlanBlocked(conv.Mode, use.name, use.raw):
 			text, failed = aiPlanText, true
@@ -212,7 +214,7 @@ func (h *aiHandler) execute(ctx context.Context, conv aiConversation, creds aiCr
 			text, failed = h.fileTool(ctx, conv, creds, use.name, use.raw)
 		default:
 			toolCtx := ctx
-			if approved != nil && *approved && use.needsApproval() {
+			if approved != nil && *approved && use.needsApproval(conv.Mode) {
 				toolCtx = withUserApproval(ctx)
 			}
 			status, body := h.tool(toolCtx, conv, creds, use.input)
@@ -231,19 +233,19 @@ func (h *aiHandler) tool(ctx context.Context, conv aiConversation, creds aiCreds
 
 func (h *aiHandler) request(ctx context.Context, conv aiConversation, creds aiCreds, in aiToolInput, body []byte, contentType string) (int, []byte) {
 	method := strings.ToUpper(in.Method)
-	target, err := h.authorize(ctx, conv, creds, method, in)
+	target, err := h.authorize(conv, method, in)
 	if err != nil {
 		return http.StatusForbidden, []byte(err.Error())
 	}
 	status, data := h.call(ctx, creds, method, target, body, contentType)
 	seg := aiSegment(in.Path)
-	if conv.Server != "" && method == http.MethodGet && status == http.StatusOK && aiServerRefKinds[seg] && in.Path == "/"+seg {
+	if conv.Server != "" && in.Query["namespace"] == "" && method == http.MethodGet && status == http.StatusOK && aiServerRefKinds[seg] && in.Path == "/"+seg {
 		data = aiFilterItems(data, conv.Server)
 	}
 	return status, data
 }
 
-func (h *aiHandler) authorize(ctx context.Context, conv aiConversation, creds aiCreds, method string, in aiToolInput) (string, error) {
+func (h *aiHandler) authorize(conv aiConversation, method string, in aiToolInput) (string, error) {
 	p := in.Path
 	if !slices.Contains(aiMethods, method) {
 		return "", errors.New("method must be one of GET, POST, PUT, PATCH, DELETE")
@@ -257,62 +259,21 @@ func (h *aiHandler) authorize(ctx context.Context, conv aiConversation, creds ai
 	if method == http.MethodGet && p == "/users/me" {
 		return p, nil
 	}
+	seg := aiSegment(p)
+	if !aiGeneralWrite[seg] && (!aiGeneralRead[seg] || method != http.MethodGet) {
+		return "", errAIEndpoint
+	}
 	q := url.Values{}
 	for k, v := range in.Query {
 		q.Set(k, v)
 	}
-	if aiCrossRead(conv, method, p) {
-		return aiTarget(p, q), nil
-	}
-	seg := aiSegment(p)
-	if conv.Repository != "" {
-		base := "/repositories/" + conv.Repository + "/"
-		if !strings.HasPrefix(p, base+"files/") && !strings.HasPrefix(p, base+"git/") && p != base+"builds" && !strings.HasPrefix(p, base+"builds/") {
-			return "", fmt.Errorf("this conversation is limited to repository %s", conv.Repository)
-		}
+	if q.Get("namespace") == "" && conv.Namespace != "" {
 		q.Set("namespace", conv.Namespace)
-		return aiTarget(p, q), nil
-	}
-	if conv.Server == "" {
-		if !aiGeneralWrite[seg] && (!aiGeneralRead[seg] || method != http.MethodGet) {
-			return "", errAIEndpoint
+		if conv.Server != "" && seg != "repositories" {
+			q.Set("cluster", conv.Cluster)
 		}
-		return aiTarget(p, q), nil
-	}
-	q.Set("namespace", conv.Namespace)
-	q.Set("cluster", conv.Cluster)
-	switch {
-	case seg == "servers" && aiServerName(p) == conv.Server:
-	case seg == "templates" && method == http.MethodGet:
-	case aiServerRefKinds[seg]:
-		if err := h.checkServerRef(ctx, conv, creds, method, p, q, in.Body); err != nil {
-			return "", err
-		}
-	default:
-		return "", fmt.Errorf("this conversation is limited to server %s", conv.Server)
 	}
 	return aiTarget(p, q), nil
-}
-
-func (h *aiHandler) checkServerRef(ctx context.Context, conv aiConversation, creds aiCreds, method, p string, q url.Values, body json.RawMessage) error {
-	denied := fmt.Errorf("this conversation is limited to server %s", conv.Server)
-	parts := strings.Split(strings.TrimPrefix(p, "/"), "/")
-	switch {
-	case len(parts) == 1 && method == http.MethodGet:
-		return nil
-	case len(parts) == 1 && method == http.MethodPost && aiServerRef(body) == conv.Server:
-		return nil
-	case len(parts) == 2:
-		status, data := h.call(ctx, creds, http.MethodGet, aiTarget(p, q), nil, "")
-		if status != http.StatusOK {
-			return fmt.Errorf("could not read %s (HTTP %d)", p, status)
-		}
-		if aiServerRef(data) != conv.Server || (method == http.MethodPut && aiServerRef(body) != conv.Server) {
-			return denied
-		}
-		return nil
-	}
-	return denied
 }
 
 func (h *aiHandler) call(ctx context.Context, creds aiCreds, method, target string, body []byte, contentType string) (int, []byte) {
@@ -347,32 +308,13 @@ func routerCall(ctx context.Context, router http.Handler, creds aiCreds, method,
 	return rec.Code, rec.Body.Bytes()
 }
 
-var aiCrossReadRE = regexp.MustCompile(`^/(servers|repositories)/([a-z0-9-]+)/(files/(list|read|size)|git/(status|log|diff|commits/[0-9a-f]{4,64}))$`)
-
-func aiCrossRead(conv aiConversation, method, p string) bool {
-	if method != http.MethodGet {
-		return false
-	}
-	if p == "/repositories" {
-		return true
-	}
-	m := aiCrossReadRE.FindStringSubmatch(p)
-	if m == nil {
-		return false
-	}
-	if m[1] == "servers" {
-		return m[2] != conv.Server
-	}
-	return m[2] != conv.Repository
-}
-
 func aiParams(conv aiConversation, history []anthropic.BetaMessageParam) anthropic.BetaMessageNewParams {
 	params := anthropic.BetaMessageNewParams{
 		Model:        conv.Model,
 		MaxTokens:    64000,
 		System:       []anthropic.BetaTextBlockParam{{Text: aiSystemPrompt(conv)}},
 		Messages:     history,
-		Tools:        aiBetaToolsFor(conv),
+		Tools:        aiBetaToolsFor(),
 		OutputConfig: anthropic.BetaOutputConfigParam{Effort: anthropic.BetaOutputConfigEffort(conv.Effort)},
 		CacheControl: anthropic.NewBetaCacheControlEphemeralParam(),
 	}
@@ -454,17 +396,6 @@ func aiSegment(p string) string {
 	return seg
 }
 
-func aiServerName(p string) string {
-	rest, ok := strings.CutPrefix(p, "/servers/")
-	if !ok {
-		return ""
-	}
-	if i := strings.IndexAny(rest, "/:"); i >= 0 {
-		return rest[:i]
-	}
-	return rest
-}
-
 func aiTarget(p string, q url.Values) string {
 	if len(q) == 0 {
 		return p
@@ -518,10 +449,13 @@ func aiErrorText(err error) string {
 }
 
 func aiApprovalText(mode string) string {
-	if mode == aiModeBypass {
-		return "Bypass permissions is on: every call runs at once without approval, deletes, data wipes and restores included. The user does not want to confirm actions: do what they ask without asking first."
+	switch mode {
+	case aiModeBypass:
+		return "Bypass permissions is on: every call runs at once without approval, deletes, data wipes, restores, pushes and deploys included. The user does not want to confirm actions: do what they ask without asking first."
+	case aiModeAuto:
+		return "Auto mode is on: deletes run at once without approval. Data wipes, restores, re-clones, pushes, pulls, discards and deploys pause until the user approves them in the panel; call them normally."
 	}
-	return "Deletes, data wipes and restores pause until the user approves them in the panel; call them normally."
+	return "Deletes, data wipes, restores, re-clones, pushes, pulls, discards and deploys pause until the user approves them in the panel; call them normally."
 }
 
 func aiSystemPrompt(conv aiConversation) string {
@@ -530,9 +464,9 @@ func aiSystemPrompt(conv aiConversation) string {
 	}
 	scopeLine := "This conversation is not tied to one server. Use servers_list to find servers; pass namespace (and cluster when it is not \"local\") on every namespaced call."
 	if conv.Server != "" {
-		scopeLine = fmt.Sprintf("This conversation is about server %q in namespace %q on cluster %q. You can act only on this server and its own backups, schedules and restores; namespace and cluster are added to every call for you.", conv.Server, conv.Namespace, conv.Cluster)
+		scopeLine = fmt.Sprintf("This conversation is about server %q in namespace %q on cluster %q: tools without server go to it, and calls without namespace get this namespace and cluster. You can also work on any other server or repository the user may access.", conv.Server, conv.Namespace, conv.Cluster)
 	}
-	prompt := `You are the Gameplane assistant. Gameplane is a Kubernetes game-server control panel. You act for the signed-in user through the gameplane_api tool, which calls the panel's REST API with that user's own session, and through read_file, edit_file and write_file, which read and change files on a server's data volume through the same API, and through shell, which runs commands in a server's game container inside that data volume; grep and glob search that volume, web_fetch reads public pages, todo_write keeps a task list, and shell_output and shell_stop follow or stop background shell jobs. The server tools (servers_list, server_status, server_power, mods_list, mods_install, mods_remove, players_list, player_action, run_action, backups_list, backup_create) cover the common server operations: use them instead of gameplane_api for those, and gameplane_api for everything else.
+	prompt := `You are the Gameplane assistant. Gameplane is a Kubernetes game-server control panel. You act for the signed-in user through the gameplane_api tool, which calls the panel's REST API with that user's own session, and through read_file, edit_file and write_file, which read and change files on a server's data volume through the same API, and through shell, which runs commands in a server's game container inside that data volume; grep and glob search that volume, web_fetch reads public pages, todo_write keeps a task list, and shell_output and shell_stop follow or stop background shell jobs. The server tools (servers_list, server_status, server_power, mods_list, mods_install, mods_remove, players_list, player_action, run_action, backups_list, backup_create) cover the common server operations: use them instead of gameplane_api for those, and gameplane_api for everything else. The repository tools (repositories_list, git_status, git_diff, git_log, git_commit, git_push, builds_list, build_start, build_status, build_log, build_deploy) work on the Git repositories that hold plugin and mod sources.
 
 Permissions: the API enforces the user's role bindings and server ownership on every call. HTTP 403 means the user is not allowed to do that: say so plainly and never look for another route to the same result. ` + aiApprovalText(conv.Mode) + `
 
@@ -566,6 +500,7 @@ API reference (put query parameters in "query"; send JSON bodies as objects):
 - Actions: run_action; the template (GET /templates/{spec.templateRef.name}) lists them under spec.capabilities.actions.
 - Backups: backups_list and backup_create; GET /backups/{name} and DELETE /backups/{name} through gameplane_api.
 - Schedules: GET and POST /schedules, PUT and DELETE /schedules/{name}. Restores: GET /restores, POST /restores (spec.backupRef and spec.serverRef).
+- Repositories: GET /repositories/{name}, DELETE /repositories/{name}; files under /repositories/{name}/files/* (read and change them with the file tools and repository), Git under /repositories/{name}/git/*.
 - Namespaced calls take the query parameter namespace; servers outside the "local" cluster also need cluster.`
 	prompt += "\n\n" + aiOtherTargetsPrompt
 	if conv.Server != "" {

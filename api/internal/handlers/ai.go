@@ -544,7 +544,7 @@ func (h *aiHandler) get(w http.ResponseWriter, req *http.Request) {
 		pending = append(pending, map[string]string{"id": aiPendingID(conv, msgs, *in), "method": strings.ToUpper(in.Method), "path": in.Path})
 	} else if conv.Status == aiAwaiting {
 		for _, use := range aiToolUsesIn(conv, msgs) {
-			if use.needsApproval() {
+			if use.needsApproval(conv.Mode) {
 				pending = append(pending, map[string]string{"id": use.id, "method": use.method(), "path": use.target()})
 			}
 		}

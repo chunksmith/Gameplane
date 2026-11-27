@@ -308,7 +308,7 @@ func aiCLIArgs(conv aiConversation, mcpURL, token string, admin bool, linear ...
 	servers, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"gameplane": map[string]any{
 		"type": "http", "url": mcpURL, "headers": map[string]string{"Authorization": "Bearer " + token},
 	}}})
-	allowedTools := slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiScopeTools(conv)))
+	allowedTools := slices.Concat(aiMCPTools(), []string{"Task", "WebSearch"}, aiMCPNames(aiScopeTools()))
 	for _, name := range linear {
 		allowedTools = append(allowedTools, aiMCPPrefix+name)
 	}
@@ -553,7 +553,7 @@ func (h *aiHandler) mcpServer(run *aiLive) *mcp.Server {
 		server.AddTool(spec.mcp(), h.mcpCall)
 	}
 	if run != nil {
-		for _, spec := range aiScopeTools(run.conv) {
+		for _, spec := range aiScopeTools() {
 			server.AddTool(spec.mcp(), h.mcpCall)
 		}
 	}
@@ -623,7 +623,7 @@ func (h *aiHandler) mcpInvoke(ctx context.Context, run *aiLive, name string, arg
 	if err != nil {
 		return "Invalid tool input: " + err.Error(), true
 	}
-	if run.mode() != aiModeBypass && in.needsApproval() {
+	if run.mode() != aiModeBypass && in.needsApproval(run.mode()) {
 		if !h.await(ctx, run, in) {
 			return "The user declined this action.", true
 		}
@@ -689,7 +689,7 @@ func (h *aiHandler) mcpLinearCall(ctx context.Context, req *mcp.CallToolRequest)
 	switch {
 	case aiPlanBlocked(run.mode(), use.name, use.raw):
 		text, failed = aiPlanText, true
-	case run.mode() == aiModeBypass || !use.needsApproval() || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}):
+	case run.mode() == aiModeBypass || !use.needsApproval(run.mode()) || h.await(ctx, run, aiToolInput{Method: use.method(), Path: use.target()}):
 		text, failed = run.linear.call(ctx, use.name, use.raw)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}, IsError: failed}, nil

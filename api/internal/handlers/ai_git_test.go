@@ -16,12 +16,12 @@ func TestAIRepositoryScope(t *testing.T) {
 	}{
 		{"GET", "/repositories/site/git/status", "/repositories/site/git/status?namespace=games"},
 		{"POST", "/repositories/site/files/write", "/repositories/site/files/write?namespace=games"},
-		{"GET", "/repositories/other/git/status", "/repositories/other/git/status"},
-		{"GET", "/repositories/site", ""},
-		{"GET", "/servers/lobby", ""},
+		{"GET", "/repositories/other/git/status", "/repositories/other/git/status?namespace=games"},
+		{"GET", "/repositories/site", "/repositories/site?namespace=games"},
+		{"GET", "/servers/lobby", "/servers/lobby?namespace=games"},
 		{"GET", "/repositories/site/files/download", ""},
 	} {
-		got, err := h.authorize(t.Context(), conv, aiCreds{}, c.method, aiToolInput{Method: c.method, Path: c.path})
+		got, err := h.authorize(conv, c.method, aiToolInput{Method: c.method, Path: c.path})
 		if (c.want == "") != (err != nil) || (err == nil && got != c.want) {
 			t.Errorf("authorize %s %s = %q, %v", c.method, c.path, got, err)
 		}
@@ -43,16 +43,16 @@ func TestAIRepositoryScope(t *testing.T) {
 		{aiToolInput{Method: "POST", Path: "/repositories/site/git/stage"}, false},
 		{aiToolInput{Method: "DELETE", Path: "/repositories/site/files/delete"}, true},
 	} {
-		if c.in.needsApproval() != c.want {
+		if c.in.needsApproval(aiModeDefault) != c.want {
 			t.Errorf("needsApproval(%s) != %v", c.in.Path, c.want)
 		}
 	}
 	msgs := []json.RawMessage{json.RawMessage(`{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"git_push","input":{}},{"type":"tool_use","id":"t2","name":"git_diff","input":{"path":"a.txt","staged":true}}]}`)}
 	uses := aiToolUsesIn(aiConversation{Repository: "site"}, msgs)
-	if len(uses) != 2 || !uses[0].needsApproval() || uses[0].target() != "/repositories/site/git/push" || uses[0].method() != http.MethodPost {
+	if len(uses) != 2 || !uses[0].needsApproval(aiModeDefault) || uses[0].target() != "/repositories/site/git/push" || uses[0].method() != http.MethodPost {
 		t.Fatalf("git_push use = %+v", uses)
 	}
-	if uses[1].needsApproval() || uses[1].input.Query["path"] != "a.txt" || uses[1].input.Query["staged"] != "true" {
+	if uses[1].needsApproval(aiModeDefault) || uses[1].input.Query["path"] != "a.txt" || uses[1].input.Query["staged"] != "true" {
 		t.Errorf("git_diff use = %+v", uses[1].input)
 	}
 	if uses := aiToolUses(msgs); uses[0].err == nil {
@@ -72,10 +72,16 @@ func TestAIRepositoryScope(t *testing.T) {
 	if prompt := aiSystemPrompt(conv); !strings.Contains(prompt, `repository "site"`) || strings.Contains(prompt, "kubectl") {
 		t.Error("repository prompt")
 	}
-	if names := len(aiBetaToolsFor(conv)) - len(aiBetaTools()); names != len(aiGitTools)+len(aiBuildTools)+1 {
-		t.Errorf("git tools in repository scope = %d", names)
+	if names := len(aiBetaToolsFor()) - len(aiBetaTools()); names != len(aiServerTools)+len(aiGitTools)+len(aiBuildTools)+1 {
+		t.Errorf("scope tools = %d", names)
 	}
 	if err := aiCheckFile(conv, aiFileInput{Path: "/a", Server: "lobby"}); err == nil {
-		t.Error("server file in repository conversation")
+		t.Error("server file without a namespace in repository conversation")
+	}
+	if err := aiCheckFile(conv, aiFileInput{Path: "/a", Server: "lobby", Namespace: "games"}); err != nil {
+		t.Errorf("server file in repository conversation = %v", err)
+	}
+	if in, err := aiGitCall(aiConversation{Server: "lobby", Namespace: "games"}, aiGitPush, json.RawMessage(`{"repository":"litteams"}`)); err != nil || in.Path != "/repositories/litteams/git/push" || in.Query["namespace"] != "games" {
+		t.Errorf("git_push on another repository = %+v %v", in, err)
 	}
 }

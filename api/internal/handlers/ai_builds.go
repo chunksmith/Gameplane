@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,15 +29,15 @@ var (
 )
 
 var aiBuildTools = []aiToolSpec{
-	{name: aiBuildsList, description: "List this repository's builds, newest first, with their phase, source, artifacts and deployments, and the effective build settings.", properties: map[string]any{}},
-	{name: aiBuildStart, description: "Start a build of this repository's working copy in the cluster, uncommitted changes included. Builds run one at a time. Returns the new build; follow it with build_status and build_log.", properties: map[string]any{
+	aiRepoSpec(aiBuildsList, "List a repository's builds, newest first, with their phase, source, artifacts and deployments, and the effective build settings.", nil, nil),
+	aiRepoSpec(aiBuildStart, "Start a build of a repository's working copy in the cluster, uncommitted changes included. Builds run one at a time per repository. Returns the new build; follow it with build_status and build_log.", nil, map[string]any{
 		"tool": map[string]any{"type": "string", "enum": []string{"auto", "maven", "gradle"}, "description": "Build tool (default: the repository's setting; auto detects it)"},
 		"jdk":  map[string]any{"type": "integer", "enum": []int{17, 21, 25}, "description": "JDK version (default: the repository's setting)"},
 		"args": map[string]any{"type": "string", "description": "Build tool arguments, for example -B clean package (default: the repository's setting)"},
-	}},
-	{name: aiBuildStatus, description: "Show one build's phase, source, artifacts and deployments.", properties: map[string]any{"build": aiBuildNumberProperty}, required: []string{"build"}},
-	{name: aiBuildLog, description: "Show the last 200 lines of one build's log.", properties: map[string]any{"build": aiBuildNumberProperty}, required: []string{"build"}},
-	{name: aiBuildDeploy, description: "Copy one artifact of a successful build into the plugins folder of target servers, optionally removing old jars and restarting them. Deploy only when the user names the target servers or asked through the deploy modal; after a build, report the result and stop. The user approves each deploy unless bypass permissions is on.", properties: map[string]any{
+	}),
+	aiRepoSpec(aiBuildStatus, "Show one build's phase, source, artifacts and deployments.", []string{"build"}, map[string]any{"build": aiBuildNumberProperty}),
+	aiRepoSpec(aiBuildLog, "Show the last 200 lines of one build's log.", []string{"build"}, map[string]any{"build": aiBuildNumberProperty}),
+	aiRepoSpec(aiBuildDeploy, "Copy one artifact of a successful build into the plugins folder of target servers, optionally removing old jars and restarting them. Deploy when the user asked for a fix to reach a server (in a server conversation, that server), names the target servers, or asked through the deploy modal; otherwise report the build result and stop. The user approves each deploy unless bypass permissions is on.", []string{"build", "artifact", "targets"}, map[string]any{
 		"build":    aiBuildNumberProperty,
 		"artifact": map[string]any{"type": "string", "description": "Artifact path from the build, for example target/LitHomes-1.0.0.jar"},
 		"targets":  aiBuildTargets,
@@ -44,10 +45,10 @@ var aiBuildTools = []aiToolSpec{
 		"filename": map[string]any{"type": "string", "description": "File name to write (default: the artifact's file name); must end in .jar"},
 		"remove":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Jar file names in the folder to delete first, for example an older build"},
 		"restart":  map[string]any{"type": "boolean", "description": "Restart each target server after the write (default false)"},
-	}, required: []string{"build", "artifact", "targets"}},
+	}),
 }
 
-var aiReposListTool = aiToolSpec{name: aiReposList, description: "List the repositories the user can see, with their branch, phase and owner. Use a repository name with the repository reads: git_status, git_log, git_diff and read_file.", properties: map[string]any{}}
+var aiReposListTool = aiToolSpec{name: aiReposList, description: "List the repositories the user can see, with their branch, phase and owner. Pass a repository name and its namespace to the file, git and build tools.", properties: map[string]any{}}
 
 func aiIsBuildTool(name string) bool {
 	return slices.ContainsFunc(aiBuildTools, func(spec aiToolSpec) bool { return spec.name == name })
@@ -60,33 +61,41 @@ func aiBuildNeedsApproval(in aiToolInput) bool {
 
 func aiBuildInput(conv aiConversation, name string, raw json.RawMessage) (aiToolInput, error) {
 	var in struct {
-		Build    int64         `json:"build"`
-		Tool     string        `json:"tool"`
-		JDK      int32         `json:"jdk"`
-		Args     string        `json:"args"`
-		Artifact string        `json:"artifact"`
-		Targets  []buildTarget `json:"targets"`
-		Dir      string        `json:"dir"`
-		Filename string        `json:"filename"`
-		Remove   []string      `json:"remove"`
-		Restart  bool          `json:"restart"`
+		Repository string        `json:"repository"`
+		Namespace  string        `json:"namespace"`
+		Build      int64         `json:"build"`
+		Tool       string        `json:"tool"`
+		JDK        int32         `json:"jdk"`
+		Args       string        `json:"args"`
+		Artifact   string        `json:"artifact"`
+		Targets    []buildTarget `json:"targets"`
+		Dir        string        `json:"dir"`
+		Filename   string        `json:"filename"`
+		Remove     []string      `json:"remove"`
+		Restart    bool          `json:"restart"`
 	}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return aiToolInput{}, fmt.Errorf("decode %s: %w", name, err)
 		}
 	}
-	if conv.Repository == "" {
-		return aiToolInput{}, errors.New("build tools work only in a repository conversation")
+	if in.Repository != "" && !dnsLabelRE.MatchString(in.Repository) {
+		return aiToolInput{}, errors.New("repository must be a repository name")
 	}
-	base := "/repositories/" + conv.Repository + "/builds"
+	repository := cmp.Or(in.Repository, conv.Repository)
+	if repository == "" {
+		return aiToolInput{}, errors.New("repository is required outside a repository conversation")
+	}
+	base := "/repositories/" + repository + "/builds"
 	if name != aiBuildsList && name != aiBuildStart && in.Build < 1 {
 		return aiToolInput{}, errors.New("build must be the build number")
 	}
 	numbered := fmt.Sprintf("%s/%d", base, in.Build)
+	out := aiToolInput{Method: http.MethodGet, Query: map[string]string{}}
+	var err error
 	switch name {
 	case aiBuildsList:
-		return aiToolInput{Method: http.MethodGet, Path: base}, nil
+		out.Path = base
 	case aiBuildStart:
 		body := map[string]any{}
 		if in.Tool != "" {
@@ -98,23 +107,28 @@ func aiBuildInput(conv aiConversation, name string, raw json.RawMessage) (aiTool
 		if in.Args != "" {
 			body["args"] = in.Args
 		}
-		data, err := json.Marshal(body)
-		return aiToolInput{Method: http.MethodPost, Path: base, Body: data}, err
+		out.Method, out.Path = http.MethodPost, base
+		out.Body, err = json.Marshal(body)
 	case aiBuildStatus:
-		return aiToolInput{Method: http.MethodGet, Path: numbered}, nil
+		out.Path = numbered
 	case aiBuildLog:
-		return aiToolInput{Method: http.MethodGet, Path: numbered + "/log", Query: map[string]string{"tail": "200"}}, nil
+		out.Path, out.Query["tail"] = numbered+"/log", "200"
 	case aiBuildDeploy:
-		data, err := json.Marshal(buildDeployRequest{Artifact: in.Artifact, Targets: in.Targets, Dir: in.Dir, Filename: in.Filename, Remove: in.Remove, Restart: in.Restart})
-		return aiToolInput{Method: http.MethodPost, Path: numbered + "/deploy", Body: data}, err
+		out.Method, out.Path = http.MethodPost, numbered+"/deploy"
+		out.Body, err = json.Marshal(buildDeployRequest{Artifact: in.Artifact, Targets: in.Targets, Dir: in.Dir, Filename: in.Filename, Remove: in.Remove, Restart: in.Restart})
+	default:
+		return aiToolInput{}, fmt.Errorf("unknown build tool %s", name)
 	}
-	return aiToolInput{}, fmt.Errorf("unknown build tool %s", name)
+	if repository != conv.Repository {
+		out.Query["namespace"] = cmp.Or(in.Namespace, conv.Namespace)
+	}
+	return out, err
 }
 
-var aiOtherTargetsPrompt = `Other targets: read_file and read_archive take server (with namespace, and cluster when it is not "local") or repository (with namespace) to read another server's data volume or another repository's working copy. grep, glob and shell stay on this conversation's own target. git_status, git_log and git_diff take repository (with namespace) to read another repository, and repositories_list lists the repositories you can see. You can read only what the user may read, and you never write to another target.`
+var aiOtherTargetsPrompt = `Other targets: you can work on every server and repository the user may access, not only this conversation's own; the API enforces the user's permissions on each call. The server tools, shell, grep, glob and the file tools take server with namespace (and cluster when it is not "local"); the file tools, the git tools and the build tools take repository with namespace. servers_list and repositories_list find them. When the user reports a bug in a plugin, find its source with repositories_list (the repository named after the plugin, or the one whose plugin.yml names it), fix it there with the file tools and repository, build it with build_start, then deploy the new jar with build_deploy to the servers that run it (in a server conversation, that server), removing the old jar. Commit and push only when the user asks.`
 
 var aiBuildsPrompt = `
 
-Builds: build_start builds this repository's working copy in the cluster, uncommitted changes included; builds_list, build_status and build_log follow a build. build_deploy copies one artifact of a successful build into the plugins folder of target servers and pauses for the user's approval unless bypass permissions is on. Deploy only when the user names the target servers or asked through the deploy modal; after a build, report the result and stop.
+Builds: build_start builds this repository's working copy in the cluster, uncommitted changes included; builds_list, build_status and build_log follow a build. build_deploy copies one artifact of a successful build into the plugins folder of target servers and pauses for the user's approval unless bypass permissions is on. Deploy when the user asked for the fix to reach a server, names the target servers or asked through the deploy modal; otherwise, after a build, report the result and stop.
 
 ` + aiOtherTargetsPrompt
