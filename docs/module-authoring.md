@@ -1162,6 +1162,15 @@ spec:
 | `runAsGroup` | int64 | omitted (image default) | 0 | 4294967295 | gid the game container runs as |
 | `fsGroup` | int64 | omitted (no chown) | 0 | 4294967295 | gid the kubelet chowns volumes to |
 
+The agent sidecar serving the Files tab runs as uid 65532 with no
+capabilities, so on a PVC it can only touch files its uid or the
+`fsGroup` can. Data written by a root game (or copied in from elsewhere)
+is often owner-only. Set `spec.agent.runAsGameUser: true` to run the
+agent as the game's user instead: `security.runAsUser`/`runAsGroup` when
+set, otherwise root with the runtime's default capabilities. Files it
+creates or replaces are then owned by the game's user. Changing the
+field rolls the template's pods.
+
 ### Reserved in-pod ports
 
 The agent sidecar shares the pod's network namespace with the game

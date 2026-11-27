@@ -493,3 +493,23 @@ func TestBuildAgentContainer_FilesFromContainer(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildAgentContainer_RunAsGameUser(t *testing.T) {
+	tmpl := &gameplanev1alpha1.GameTemplate{}
+	tmpl.Spec.Agent = &gameplanev1alpha1.AgentSpec{RunAsGameUser: true}
+	c := buildAgentContainer(&gameplanev1alpha1.GameServer{}, tmpl, nil, "fb", "", "")
+	sc := c.SecurityContext
+	if slices.Contains(c.Args, "--files-from-container") || *sc.RunAsUser != 0 || *sc.RunAsNonRoot || sc.Capabilities != nil || !*sc.ReadOnlyRootFilesystem {
+		t.Fatalf("args=%v sc=%+v", c.Args, sc)
+	}
+	uid, gid := int64(1000), int64(1000)
+	tmpl.Spec.Security = &gameplanev1alpha1.GameSecuritySpec{RunAsUser: &uid, RunAsGroup: &gid}
+	sc = buildAgentContainer(&gameplanev1alpha1.GameServer{}, tmpl, nil, "fb", "", "").SecurityContext
+	if *sc.RunAsUser != uid || *sc.RunAsGroup != gid || !*sc.RunAsNonRoot || sc.Capabilities.Drop[0] != "ALL" {
+		t.Fatalf("sc=%+v", sc)
+	}
+	tmpl.Spec.Agent.RunAsGameUser = false
+	if sc := buildAgentContainer(&gameplanev1alpha1.GameServer{}, tmpl, nil, "fb", "", "").SecurityContext; !reflect.DeepEqual(sc, agentSecurityContext()) {
+		t.Fatalf("default sc=%+v", sc)
+	}
+}

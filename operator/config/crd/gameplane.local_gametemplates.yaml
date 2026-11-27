@@ -137,6 +137,8 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
+                  runAsGameUser:
+                    type: boolean
                 type: object
               args:
                 items:

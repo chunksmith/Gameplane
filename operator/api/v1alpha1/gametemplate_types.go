@@ -1106,6 +1106,9 @@ type AgentSpec struct {
 	// Resources overrides agent resources.
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// +optional
+	RunAsGameUser bool `json:"runAsGameUser,omitempty"`
 }
 
 // ConfigField is a single user-tunable setting surfaced in the wizard.

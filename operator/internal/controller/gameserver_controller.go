@@ -2544,7 +2544,7 @@ func buildAgentContainer(
 	if filesFromContainer(gs, tmpl) {
 		args = append(args, "--files-from-container")
 	}
-	if filesFromContainer(gs, tmpl) || gs.Annotations[gitAnnotation] == "true" {
+	if filesFromContainer(gs, tmpl) || gs.Annotations[gitAnnotation] == "true" || (tmpl.Spec.Agent != nil && tmpl.Spec.Agent.RunAsGameUser) {
 		securityContext = gameAgentSecurityContext(tmpl)
 	}
 	rc := resolveRCON(gs, tmpl)
